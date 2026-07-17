@@ -6,50 +6,45 @@ seoTitle: 'FAQ | AI Safety for Italy: What is AI Safety?'
 seoDescription: "Answers to common questions about AI safety, AI Safety for Italy's mission, how to join, and what working groups are available."
 ---
 
-<!-- Hero Section -->
-<section class="hero">
-    <div class="container text-center relative z-10">
-        <h1 class="hero-title" data-en="{{ faq.hero.title }}" data-it="{{ faq.hero.title_it }}">{{ faq.hero.title }}</h1>
-        <p class="hero-sub text-xl md:text-2xl max-w-3xl mx-auto" data-en="{{ faq.hero.subtitle }}" data-it="{{ faq.hero.subtitle_it }}">{{ faq.hero.subtitle }}</p>
+<!-- Page hero -->
+<section class="page-hero">
+    <div class="container">
+        <span class="eyebrow" data-en="{{ translations.en.nav.faq }}" data-it="{{ translations.it.nav.faq }}">{{ translations.en.nav.faq }}</span>
+        <h1 data-en="{{ faq.hero.title }}" data-it="{{ faq.hero.title_it }}">{{ faq.hero.title }}</h1>
+        <p class="lede" data-en="{{ faq.hero.subtitle }}" data-it="{{ faq.hero.subtitle_it }}">{{ faq.hero.subtitle }}</p>
     </div>
 </section>
 
 <!-- FAQ Content -->
 <section class="section">
-    <div class="container max-w-3xl mx-auto">
+    <div class="container" style="max-width: 50rem;">
         {% for category in faq.categories %}
-        <div class="mb-16">
-            <h2 class="text-2xl font-bold mb-6 pb-2" style="border-color: var(--card-border); color: var(--text-primary);"
-                data-en="{{ category.name }}" data-it="{{ category.name_it }}">{{ category.name }}</h2>
+        <div class="faq-group">
+            <h2 class="reveal" style="font-size: 1.45rem;"><span class="eyebrow" style="margin-bottom: 0;" data-en="{{ category.name }}" data-it="{{ category.name_it }}">{{ category.name }}</span></h2>
 
-            <div class="space-y-4">
-                {% for question in category.questions %}
-                <details class="group">
-                    <summary class="cursor-pointer py-4 px-6 rounded-lg transition-colors" style="background-color: var(--card-hover); color: var(--text-primary);">
-                        <h3 class="font-semibold flex items-center justify-between">
-                            <span data-en="{{ question.question }}" data-it="{{ question.question_it }}">{{ question.question }}</span>
-                            <span class="ml-2 group-open:rotate-180 transition-transform flex-shrink-0">▼</span>
-                        </h3>
-                    </summary>
-                    <div class="p-6 pt-2" style="color: var(--text-secondary);">
-                        <p data-en="{{ question.answer }}" data-it="{{ question.answer_it }}">{{ question.answer }}</p>
-                    </div>
-                </details>
-                {% endfor %}
-            </div>
+            {% for question in category.questions %}
+            <details class="faq-item reveal">
+                <summary>
+                    <span data-en="{{ question.question }}" data-it="{{ question.question_it }}">{{ question.question }}</span>
+                    <span class="faq-chevron" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg></span>
+                </summary>
+                <div class="faq-body">
+                    <p data-en="{{ question.answer }}" data-it="{{ question.answer_it }}">{{ question.answer }}</p>
+                </div>
+            </details>
+            {% endfor %}
         </div>
         {% endfor %}
     </div>
-
 </section>
 
 <!-- CTA Section -->
-<section class="section">
+<section class="section" style="padding-top: 0;">
     <div class="container">
-        <div class="cta-panel reveal">
+        <div class="cta-band reveal">
             <h2 data-en="{{ faq.cta.title }}" data-it="{{ faq.cta.title_it }}">{{ faq.cta.title }}</h2>
             <p data-en="{{ faq.cta.description }}" data-it="{{ faq.cta.description_it }}">{{ faq.cta.description }}</p>
-            <a href="{{ site.forms.mailingList }}" target="_blank" class="btn btn-primary btn-lg"
+            <a href="{{ site.forms.mailingList }}" target="_blank" class="btn"
                data-en="{{ faq.cta.button_text }}" data-it="{{ faq.cta.button_text_it }}">{{ faq.cta.button_text }}</a>
         </div>
     </div>
