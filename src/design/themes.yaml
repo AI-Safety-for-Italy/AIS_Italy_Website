@@ -174,8 +174,8 @@ dark:
 toggle:
   enabled: true
   icon:
-    light: "🌙"
-    dark: "☀️"
+    light: "☀️"
+    dark: "🌙"
   storage:
     key: "theme"
     type: "localStorage"

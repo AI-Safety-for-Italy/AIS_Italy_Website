@@ -50,6 +50,17 @@ module.exports = function(eleventyConfig) {
     });
   });
 
+  /**
+   * Converts date to readable Italian format
+   */
+  eleventyConfig.addFilter("readableDateIt", dateObj => {
+    return new Date(dateObj).toLocaleDateString('it-IT', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  });
+
   eleventyConfig.addFilter("date", (dateObj, format) => {
     const date = new Date(dateObj);
     if (Number.isNaN(date.getTime())) return "";

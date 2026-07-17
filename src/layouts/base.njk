@@ -388,6 +388,8 @@
             if (labelMobile) labelMobile.textContent = nextLang;
             document.documentElement.lang = lang;
             localStorage.setItem('lang', lang);
+            // re-render JS-generated strings that depend on language (e.g. members count)
+            if (typeof window.filterTable === 'function') window.filterTable();
         }
 
         function toggleLanguage() {

@@ -83,7 +83,7 @@ seoDescription: 'Meet the team and members of AI Safety for Italy: researchers, 
         <div class="section-head reveal">
             <span class="eyebrow" data-en="Directory" data-it="Elenco">Directory</span>
             <h2 data-en="{{ translations.en.community.members_title }}" data-it="{{ translations.it.community.members_title }}">{{ translations.en.community.members_title }}</h2>
-            <p>Last updated: {{ members.last_updated }}</p>
+            <p data-en="Last updated: {{ members.last_updated }}" data-it="Ultimo aggiornamento: {{ members.last_updated }}">Last updated: {{ members.last_updated }}</p>
         </div>
 
         <!-- Search + sort bar -->
@@ -184,7 +184,13 @@ seoDescription: 'Meet the team and members of AI Safety for Italy: researchers, 
         visible.forEach(r => { r.style.display = ''; tbody.appendChild(r); });
 
         const count = document.getElementById('tbl-count');
-        if (count) count.textContent = visible.length + ' member' + (visible.length !== 1 ? 's' : '');
+        if (count) {
+            const lang = localStorage.getItem('lang') || 'en';
+            const unit = lang === 'it'
+                ? (visible.length !== 1 ? ' membri' : ' membro')
+                : (visible.length !== 1 ? ' members' : ' member');
+            count.textContent = visible.length + unit;
+        }
     }
     window.filterTable = filterTable;
 

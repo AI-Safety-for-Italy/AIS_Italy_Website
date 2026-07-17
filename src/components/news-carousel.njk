@@ -8,7 +8,7 @@
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
       {% for item in news.items %}
       <article class="card news-card reveal">
-        <span class="news-date">{{ item.date | readableDate }}</span>
+        <span class="news-date" data-en="{{ item.date | readableDate }}" data-it="{{ item.date | readableDateIt }}">{{ item.date | readableDate }}</span>
         <h3 data-en="{{ item.title_en }}" data-it="{{ item.title_it }}">{{ item.title_en }}</h3>
         <p data-en="{{ item.description_en }}" data-it="{{ item.description_it }}">{{ item.description_en }}</p>
         <a class="news-link" href="{{ item.link_url }}" target="_blank" rel="noopener noreferrer">

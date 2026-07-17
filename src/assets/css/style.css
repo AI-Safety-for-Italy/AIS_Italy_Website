@@ -619,8 +619,8 @@ a:hover {
 }
 
 .hero-logo {
-  width: 88px;
-  height: 88px;
+  width: 112px;
+  height: 112px;
   margin: 0 auto 1.75rem;
 }
 
@@ -907,32 +907,24 @@ a:hover {
 }
 
 /* ==========================================================================
-   CTA band — FIXED deep-green gradient in BOTH themes (never the bright
-   dark-mode green) + red blurred glow + white button
+   CTA band — same opaque deep-green gradient in BOTH themes (never the
+   bright dark-mode green) + red corner glow + white button.
+   Opaque stops keep white text ≥ WCAG AA (≥4.5:1) on the band.
    ========================================================================== */
 
 .cta-band {
   position: relative;
   overflow: hidden;
-  background: linear-gradient(120deg, #008c45 0%, #005c2e 100%);
+  background: radial-gradient(
+      560px 380px at 94% 135%,
+      rgba(229, 72, 77, 0.8),
+      rgba(229, 72, 77, 0) 70%
+    ),
+    linear-gradient(120deg, #007a3d 0%, #005c2e 100%);
   color: #fff;
   border-radius: var(--radius);
   padding: 3.5rem 2.5rem;
   text-align: center;
-}
-
-.cta-band::after {
-  content: '';
-  position: absolute;
-  width: 320px;
-  height: 320px;
-  border-radius: 50%;
-  background: #cd212a;
-  filter: blur(110px);
-  opacity: 0.35;
-  right: -100px;
-  bottom: -160px;
-  pointer-events: none;
 }
 
 .cta-band h2 {
@@ -942,7 +934,7 @@ a:hover {
 }
 
 .cta-band p {
-  color: rgba(255, 255, 255, 0.88);
+  color: #fff;
   max-width: 52ch;
   margin: 0 auto 1.75rem;
   position: relative;
