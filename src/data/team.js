@@ -54,11 +54,11 @@ const teamData = [
   },
   {
     name: 'Carola Caivano',
-    role: 'Organizing Team — Communications & Community',
+    role: 'Co-founder— Data Scientist',
     photo: '/assets/img/team/carola-caivano.jpeg',
-    bio: 'Carola is part of the organizing group of AI Safety for Italy, contributing to the development of the initiative across external communications, community strategy, and networking. Her background is in physics and she currently works as a data scientist. Her involvement in AI safety includes participating in the ML4Good bootcamp and graduating from BlueDot Impact’s AI Alignment course.',
+    bio: 'Carola is a co-founder of AI Safety for Italy, contributing to the development of the initiative in external communication, community strategy, and networking. Her background is in physics, and she currently works as a data scientist. Her involvement in AI safety includes participation in the ML4Good bootcamp and completion of the AI Alignment course by BlueDot Impact.',
     bio_it:
-      'Carola fa parte del gruppo organizzativo di AI Safety for Italy, contribuendo allo sviluppo dell’iniziativa in ambito comunicazione esterna, strategia comunitaria e networking. Il suo background è in fisica e attualmente lavora come data scientist. Il suo coinvolgimento nell’AI safety include la partecipazione al bootcamp ML4Good e il conseguimento del corso AI Alignment di BlueDot Impact.',
+      'Carola è co-founder di AI Safety for Italy, contribuendo allo sviluppo della costruzione della community. Il suo background è in fisica e attualmente lavora come data scientist. Il suo coinvolgimento nell’AI safety include la partecipazione al bootcamp ML4Good e il completamento del corso AI Alignment di BlueDot Impact.',
     areas: ['Communications & Social Media', 'Community'],
     interests: ['AI Strategy', 'Technical safety', 'AI governance'],
     links: [{ label: 'LinkedIn', url: 'https://www.linkedin.com/in/carolacaivano/' }],
@@ -98,7 +98,7 @@ const teamData = [
   {
     name: 'Francesco Ortu',
     role: 'Co-founder — PhD Student',
-    photo: '/assets/img/team/francesco-ortu.jpg',
+    photo: '/assets/img/team/francesco-ortu.png',
     bio: 'Francesco is a co-founder of AI Safety for Italy and a PhD student at the University of Trieste and Area Science Park. His research focuses on the mechanistic interpretability of LLMs and VLMs. As part of his PhD, he visited the AI Safety and Alignment group at the ELLIS Institute in Tübingen.',
     bio_it:
       'Francesco è co-founder di AI Safety for Italy e dottorando presso l’Università di Trieste e Area Science Park. La sua ricerca si concentra sull’interpretabilità meccanicistica di LLM e VLM. Nel corso del suo dottorato ha visitato il gruppo AI Safety and Alignment presso l’ELLIS Institute di Tübingen.',
@@ -146,7 +146,7 @@ const teamData = [
   {
     name: 'Luca Mattiazzi',
     role: 'AI Engineer',
-    photo: '/assets/img/team/luca-mattiazzi.jpg',
+    photo: '/assets/img/team/luca-mattiazzi.png',
     bio: 'An AI Engineer with several years of Software and ML Engineering experience and a biotechnology degree. Currently interested in mechanistic interpretability and generally in interpretable machine learning.',
     bio_it:
       'Un AI Engineer con diversi anni di esperienza in Software e ML Engineering e una laurea in biotecnologie. Attualmente interessato all’interpretabilità meccanicistica e in generale al machine learning interpretabile.',
