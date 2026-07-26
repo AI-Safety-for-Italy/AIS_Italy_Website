@@ -54,7 +54,7 @@ const teamData = [
   },
   {
     name: 'Carola Caivano',
-    role: 'Co-founder— Data Scientist',
+    role: 'Co-founder — Communications & Community',
     photo: '/assets/img/team/carola-caivano.jpeg',
     bio: 'Carola is a co-founder of AI Safety for Italy, contributing to the development of the initiative in external communication, community strategy, and networking. Her background is in physics, and she currently works as a data scientist. Her involvement in AI safety includes participation in the ML4Good bootcamp and completion of the AI Alignment course by BlueDot Impact.',
     bio_it:
@@ -65,7 +65,7 @@ const teamData = [
   },
   {
     name: 'Elisabetta Rocchetti',
-    role: 'Co-founding Collaborator — PhD Candidate',
+    role: 'Co-foununder — Operations & Community',
     photo: '/assets/img/team/elisabetta-rocchetti.jpg',
     bio: 'Elisabetta is a co-founding collaborator of AI Safety for Italy and a PhD candidate in Computer Science at Università degli Studi di Milano, where her research focuses on mechanistic interpretability. Her work spans refusal behaviour, instruction-following mechanisms, training dynamics, and the encoding of aesthetic concepts, using methods such as activation patching, steering, probing, and complex network modeling.',
     bio_it:
@@ -97,7 +97,7 @@ const teamData = [
   },
   {
     name: 'Francesco Ortu',
-    role: 'Co-founder — PhD Student',
+    role: 'Co-founder — Operations & Mentorship',
     photo: '/assets/img/team/francesco-ortu.png',
     bio: 'Francesco is a co-founder of AI Safety for Italy and a PhD student at the University of Trieste and Area Science Park. His research focuses on the mechanistic interpretability of LLMs and VLMs. As part of his PhD, he visited the AI Safety and Alignment group at the ELLIS Institute in Tübingen.',
     bio_it:
@@ -108,7 +108,7 @@ const teamData = [
   },
   {
     name: 'Luca Scionis',
-    role: 'PhD Student',
+    role: 'Community & Mentorship',
     bio: 'Luca Scionis is a PhD student in the Italian National AI PhD Programme, affiliated with the University of Cagliari (sAIferLab). He is currently an ELLIS intern working on the AI safety of AI agents. His research spans adversarial machine learning, with a focus on the robustness of computer vision models, and AI safety, particularly the security of LLM-based agents and assistants.',
     bio_it:
       'Luca Scionis è dottorando nel National AI PhD Programme italiano, affiliato all’Università di Cagliari (sAIferLab). Attualmente è ELLIS intern e lavora sulla sicurezza degli agenti AI. La sua ricerca spazia nell’adversarial machine learning, con un focus sulla robustezza dei modelli di computer vision, e nell’AI safety, in particolare nella sicurezza di agenti e assistenti basati su LLM.',
@@ -123,7 +123,7 @@ const teamData = [
   },
   {
     name: 'Madhusudhan Pathak',
-    role: 'Technical & Communications Member',
+    role: 'Communications & Technical Infrastructure',
     photo: '/assets/img/team/madhusudhan-pathak.jpg',
     bio: 'Working on pioneering the Artificial Wisdom paradigm, a fundamental reconceptualization of AI alignment that positions meta-ethical reasoning and contextual understanding. This research challenges the conventional approach of treating ethics as post-hoc overlays on optimization systems, proposing instead that wisdom must be embedded at the foundational level of AI architecture.',
     bio_it:
@@ -145,7 +145,7 @@ const teamData = [
   },
   {
     name: 'Luca Mattiazzi',
-    role: 'AI Engineer',
+    role: 'Website & Technical Infrastructure',
     photo: '/assets/img/team/luca-mattiazzi.png',
     bio: 'An AI Engineer with several years of Software and ML Engineering experience and a biotechnology degree. Currently interested in mechanistic interpretability and generally in interpretable machine learning.',
     bio_it:
@@ -160,7 +160,7 @@ const teamData = [
   },
   {
     name: 'Lorenzo Basile',
-    role: 'Co-founder — Postdoctoral Researcher',
+    role: 'Co-founder — Governance & Mentorship',
     bio: 'Lorenzo is a co-founder of AI Safety for Italy and a postdoctoral researcher at Area Science Park (Trieste). His research focuses on the interpretability of multimodal foundation models and representation alignment. He previously obtained a PhD in AI at the University of Trieste, supervised by Luca Bortolussi, with a research visit in Francesco Locatello’s Causal Learning and AI lab at IST Austria.',
     bio_it:
       'Lorenzo è co-founder di AI Safety for Italy e ricercatore post-doc presso Area Science Park (Trieste). La sua ricerca si concentra sull’interpretabilità dei modelli fondazionali multimodali e sull’allineamento delle rappresentazioni. In precedenza ha conseguito un dottorato in IA presso l’Università di Trieste, sotto la supervisione di Luca Bortolussi, con un periodo di ricerca presso il laboratorio di Causal Learning and AI di Francesco Locatello all’IST Austria.',
