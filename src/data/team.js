@@ -78,7 +78,7 @@ const teamData = [
   {
     name: 'Cristian Curaba',
     role: 'Technical Infrastructure & Didactics',
-    photo: '/assets/img/team/cristian-curaba.png',
+    photo: '/assets/img/team/cristian-curaba.jpg',
     bio: 'Cristian holds a Master’s degree in Data Science and Scientific Computing and a Bachelor’s in Mathematics, providing him with a rigorous analytical and problem-solving foundation. He actively participated in the Apart Fellowship, ML4Good France, and various related courses. His involvement extends to local community building, where he currently leads an AGI Safety Discussion Group at the University of Udine to engage researchers and students in critical AI safety topics.',
     areas: ['Website & Technical Infrastructure', 'Didactics'],
     interests: ['Autoformalization', 'Formal Monitoring'],

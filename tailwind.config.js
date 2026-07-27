@@ -43,15 +43,15 @@ module.exports = {
       colors: {
         brand: buildColorPalette(colors.brand),
         semantic: buildColorPalette(colors.semantic),
-        accent: colors.brand?.primary || '#3b82f6',
-        'accent-emerald': colors.custom?.['accent-emerald'] || '#10b981',
-        'accent-dark': colors.brand?.primaryDark || '#1e40af',
-        'safety-blue': colors.custom?.['safety-blue'] || '#0284c7',
-        'safety-purple': colors.custom?.['safety-purple'] || '#6d28d9',
-        danger: colors.semantic?.error || '#dc2626',
+        accent: colors.brand?.primary || '#008C45',
+        'accent-emerald': colors.custom?.['accent-emerald'] || '#2FBF71',
+        'accent-dark': colors.brand?.primaryDark || '#006F38',
+        'safety-green': colors.custom?.['safety-green'] || '#008C45',
+        'safety-red': colors.custom?.['safety-red'] || '#CD212A',
+        danger: colors.semantic?.error || '#CD212A',
         success: colors.semantic?.success || '#16a34a',
         warning: colors.semantic?.warning || '#f59e0b',
-        info: colors.semantic?.info || '#3b82f6',
+        info: colors.semantic?.info || '#008C45',
         primary: buildColorPalette(colors.neutral),
         bg: {
           light: buildColorPalette(colors.background?.light),
@@ -109,8 +109,8 @@ module.exports = {
       backgroundImage: {
         'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
         'gradient-conic': 'conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))',
-        'gradient-primary': 'linear-gradient(to right, #3b82f6, #6d28d9)',
-        'gradient-accent': 'linear-gradient(to right, #3b82f6, #0284c7)',
+        'gradient-primary': 'linear-gradient(to right, #008C45, #005C2E)',
+        'gradient-accent': 'linear-gradient(to right, #008C45, #CD212A)',
       },
       animation: {
         'fade-in': 'fadeIn 0.6s ease-in',
@@ -127,8 +127,8 @@ module.exports = {
           '100%': { opacity: '1', transform: 'translateY(0)' },
         },
         pulseGlow: {
-          '0%, 100%': { opacity: '1', boxShadow: '0 0 20px rgba(59, 130, 246, 0.5)' },
-          '50%': { opacity: '0.8', boxShadow: '0 0 30px rgba(59, 130, 246, 0.8)' },
+          '0%, 100%': { opacity: '1', boxShadow: '0 0 20px rgba(0, 140, 69, 0.5)' },
+          '50%': { opacity: '0.8', boxShadow: '0 0 30px rgba(0, 140, 69, 0.8)' },
         },
       },
       borderRadius: {

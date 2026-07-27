@@ -8,52 +8,54 @@ seoDescription: "AI Safety for Italy is Italy's grassroots community reducing ri
 
 <!-- Hero Section -->
 <section class="hero">
-    <div class="container text-center relative z-10" style="max-width: 70rem;">
-        <h1 class="hero-title rise" data-en="{{ translations.en.hero.title }}" data-it="{{ translations.it.hero.title }}">{{ translations.en.hero.title }}</h1>
-        <p class="hero-sub rise text-xl md:text-2xl max-w-4xl mx-auto" data-en="{{ translations.en.hero.subtitle }}" data-it="{{ translations.it.hero.subtitle }}">{{ translations.en.hero.subtitle }}</p>
-        <p class="hero-sub rise text-lg max-w-4xl mx-auto mt-4" data-en="{{ translations.en.hero.description }}" data-it="{{ translations.it.hero.description }}">{{ translations.en.hero.description }}</p>
-        <div class="rise flex flex-col sm:flex-row gap-4 justify-center mt-8">
+    <div class="container">
+        <img class="hero-logo" src="/assets/img/ais4i-logo-label.svg" alt="AI Safety for Italy logo" width="200" height="200">
+        <h1 class="hero-title" data-en="{{ translations.en.hero.title }}" data-it="{{ translations.it.hero.title }}">{{ translations.en.hero.title }}</h1>
+        <p class="hero-tagline" data-en="{{ translations.en.hero.subtitle }}" data-it="{{ translations.it.hero.subtitle }}">{{ translations.en.hero.subtitle }}</p>
+        <p class="hero-sub" data-en="{{ translations.en.hero.description }}" data-it="{{ translations.it.hero.description }}">{{ translations.en.hero.description }}</p>
+        <div class="hero-ctas">
             <a href="{{ home.hero.cta_link }}" class="btn btn-primary btn-lg" data-en="{{ translations.en.hero.cta }}" data-it="{{ translations.it.hero.cta }}">{{ translations.en.hero.cta }}</a>
             <a href="{{ home.hero.secondary_cta_link }}" class="btn btn-secondary btn-lg" data-en="{{ translations.en.hero.secondary_cta }}" data-it="{{ translations.it.hero.secondary_cta }}">{{ translations.en.hero.secondary_cta }}</a>
         </div>
     </div>
 </section>
 
+{% set newsAlt = true %}
 {% include "news-carousel.njk" %}
 
 <!-- What We Do -->
-<section class="section" id="learn-more" style="background-color: var(--bg-primary);">
+<section class="section" id="learn-more">
     <div class="container">
-        <div class="text-center mb-14 max-w-2xl mx-auto">
+        <div class="section-head center reveal">
+            <span class="eyebrow" data-en="{{ translations.en.features.heading }}" data-it="{{ translations.it.features.heading }}">{{ translations.en.features.heading }}</span>
             <h2 data-en="Three ways we build a safer AI ecosystem" data-it="Tre modi in cui costruiamo un ecosistema AI più sicuro">Three ways we build a safer AI ecosystem</h2>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {% set tints = ["green", "lavender", "cream"] %}
             {% set icons = ["graduation", "handshake", "flask"] %}
             {% for feature in home.features %}
-            <div class="feature-card tint-{{ tints[loop.index0] }} reveal">
-                <span class="feature-icon"><svg class="ds-icon" aria-hidden="true"><use href="#icon-{{ icons[loop.index0] }}"></use></svg></span>
-                <h3 class="mb-2" data-en="{{ feature.title }}" data-it="{{ feature.title_it }}">{{ feature.title }}</h3>
+            <article class="card reveal">
+                <span class="card-icon"><svg class="ds-icon" aria-hidden="true"><use href="#icon-{{ icons[loop.index0] }}"></use></svg></span>
+                <h3 data-en="{{ feature.title }}" data-it="{{ feature.title_it }}">{{ feature.title }}</h3>
                 <p style="margin-bottom: 0;" data-en="{{ feature.description }}" data-it="{{ feature.description_it }}">{{ feature.description }}</p>
-            </div>
+            </article>
             {% endfor %}
         </div>
     </div>
 </section>
 
 <!-- Mission Split -->
-<section class="section" style="background-color: var(--bg-secondary);">
+<section class="section section-alt">
     <div class="container">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch">
-            <div class="card-elevated reveal">
-                <h3 class="mb-3" data-en="{{ home.mission.problem_title }}" data-it="{{ home.mission.problem_title_it }}">{{ home.mission.problem_title }}</h3>
+        <div class="split">
+            <div class="split-card accent-red reveal">
+                <h2 data-en="{{ home.mission.problem_title }}" data-it="{{ home.mission.problem_title_it }}">{{ home.mission.problem_title }}</h2>
                 <p data-en="{{ home.mission.problem_description | split('\n\n') | first }}" data-it="{{ home.mission.problem_description_it | split('\n\n') | first }}">{{ home.mission.problem_description | split('\n\n') | first }}</p>
                 <p style="margin-bottom: 0;" data-en="{{ home.mission.problem_description | split('\n\n') | last }}" data-it="{{ home.mission.problem_description_it | split('\n\n') | last }}">{{ home.mission.problem_description | split('\n\n') | last }}</p>
             </div>
-            <div class="card-elevated reveal">
-                <h3 class="mb-3" data-en="{{ home.mission.solution_title }}" data-it="{{ home.mission.solution_title_it }}">{{ home.mission.solution_title }}</h3>
+            <div class="split-card accent-green reveal">
+                <h2 data-en="{{ home.mission.solution_title }}" data-it="{{ home.mission.solution_title_it }}">{{ home.mission.solution_title }}</h2>
                 <p data-en="{{ home.mission.solution_description | split('\n\n') | first }}" data-it="{{ home.mission.solution_description_it | split('\n\n') | first }}">{{ home.mission.solution_description | split('\n\n') | first }}</p>
-                <a href="{{ site.forms.mailingList }}" target="_blank" class="btn btn-primary mt-2" style="align-self: flex-start;" data-en="Get involved today" data-it="Partecipa oggi">Get involved today</a>
+                <p style="margin-top: 1.5rem; margin-bottom: 0;"><a href="{{ site.forms.mailingList }}" target="_blank" class="btn btn-primary" data-en="Get involved today" data-it="Partecipa oggi">Get involved today</a></p>
             </div>
         </div>
     </div>
@@ -64,10 +66,10 @@ seoDescription: "AI Safety for Italy is Italy's grassroots community reducing ri
 <!-- CTA Section -->
 <section class="section">
     <div class="container">
-        <div class="cta-panel reveal">
+        <div class="cta-band reveal">
             <h2 data-en="{{ translations.en.cta.title }}" data-it="{{ translations.it.cta.title }}">{{ translations.en.cta.title }}</h2>
             <p data-en="{{ translations.en.cta.description }}" data-it="{{ translations.it.cta.description }}">{{ translations.en.cta.description }}</p>
-            <a href="{{ site.forms.mailingList }}" target="_blank" class="btn btn-primary btn-lg" data-en="{{ translations.en.cta.button }}" data-it="{{ translations.it.cta.button }}">{{ translations.en.cta.button }}</a>
+            <a href="{{ site.forms.mailingList }}" target="_blank" class="btn" data-en="{{ translations.en.cta.button }}" data-it="{{ translations.it.cta.button }}">{{ translations.en.cta.button }}</a>
         </div>
     </div>
 </section>

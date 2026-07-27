@@ -7,66 +7,67 @@ seoDescription: 'Mentorship programs, seminars, and the latest news from AI Safe
 ---
 
 {% macro initiativeCard(event) %}
-<div class="card hover-lift reveal">
-    <div class="card-body">
-        <span class="badge badge-info" data-en="{{ event.status }}" data-it="{{ event.status_it }}">{{ event.status }}</span>
-        <h3 class="mt-3 mb-2" data-en="{{ event.title }}" data-it="{{ event.title_it }}">{{ event.title }}</h3>
-        <div class="flex items-center gap-2 mb-4 font-semibold" style="color: var(--text-secondary);">
-            <svg class="ds-icon" style="width:1.05rem;height:1.05rem;color:var(--accent);" aria-hidden="true"><use href="#icon-calendar"></use></svg>
-            <span data-en="{{ event.date }}" data-it="{{ event.date_it }}">{{ event.date }}</span>
-        </div>
-        <p class="mb-4" data-en="{{ event.description }}" data-it="{{ event.description_it }}">{{ event.description }}</p>
-        {% if event.format_info %}
-        <div class="p-4 rounded-lg border" style="background-color: var(--bg-tertiary); border-color: var(--card-border);">
-            {% for info in event.format_info %}
-            <p class="text-sm" style="color: var(--text-secondary); margin-bottom: 0.3rem;">
-                <span class="font-semibold" data-en="{{ info.label }}:" data-it="{{ info.label_it }}:">{{ info.label }}:</span>
-                <span data-en="{{ info.value }}" data-it="{{ info.value_it }}">{{ info.value }}</span>
-            </p>
-            {% endfor %}
-        </div>
-        {% endif %}
+<div class="card program-card reveal">
+    <span class="chip{% if event.status == 'Upcoming' %} red{% endif %}" data-en="{{ event.status }}" data-it="{{ event.status_it }}">{{ event.status }}</span>
+    <h3 data-en="{{ event.title }}" data-it="{{ event.title_it }}">{{ event.title }}</h3>
+    <div class="flex items-center gap-2 mb-4" style="font-size: 0.95rem; font-weight: 600; color: var(--text-secondary);">
+        <svg class="ds-icon" style="width:1.05rem;height:1.05rem;color:var(--accent);" aria-hidden="true"><use href="#icon-calendar"></use></svg>
+        <span data-en="{{ event.date }}" data-it="{{ event.date_it }}">{{ event.date }}</span>
     </div>
+    <p data-en="{{ event.description }}" data-it="{{ event.description_it }}">{{ event.description }}</p>
+    {% if event.format_info %}
+    <ul class="program-meta">
+        {% for info in event.format_info %}
+        <li>
+            <strong><span data-en="{{ info.label }}" data-it="{{ info.label_it }}">{{ info.label }}</span></strong>
+            <span data-en="{{ info.value }}" data-it="{{ info.value_it }}">{{ info.value }}</span>
+        </li>
+        {% endfor %}
+    </ul>
+    {% endif %}
     {% if event.register_link and event.register_text %}
-    <div class="card-footer">
-        <a href="{{ event.register_link }}" target="{{ event.register_target }}" class="font-semibold" style="color: var(--accent);"
-           data-en="{{ event.register_text }} →" data-it="{{ event.register_text_it }} →">{{ event.register_text }} →</a>
-    </div>
+    <p style="margin-top: 1.5rem; margin-bottom: 0;">
+        <a href="{{ event.register_link }}" target="{{ event.register_target }}" class="btn btn-outline"
+           data-en="{{ event.register_text }}" data-it="{{ event.register_text_it }}">{{ event.register_text }}</a>
+    </p>
     {% endif %}
 </div>
 {% endmacro %}
 
-<!-- Hero Section -->
-<section class="hero">
-    <div class="container text-center relative z-10">
-        <h1 class="hero-title" data-en="{{ events.hero.title }}" data-it="{{ events.hero.title_it }}">{{ events.hero.title }}</h1>
-        <p class="hero-sub text-xl md:text-2xl max-w-3xl mx-auto" data-en="{{ events.hero.subtitle }}" data-it="{{ events.hero.subtitle_it }}">{{ events.hero.subtitle }}</p>
+<!-- Page hero -->
+<section class="page-hero">
+    <div class="container">
+        <span class="eyebrow" data-en="{{ translations.en.nav.events }}" data-it="{{ translations.it.nav.events }}">{{ translations.en.nav.events }}</span>
+        <h1 data-en="{{ events.hero.title }}" data-it="{{ events.hero.title_it }}">{{ events.hero.title }}</h1>
+        <p class="lede" data-en="{{ events.hero.subtitle }}" data-it="{{ events.hero.subtitle_it }}">{{ events.hero.subtitle }}</p>
     </div>
 </section>
 
 <!-- Mentorship -->
-<section class="section" id="mentorship" style="background-color: var(--bg-primary);">
+<section class="section" id="mentorship">
     <div class="container">
-        <div class="text-center mb-12 max-w-2xl mx-auto">
-            <h2 data-en="Mentorship" data-it="Mentorship">Mentorship</h2>
+        <div class="section-head reveal">
+            <span class="eyebrow" data-en="Mentorship" data-it="Mentorship">Mentorship</span>
+            <h2 data-en="Guidance from experienced members" data-it="Guida da parte di membri esperti">Guidance from experienced members</h2>
             <p data-en="We pair newcomers with experienced members through structured one-on-one guidance and group sessions."
                data-it="Affianchiamo i nuovi arrivati a membri esperti con percorsi strutturati di guida uno-a-uno e sessioni di gruppo.">We pair newcomers with experienced members through structured one-on-one guidance and group sessions.</p>
         </div>
-        <div class="max-w-3xl mx-auto space-y-6">
+        <div class="grid grid-cols-1 gap-6" style="max-width: 48rem;">
             {% for event in events.upcoming_events %}{% if event.category == "mentorship" %}{{ initiativeCard(event) }}{% endif %}{% endfor %}
         </div>
     </div>
 </section>
 
 <!-- Seminars -->
-<section class="section" id="seminars" style="background-color: var(--card-bg);">
+<section class="section section-alt" id="seminars">
     <div class="container">
-        <div class="text-center mb-12 max-w-2xl mx-auto">
-            <h2 data-en="Seminars" data-it="Seminari">Seminars</h2>
+        <div class="section-head reveal">
+            <span class="eyebrow" data-en="Seminars" data-it="Seminari">Seminars</span>
+            <h2 data-en="Talks &amp; meetups" data-it="Talk e incontri">Talks &amp; meetups</h2>
             <p data-en="Regular talks and informal meetups where the community learns, discusses, and collaborates."
                data-it="Incontri e talk regolari dove la community impara, discute e collabora.">Regular talks and informal meetups where the community learns, discusses, and collaborates.</p>
         </div>
-        <div class="max-w-3xl mx-auto space-y-6">
+        <div class="grid grid-cols-1 gap-6" style="max-width: 48rem;">
             {% for event in events.upcoming_events %}{% if event.category == "seminar" %}{{ initiativeCard(event) }}{% endif %}{% endfor %}
         </div>
     </div>
@@ -78,10 +79,10 @@ seoDescription: 'Mentorship programs, seminars, and the latest news from AI Safe
 <!-- CTA Section -->
 <section class="section">
     <div class="container">
-        <div class="cta-panel reveal">
+        <div class="cta-band reveal">
             <h2 data-en="{{ events.cta.title }}" data-it="{{ events.cta.title_it }}">{{ events.cta.title }}</h2>
             <p data-en="{{ events.cta.description }}" data-it="{{ events.cta.description_it }}">{{ events.cta.description }}</p>
-            <a href="{{ site.forms.mailingList }}" class="btn btn-primary btn-lg"
+            <a href="{{ site.forms.mailingList }}" class="btn"
                target="_blank" rel="noopener noreferrer"
                data-en="{{ events.cta.button_text }}" data-it="{{ events.cta.button_text_it }}">{{ events.cta.button_text }}</a>
         </div>

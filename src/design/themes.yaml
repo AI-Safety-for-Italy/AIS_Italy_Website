@@ -174,17 +174,8 @@ dark:
 toggle:
   enabled: true
   icon:
-    light: "🌙"
-    dark: "☀️"
+    light: "☀️"
+    dark: "🌙"
   storage:
     key: "theme"
     type: "localStorage"
-
-# Background Images for Themes
-backgrounds:
-  light:
-    hero: "/assets/img/ais_italy_light_bg.png"
-    pattern: null
-  dark:
-    hero: "/assets/img/ais_italy_dark_bg.png"
-    pattern: null

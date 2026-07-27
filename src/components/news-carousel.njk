@@ -1,23 +1,21 @@
-<section class="section" style="background-color: var(--bg-primary);">
-  <div class="container" style="max-width: 64rem;">
-    <div class="text-center mb-10">
-      <h2 data-en="{{ translations.en.news.heading }}" data-it="{{ translations.it.news.heading }}">{{ translations.en.news.heading }}</h2>
+<section class="section{% if newsAlt %} section-alt{% endif %}">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow" data-en="{{ translations.en.news.heading }}" data-it="{{ translations.it.news.heading }}">{{ translations.en.news.heading }}</span>
+      <h2 data-en="Latest from the ecosystem" data-it="Le ultime dall'ecosistema">Latest from the ecosystem</h2>
     </div>
 
-    <div class="news-list">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
       {% for item in news.items %}
-      <a class="news-entry reveal" href="{{ item.link_url }}" target="_blank" rel="noopener noreferrer">
-        <div class="news-entry-date">{{ item.date }}</div>
-        <div class="news-entry-body">
-          <h3 class="news-entry-title">
-            <span data-en="{{ item.title_en }}" data-it="{{ item.title_it }}">{{ item.title_en }}</span>
-          </h3>
-          <p class="news-entry-desc" data-en="{{ item.description_en }}" data-it="{{ item.description_it }}">{{ item.description_en }}</p>
-          <span class="news-entry-link">
-            <span data-en="{{ item.link_text_en }}" data-it="{{ item.link_text_it }}">{{ item.link_text_en }}</span> →
-          </span>
-        </div>
-      </a>
+      <article class="card news-card reveal">
+        <span class="news-date" data-en="{{ item.date | readableDate }}" data-it="{{ item.date | readableDateIt }}">{{ item.date | readableDate }}</span>
+        <h3 data-en="{{ item.title_en }}" data-it="{{ item.title_it }}">{{ item.title_en }}</h3>
+        <p data-en="{{ item.description_en }}" data-it="{{ item.description_it }}">{{ item.description_en }}</p>
+        <a class="news-link" href="{{ item.link_url }}" target="_blank" rel="noopener noreferrer">
+          <span data-en="{{ item.link_text_en }}" data-it="{{ item.link_text_it }}">{{ item.link_text_en }}</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+        </a>
+      </article>
       {% endfor %}
     </div>
   </div>

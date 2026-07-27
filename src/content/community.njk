@@ -6,53 +6,59 @@ seoTitle: 'AI Safety for Italy Community: Team & Members'
 seoDescription: 'Meet the team and members of AI Safety for Italy: researchers, students, and practitioners working on mentorship, governance, technical research, and education. Open to all.'
 ---
 
-<!-- Hero Section -->
-<section class="hero">
-    <div class="container text-center relative z-10">
-        <h1 class="hero-title" data-en="{{ translations.en.community.hero_title }}" data-it="{{ translations.it.community.hero_title }}">{{ translations.en.community.hero_title }}</h1>
-        <p class="hero-sub text-xl md:text-2xl max-w-3xl mx-auto" data-en="{{ translations.en.community.hero_subtitle }}" data-it="{{ translations.it.community.hero_subtitle }}">{{ translations.en.community.hero_subtitle }}</p>
+<!-- Page hero -->
+<section class="page-hero">
+    <div class="container">
+        <span class="eyebrow" data-en="{{ translations.en.nav.community }}" data-it="{{ translations.it.nav.community }}">{{ translations.en.nav.community }}</span>
+        <h1 data-en="{{ translations.en.community.hero_title }}" data-it="{{ translations.it.community.hero_title }}">{{ translations.en.community.hero_title }}</h1>
+        <p class="lede" data-en="{{ translations.en.community.hero_subtitle }}" data-it="{{ translations.it.community.hero_subtitle }}">{{ translations.en.community.hero_subtitle }}</p>
     </div>
 </section>
 
 <!-- Team Section (core team — faces) -->
-<section class="section" id="team" style="background-color: var(--bg-primary);">
+<section class="section" id="team">
     <div class="container">
-        <div class="text-center mb-12 max-w-2xl mx-auto">
+        <div class="section-head reveal">
+            <span class="eyebrow" data-en="Organizing team" data-it="Il team organizzatore">Organizing team</span>
             <h2 data-en="Meet the team" data-it="Il team">Meet the team</h2>
             <p data-en="The people driving AI Safety for Italy forward."
                data-it="Le persone che portano avanti AI Safety for Italy.">The people driving AI Safety for Italy forward.</p>
         </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-8" style="max-width: 64rem; margin: 0 auto;">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             {% for member in team %}
             {% set clean = member.name | replace("Dr. ", "") | trim %}
             {% set parts = clean | split(" ") %}
-            <div class="team-card team-card--rich reveal">
-                {% if member.photo %}
-                <img class="team-photo" src="{{ member.photo }}" alt="{{ member.name }}" loading="lazy" width="112" height="112">
-                {% else %}
-                <div class="team-avatar" aria-hidden="true">{{ (parts | first)[0] }}{{ (parts | last)[0] if (parts | length) > 1 else "" }}</div>
-                {% endif %}
-                <h3 class="team-name">{{ member.name }}</h3>
-                <p class="team-role">{{ member.role }}</p>
-                <p class="team-bio">{{ member.bio }}</p>
+            <article class="card team-card reveal">
+                <div class="team-head">
+                    {% if member.photo %}
+                    <img class="team-avatar" src="{{ member.photo }}" alt="Portrait of {{ member.name }}" loading="lazy" width="64" height="64">
+                    {% else %}
+                    <span class="team-initials{% if loop.index % 3 == 0 %} red{% endif %}" aria-hidden="true">{{ (parts | first)[0] }}{{ (parts | last)[0] if (parts | length) > 1 else "" }}</span>
+                    {% endif %}
+                    <div>
+                        <h3>{{ member.name }}</h3>
+                        <p class="team-role">{{ member.role }}</p>
+                    </div>
+                </div>
+                <p>{{ member.bio }}</p>
 
                 {% if member.areas %}
-                <div class="team-tags-block">
-                    <p class="team-tags-label" data-en="Contribution areas" data-it="Aree di contributo">Contribution areas</p>
-                    <div class="team-tags">
+                <div class="tag-group">
+                    <p class="tag-label" data-en="Contribution areas" data-it="Aree di contributo">Contribution areas</p>
+                    <div class="tags">
                         {% for area in member.areas %}
-                        <span class="team-tag">{{ area }}</span>
+                        <span class="tag">{{ area }}</span>
                         {% endfor %}
                     </div>
                 </div>
                 {% endif %}
 
                 {% if member.interests %}
-                <div class="team-tags-block">
-                    <p class="team-tags-label" data-en="Interests" data-it="Interessi">Interests</p>
-                    <div class="team-tags">
+                <div class="tag-group">
+                    <p class="tag-label" data-en="Interests" data-it="Interessi">Interests</p>
+                    <div class="tags">
                         {% for interest in member.interests %}
-                        <span class="team-tag team-tag--muted">{{ interest }}</span>
+                        <span class="tag red">{{ interest }}</span>
                         {% endfor %}
                     </div>
                 </div>
@@ -61,67 +67,63 @@ seoDescription: 'Meet the team and members of AI Safety for Italy: researchers, 
                 {% if member.links and (member.links | length) > 0 %}
                 <div class="team-links">
                     {% for link in member.links %}
-                    <a href="{{ link.url }}" target="_blank" rel="noopener noreferrer" class="team-link">{{ link.label }}</a>
+                    <a href="{{ link.url }}" target="_blank" rel="noopener noreferrer">{{ link.label }}</a>
                     {% endfor %}
                 </div>
                 {% endif %}
-            </div>
+            </article>
             {% endfor %}
         </div>
     </div>
 </section>
 
 <!-- Members Table Section -->
-<section class="section" style="background-color: var(--bg-secondary);">
+<section class="section section-alt">
     <div class="container">
-        <div class="text-center mb-10">
+        <div class="section-head reveal">
+            <span class="eyebrow" data-en="Directory" data-it="Elenco">Directory</span>
             <h2 data-en="{{ translations.en.community.members_title }}" data-it="{{ translations.it.community.members_title }}">{{ translations.en.community.members_title }}</h2>
-            <p class="text-sm mt-2" style="color: var(--text-tertiary);">Last updated: {{ members.last_updated }}</p>
+            <p data-en="Last updated: {{ members.last_updated }}" data-it="Ultimo aggiornamento: {{ members.last_updated }}">Last updated: {{ members.last_updated }}</p>
         </div>
 
         <!-- Search + sort bar -->
         <div class="flex flex-col sm:flex-row gap-3 mb-6">
             <input id="tbl-search" type="text" placeholder="Search name…"
                 oninput="filterTable()"
-                class="flex-1 px-4 py-2 rounded-lg text-sm border"
-                style="background-color: var(--card-bg); border-color: var(--card-border); color: var(--text-primary);"
+                class="form-input flex-1"
                 data-placeholder-en="Search name…" data-placeholder-it="Cerca nome…">
             <select id="tbl-sort" onchange="filterTable()"
-                class="px-4 py-2 rounded-lg text-sm border"
-                style="background-color: var(--card-bg); border-color: var(--card-border); color: var(--text-primary);">
+                class="form-input sm:w-auto">
                 <option value="surname-asc" data-en="Surname A→Z" data-it="Cognome A→Z">Surname A→Z</option>
                 <option value="surname-desc" data-en="Surname Z→A" data-it="Cognome Z→A">Surname Z→A</option>
             </select>
         </div>
 
-        <div class="overflow-x-auto rounded-lg border" style="border-color: var(--card-border); max-height: 480px; overflow-y: auto;">
-            <table class="w-full text-sm" style="border-collapse: collapse;">
+        <div class="table-wrap reveal" style="max-height: 480px; overflow-y: auto;">
+            <table>
                 <thead>
-                    <tr style="background-color: var(--bg-tertiary); color: var(--text-primary);">
-                        <th class="text-left px-4 py-3 font-semibold" style="position: sticky; top: 0; background-color: var(--bg-tertiary); z-index: 1;" data-en="Name" data-it="Nome">Name</th>
-                        <th class="text-left px-4 py-3 font-semibold" style="position: sticky; top: 0; background-color: var(--bg-tertiary); z-index: 1;" data-en="Location" data-it="Posizione">Location</th>
-                        <th class="text-left px-4 py-3 font-semibold" style="position: sticky; top: 0; background-color: var(--bg-tertiary); z-index: 1;" data-en="Areas of Interest" data-it="Aree di interesse">Areas of Interest</th>
+                    <tr>
+                        <th scope="col" style="position: sticky; top: 0; z-index: 1;" data-en="Name" data-it="Nome">Name</th>
+                        <th scope="col" style="position: sticky; top: 0; z-index: 1;" data-en="Location" data-it="Posizione">Location</th>
+                        <th scope="col" style="position: sticky; top: 0; z-index: 1;" data-en="Areas of Interest" data-it="Aree di interesse">Areas of Interest</th>
                     </tr>
                 </thead>
                 <tbody id="members-tbody">
                     {% for member in members.members %}
-                    <tr class="member-row border-t"
-                        style="border-color: var(--card-border);"
-                        data-name="{{ member.name | lower }}">
-                        <td class="px-4 py-3 font-medium" style="color: var(--text-primary);">
+                    <tr class="member-row" data-name="{{ member.name | lower }}">
+                        <td>
                             <div class="flex items-center gap-2">
-                                <div class="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
-                                     style="background: var(--gradient-primary);">{{ member.name | first }}</div>
+                                <span class="member-initial" aria-hidden="true">{{ member.name | first }}</span>
                                 <div>
-                                    <div>{{ member.name }}</div>
+                                    <strong style="color: var(--text-primary);">{{ member.name }}</strong>
                                     {% if member.profile %}
-                                    <div class="flex flex-wrap gap-x-2">
+                                    <div class="member-links">
                                     {% for raw in member.profile | split(",") %}
                                     {% set url = raw | trim %}
                                     {% if url %}
                                     {% set href = url if ("http://" in url or "https://" in url) else "https://" + url %}
                                     {% set label = url | replace("https://", "") | replace("http://", "") | replace("www.", "") %}
-                                    <a href="{{ href }}" target="_blank" rel="noopener noreferrer" class="text-xs" style="color: var(--accent);">{{ label }}</a>
+                                    <a href="{{ href }}" target="_blank" rel="noopener noreferrer">{{ label }}</a>
                                     {% endif %}
                                     {% endfor %}
                                     </div>
@@ -129,39 +131,29 @@ seoDescription: 'Meet the team and members of AI Safety for Italy: researchers, 
                                 </div>
                             </div>
                         </td>
-                        <td class="px-4 py-3" style="color: var(--text-secondary);">{{ member.location or '' }}</td>
-                        <td class="px-4 py-3" style="color: var(--text-secondary); font-size: 0.75rem;">{{ member.areas or '' }}</td>
+                        <td>{{ member.location or '' }}</td>
+                        <td style="font-size: 0.85rem;">{{ member.areas or '' }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
-        <p id="tbl-count" class="text-xs mt-3 text-right" style="color: var(--text-tertiary);"></p>
-    </div>
-
-</section>
-
-<!-- Join CTA -->
-<section class="section" style="background-color: var(--bg-tertiary);">
-    <div class="container text-center">
-        <h3 data-en="Want to be part of this list?" data-it="Vuoi far parte di questa lista?">Want to be part of this list?</h3>
-        <p class="mb-6" style="color: var(--text-secondary);"
-           data-en="Fill in our interest form to join AI Safety for Italy."
-           data-it="Compila il modulo di interesse per unirti ad AI Safety for Italy.">Fill in our interest form to join AI Safety for Italy.</p>
-        <a href="{{ site.forms.mailingList }}" target="_blank" rel="noopener noreferrer"
-           class="btn btn-primary"
-           data-en="{{ translations.en.community.join_button }}"
-           data-it="{{ translations.it.community.join_button }}">{{ translations.en.community.join_button }}</a>
+        <p id="tbl-count" class="table-note text-right"></p>
+        <p class="table-note reveal">
+            <span data-en="Want to be part of this list?" data-it="Vuoi far parte di questa lista?">Want to be part of this list?</span>
+            <a href="{{ site.forms.mailingList }}" target="_blank" rel="noopener noreferrer"><span data-en="{{ translations.en.community.join_button }}" data-it="{{ translations.it.community.join_button }}">{{ translations.en.community.join_button }}</span></a>
+            <span data-en="and get involved." data-it="e partecipa.">and get involved.</span>
+        </p>
     </div>
 </section>
 
 <!-- CTA Section -->
 <section class="section">
     <div class="container">
-        <div class="cta-panel reveal">
+        <div class="cta-band reveal">
             <h2 data-en="{{ translations.en.community.cta_title }}" data-it="{{ translations.it.community.cta_title }}">{{ translations.en.community.cta_title }}</h2>
             <p data-en="{{ translations.en.community.cta_description }}" data-it="{{ translations.it.community.cta_description }}">{{ translations.en.community.cta_description }}</p>
-            <a href="{{ site.forms.mailingList }}" class="btn btn-primary btn-lg"
+            <a href="{{ site.forms.mailingList }}" class="btn"
                target="_blank" rel="noopener noreferrer"
                data-en="{{ translations.en.community.cta_button }}"
                data-it="{{ translations.it.community.cta_button }}">{{ translations.en.community.cta_button }}</a>
@@ -192,7 +184,13 @@ seoDescription: 'Meet the team and members of AI Safety for Italy: researchers, 
         visible.forEach(r => { r.style.display = ''; tbody.appendChild(r); });
 
         const count = document.getElementById('tbl-count');
-        if (count) count.textContent = visible.length + ' member' + (visible.length !== 1 ? 's' : '');
+        if (count) {
+            const lang = localStorage.getItem('lang') || 'en';
+            const unit = lang === 'it'
+                ? (visible.length !== 1 ? ' membri' : ' membro')
+                : (visible.length !== 1 ? ' members' : ' member');
+            count.textContent = visible.length + unit;
+        }
     }
     window.filterTable = filterTable;
 

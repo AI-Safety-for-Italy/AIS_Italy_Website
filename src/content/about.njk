@@ -6,35 +6,40 @@ seoTitle: 'About AI Safety for Italy: Our Mission & Community'
 seoDescription: "Learn about AI Safety for Italy's mission to reduce AI risks in Italy through learning, education, and community building across 9 active working groups."
 ---
 
-<!-- Hero Section -->
-<section class="hero">
-    <div class="container text-center relative z-10">
-        <h1 class="hero-title" data-en="{{ about.hero.title }}" data-it="{{ about.hero.title_it }}">{{ about.hero.title }}</h1>
-        <p class="hero-sub text-xl md:text-2xl max-w-3xl mx-auto" data-en="{{ about.hero.subtitle }}" data-it="{{ about.hero.subtitle_it }}">{{ about.hero.subtitle }}</p>
+<!-- Page hero -->
+<section class="page-hero">
+    <div class="container">
+        <span class="eyebrow" data-en="{{ translations.en.nav.about }}" data-it="{{ translations.it.nav.about }}">{{ translations.en.nav.about }}</span>
+        <h1 data-en="{{ about.hero.title }}" data-it="{{ about.hero.title_it }}">{{ about.hero.title }}</h1>
+        <p class="lede" data-en="{{ about.hero.subtitle }}" data-it="{{ about.hero.subtitle_it }}">{{ about.hero.subtitle }}</p>
     </div>
 </section>
 
-<!-- Mission, in elegant prose -->
+<!-- Mission & Vision -->
 <section class="section">
     <div class="container">
-        <div class="prose-lead reveal" style="max-width: 44rem; margin: 0 auto; text-align: center;">
-            <p class="lead-text"
-               data-en="{{ about.mission_vision.mission.description }}"
-               data-it="{{ about.mission_vision.mission.description_it }}">{{ about.mission_vision.mission.description }}</p>
-            <p style="margin-top: 1.75rem; color: var(--text-secondary);"
-               data-en="{{ about.mission_vision.vision.description }}"
-               data-it="{{ about.mission_vision.vision.description_it }}">{{ about.mission_vision.vision.description }}</p>
+        <div class="split">
+            <div class="split-card accent-green reveal">
+                <h2 data-en="{{ about.mission_vision.mission.title }}" data-it="{{ about.mission_vision.mission.title_it }}">{{ about.mission_vision.mission.title }}</h2>
+                <p data-en="{{ about.mission_vision.mission.description }}"
+                   data-it="{{ about.mission_vision.mission.description_it }}">{{ about.mission_vision.mission.description }}</p>
+            </div>
+            <div class="split-card accent-red reveal">
+                <h2 data-en="{{ about.mission_vision.vision.title }}" data-it="{{ about.mission_vision.vision.title_it }}">{{ about.mission_vision.vision.title }}</h2>
+                <p data-en="{{ about.mission_vision.vision.description }}"
+                   data-it="{{ about.mission_vision.vision.description_it }}">{{ about.mission_vision.vision.description }}</p>
+            </div>
         </div>
     </div>
 </section>
 
 <!-- CTA Section -->
-<section class="section">
+<section class="section" style="padding-top: 0;">
     <div class="container">
-        <div class="cta-panel reveal">
+        <div class="cta-band reveal">
             <h2 data-en="{{ about.cta.title }}" data-it="{{ about.cta.title_it }}">{{ about.cta.title }}</h2>
             <p data-en="{{ about.cta.description }}" data-it="{{ about.cta.description_it }}">{{ about.cta.description }}</p>
-            <a href="{{ site.forms.mailingList }}" class="btn btn-primary btn-lg"
+            <a href="{{ site.forms.mailingList }}" class="btn"
                target="_blank" rel="noopener noreferrer"
                data-en="{{ about.cta.button_text }}" data-it="{{ about.cta.button_text_it }}">{{ about.cta.button_text }}</a>
         </div>
