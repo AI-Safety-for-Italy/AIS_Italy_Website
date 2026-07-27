@@ -218,6 +218,119 @@ body {
   text-rendering: optimizeLegibility;
   overflow-x: clip;
   transition: background-color 0.25s ease, color 0.25s ease;
+  /* Sticky footer: main grows so the footer sits at the bottom of short pages */
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+body > main {
+  flex: 1 0 auto;
+}
+
+/* Fixed dot texture — a barely-there grid that stays put while the page
+   scrolls. position:fixed keeps it out of the flex flow above; the negative
+   z-index paints it over the body background but under all content. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: radial-gradient(
+    circle,
+    rgba(11, 61, 33, 0.5) 1px,
+    transparent 1.2px
+  );
+  background-size: 22px 22px;
+  opacity: 0.16;
+}
+
+[data-theme='dark'] body::before {
+  background-image: radial-gradient(
+    circle,
+    rgba(180, 230, 200, 0.55) 1px,
+    transparent 1.2px
+  );
+  opacity: 0.13;
+}
+
+/* Cursor spotlight — the same dot grid, brighter, revealed only through a mask
+   of three soft circles. JS (initDotSpotlight) lerps those circles along a
+   chain, each lagging further behind the cursor, which draws the tail. The
+   opacity transition is what makes the tail fade out slowly once the pointer
+   stops or leaves. Positions default off-screen so nothing shows until the
+   first pointermove. */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: radial-gradient(
+    circle,
+    rgba(11, 61, 33, 0.9) 1px,
+    transparent 1.2px
+  );
+  background-size: 22px 22px;
+  opacity: 0;
+  transition: opacity 0.65s ease-out;
+  -webkit-mask-image: radial-gradient(
+      circle 130px at var(--spot-x0, -999px) var(--spot-y0, -999px),
+      #000 0%,
+      rgba(0, 0, 0, 0.45) 55%,
+      transparent 75%
+    ),
+    radial-gradient(
+      circle 100px at var(--spot-x1, -999px) var(--spot-y1, -999px),
+      rgba(0, 0, 0, 0.6) 0%,
+      transparent 72%
+    ),
+    radial-gradient(
+      circle 74px at var(--spot-x2, -999px) var(--spot-y2, -999px),
+      rgba(0, 0, 0, 0.35) 0%,
+      transparent 70%
+    );
+  mask-image: radial-gradient(
+      circle 130px at var(--spot-x0, -999px) var(--spot-y0, -999px),
+      #000 0%,
+      rgba(0, 0, 0, 0.45) 55%,
+      transparent 75%
+    ),
+    radial-gradient(
+      circle 100px at var(--spot-x1, -999px) var(--spot-y1, -999px),
+      rgba(0, 0, 0, 0.6) 0%,
+      transparent 72%
+    ),
+    radial-gradient(
+      circle 74px at var(--spot-x2, -999px) var(--spot-y2, -999px),
+      rgba(0, 0, 0, 0.35) 0%,
+      transparent 70%
+    );
+  -webkit-mask-composite: source-over;
+  mask-composite: add;
+}
+
+body.spotlight-on::after {
+  opacity: 0.5;
+}
+
+[data-theme='dark'] body::after {
+  background-image: radial-gradient(
+    circle,
+    rgba(190, 240, 210, 0.95) 1px,
+    transparent 1.2px
+  );
+}
+
+[data-theme='dark'] body.spotlight-on::after {
+  opacity: 0.42;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.spotlight-on::after {
+    opacity: 0;
+  }
 }
 
 img {
@@ -597,7 +710,7 @@ a:hover {
   height: 560px;
   border-radius: 50%;
   filter: blur(90px);
-  opacity: 0.16;
+  opacity: 0.26;
   pointer-events: none;
 }
 
@@ -605,12 +718,23 @@ a:hover {
   background: var(--accent);
   left: -160px;
   top: -120px;
+  transform: translate3d(var(--glow-a-x, 0px), var(--glow-a-y, 0px), 0);
 }
 
 .hero::after {
   background: var(--secondary);
   right: -160px;
   bottom: -180px;
+  transform: translate3d(var(--glow-b-x, 0px), var(--glow-b-y, 0px), 0);
+}
+
+/* Cursor repulsion is driven by JS (initHeroGlow); the easing lives there,
+   so no CSS transition here — it would fight the rAF interpolation. */
+@media (prefers-reduced-motion: reduce) {
+  .hero::before,
+  .hero::after {
+    transform: none;
+  }
 }
 
 .hero .container {
@@ -619,8 +743,8 @@ a:hover {
 }
 
 .hero-logo {
-  width: 112px;
-  height: 112px;
+  width: clamp(140px, 15vw, 200px);
+  height: auto;
   margin: 0 auto 1.75rem;
 }
 
@@ -907,24 +1031,44 @@ a:hover {
 }
 
 /* ==========================================================================
-   CTA band — same opaque deep-green gradient in BOTH themes (never the
-   bright dark-mode green) + red corner glow + white button.
-   Opaque stops keep white text ≥ WCAG AA (≥4.5:1) on the band.
+   CTA band — translucent deep-green gradient + red corner glow + white button.
+   The green stops sit at 85% alpha so the page shows through. Because that
+   composites toward the page background, the stops are darker in light mode
+   and lighter in dark mode — both tuned so white text stays ≥ WCAG AA
+   (≥4.5:1) over bg-primary and bg-secondary alike. Never use the raw
+   bright dark-mode green here.
    ========================================================================== */
 
 .cta-band {
   position: relative;
   overflow: hidden;
   background: radial-gradient(
-      560px 380px at 94% 135%,
-      rgba(229, 72, 77, 0.8),
-      rgba(229, 72, 77, 0) 70%
+      720px 470px at 95% 128%,
+      rgba(229, 72, 77, 0.6),
+      rgba(229, 72, 77, 0) 72%
     ),
-    linear-gradient(120deg, #007a3d 0%, #005c2e 100%);
+    linear-gradient(
+      120deg,
+      rgba(0, 110, 52, 0.85) 0%,
+      rgba(0, 84, 40, 0.85) 100%
+    );
   color: #fff;
   border-radius: var(--radius);
   padding: 3.5rem 2.5rem;
   text-align: center;
+}
+
+[data-theme='dark'] .cta-band {
+  background: radial-gradient(
+      720px 470px at 95% 128%,
+      rgba(229, 72, 77, 0.6),
+      rgba(229, 72, 77, 0) 72%
+    ),
+    linear-gradient(
+      120deg,
+      rgba(0, 140, 67, 0.85) 0%,
+      rgba(0, 110, 54, 0.85) 100%
+    );
 }
 
 .cta-band h2 {
