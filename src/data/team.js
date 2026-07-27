@@ -84,7 +84,7 @@ const teamData = [
   {
     name: 'Cristian Curaba',
     role: 'Technical Infrastructure & Didactics',
-    photo: '/assets/img/team/cristian-curaba.png',
+    photo: '/assets/img/team/cristian-curaba.jpg',
     bio: 'Cristian holds a Master’s degree in Data Science and Scientific Computing and a Bachelor’s in Mathematics, providing him with a rigorous analytical and problem-solving foundation. He actively participated in the Apart Fellowship, ML4Good France, and various related courses. His involvement extends to local community building, where he currently leads an AGI Safety Discussion Group at the University of Udine to engage researchers and students in critical AI safety topics.',
     bio_it:
       'Cristian possiede una laurea magistrale in Data Science and Scientific Computing e una laurea triennale in Matematica, il che gli fornisce una solida base analitica e di problem-solving. Ha partecipato attivamente all’Apart Fellowship, a ML4Good France e a vari corsi correlati. Il suo coinvolgimento si estende alla costruzione di community locali, dove attualmente guida un AGI Safety Discussion Group presso l’Università di Udine per coinvolgere ricercatori e studenti su temi critici dell’AI safety.',

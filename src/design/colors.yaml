@@ -1,106 +1,108 @@
 # Color Palette Configuration
 # All colors used across the website
+# Palette derived from the AIS4I logo: Italian-flag green + red,
+# with green-tinted neutrals.
 
 # Brand Colors
 brand:
-  primary: "#3b82f6"
-  primaryDark: "#1e40af"
-  secondary: "#10b981"
-  accent: "#6d28d9"
+  primary: "#008C45"
+  primaryDark: "#006F38"
+  secondary: "#CD212A"
+  accent: "#CD212A"
 
 # Semantic Colors
 semantic:
   # Action colors
-  info: "#3b82f6"
+  info: "#008C45"
   success: "#16a34a"
   warning: "#f59e0b"
-  error: "#dc2626"
-  
+  error: "#CD212A"
+
   # State colors
-  active: "#3b82f6"
-  hover: "#2563eb"
-  focus: "#60a5fa"
+  active: "#008C45"
+  hover: "#006F38"
+  focus: "#2FBF71"
   disabled: "#9ca3af"
 
 # Custom Named Colors
 custom:
-  safety-blue: "#0284c7"
-  safety-purple: "#6d28d9"
-  accent-emerald: "#10b981"
+  safety-green: "#008C45"
+  safety-red: "#CD212A"
+  accent-emerald: "#2FBF71"
 
-# Neutral Colors (Grayscale)
+# Neutral Colors (green-tinted grayscale)
 neutral:
-  50: "#f9fafb"
-  100: "#f3f4f6"
-  200: "#e5e7eb"
-  300: "#d1d5db"
-  400: "#9ca3af"
-  500: "#6b7280"
-  600: "#4b5563"
-  700: "#374151"
-  800: "#1f2937"
-  900: "#111827"
+  50: "#f7faf8"
+  100: "#eef4f0"
+  200: "#e2eae5"
+  300: "#c7d6cc"
+  400: "#9db3a6"
+  500: "#6b7d73"
+  600: "#43544b"
+  700: "#2c3d34"
+  800: "#1b2a21"
+  900: "#14201a"
 
 # Background Colors
 background:
   light:
-    primary: "#ffffff"
-    secondary: "#f9fafb"
-    tertiary: "#f3f4f6"
+    primary: "#FCFDFC"
+    secondary: "#F3F7F4"
+    tertiary: "#E7F4EC"
     card: "#ffffff"
     elevated: "#ffffff"
   dark:
-    primary: "#0f1727"
-    secondary: "#1e293b"
-    tertiary: "#334155"
-    card: "#1e293b"
-    elevated: "#334155"
+    primary: "#0E1512"
+    secondary: "#152019"
+    tertiary: "#1B2A21"
+    card: "#152019"
+    elevated: "#1B2A21"
 
 # Text Colors
 text:
   light:
-    primary: "#111827"
-    secondary: "#4b5563"
-    tertiary: "#6b7280"
-    muted: "#9ca3af"
+    primary: "#14201A"
+    secondary: "#43544B"
+    tertiary: "#6B7D73"
+    muted: "#8A9C91"
     inverse: "#ffffff"
   dark:
-    primary: "#f9fafb"
-    secondary: "#cbd5e1"
-    tertiary: "#94a3b8"
-    muted: "#64748b"
-    inverse: "#0f1727"
+    primary: "#E9F0EB"
+    secondary: "#B4C4BA"
+    tertiary: "#8A9C91"
+    muted: "#64766B"
+    inverse: "#0E1512"
 
 # Border Colors
 border:
   light:
-    default: "#e5e7eb"
-    strong: "#d1d5db"
-    subtle: "#f3f4f6"
+    default: "#E2EAE5"
+    strong: "#C7D6CC"
+    subtle: "#EDF3EF"
   dark:
-    default: "#334155"
-    strong: "#475569"
-    subtle: "#1e293b"
+    default: "#24342B"
+    strong: "#35483C"
+    subtle: "#1B2A21"
 
 # Gradient Definitions
 gradients:
   primary:
-    from: "#3b82f6"
-    to: "#6d28d9"
+    from: "#008C45"
+    to: "#005C2E"
     direction: "to right"
-  
+
   accent:
-    from: "#3b82f6"
-    to: "#0284c7"
+    from: "#008C45"
+    to: "#CD212A"
     direction: "to right"
-  
+
   hero:
     light:
-      from: "#eff6ff"
-      to: "#f5f3ff"
+      from: "#E7F4EC"
+      to: "#FBECEA"
     dark:
-      from: "#1e3a5f"
-      to: "#2e1065"
+      from: "#0E1512"
+      to: "#152019"
 
 # Opacity Variants
 opacity:

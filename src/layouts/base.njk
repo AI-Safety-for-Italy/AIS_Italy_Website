@@ -38,10 +38,12 @@
   <meta name="twitter:image" content="https://aisafetycommunity.it/assets/img/og-image.png" />
 
   {# ── Favicon ─────────────────────────────────────────────────── #}
-  <link rel="icon" type="image/png" href="/assets/img/ais4i-logo.png" />
+  <link rel="icon" href="/favicon.ico" sizes="48x48" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 
   {# ── Preload logo SVG ────────────────────────────────────────── #}
-  <link rel="preload" as="image" href="/assets/img/ais4i-logo.png" />
+  <link rel="preload" as="image" href="/assets/img/ais4i-logo.svg" />
 
   {# ── Webfonts: Source Serif 4 (display) + Hanken Grotesk (body) ── #}
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -70,7 +72,9 @@
         "url": "https://aisafetycommunity.it/",
         "logo": {
           "@type": "ImageObject",
-          "url": "https://aisafetycommunity.it/assets/img/ais4i-logo.png"
+          "url": "https://aisafetycommunity.it/assets/img/ais4i-logo-512.png",
+          "width": 512,
+          "height": 512
         },
         "description": "Italy's grassroots community reducing risks from advanced AI through awareness, education, and collaboration.",
         "knowsAbout": ["AI safety", "AI alignment", "AI governance", "Existential risk from AI", "Machine learning interpretability"],
@@ -203,7 +207,7 @@
 <body style="background-color: var(--bg-primary); color: var(--text-primary);">
     {% include "header.njk" %}
 
-    <main id="main" class="min-h-screen">
+    <main id="main">
         {{ content | safe }}
     </main>
 
@@ -310,34 +314,6 @@
                 themeIcon.textContent = '{{ design.themes.toggle.icon.dark | default("🌙") }}'; // Moon icon for dark mode
             }
 
-            // Update background images based on theme
-            function updateBackgroundImages() {
-                const heroBgs = document.querySelectorAll('.hero-background');
-                heroBgs.forEach(heroBg => {
-                    if (document.documentElement.getAttribute('data-theme') === 'dark') {
-                        heroBg.style.backgroundImage = 'url("/assets/img/ais_italy_dark_bg.png")';
-                    } else {
-                        heroBg.style.backgroundImage = 'url("/assets/img/ais_italy.jpg")';
-                    }
-                });
-                
-                // Also update any other themed backgrounds if needed
-                const themedElements = document.querySelectorAll('[data-theme-bg]');
-                themedElements.forEach(element => {
-                    const lightBg = element.getAttribute('data-theme-bg-light');
-                    const darkBg = element.getAttribute('data-theme-bg-dark');
-                    
-                    if (document.documentElement.getAttribute('data-theme') === 'dark') {
-                        if (darkBg) element.style.backgroundImage = `url("${darkBg}")`;
-                    } else {
-                        if (lightBg) element.style.backgroundImage = `url("${lightBg}")`;
-                    }
-                });
-            }
-
-            // Initialize background images
-            updateBackgroundImages();
-
             // Add click event to toggle theme
             if (themeToggleBtn) {
                 themeToggleBtn.addEventListener('click', function() {
@@ -354,9 +330,6 @@
                         localStorage.setItem('theme', 'dark');
                         themeIcon.textContent = '☀️';
                     }
-
-                    // Update background images after theme change
-                    updateBackgroundImages();
                 });
             }
         }
@@ -388,6 +361,8 @@
             if (labelMobile) labelMobile.textContent = nextLang;
             document.documentElement.lang = lang;
             localStorage.setItem('lang', lang);
+            // re-render JS-generated strings that depend on language (e.g. members count)
+            if (typeof window.filterTable === 'function') window.filterTable();
         }
 
         function toggleLanguage() {
@@ -431,6 +406,122 @@
         }
 
         domReady(initScrollReveal);
+
+        // ── Hero glows drift away from the cursor ────────────────────────────
+        function initHeroGlow() {
+            const hero = document.querySelector('.hero');
+            if (!hero) return;
+            if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+            if (!window.matchMedia('(hover: hover)').matches) return;
+
+            const TRAVEL = 110;  // furthest a glow will move, in px
+            const RANGE  = 900;  // radius of the cursor's influence, in px
+            const EASE   = 0.035; // lower = lazier follow, so the glow drags a tail
+
+            // ax/ay are each glow's resting position as a fraction of the hero box,
+            // matching where .hero::before and .hero::after actually sit.
+            const glows = [
+                { xVar: '--glow-a-x', yVar: '--glow-a-y', ax: 0.06, ay: 0.10, x: 0, y: 0, tx: 0, ty: 0 },
+                { xVar: '--glow-b-x', yVar: '--glow-b-y', ax: 0.94, ay: 0.92, x: 0, y: 0, tx: 0, ty: 0 }
+            ];
+            let frame = null;
+
+            function step() {
+                let moving = false;
+                glows.forEach(function (g) {
+                    g.x += (g.tx - g.x) * EASE;
+                    g.y += (g.ty - g.y) * EASE;
+                    if (Math.abs(g.tx - g.x) > 0.1 || Math.abs(g.ty - g.y) > 0.1) moving = true;
+                    hero.style.setProperty(g.xVar, g.x.toFixed(1) + 'px');
+                    hero.style.setProperty(g.yVar, g.y.toFixed(1) + 'px');
+                });
+                frame = moving ? requestAnimationFrame(step) : null;
+            }
+
+            function nudge() {
+                if (!frame) frame = requestAnimationFrame(step);
+            }
+
+            hero.addEventListener('pointermove', function (e) {
+                const r = hero.getBoundingClientRect();
+                const mx = e.clientX - r.left;
+                const my = e.clientY - r.top;
+                glows.forEach(function (g) {
+                    // Push along the cursor -> glow vector, fading out past RANGE
+                    const dx = (r.width * g.ax) - mx;
+                    const dy = (r.height * g.ay) - my;
+                    const dist = Math.hypot(dx, dy) || 1;
+                    const force = Math.max(0, 1 - dist / RANGE);
+                    g.tx = (dx / dist) * TRAVEL * force;
+                    g.ty = (dy / dist) * TRAVEL * force;
+                });
+                nudge();
+            });
+
+            hero.addEventListener('pointerleave', function () {
+                glows.forEach(function (g) { g.tx = 0; g.ty = 0; });
+                nudge();
+            });
+        }
+
+        domReady(initHeroGlow);
+
+        // ── Cursor spotlight over the dot texture ────────────────────────────
+        // Three mask circles chase each other: the first follows the cursor,
+        // each next one follows the previous with a lazier ease. That lag is
+        // the tail. body::after holds the brighter dot grid the mask reveals.
+        function initDotSpotlight() {
+            if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+            if (!window.matchMedia('(hover: hover)').matches) return;
+
+            const root = document.documentElement;
+            const pts = [
+                { x: 0, y: 0, ease: 0.30 },
+                { x: 0, y: 0, ease: 0.14 },
+                { x: 0, y: 0, ease: 0.07 }
+            ];
+            let cx = 0, cy = 0, frame = null, seeded = false;
+
+            function step() {
+                let moving = false;
+                pts.forEach(function (p, i) {
+                    // Head chases the cursor; every other link chases the one before it.
+                    const tx = i === 0 ? cx : pts[i - 1].x;
+                    const ty = i === 0 ? cy : pts[i - 1].y;
+                    p.x += (tx - p.x) * p.ease;
+                    p.y += (ty - p.y) * p.ease;
+                    if (Math.abs(tx - p.x) > 0.3 || Math.abs(ty - p.y) > 0.3) moving = true;
+                    root.style.setProperty('--spot-x' + i, p.x.toFixed(1) + 'px');
+                    root.style.setProperty('--spot-y' + i, p.y.toFixed(1) + 'px');
+                });
+                frame = moving ? requestAnimationFrame(step) : null;
+            }
+
+            document.addEventListener('pointermove', function (e) {
+                if (e.pointerType === 'touch') return;
+                // Mask circles are on a position:fixed layer, so viewport coords line up.
+                cx = e.clientX;
+                cy = e.clientY;
+                if (!seeded) {
+                    // Drop the whole chain on the cursor so it doesn't fly in from 0,0.
+                    pts.forEach(function (p) { p.x = cx; p.y = cy; });
+                    seeded = true;
+                    step();
+                }
+                document.body.classList.add('spotlight-on');
+                if (!frame) frame = requestAnimationFrame(step);
+            }, { passive: true });
+
+            // Leaving the window fades the tail out via the CSS opacity transition.
+            document.addEventListener('pointerleave', function () {
+                document.body.classList.remove('spotlight-on');
+            });
+            window.addEventListener('blur', function () {
+                document.body.classList.remove('spotlight-on');
+            });
+        }
+
+        domReady(initDotSpotlight);
     </script>
 </body>
 </html>

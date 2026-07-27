@@ -27,8 +27,10 @@ module.exports = function(eleventyConfig) {
   eleventyConfig.addPassthroughCopy("src/assets/img");
   eleventyConfig.addPassthroughCopy("src/assets/js");
   eleventyConfig.addPassthroughCopy({ "src/assets/fonts": "assets/fonts" });
-  // Copy favicon to root
+  // Copy favicons to root
   eleventyConfig.addPassthroughCopy({ "src/assets/img/favicon.svg": "favicon.svg" });
+  eleventyConfig.addPassthroughCopy({ "src/assets/img/favicon.ico": "favicon.ico" });
+  eleventyConfig.addPassthroughCopy({ "src/assets/img/apple-touch-icon.png": "apple-touch-icon.png" });
 
   eleventyConfig.addPassthroughCopy("src/robots.txt");
   eleventyConfig.addPassthroughCopy("src/llms.txt");
@@ -44,6 +46,17 @@ module.exports = function(eleventyConfig) {
    */
   eleventyConfig.addFilter("readableDate", dateObj => {
     return new Date(dateObj).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  });
+
+  /**
+   * Converts date to readable Italian format
+   */
+  eleventyConfig.addFilter("readableDateIt", dateObj => {
+    return new Date(dateObj).toLocaleDateString('it-IT', {
       year: 'numeric',
       month: 'long',
       day: 'numeric'

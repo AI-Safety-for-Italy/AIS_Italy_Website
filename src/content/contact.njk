@@ -6,23 +6,24 @@ seoTitle: 'Contact AI Safety for Italy'
 seoDescription: "Get in touch with AI Safety for Italy by email or LinkedIn, or fill in our interest form to connect with Italy's AI safety community."
 ---
 
-<!-- Hero Section -->
-<section class="hero">
-    <div class="container text-center relative z-10">
-        <h1 class="hero-title" data-en="{{ contact.hero.title }}" data-it="{{ contact.hero.title_it }}">{{ contact.hero.title }}</h1>
-        <p class="hero-sub text-xl md:text-2xl max-w-3xl mx-auto" data-en="{{ contact.hero.subtitle }}" data-it="{{ contact.hero.subtitle_it }}">{{ contact.hero.subtitle }}</p>
+<!-- Page hero -->
+<section class="page-hero">
+    <div class="container">
+        <span class="eyebrow" data-en="{{ translations.en.nav.contact }}" data-it="{{ translations.it.nav.contact }}">{{ translations.en.nav.contact }}</span>
+        <h1 data-en="{{ contact.hero.title }}" data-it="{{ contact.hero.title_it }}">{{ contact.hero.title }}</h1>
+        <p class="lede" data-en="{{ contact.hero.subtitle }}" data-it="{{ contact.hero.subtitle_it }}">{{ contact.hero.subtitle }}</p>
     </div>
 </section>
 
 {% include "contact-form.njk" %}
 
 <!-- CTA Section -->
-<section class="section">
+<section class="section" style="padding-top: 0;">
     <div class="container">
-        <div class="cta-panel reveal">
+        <div class="cta-band reveal">
             <h2 data-en="{{ contact.cta.title }}" data-it="{{ contact.cta.title_it }}">{{ contact.cta.title }}</h2>
             <p data-en="{{ contact.cta.description }}" data-it="{{ contact.cta.description_it }}">{{ contact.cta.description }}</p>
-            <a href="{{ site.forms.mailingList }}" class="btn btn-primary btn-lg"
+            <a href="{{ site.forms.mailingList }}" class="btn"
                target="_blank" rel="noopener noreferrer"
                data-en="{{ contact.cta.button_text }}" data-it="{{ contact.cta.button_text_it }}">{{ contact.cta.button_text }}</a>
         </div>
