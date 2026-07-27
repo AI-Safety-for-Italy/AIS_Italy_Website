@@ -237,21 +237,13 @@ body::before {
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  background-image: radial-gradient(
-    circle,
-    rgba(11, 61, 33, 0.5) 1px,
-    transparent 1.2px
-  );
+  background-image: radial-gradient(circle, rgba(11, 61, 33, 0.5) 1px, transparent 1.2px);
   background-size: 22px 22px;
   opacity: 0.16;
 }
 
 [data-theme='dark'] body::before {
-  background-image: radial-gradient(
-    circle,
-    rgba(180, 230, 200, 0.55) 1px,
-    transparent 1.2px
-  );
+  background-image: radial-gradient(circle, rgba(180, 230, 200, 0.55) 1px, transparent 1.2px);
   opacity: 0.13;
 }
 
@@ -267,11 +259,7 @@ body::after {
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  background-image: radial-gradient(
-    circle,
-    rgba(11, 61, 33, 0.9) 1px,
-    transparent 1.2px
-  );
+  background-image: radial-gradient(circle, rgba(11, 61, 33, 0.9) 1px, transparent 1.2px);
   background-size: 22px 22px;
   opacity: 0;
   transition: opacity 0.65s ease-out;
@@ -316,11 +304,7 @@ body.spotlight-on::after {
 }
 
 [data-theme='dark'] body::after {
-  background-image: radial-gradient(
-    circle,
-    rgba(190, 240, 210, 0.95) 1px,
-    transparent 1.2px
-  );
+  background-image: radial-gradient(circle, rgba(190, 240, 210, 0.95) 1px, transparent 1.2px);
 }
 
 [data-theme='dark'] body.spotlight-on::after {
@@ -1047,11 +1031,7 @@ a:hover {
       rgba(229, 72, 77, 0.6),
       rgba(229, 72, 77, 0) 72%
     ),
-    linear-gradient(
-      120deg,
-      rgba(0, 110, 52, 0.85) 0%,
-      rgba(0, 84, 40, 0.85) 100%
-    );
+    linear-gradient(120deg, rgba(0, 110, 52, 0.85) 0%, rgba(0, 84, 40, 0.85) 100%);
   color: #fff;
   border-radius: var(--radius);
   padding: 3.5rem 2.5rem;
@@ -1064,11 +1044,7 @@ a:hover {
       rgba(229, 72, 77, 0.6),
       rgba(229, 72, 77, 0) 72%
     ),
-    linear-gradient(
-      120deg,
-      rgba(0, 140, 67, 0.85) 0%,
-      rgba(0, 110, 54, 0.85) 100%
-    );
+    linear-gradient(120deg, rgba(0, 140, 67, 0.85) 0%, rgba(0, 110, 54, 0.85) 100%);
 }
 
 .cta-band h2 {
