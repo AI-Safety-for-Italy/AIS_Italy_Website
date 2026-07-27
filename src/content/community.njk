@@ -40,7 +40,7 @@ seoDescription: 'Meet the team and members of AI Safety for Italy: researchers, 
                         <p class="team-role">{{ member.role }}</p>
                     </div>
                 </div>
-                <p>{{ member.bio }}</p>
+                <p data-en="{{ member.bio }}" data-it="{{ member.bio_it or member.bio }}">{{ member.bio }}</p>
 
                 {% if member.areas %}
                 <div class="tag-group">
