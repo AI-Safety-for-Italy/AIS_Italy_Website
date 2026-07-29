@@ -3,7 +3,7 @@ layout: page.njk
 title: Resources
 permalink: /resources/
 seoTitle: 'Resources | AI Safety for Italy'
-seoDescription: "Curated links to learn about AI safety: courses, communities, research, careers, and opportunities, selected by AI Safety for Italy."
+seoDescription: "Curated links to learn about AI safety: courses, communities, research, careers, and the national AI safety organizations working alongside us in Europe and beyond."
 ---
 
 <!-- Page hero -->
@@ -39,10 +39,58 @@ seoDescription: "Curated links to learn about AI safety: courses, communities, r
             <h2 class="reveal"><span class="eyebrow" style="margin-bottom: 0;" data-en="{{ category.icon }} {{ category.name }}" data-it="{{ category.icon }} {{ category.name_it }}">{{ category.icon }} {{ category.name }}</span></h2>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {% for link in category.links %}
-                <article class="card news-card reveal">
-                    <h3 data-en="{{ link.title }}" data-it="{{ link.title }}">{{ link.title }}</h3>
+                <article class="card resource-card reveal">
+                    <div class="resource-card-head">
+                        {% if link.logo %}
+                        <span class="resource-logo"><img src="{{ link.logo }}" alt="" width="128" height="128" loading="lazy"></span>
+                        {% else %}
+                        <span class="resource-logo resource-logo-mono" aria-hidden="true">{{ link.monogram }}</span>
+                        {% endif %}
+                        <h3 data-en="{{ link.title }}" data-it="{{ link.title }}">{{ link.title }}</h3>
+                    </div>
                     <p data-en="{{ link.description }}" data-it="{{ link.description_it }}">{{ link.description }}</p>
                     <a class="news-link" href="{{ link.url }}" target="_blank" rel="noopener noreferrer">
+                        <span data-en="Visit" data-it="Vai">Visit</span>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                    </a>
+                </article>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</section>
+
+<!-- Organizations like ours -->
+<section class="section">
+    <div class="container">
+        <div class="resource-intro reveal">
+            <h2 data-en="{{ resources.organizations.title }}" data-it="{{ resources.organizations.title_it }}">{{ resources.organizations.title }}</h2>
+            <p class="lede" data-en="{{ resources.organizations.subtitle }}" data-it="{{ resources.organizations.subtitle_it }}">{{ resources.organizations.subtitle }}</p>
+        </div>
+
+        {% for group in resources.organizations.groups %}
+        <div class="resource-group">
+            <h3 class="resource-group-title reveal"><span class="eyebrow" style="margin-bottom: 0;" data-en="{{ group.icon }} {{ group.name }}" data-it="{{ group.icon }} {{ group.name_it }}">{{ group.icon }} {{ group.name }}</span></h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {% for org in group.entries %}
+                <article class="card resource-card reveal">
+                    <div class="resource-card-head">
+                        {% if org.logo %}
+                        <span class="resource-logo"><img src="{{ org.logo }}" alt="" width="128" height="128" loading="lazy"></span>
+                        {% else %}
+                        <span class="resource-logo resource-logo-mono" aria-hidden="true">{{ org.monogram }}</span>
+                        {% endif %}
+                        <div class="resource-card-titles">
+                            <h3 data-en="{{ org.title }}" data-it="{{ org.title }}">{{ org.title }}</h3>
+                            <p class="resource-country">
+                                <span aria-hidden="true">{{ org.flag }}</span>
+                                <span data-en="{{ org.country }}" data-it="{{ org.country_it }}">{{ org.country }}</span>
+                            </p>
+                        </div>
+                    </div>
+                    <p data-en="{{ org.description }}" data-it="{{ org.description_it }}">{{ org.description }}</p>
+                    <a class="news-link" href="{{ org.url }}" target="_blank" rel="noopener noreferrer">
                         <span data-en="Visit" data-it="Vai">Visit</span>
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
                     </a>

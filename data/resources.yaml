@@ -1,6 +1,10 @@
 # Resources Page Content Data
 # Curated external links to help people learn about and get into AI safety.
 # Each field has an English value and an Italian (_it) counterpart for the language toggle.
+#
+# Card artwork: `logo` points to a normalised 128x128 PNG in src/assets/img/orgs/.
+# When a site has no usable logo, set `monogram` instead and the card renders
+# a lettered tile in the brand palette.
 
 hero:
   title: 'Resources'
@@ -29,14 +33,17 @@ categories:
         description: 'Structured courses on AI alignment and governance, with curated reading lists you can also follow on your own.'
         description_it: "Corsi strutturati su allineamento e governance dell'IA, con letture selezionate che puoi seguire anche in autonomia."
         url: 'https://aisafetyfundamentals.com/'
+        logo: '/assets/img/orgs/aisafetyfundamentals.png'
       - title: 'BlueDot Impact'
         description: 'Runs free, cohort-based courses that help people move into AI safety work.'
         description_it: "Organizza corsi gratuiti, basati su gruppi di studio, che aiutano le persone a entrare nel campo dell'AI safety."
         url: 'https://bluedot.org/'
+        logo: '/assets/img/orgs/bluedot.png'
       - title: 'AISafety.com'
         description: 'Curated lists of events, communities, courses, and more across the AI safety ecosystem.'
         description_it: "Liste selezionate di eventi, community, corsi e altro ancora in tutto l'ecosistema dell'AI safety."
         url: 'https://www.aisafety.com/'
+        logo: '/assets/img/orgs/aisafety-com.png'
 
   - id: 2
     name: 'Research & reading'
@@ -47,10 +54,12 @@ categories:
         description: 'In-depth technical discussion and research on AI alignment from the wider community.'
         description_it: "Discussioni tecniche approfondite e ricerca sull'allineamento dell'IA da parte della community."
         url: 'https://www.alignmentforum.org/'
+        monogram: 'AF'
       - title: 'AI Safety Support'
         description: 'Support, resources, and community for people looking to contribute to AI safety.'
         description_it: "Supporto, risorse e community per chi vuole contribuire all'AI safety."
         url: 'https://www.aisafetysupport.org/'
+        monogram: 'AS'
 
   - id: 3
     name: 'Careers & opportunities'
@@ -61,3 +70,215 @@ categories:
         description: 'Career guidance and a detailed problem profile on reducing risks from advanced AI.'
         description_it: "Orientamento professionale e un'analisi dettagliata su come ridurre i rischi dell'IA avanzata."
         url: 'https://80000hours.org/problem-profiles/artificial-intelligence/'
+        logo: '/assets/img/orgs/80000hours.png'
+
+# Sister organisations: national and regional groups doing work like ours elsewhere,
+# plus the Italian organisations we work alongside.
+organizations:
+  title: 'Our partners and organizations like ours'
+  title_it: 'I nostri partner e le organizzazioni come la nostra'
+  subtitle: "We do not work alone. In Italy we collaborate with partner organizations, and beyond our borders AI safety groups are forming country by country: these are the people doing work like ours elsewhere."
+  subtitle_it: "Non lavoriamo da soli. In Italia collaboriamo con organizzazioni partner, e fuori dai nostri confini i gruppi di AI safety stanno nascendo paese per paese: queste sono le realtà che fanno un lavoro come il nostro altrove."
+
+  groups:
+    - id: 1
+      name: 'Partners in Italy'
+      name_it: 'Partner in Italia'
+      icon: '🇮🇹'
+      entries:
+        - title: 'CePTE'
+          country: 'Italy'
+          country_it: 'Italia'
+          flag: '🇮🇹'
+          description: "Centro per le Politiche sulle Tecnologie Emergenti, an independent think tank producing evidence-based reports and policy recommendations on emerging technologies for Italian decision-makers."
+          description_it: "Centro per le Politiche sulle Tecnologie Emergenti, un think tank indipendente che produce report e raccomandazioni di policy basati sull'evidenza sulle tecnologie emergenti per i decisori italiani."
+          url: 'https://www.cepte.it/'
+          logo: '/assets/img/orgs/cepte.png'
+        - title: 'Effective Altruism Italia'
+          country: 'Italy'
+          country_it: 'Italia'
+          flag: '🇮🇹'
+          description: 'Altruismo Efficace Italia APS grows the Italian effective altruism community with educational programmes, career guidance, and events on how to do the most good, existential risks included.'
+          description_it: "Altruismo Efficace Italia APS fa crescere la community italiana dell'altruismo efficace con programmi formativi, orientamento professionale ed eventi su come fare del bene nel modo più efficace, rischi esistenziali compresi."
+          url: 'https://altruismoefficace.it/'
+          logo: '/assets/img/orgs/ea-italia.png'
+
+    - id: 2
+      name: 'Europe'
+      name_it: 'Europa'
+      icon: '🇪🇺'
+      entries:
+        - title: 'ENAIS'
+          country: 'Europe'
+          country_it: 'Europa'
+          flag: '🇪🇺'
+          description: 'The European Network for AI Safety, connecting researchers and policymakers for safe AI across the continent.'
+          description_it: "La rete europea per l'AI safety, che collega ricercatori e policymaker per un'IA sicura in tutto il continente."
+          url: 'https://www.enais.co/'
+          logo: '/assets/img/orgs/enais.png'
+        - title: 'Safe AI Germany (SAIGE)'
+          country: 'Germany'
+          country_it: 'Germania'
+          flag: '🇩🇪'
+          description: "A national research and field-building initiative strengthening Germany's contribution to reducing risks from advanced AI."
+          description_it: "Un'iniziativa nazionale di ricerca e field building che rafforza il contributo della Germania alla riduzione dei rischi dell'IA avanzata."
+          url: 'https://safeaigermany.org/'
+          logo: '/assets/img/orgs/saige.png'
+        - title: 'Dutch Network for AI Safety'
+          country: 'Netherlands'
+          country_it: 'Paesi Bassi'
+          flag: '🇳🇱'
+          description: 'Connects researchers, practitioners, and institutions to grow a grounded AI safety community in the Netherlands.'
+          description_it: "Collega ricercatori, professionisti e istituzioni per far crescere una community di AI safety solida nei Paesi Bassi."
+          url: 'https://www.dnais.co/'
+          logo: '/assets/img/orgs/dnais.png'
+        - title: 'Safe AI Netherlands (SAIN)'
+          country: 'Netherlands'
+          country_it: 'Paesi Bassi'
+          flag: '🇳🇱'
+          description: 'A Dutch non-profit uniting researchers, students, and professionals around the safe development and deployment of AI.'
+          description_it: "Un'organizzazione no profit olandese che unisce ricercatori, studenti e professionisti attorno allo sviluppo e all'uso sicuro dell'IA."
+          url: 'https://safeainetherlands.org/'
+          logo: '/assets/img/orgs/sain.png'
+        - title: 'CeSIA'
+          country: 'France'
+          country_it: 'Francia'
+          flag: '🇫🇷'
+          description: "The French Center for AI Safety, working on technical research, university-level teaching, and policy to build a culture of AI safety in France and Europe."
+          description_it: "Il centro francese per la sicurezza dell'IA, attivo su ricerca tecnica, insegnamento universitario e policy per costruire una cultura dell'AI safety in Francia e in Europa."
+          url: 'https://cesia.org/en/'
+          logo: '/assets/img/orgs/cesia.png'
+        - title: 'AI Safety Paris'
+          country: 'France'
+          country_it: 'Francia'
+          flag: '🇫🇷'
+          description: 'A community bringing together people in Paris working on AI safety, alignment, and governance.'
+          description_it: "Una community che riunisce chi lavora a Parigi su AI safety, allineamento e governance."
+          url: 'https://www.aisafety.paris/'
+          logo: '/assets/img/orgs/aisafety-paris.png'
+        - title: 'AI Safety España'
+          country: 'Spain'
+          country_it: 'Spagna'
+          flag: '🇪🇸'
+          description: 'A hub for AI safety in the Spanish-speaking world, helping people direct their careers towards building safer AI.'
+          description_it: "Un punto di riferimento per l'AI safety nel mondo di lingua spagnola, che aiuta le persone a orientare la propria carriera verso un'IA più sicura."
+          url: 'https://aisafety.es/'
+          logo: '/assets/img/orgs/aisafety-es.png'
+        - title: 'AI Safety Hungary'
+          country: 'Hungary'
+          country_it: 'Ungheria'
+          flag: '🇭🇺'
+          description: 'Empowers students and researchers in Hungary through seminars, fellowships, and career support.'
+          description_it: "Sostiene studenti e ricercatori in Ungheria con seminari, fellowship e supporto alla carriera."
+          url: 'https://www.aishungary.com/'
+          logo: '/assets/img/orgs/aisafety-hungary.png'
+        - title: 'AI Safety Polska'
+          country: 'Poland'
+          country_it: 'Polonia'
+          flag: '🇵🇱'
+          description: 'A community of scientists, activists, and enthusiasts reducing risks from advanced AI through talks, meetups, and talent development.'
+          description_it: "Una community di scienziati, attivisti e appassionati che riduce i rischi dell'IA avanzata con conferenze, incontri e sviluppo dei talenti."
+          url: 'https://aisafety.org.pl/'
+          logo: '/assets/img/orgs/aisafety-poland.png'
+
+    - id: 3
+      name: 'Around the world'
+      name_it: 'Nel mondo'
+      icon: '🌍'
+      entries:
+        - title: 'AI Safety 東京'
+          country: 'Japan'
+          country_it: 'Giappone'
+          flag: '🇯🇵'
+          description: 'A Tokyo-based community running talks and study groups on AI safety.'
+          description_it: "Una community con base a Tokyo che organizza talk e gruppi di studio sull'AI safety."
+          url: 'https://aisafety.tokyo/'
+          monogram: '東'
+        - title: 'AI Alignment Network (ALIGN)'
+          country: 'Japan'
+          country_it: 'Giappone'
+          flag: '🇯🇵'
+          description: 'A Japanese non-profit building an ecosystem for AI alignment researchers and practitioners across academia and industry.'
+          description_it: "Un'organizzazione no profit giapponese che costruisce un ecosistema per ricercatori e professionisti dell'allineamento tra accademia e industria."
+          url: 'https://www.aialign.net/'
+          logo: '/assets/img/orgs/align-japan.png'
+        - title: 'AI Safety Brazil'
+          country: 'Brazil'
+          country_it: 'Brasile'
+          flag: '🇧🇷'
+          description: 'A non-profit connecting professionals, researchers, and policymakers to advance safe and responsible AI development in Brazil.'
+          description_it: "Un'organizzazione no profit che collega professionisti, ricercatori e policymaker per uno sviluppo dell'IA sicuro e responsabile in Brasile."
+          url: 'https://aisafetybrazil.org/'
+          monogram: 'BR'
+        - title: 'BAISH'
+          country: 'Argentina'
+          country_it: 'Argentina'
+          flag: '🇦🇷'
+          description: 'The Buenos Aires AI Safety Hub, offering technical courses, governance programmes, and a route into AI safety research.'
+          description_it: "L'hub di AI safety di Buenos Aires, con corsi tecnici, programmi di governance e un percorso verso la ricerca in AI safety."
+          url: 'https://baish.com.ar/'
+          logo: '/assets/img/orgs/baish.png'
+        - title: 'AI Safety Mexico'
+          country: 'Mexico'
+          country_it: 'Messico'
+          flag: '🇲🇽'
+          description: 'Research, training, and community building on AI safety from a Mexican and Global South perspective.'
+          description_it: "Ricerca, formazione e community building sull'AI safety da una prospettiva messicana e del Sud globale."
+          url: 'https://www.aismx.org/'
+          logo: '/assets/img/orgs/aisafety-mexico.png'
+        - title: 'AI Safety India'
+          country: 'India'
+          country_it: 'India'
+          flag: '🇮🇳'
+          description: 'Training, research, and a cohort of practitioners advancing AI safety in India and connecting them to the global field.'
+          description_it: "Formazione, ricerca e un gruppo di professionisti che portano avanti l'AI safety in India, collegandoli al campo globale."
+          url: 'http://aisafetyindia.org/'
+          monogram: 'IN'
+        - title: 'AI Safety UAE'
+          country: 'United Arab Emirates'
+          country_it: 'Emirati Arabi Uniti'
+          flag: '🇦🇪'
+          description: 'Delivers AI safety training, model audits, and governance work while building a community around responsible AI adoption.'
+          description_it: "Offre formazione sull'AI safety, audit dei modelli e lavoro di governance, costruendo una community sull'adozione responsabile dell'IA."
+          url: 'https://aisafety.ae/'
+          logo: '/assets/img/orgs/aisafety-uae.png'
+        - title: 'AI Safety South Africa'
+          country: 'South Africa'
+          country_it: 'Sudafrica'
+          flag: '🇿🇦'
+          description: 'A Cape Town hub running community events, capacity building programmes, and a research group.'
+          description_it: "Un hub di Città del Capo con eventi per la community, programmi di capacity building e un gruppo di ricerca."
+          url: 'https://www.aisafetysa.com/'
+          logo: '/assets/img/orgs/aisafety-southafrica.png'
+        - title: 'AI Safety Morocco'
+          country: 'Morocco'
+          country_it: 'Marocco'
+          flag: '🇲🇦'
+          description: "Morocco's first in-person AI safety community, based in Casablanca, running meetups, reading groups, and research tracks."
+          description_it: "La prima community di AI safety in presenza del Marocco, con base a Casablanca: meetup, gruppi di lettura e percorsi di ricerca."
+          url: 'https://aisafetymorocco.netlify.app/'
+          logo: '/assets/img/orgs/aisafety-morocco.png'
+        - title: 'AI Safety Zambia'
+          country: 'Zambia'
+          country_it: 'Zambia'
+          flag: '🇿🇲'
+          description: 'Works on red teaming frontier models, monitoring AI harms, and building governance and research capacity across Africa.'
+          description_it: "Lavora su red teaming dei modelli di frontiera, monitoraggio dei danni dell'IA e sviluppo di capacità di governance e ricerca in Africa."
+          url: 'https://www.aisafetyzambia.com/'
+          logo: '/assets/img/orgs/aisafety-zambia.png'
+        - title: 'AI Safety Nepal'
+          country: 'Nepal'
+          country_it: 'Nepal'
+          flag: '🇳🇵'
+          description: 'A national AI safety community building local interest and capacity in Nepal.'
+          description_it: "Una community nazionale di AI safety che costruisce interesse e competenze locali in Nepal."
+          url: 'https://www.aisafetynepal.org/'
+          logo: '/assets/img/orgs/aisafety-nepal.png'
+        - title: 'Open Community for AI Safety China'
+          country: 'China'
+          country_it: 'Cina'
+          flag: '🇨🇳'
+          description: 'The largest Chinese-language AI safety community, covering AI risks, safety techniques, and governance.'
+          description_it: "La più grande community di AI safety in lingua cinese, dedicata a rischi dell'IA, tecniche di sicurezza e governance."
+          url: 'https://aisafety-cn.com/'
+          logo: '/assets/img/orgs/aisafety-china.png'
