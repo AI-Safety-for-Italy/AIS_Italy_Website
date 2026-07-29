@@ -121,32 +121,6 @@ const schemas = {
         },
         required: ['title', 'subtitle'],
       },
-      mission_vision: {
-        type: 'object',
-        properties: {
-          mission: {
-            type: 'object',
-            properties: {
-              title: { type: 'string' },
-              emoji: { type: 'string' },
-              description: { type: 'string' },
-              note: { type: 'string' },
-            },
-            required: ['title', 'description'],
-          },
-          vision: {
-            type: 'object',
-            properties: {
-              title: { type: 'string' },
-              emoji: { type: 'string' },
-              description: { type: 'string' },
-              note: { type: 'string' },
-            },
-            required: ['title', 'description'],
-          },
-        },
-        required: ['mission', 'vision'],
-      },
       approach: {
         type: 'array',
         items: {

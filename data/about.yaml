@@ -6,20 +6,6 @@ hero:
   subtitle: 'We are a non-profit organization building a community to advance AI safety in Italy.'
   subtitle_it: "Siamo un'organizzazione no profit che costruisce una community per far progredire l'AI safety in Italia."
 
-mission_vision:
-  mission:
-    title: 'Our Mission'
-    title_it: 'La Nostra Missione'
-    emoji: '🎯'
-    description: 'We connect researchers, students, and professionals across Italy, run study groups and events, and help people find their way into AI safety work.'
-    description_it: "Mettiamo in contatto ricercatori, studenti e professionisti in tutta Italia, organizziamo gruppi di studio ed eventi e aiutiamo le persone a muovere i primi passi nell'AI safety."
-  vision:
-    title: 'Our Vision'
-    title_it: 'La Nostra Visione'
-    emoji: '🌍'
-    description: 'As AI systems become more capable, making them safe becomes more urgent. We want Italy to have the people, the knowledge, and the connections to contribute to that work.'
-    description_it: "Man mano che i sistemi di IA diventano più capaci, renderli sicuri diventa più urgente. Vogliamo che l'Italia abbia le persone, le competenze e i contatti per contribuire a questo lavoro."
-
 approach_section_title: 'How We Work'
 approach_section_title_it: 'Come Lavoriamo'
 
