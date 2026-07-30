@@ -99,12 +99,15 @@ const teamData = [
     name: 'Francesco Ortu',
     role: 'Co-founder — Operations & Mentorship',
     photo: '/assets/img/team/francesco-ortu.png',
-    bio: 'Francesco is a co-founder of AI Safety for Italy and a PhD student at the University of Trieste and Area Science Park. His research focuses on the mechanistic interpretability of LLMs and VLMs. As part of his PhD, he visited the AI Safety and Alignment group at the ELLIS Institute in Tübingen.',
+    bio: 'Francesco is a co-founder of AI Safety for Italy and a PhD student at the University of Trieste and Area Science Park, where he studies the mechanistic interpretability of LLMs and VLMs. During his PhD, he spent some time as a research intern in the AI Safety and Alignment group at the ELLIS Institute in Tübingen.',
     bio_it:
-      'Francesco è co-founder di AI Safety for Italy e dottorando presso l’Università di Trieste e Area Science Park. La sua ricerca si concentra sull’interpretabilità meccanicistica di LLM e VLM. Nel corso del suo dottorato ha visitato il gruppo AI Safety and Alignment presso l’ELLIS Institute di Tübingen.',
+      'Francesco è co-founder di AI Safety for Italy e dottorando presso l’Università di Trieste e Area Science Park, dove studia l’interpretabilità meccanicistica di LLM e VLM. Durante il dottorato ha trascorso un periodo come research intern nel gruppo AI Safety and Alignment dell’ELLIS Institute di Tübingen.',
     areas: ['General Operations & Coordination', 'Mentorship'],
     interests: ['Mechanistic interpretability', 'Societal implication of AI'],
-    links: [{ label: 'Website', url: 'https://francescortu.github.io/' }],
+    links: [
+      { label: 'Website', url: 'https://francescortu.github.io/' },
+      { label: 'LinkedIn', url: 'https://www.linkedin.com/in/francescortu' },
+    ],
   },
   {
     name: 'Luca Scionis',
