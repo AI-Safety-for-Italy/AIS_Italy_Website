@@ -62,6 +62,83 @@ categories:
         monogram: 'AS'
 
   - id: 3
+    name: 'Fellowships & research programmes'
+    name_it: 'Fellowship e programmi di ricerca'
+    icon: '🎓'
+    links:
+      - title: 'MATS'
+        description: 'ML Alignment & Theory Scholars: a 12-week research programme in Berkeley and London pairing scholars with mentors in alignment, governance, and security.'
+        description_it: "ML Alignment & Theory Scholars: un programma di ricerca di 12 settimane a Berkeley e Londra che affianca gli scholar a mentor in allineamento, governance e sicurezza."
+        url: 'https://www.matsprogram.org/'
+        logo: '/assets/img/orgs/mats.png'
+      - title: 'Pivotal Research Fellowship'
+        description: 'A paid 9-week in-person fellowship in London pairing fellows with mentors on AI safety, AI governance, and biosecurity research.'
+        description_it: "Una fellowship retribuita di 9 settimane in presenza a Londra che affianca i fellow a mentor su ricerca in AI safety, governance dell'IA e biosicurezza."
+        url: 'https://www.pivotal-research.org/fellowship'
+        logo: '/assets/img/orgs/pivotal.png'
+      - title: 'SPAR'
+        description: 'The Supervised Program for Alignment Research: a part-time, remote, three-month programme pairing aspiring researchers with established mentors.'
+        description_it: "Supervised Program for Alignment Research: un programma part-time e remoto di tre mesi che affianca aspiranti ricercatori a mentor esperti."
+        url: 'https://sparai.org/'
+        logo: '/assets/img/orgs/spar.png'
+      - title: 'MARS'
+        description: 'Run by the Cambridge AI Safety Hub, a part-time programme where teams of two to four work with a mentor to produce published AI safety research.'
+        description_it: "Gestito dal Cambridge AI Safety Hub, un programma part-time in cui team di due a quattro persone lavorano con un mentor per produrre ricerca pubblicata in AI safety."
+        url: 'https://caish.org/mars'
+        logo: '/assets/img/orgs/mars.png'
+      - title: 'ERA Fellowship'
+        description: 'A fully funded 10-week summer fellowship in Cambridge for researchers working on mitigating risks from frontier AI.'
+        description_it: "Una fellowship estiva di 10 settimane interamente finanziata a Cambridge per chi fa ricerca sulla riduzione dei rischi dell'IA di frontiera."
+        url: 'https://www.erafellowship.org/'
+        logo: '/assets/img/orgs/era.png'
+      - title: 'LASR Labs'
+        description: 'A 13-week full-time technical research programme in London where small teams write and publish an academic paper under supervision.'
+        description_it: "Un programma di ricerca tecnica full-time di 13 settimane a Londra, in cui piccoli team scrivono e pubblicano un paper accademico con supervisione."
+        url: 'https://www.lasrlabs.org/'
+        logo: '/assets/img/orgs/lasr.png'
+      - title: 'Astra Fellowship'
+        description: "Constellation's fully funded five-month fellowship in Berkeley, with empirical research and strategy and governance tracks."
+        description_it: "La fellowship di cinque mesi interamente finanziata di Constellation a Berkeley, con percorsi di ricerca empirica e di strategia e governance."
+        url: 'https://www.constellation.org/programs/astra-fellowship'
+        logo: '/assets/img/orgs/astra.png'
+      - title: 'PIBBSS Fellowship'
+        description: 'Run by Principles of Intelligence, a three-month interdisciplinary fellowship for researchers from fields that study complex and intelligent systems.'
+        description_it: "Gestita da Principles of Intelligence, una fellowship interdisciplinare di tre mesi per ricercatori da discipline che studiano i sistemi complessi e intelligenti."
+        url: 'https://princint.ai/programs/fellowship/'
+        logo: '/assets/img/orgs/pibbss.png'
+      - title: 'GovAI fellowships'
+        description: 'The Centre for the Governance of AI runs three-month seasonal fellowships in London and Washington DC, plus longer research scholar and fellow positions.'
+        description_it: "Il Centre for the Governance of AI offre fellowship stagionali di tre mesi a Londra e Washington DC, oltre a posizioni più lunghe da research scholar e fellow."
+        url: 'https://www.governance.ai/opportunities'
+        logo: '/assets/img/orgs/govai.png'
+      - title: 'Talos Fellowship'
+        description: 'A European AI policy fellowship placing participants in EU institutions in Brussels, including people without prior tech policy experience.'
+        description_it: "Una fellowship europea di policy sull'IA che inserisce i partecipanti nelle istituzioni UE a Bruxelles, anche senza precedente esperienza in tech policy."
+        url: 'https://www.talosnetwork.org/'
+        logo: '/assets/img/orgs/talos.png'
+
+  - id: 4
+    name: 'Bootcamps & intensives'
+    name_it: 'Bootcamp e programmi intensivi'
+    icon: '⚡'
+    links:
+      - title: 'ARENA'
+        description: 'An in-person programming bootcamp in London for aspiring AI safety researchers with strong Python and maths foundations.'
+        description_it: "Un bootcamp di programmazione in presenza a Londra per aspiranti ricercatori di AI safety con solide basi di Python e matematica."
+        url: 'https://www.arena.education/'
+        logo: '/assets/img/orgs/arena.png'
+      - title: 'ML4Good'
+        description: 'Eight days of free, intensive, in-person AI safety training, run as regional cohorts across Europe and beyond.'
+        description_it: "Otto giorni di formazione intensiva e gratuita in presenza sull'AI safety, organizzata in coorti regionali in Europa e altrove."
+        url: 'https://www.ml4good.org/'
+        monogram: 'M4G'
+      - title: 'AI Safety Camp'
+        description: 'A virtual research incubator that helps participants sharpen a confusion about AI risk into a rigorous research direction.'
+        description_it: "Un incubatore di ricerca virtuale che aiuta i partecipanti a trasformare un dubbio sui rischi dell'IA in una direzione di ricerca rigorosa."
+        url: 'https://www.aisafety.camp/'
+        logo: '/assets/img/orgs/aisafetycamp.png'
+
+  - id: 5
     name: 'Careers & opportunities'
     name_it: 'Carriere e opportunità'
     icon: '🚀'
