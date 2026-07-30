@@ -15,6 +15,74 @@ seoDescription: "Learn about AI Safety for Italy's mission to reduce AI risks in
     </div>
 </section>
 
+<!-- Where we are — animated stylised map of Italy.
+     Outline geometry is derived from Natural Earth (public domain) via
+     world-atlas, Mercator-projected and simplified into this viewBox.
+     The draw-in, fill and dot animations all key off .is-visible, which the
+     shared scroll-reveal observer in base.njk adds. That observer applies
+     .is-visible immediately under prefers-reduced-motion, and the CSS
+     disables the motion in that case, so the map just appears. -->
+<section class="section section-alt">
+    <div class="container">
+        <div class="map-layout">
+            <figure class="map-figure reveal">
+                <svg class="italy-map" viewBox="0 0 420 560" role="img"
+                     aria-label="Stylised map of Italy marking the cities where the community has members">
+                    <defs>
+                        <linearGradient id="italyStroke" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stop-color="var(--accent)"/>
+                            <stop offset="100%" stop-color="var(--accent-400)"/>
+                        </linearGradient>
+                        <filter id="pinGlow" x="-120%" y="-120%" width="340%" height="340%">
+                            <feGaussianBlur stdDeviation="2.4" result="b"/>
+                            <feMerge>
+                                <feMergeNode in="b"/>
+                                <feMergeNode in="SourceGraphic"/>
+                            </feMerge>
+                        </filter>
+                        <filter id="linkGlow" x="-30%" y="-30%" width="160%" height="160%">
+                            <feGaussianBlur stdDeviation="1.5"/>
+                        </filter>
+                    </defs>
+                    <g class="italy-land">
+                        <path class="italy-shape italy-mainland" pathLength="1" d="M27.0,103.9 30.5,106.1 44.1,101.4 52.3,104.1 59.1,99.7 63.4,92.7 62.4,87.5 71.6,79.1 73.3,79.1 74.5,88.6 80.5,95.1 86.4,96.7 85.1,100.6 90.9,108.5 93.9,106.3 92.4,99.7 100.7,86.7 101.0,77.7 102.4,76.7 106.5,77.3 109.8,85.7 113.5,86.2 123.4,83.1 128.2,89.5 130.3,88.3 126.7,77.2 128.3,71.6 132.0,70.6 134.5,73.3 139.7,74.1 138.6,68.6 140.4,58.8 148.3,59.8 152.8,63.2 158.3,63.1 162.9,55.4 166.6,53.5 184.1,53.0 197.2,48.3 198.3,49.4 195.9,53.0 196.7,55.5 204.5,66.7 230.2,73.0 247.8,75.5 247.1,78.2 240.4,82.7 237.2,87.9 238.6,90.2 245.5,92.0 240.8,98.5 240.8,101.0 244.5,101.3 244.0,109.3 248.5,111.7 253.6,118.7 248.5,119.9 250.5,118.0 245.4,111.3 243.2,111.3 240.1,114.2 231.5,111.2 225.7,117.6 208.0,125.9 205.9,125.6 209.3,122.0 207.8,121.9 200.7,126.6 199.0,136.3 201.0,137.8 204.6,145.7 208.9,149.0 207.0,154.8 204.3,157.0 200.8,155.4 199.8,160.5 201.7,174.1 204.7,183.6 214.5,194.2 221.6,197.5 234.5,208.3 243.3,213.6 251.2,231.3 258.0,253.5 263.7,261.7 275.7,273.4 286.4,282.0 296.4,287.3 304.2,288.2 322.7,287.1 329.3,289.0 330.1,292.6 328.9,295.1 321.0,301.1 320.5,306.0 324.2,309.4 342.1,318.3 360.3,325.8 372.5,335.5 388.5,343.6 391.1,347.5 400.9,355.9 405.2,362.5 406.0,367.5 401.4,379.7 392.5,374.7 385.5,359.9 372.7,358.4 365.4,354.7 362.9,350.2 357.9,349.7 354.6,352.1 346.0,366.1 341.4,378.1 341.1,382.8 343.6,387.5 351.1,390.1 360.6,398.6 361.0,409.0 362.7,414.9 360.2,418.2 355.3,417.4 348.9,419.6 344.2,423.3 342.3,426.9 341.8,439.9 333.1,446.6 325.8,459.6 314.7,459.6 312.2,455.6 312.1,449.7 314.0,446.1 318.0,444.3 320.6,436.7 319.8,431.2 321.5,428.8 322.9,427.1 330.4,425.1 330.8,417.4 327.4,413.8 324.6,399.7 313.7,372.4 310.2,369.7 300.5,369.0 289.1,361.6 288.4,358.6 290.3,355.6 289.1,351.7 285.5,344.7 283.0,343.0 269.0,346.0 272.9,340.4 267.9,336.7 259.2,336.7 259.3,334.2 253.0,322.8 248.9,318.1 243.0,318.3 232.8,315.8 227.6,317.8 226.0,316.8 219.7,310.5 212.4,307.8 194.1,287.0 185.2,280.7 179.6,271.5 168.3,265.4 163.2,266.9 162.0,265.8 164.6,264.0 164.1,260.5 156.5,251.3 152.0,248.4 148.9,242.4 142.4,241.0 142.7,230.2 140.3,222.7 136.0,216.2 133.6,200.7 131.6,196.3 127.0,193.0 116.5,189.3 102.0,179.2 84.6,174.5 77.6,177.9 59.5,199.6 42.6,204.6 42.2,200.1 48.6,190.1 47.3,186.3 36.7,187.5 22.9,178.4 21.0,170.4 27.2,160.8 26.0,155.6 17.6,151.2 14.1,144.3 14.0,142.0 16.0,140.8 21.0,141.2 28.9,136.3 31.1,129.7 19.4,112.7 19.8,109.2 27.0,103.9Z"/>
+                        <path class="italy-shape italy-sicily" pathLength="1" d="M309.8,447.8 298.5,466.1 294.1,479.7 294.7,484.9 298.4,488.6 296.5,490.1 300.5,496.5 300.5,498.2 294.6,505.5 294.5,511.7 283.4,510.8 274.3,507.1 269.8,499.9 262.4,494.5 254.6,494.6 236.6,484.3 230.3,478.9 222.1,475.0 212.8,474.1 209.0,470.9 206.0,464.7 209.7,454.9 215.9,449.4 221.5,455.6 226.2,453.6 226.5,451.6 229.9,449.1 236.2,449.5 237.3,451.8 250.8,457.9 259.3,455.4 267.2,456.4 274.5,455.2 283.9,450.1 294.7,450.7 307.3,444.8 311.7,445.9 309.8,447.8Z"/>
+                        <path class="italy-shape italy-sardinia" pathLength="1" d="M113.3,333.7 119.0,350.3 113.6,360.4 115.8,371.2 111.0,407.7 108.5,408.9 101.1,405.6 97.3,406.5 94.2,404.6 93.2,413.0 91.3,416.4 88.5,418.5 80.8,417.9 73.2,406.0 72.6,394.3 74.1,390.8 74.2,384.0 74.9,382.8 77.2,383.6 77.4,379.0 75.7,376.4 72.8,375.6 74.9,359.3 72.8,356.7 71.0,350.3 65.5,343.8 66.0,334.1 66.7,332.3 69.6,334.7 74.8,335.7 82.4,333.1 86.5,330.7 92.3,323.6 95.9,322.3 99.9,317.2 101.7,319.7 107.4,321.9 112.7,327.7 110.7,331.5 113.3,333.7Z"/>
+                    </g>
+
+                    <!-- Network: a faint resting line per link, plus a long
+                         blurred segment that breathes its way along the same
+                         curve. Each link runs out of phase with its neighbours,
+                         so the whole graph shimmers rather than blinking. -->
+                    <g class="map-links">
+                        {% for link in about.map.links %}
+                        <path class="map-link" pathLength="1" d="{{ link.d }}" style="--link-index: {{ loop.index0 }};"/>
+                        {% endfor %}
+                        {% for link in about.map.links %}
+                        <path class="map-link-wave" pathLength="1" d="{{ link.d }}" style="--link-index: {{ loop.index0 }};"/>
+                        {% endfor %}
+                    </g>
+
+                    <g class="map-pins">
+                        {% for city in about.map.cities %}
+                        <g class="map-pin" style="--pin-index: {{ loop.index0 }};">
+                            <circle class="map-pin-halo" cx="{{ city.x }}" cy="{{ city.y }}" r="4"/>
+                            <circle class="map-pin-dot" cx="{{ city.x }}" cy="{{ city.y }}" r="4"/>
+                        </g>
+                        {% endfor %}
+                    </g>
+                </svg>
+            </figure>
+
+            <div class="map-copy reveal">
+                <h2 data-en="{{ about.map.title }}" data-it="{{ about.map.title_it }}">{{ about.map.title }}</h2>
+                <p data-en="{{ about.map.description }}" data-it="{{ about.map.description_it }}">{{ about.map.description }}</p>
+                <p data-en="{{ about.map.abroad_note }}" data-it="{{ about.map.abroad_note_it }}">{{ about.map.abroad_note }}</p>
+            </div>
+        </div>
+    </div>
+</section>
+
 <!-- CTA Section -->
 <section class="section">
     <div class="container">

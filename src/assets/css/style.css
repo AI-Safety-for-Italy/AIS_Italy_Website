@@ -1515,6 +1515,239 @@ textarea.form-input {
 }
 
 /* ==========================================================================
+   Animated map of Italy — About page
+
+   Sequence on scroll: the coastline draws itself in, the fill washes up
+   behind it, the network knits together link by link, the dots drop in, and
+   then it settles into a loop where a bright packet keeps travelling along
+   every link and each dot breathes. Everything keys off .is-visible, added
+   by the shared scroll-reveal observer in base.njk.
+   ========================================================================== */
+
+.map-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 3.25rem;
+  align-items: center;
+}
+
+@media (max-width: 900px) {
+  .map-layout {
+    grid-template-columns: 1fr;
+    gap: 2rem;
+  }
+}
+
+.map-figure {
+  margin: 0;
+  text-align: center;
+}
+
+.italy-map {
+  width: 100%;
+  max-width: 380px;
+  height: auto;
+  overflow: visible;
+}
+
+/* --- Coastline ---
+   Each path carries pathLength="1" in the markup, so its length is
+   normalised to 1 and this single dash rule drives all three rings. */
+.italy-shape {
+  fill: var(--accent-100);
+  stroke: url(#italyStroke);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  fill-opacity: 0;
+}
+
+.map-figure.is-visible .italy-shape {
+  animation: italy-draw 1.5s ease-in-out forwards, italy-fill 0.9s ease 1s forwards;
+}
+
+.map-figure.is-visible .italy-sardinia {
+  animation-delay: 0.35s, 1.2s;
+}
+
+.map-figure.is-visible .italy-sicily {
+  animation-delay: 0.5s, 1.3s;
+}
+
+@keyframes italy-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes italy-fill {
+  to {
+    fill-opacity: 1;
+  }
+}
+
+/* --- Network links ---
+   Two layers per link. The base line is a constant faint red. Over it, a long
+   blurred dash travels the same curve, so brightness swells and fades as it
+   passes: a moving breath rather than a hard packet driving along the route.
+   Each link is given its own phase so the graph shimmers instead of blinking
+   in unison. */
+.map-link {
+  fill: none;
+  stroke: var(--secondary);
+  stroke-width: 1;
+  stroke-opacity: 0;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+}
+
+.map-figure.is-visible .map-link {
+  animation: link-draw 0.7s ease-out forwards;
+  animation-delay: calc(1.5s + var(--link-index) * 0.07s);
+}
+
+@keyframes link-draw {
+  from {
+    stroke-dashoffset: 1;
+    stroke-opacity: 0;
+  }
+  to {
+    stroke-dashoffset: 0;
+    stroke-opacity: 0.22;
+  }
+}
+
+.map-link-wave {
+  fill: none;
+  stroke: var(--secondary);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  /* a long lit stretch, not a dot, so it reads as a swell of brightness */
+  stroke-dasharray: 0.4 0.6;
+  stroke-dashoffset: 1;
+  filter: url(#linkGlow);
+  opacity: 0;
+}
+
+.map-figure.is-visible .map-link-wave {
+  animation: link-breath 5.4s ease-in-out infinite;
+  animation-delay: calc(2.2s + var(--link-index) * 0.31s);
+}
+
+@keyframes link-breath {
+  0% {
+    stroke-dashoffset: 1;
+    opacity: 0;
+  }
+  25% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 0.75;
+  }
+  75% {
+    opacity: 0.45;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 0;
+  }
+}
+
+/* --- Dots --- */
+.map-pin {
+  opacity: 0;
+  transform-origin: center;
+  transform-box: fill-box;
+}
+
+.map-figure.is-visible .map-pin {
+  animation: pin-in 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  animation-delay: calc(1.75s + var(--pin-index) * 0.1s);
+}
+
+@keyframes pin-in {
+  from {
+    opacity: 0;
+    transform: scale(0.2);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.map-pin-dot {
+  fill: var(--secondary);
+  stroke: var(--bg-secondary);
+  stroke-width: 1.4;
+  filter: url(#pinGlow);
+}
+
+.map-pin-halo {
+  fill: none;
+  stroke: var(--secondary);
+  stroke-width: 1.2;
+  transform-origin: center;
+  transform-box: fill-box;
+  opacity: 0;
+}
+
+.map-figure.is-visible .map-pin-halo {
+  animation: pin-halo 3s ease-out infinite;
+  animation-delay: calc(2.3s + var(--pin-index) * 0.22s);
+}
+
+@keyframes pin-halo {
+  0% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  70%,
+  100% {
+    opacity: 0;
+    transform: scale(3.4);
+  }
+}
+
+/* Motion is decorative here, so drop straight to the finished state. */
+@media (prefers-reduced-motion: reduce) {
+  .italy-shape,
+  .map-figure.is-visible .italy-shape {
+    animation: none;
+    stroke-dashoffset: 0;
+    fill-opacity: 1;
+  }
+
+  .map-link,
+  .map-figure.is-visible .map-link {
+    animation: none;
+    stroke-dashoffset: 0;
+    stroke-opacity: 0.28;
+  }
+
+  .map-link-wave,
+  .map-figure.is-visible .map-link-wave {
+    animation: none;
+    opacity: 0;
+  }
+
+  .map-pin,
+  .map-figure.is-visible .map-pin {
+    animation: none;
+    opacity: 1;
+  }
+
+  .map-pin-halo,
+  .map-figure.is-visible .map-pin-halo {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+/* ==========================================================================
    Resource groups
    ========================================================================== */
 

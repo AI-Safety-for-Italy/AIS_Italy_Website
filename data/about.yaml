@@ -6,6 +6,81 @@ hero:
   subtitle: 'We are a non-profit organization building a community to advance AI safety in Italy.'
   subtitle_it: "Siamo un'organizzazione no profit che costruisce una community per far progredire l'AI safety in Italia."
 
+# Animated map section, rendered by src/content/about.njk.
+# x/y for cities and the `d` for links are pre-projected into that SVG's
+# 0 0 420 560 viewBox (Mercator; outline geometry derived from public-domain
+# Natural Earth data). To move a dot you need its projected x/y, not lat/lon.
+# Links are quadratic curves bowed 10% perpendicular to the chord. The set was
+# built by trying every city pair shortest first and keeping a curve only if it
+# crosses none already kept, which leaves all 10 cities connected by 21 links
+# with no intersections. Adding a city means regenerating the whole set.
+map:
+  title: 'Where we are'
+  title_it: 'Dove siamo'
+  description: 'We are spread across Italy, with members in universities, companies, and independent research. Most of us met online and now run study groups, seminars, and events wherever there are enough of us to fill a room.'
+  description_it: "Siamo distribuiti in tutta Italia, con membri in università, aziende e ricerca indipendente. Molti di noi si sono conosciuti online e oggi organizziamo gruppi di studio, seminari ed eventi dove siamo abbastanza da riempire una stanza."
+  abroad_note: 'Part of the community works abroad, which is how we stay connected to the wider AI safety field.'
+  abroad_note_it: "Una parte della community lavora all'estero, ed è così che restiamo collegati al campo internazionale dell'AI safety."
+
+  cities:
+    - name: 'Torino'
+      x: 49.0
+      y: 144.3
+    - name: 'Milano'
+      x: 98.7
+      y: 125.8
+    - name: 'Padova'
+      x: 187.5
+      y: 128.5
+    - name: 'Udine'
+      x: 232.4
+      y: 97.0
+    - name: 'Trieste'
+      x: 250.3
+      y: 117.0
+    - name: 'Bologna'
+      x: 169.8
+      y: 171.1
+    - name: 'Firenze'
+      x: 167.0
+      y: 204.5
+    - name: 'Roma'
+      x: 208.0
+      y: 288.7
+    - name: 'Napoli'
+      x: 266.6
+      y: 335.0
+    - name: 'Cagliari'
+      x: 96.4
+      y: 405.3
+
+  # Ordered shortest first so each wave of the network knits outward.
+  # Non-crossing by construction: candidate pairs are tried shortest first and
+  # any curve that would intersect an already-kept curve is dropped.
+  links:
+    - d: 'M232.4,97.0 Q239.4,108.8 250.3,117.0' # Udine-Trieste
+    - d: 'M169.8,171.1 Q165.1,187.5 167.0,204.5' # Bologna-Firenze
+    - d: 'M187.5,128.5 Q174.4,148.0 169.8,171.1' # Padova-Bologna
+    - d: 'M49.0,144.3 Q75.7,140.0 98.7,125.8' # Torino-Milano
+    - d: 'M187.5,128.5 Q213.1,117.2 232.4,97.0' # Padova-Udine
+    - d: 'M187.5,128.5 Q220.1,129.0 250.3,117.0' # Padova-Trieste
+    - d: 'M208.0,288.7 Q232.7,317.7 266.6,335.0' # Roma-Napoli
+    - d: 'M187.5,128.5 Q169.7,164.4 167.0,204.5' # Padova-Firenze
+    - d: 'M98.7,125.8 Q129.7,155.6 169.8,171.1' # Milano-Bologna
+    - d: 'M98.7,125.8 Q142.8,136.0 187.5,128.5' # Milano-Padova
+    - d: 'M167.0,204.5 Q179.1,250.7 208.0,288.7' # Firenze-Roma
+    - d: 'M98.7,125.8 Q125.0,172.0 167.0,204.5' # Milano-Firenze
+    - d: 'M250.3,117.0 Q199.9,152.4 167.0,204.5' # Trieste-Firenze
+    - d: 'M49.0,144.3 Q102.0,186.2 167.0,204.5' # Torino-Firenze
+    - d: 'M98.7,125.8 Q168.4,124.8 232.4,97.0' # Milano-Udine
+    - d: 'M208.0,288.7 Q140.5,335.8 96.4,405.3' # Roma-Cagliari
+    - d: 'M167.0,204.5 Q203.8,279.7 266.6,335.0' # Firenze-Napoli
+    - d: 'M266.6,335.0 Q174.5,353.1 96.4,405.3' # Napoli-Cagliari
+    - d: 'M167.0,204.5 Q111.6,297.8 96.4,405.3' # Firenze-Cagliari
+    - d: 'M250.3,117.0 Q236.7,227.6 266.6,335.0' # Trieste-Napoli
+    - d: 'M49.0,144.3 Q46.6,279.5 96.4,405.3' # Torino-Cagliari
+
+
 approach_section_title: 'How We Work'
 approach_section_title_it: 'Come Lavoriamo'
 
