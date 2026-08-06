@@ -1,11 +1,21 @@
 ---
-layout: page.njk
 title: Community
-permalink: /community/
+basePath: /community/
+pagination:
+  data: locales
+  size: 1
+  alias: locale
+  # Without this only the first locale reaches collections.all,
+  # and the sitemap would list the English pages only.
+  addAllPagesToCollections: true
+permalink: '{{ locale.prefix }}{{ basePath }}'
 seoTitle: 'AI Safety for Italy Community: Team & Members'
+seoTitle_it: 'Community AI Safety for Italy: il team e i membri'
 seoDescription: 'Meet the team and members of AI Safety for Italy: researchers, students, and practitioners working on mentorship, governance, technical research, and education. Open to all.'
+seoDescription_it: "Conosci il team e i membri di AI Safety for Italy: ricercatori, studenti e professionisti impegnati in mentorship, governance, ricerca tecnica e divulgazione. Aperta a tutti."
 ---
-
+{% extends "base.njk" %}
+{% block content %}
 <!-- Page hero -->
 <section class="page-hero">
     <div class="container">
@@ -37,7 +47,9 @@ seoDescription: 'Meet the team and members of AI Safety for Italy: researchers, 
                     {% endif %}
                     <div>
                         <h3>{{ member.name }}</h3>
-                        <p class="team-role">{{ member.role }}</p>
+                        {# role_it / bio_it are optional in src/data/team.js; without
+                           one the English text is kept rather than blanked. #}
+                        <p class="team-role" data-en="{{ member.role }}" data-it="{{ member.role_it or member.role }}">{{ member.role }}</p>
                     </div>
                 </div>
                 <p data-en="{{ member.bio }}" data-it="{{ member.bio_it or member.bio }}">{{ member.bio }}</p>
@@ -91,9 +103,11 @@ seoDescription: 'Meet the team and members of AI Safety for Italy: researchers, 
             <input id="tbl-search" type="text" placeholder="Search name…"
                 oninput="filterTable()"
                 class="form-input flex-1"
+                aria-label="{{ t.a11y.search_members }}"
                 data-placeholder-en="Search name…" data-placeholder-it="Cerca nome…">
             <select id="tbl-sort" onchange="filterTable()"
-                class="form-input sm:w-auto">
+                class="form-input sm:w-auto"
+                aria-label="{{ t.a11y.sort_members }}">
                 <option value="surname-asc" data-en="Surname A→Z" data-it="Cognome A→Z">Surname A→Z</option>
                 <option value="surname-desc" data-en="Surname Z→A" data-it="Cognome Z→A">Surname Z→A</option>
             </select>
@@ -185,7 +199,9 @@ seoDescription: 'Meet the team and members of AI Safety for Italy: researchers, 
 
         const count = document.getElementById('tbl-count');
         if (count) {
-            const lang = localStorage.getItem('lang') || 'en';
+            // Each language is its own page, so the document's own lang is the
+            // authority here — there is no client-side language state.
+            const lang = document.documentElement.lang || 'en';
             const unit = lang === 'it'
                 ? (visible.length !== 1 ? ' membri' : ' membro')
                 : (visible.length !== 1 ? ' members' : ' member');
@@ -199,3 +215,4 @@ seoDescription: 'Meet the team and members of AI Safety for Italy: researchers, 
     });
 })();
 </script>
+{% endblock %}

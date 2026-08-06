@@ -1,11 +1,21 @@
 ---
-layout: page.njk
 title: Initiatives
-permalink: /initiatives/
+basePath: /initiatives/
+pagination:
+  data: locales
+  size: 1
+  alias: locale
+  # Without this only the first locale reaches collections.all,
+  # and the sitemap would list the English pages only.
+  addAllPagesToCollections: true
+permalink: '{{ locale.prefix }}{{ basePath }}'
 seoTitle: 'Initiatives: Mentorship, Seminars & News | AI Safety for Italy'
+seoTitle_it: 'Iniziative: mentorship, seminari e notizie | AI Safety for Italy'
 seoDescription: 'Mentorship programs, seminars, and the latest news from AI Safety for Italy, Italy''s grassroots AI safety community.'
+seoDescription_it: "Programmi di mentorship, seminari e le ultime notizie da AI Safety for Italy, la community italiana dedicata alla sicurezza dell'IA."
 ---
-
+{% extends "base.njk" %}
+{% block content %}
 {% macro initiativeCard(event) %}
 <div class="card program-card reveal">
     <span class="chip{% if event.status == 'Upcoming' %} red{% endif %}" data-en="{{ event.status }}" data-it="{{ event.status_it }}">{{ event.status }}</span>
@@ -88,3 +98,4 @@ seoDescription: 'Mentorship programs, seminars, and the latest news from AI Safe
         </div>
     </div>
 </section>
+{% endblock %}

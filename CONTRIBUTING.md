@@ -54,7 +54,7 @@ chore: maintenance tasks
 
 - `src/content/` - Page content in Markdown format
 - `src/components/` - Reusable Nunjucks components
-- `src/layouts/` - Page layout templates
+- `src/components/base.njk` - Page shell, pulled in with `{% extends %}`
 - `src/data/` - Site-wide data files
 - `src/assets/` - CSS, JavaScript, images, and other assets
 

@@ -1,15 +1,23 @@
-<a class="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:text-sm focus:rounded-md" style="background-color: var(--card-bg); color: var(--text-primary);" href="#main">Skip to content</a>
+{# The language switch is built from `basePath`, the page's locale-independent
+   path: on /about/ it points at /it/about/ and vice versa. It carries
+   data-lang-switch so the "localize" transform leaves its href alone — every
+   other internal link on an Italian page gets moved under /it/.
+   A page with no basePath (style-guide) is single-language and gets no switch. #}
+{%- set altLocale = altLocales | first -%}
+{%- set switchUrl = (altLocale.prefix + basePath) if basePath else "" -%}
+
+<a class="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:text-sm focus:rounded-md" style="background-color: var(--card-bg); color: var(--text-primary);" href="#main" data-en="{{ translations.en.a11y.skip_to_content }}" data-it="{{ translations.it.a11y.skip_to_content }}">{{ translations.en.a11y.skip_to_content }}</a>
 
 {% include "icons.njk" %}
 
 <header class="site-header">
   <div class="container header-inner">
-    <a href="/" class="brand" aria-label="AI Safety for Italy — home">
+    <a href="/" class="brand" aria-label="{{ t.a11y.home }}">
       <img src="/assets/img/ais4i-logo.svg" alt="" width="40" height="40">
       <span>AI Safety <span class="brand-accent">for Italy</span></span>
     </a>
 
-    <nav class="main-nav hidden lg:flex" aria-label="Main navigation">
+    <nav class="main-nav hidden lg:flex" aria-label="{{ t.a11y.main_nav }}">
       <a href="/" {% if page.url == '/' %}class="active" aria-current="page"{% endif %} data-en="{{ translations.en.nav.home }}" data-it="{{ translations.it.nav.home }}">{{ translations.en.nav.home }}</a>
       <a href="/about/" {% if '/about/' == page.url %}class="active" aria-current="page"{% endif %} data-en="{{ translations.en.nav.about }}" data-it="{{ translations.it.nav.about }}">{{ translations.en.nav.about }}</a>
       <a href="/initiatives/" {% if '/initiatives/' == page.url %}class="active" aria-current="page"{% endif %} data-en="{{ translations.en.nav.events }}" data-it="{{ translations.it.nav.events }}">{{ translations.en.nav.events }}</a>
@@ -20,14 +28,19 @@
     </nav>
 
     <div class="header-actions">
-      <button id="lang-toggle" class="lang-btn" aria-label="Switch language" onclick="toggleLanguage()">
-        <span id="lang-label">IT</span>
+      {%- if switchUrl %}
+      <a class="lang-btn" href="{{ switchUrl }}" hreflang="{{ altLocale.code }}" lang="{{ altLocale.code }}"
+         aria-label="{{ altLocale.switchTitle }}" title="{{ altLocale.switchTitle }}" data-lang-switch>{{ altLocale.switchLabel }}</a>
+      {%- endif %}
+      <button id="theme-toggle" class="icon-btn" aria-label="{{ t.a11y.toggle_theme }}">
+        {# Both icons are in the markup and CSS picks one off [data-theme], so the
+           correct one is painted immediately and JS never swaps it. Each shows the
+           theme you would switch TO. #}
+        <span class="theme-icon theme-icon--to-dark" aria-hidden="true">{{ design.themes.toggle.icon.dark | default("🌙") }}</span>
+        <span class="theme-icon theme-icon--to-light" aria-hidden="true">{{ design.themes.toggle.icon.light | default("☀️") }}</span>
       </button>
-      <button id="theme-toggle" class="icon-btn" aria-label="Toggle dark mode">
-        <span id="theme-icon">🌙</span>
-      </button>
-      <a href="{{ site.forms.mailingList }}" target="_blank" class="btn btn-primary btn-sm" data-en="Join" data-it="Unisciti">Join</a>
-      <button id="menuToggle" class="icon-btn menu-toggle" aria-expanded="false" aria-controls="mobileMenu" aria-label="Open main menu" onclick="toggleMenu()">
+      <a href="{{ site.forms.mailingList }}" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-sm" data-en="{{ translations.en.nav.join }}" data-it="{{ translations.it.nav.join }}">{{ translations.en.nav.join }}</a>
+      <button id="menuToggle" class="icon-btn menu-toggle" aria-expanded="false" aria-controls="mobileMenu" aria-label="{{ t.a11y.open_menu }}">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
       </button>
     </div>
@@ -35,7 +48,7 @@
 
   <!-- Mobile menu -->
   <div id="mobileMenu" class="mobile-menu hidden">
-    <nav aria-label="Mobile navigation">
+    <nav aria-label="{{ t.a11y.mobile_nav }}">
       <a href="/" {% if page.url == '/' %}class="active"{% endif %} data-en="{{ translations.en.nav.home }}" data-it="{{ translations.it.nav.home }}">{{ translations.en.nav.home }}</a>
       <a href="/about/" {% if '/about/' == page.url %}class="active"{% endif %} data-en="{{ translations.en.nav.about }}" data-it="{{ translations.it.nav.about }}">{{ translations.en.nav.about }}</a>
       <a href="/initiatives/" {% if '/initiatives/' == page.url %}class="active"{% endif %} data-en="{{ translations.en.nav.events }}" data-it="{{ translations.it.nav.events }}">{{ translations.en.nav.events }}</a>
@@ -44,7 +57,10 @@
       <a href="/faq/" {% if '/faq/' == page.url %}class="active"{% endif %} data-en="{{ translations.en.nav.faq }}" data-it="{{ translations.it.nav.faq }}">{{ translations.en.nav.faq }}</a>
       <a href="/contact/" {% if '/contact/' == page.url %}class="active"{% endif %} data-en="{{ translations.en.nav.contact }}" data-it="{{ translations.it.nav.contact }}">{{ translations.en.nav.contact }}</a>
     </nav>
-    <a href="{{ site.forms.mailingList }}" target="_blank" class="btn btn-primary w-full" data-en="Join" data-it="Unisciti">Join</a>
-    <button onclick="toggleLanguage()" class="btn btn-outline w-full mt-2">🌐 <span id="lang-label-mobile">IT</span></button>
+    <a href="{{ site.forms.mailingList }}" target="_blank" rel="noopener noreferrer" class="btn btn-primary w-full" data-en="{{ translations.en.nav.join }}" data-it="{{ translations.it.nav.join }}">{{ translations.en.nav.join }}</a>
+    {%- if switchUrl %}
+    <a class="btn btn-outline w-full mt-2" href="{{ switchUrl }}" hreflang="{{ altLocale.code }}" lang="{{ altLocale.code }}"
+       aria-label="{{ altLocale.switchTitle }}" data-lang-switch>🌐 {{ altLocale.switchLabel }}</a>
+    {%- endif %}
   </div>
 </header>

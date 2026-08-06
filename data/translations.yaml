@@ -1,5 +1,11 @@
-# Bilingual translations for IT/EN toggle
+# Bilingual translations for EN/IT
 # Structure: translations.en.key and translations.it.key
+#
+# Templates reach these two ways:
+#   * visible text -> data-en="{{ translations.en.x }}" data-it="{{ translations.it.x }}",
+#     resolved at build time by the "localize" transform in .eleventy.js
+#   * attributes the build must resolve itself (aria-label, title) -> `t.x`,
+#     which is already the active language (see src/content/content.11tydata.js)
 
 en:
   nav:
@@ -11,6 +17,18 @@ en:
     faq: 'FAQ'
     contact: 'Contact'
     join: 'Join'
+
+  # Accessible names — read via `t.a11y.*`, never rendered as visible text.
+  a11y:
+    skip_to_content: 'Skip to content'
+    home: 'AI Safety for Italy — home'
+    main_nav: 'Main navigation'
+    mobile_nav: 'Mobile navigation'
+    footer_nav: 'Quick links'
+    toggle_theme: 'Toggle dark mode'
+    open_menu: 'Open main menu'
+    search_members: 'Search members by name'
+    sort_members: 'Sort members'
 
   hero:
     title: 'AI Safety for Italy'
@@ -70,6 +88,18 @@ it:
     faq: 'FAQ'
     contact: 'Contatti'
     join: 'Unisciti'
+
+  # Nomi accessibili — usati tramite `t.a11y.*`, mai come testo visibile.
+  a11y:
+    skip_to_content: 'Salta al contenuto'
+    home: 'AI Safety for Italy — home'
+    main_nav: 'Navigazione principale'
+    mobile_nav: 'Navigazione mobile'
+    footer_nav: 'Link rapidi'
+    toggle_theme: 'Attiva/disattiva tema scuro'
+    open_menu: 'Apri il menu principale'
+    search_members: 'Cerca i membri per nome'
+    sort_members: 'Ordina i membri'
 
   hero:
     title: 'AI Safety for Italy'

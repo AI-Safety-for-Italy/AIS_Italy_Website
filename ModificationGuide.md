@@ -389,8 +389,8 @@ description: 'Contains: colon & special chars!'
 ⚠️ **DO NOT EDIT THESE FILES** unless you know what you're doing:
 
 - `/src/assets/css/style.css` - CSS file (use `src/design/` for styling changes instead)
-- `/src/layouts/base.njk` - Page layout template
-- `/src/layouts/page.njk` - Page wrapper template
+- `/src/components/base.njk` - Page shell (head, SEO, JSON-LD, header/footer)
+- `/src/data/locales.js` - Locale definitions driving the /it/ pages
 - `/src/components/` - Reusable component templates
 - `/src/utils/` - Utility logic
 - `.eleventy.js` - Site configuration

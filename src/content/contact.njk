@@ -1,11 +1,21 @@
 ---
-layout: page.njk
 title: Contact
-permalink: /contact/
+basePath: /contact/
+pagination:
+  data: locales
+  size: 1
+  alias: locale
+  # Without this only the first locale reaches collections.all,
+  # and the sitemap would list the English pages only.
+  addAllPagesToCollections: true
+permalink: '{{ locale.prefix }}{{ basePath }}'
 seoTitle: 'Contact AI Safety for Italy'
+seoTitle_it: 'Contatti | AI Safety for Italy'
 seoDescription: "Get in touch with AI Safety for Italy by email or LinkedIn, or fill in our interest form to connect with Italy's AI safety community."
+seoDescription_it: "Contatta AI Safety for Italy via email o LinkedIn, oppure compila il form di interesse per entrare nella community italiana dell'AI safety."
 ---
-
+{% extends "base.njk" %}
+{% block content %}
 <!-- Page hero -->
 <section class="page-hero">
     <div class="container">
@@ -29,3 +39,4 @@ seoDescription: "Get in touch with AI Safety for Italy by email or LinkedIn, or 
         </div>
     </div>
 </section>
+{% endblock %}

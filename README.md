@@ -25,6 +25,7 @@ A modern, minimal static website for AI Safety Italia - built with Eleventy, Tai
 - [Building](#building)
 - [Project Structure](#project-structure)
 - [Architecture](#architecture)
+- [Bilingual Pages (EN / IT)](#bilingual-pages-en--it)
 - [Design System](#design-system)
 - [Content Management](#content-management)
 - [Utilities & Validation](#utilities--validation)
@@ -119,8 +120,9 @@ AI_Safety_Italy_Website/
 │   │   ├── css/
 │   │   │   └── style.css          # Main stylesheet (Tailwind + custom CSS)
 │   │   ├── img/                   # Images and icons
-│   │   ├── js/                    # Client-side JavaScript
-│   │   └── fonts/                 # Custom web fonts
+│   │   └── js/
+│   │       └── main.js            # Menu, theme toggle, scroll reveal, pointer FX
+│   │                              # (deferred, cached across pages)
 │   ├── components/               # Reusable Nunjucks components
 │   │   ├── header.njk            # Site header with theme toggle
 │   │   ├── footer.njk            # Site footer
@@ -132,10 +134,8 @@ AI_Safety_Italy_Website/
 │   │   ├── icons.njk             # SVG icon definitions
 │   │   ├── style-guide.njk       # Style guide component
 │   │   └── sections/             # Complex section components
-│   ├── layouts/                  # Page layout templates
-│   │   ├── base.njk              # Root HTML template (theme system, global styles)
-│   │   └── page.njk              # Page wrapper
-│   ├── content/                  # Page content (Markdown)
+│   │   └── base.njk              # Page shell: <head>, SEO, JSON-LD, header/footer
+│   ├── content/                  # Page content (one .njk per page)
 │   │   ├── index.md              # Homepage
 │   │   ├── about.md              # About page
 │   │   ├── community.md          # Community page
@@ -201,6 +201,75 @@ AI_Safety_Italy_Website/
 6. **Mobile First**: Responsive design starts with mobile-size base
 7. **Performance**: Static generation, minimal CSS, optimized assets
 
+## Bilingual Pages (EN / IT)
+
+Every page is published twice as real, crawlable HTML: English at `/about/` and
+Italian at `/it/about/`. There is no client-side language swap — the URL is the
+language, so search engines can index the Italian content and `hreflang` points
+at pages that actually exist.
+
+### How a page becomes bilingual
+
+`src/data/locales.js` lists the locales. A page opts in through its front matter:
+
+```yaml
+---
+title: About Us
+basePath: /about/          # locale-independent path
+pagination:
+  data: locales
+  size: 1
+  alias: locale
+  addAllPagesToCollections: true   # so both locales reach the sitemap
+permalink: '{{ locale.prefix }}{{ basePath }}'
+seoTitle: 'About AI Safety for Italy'
+seoTitle_it: 'Chi siamo | AI Safety for Italy'
+seoDescription: '…'
+seoDescription_it: '…'
+---
+{% extends "base.njk" %}
+{% block content %}…{% endblock %}
+```
+
+`basePath` is the single source of truth for the page's URL: the permalink, the
+`hreflang` alternates, the sitemap entry and the header's language switch are all
+derived from it. A page with no `basePath` (the style guide) stays English-only
+and gets no language switch.
+
+### How the text gets translated
+
+Templates keep authoring both languages inline, exactly as before:
+
+```html
+<h2 data-en="Get in touch" data-it="Contattaci">Get in touch</h2>
+<input placeholder="Your name" data-placeholder-en="Your name" data-placeholder-it="Il tuo nome">
+```
+
+At build time the `localize` transform in `.eleventy.js` resolves each pair down
+to one language, rewrites internal links to stay inside `/it/`, and strips the
+`data-*` attributes so no page ships both languages. Two rules:
+
+- The element must contain **text only** — the translation replaces its whole
+  content. One wrapping other markup is left in English and reported in the
+  build log.
+- An **empty** `data-it` falls back to the English text, so partially translated
+  data (for example `role_it` in `src/data/team.js`) is safe to add gradually.
+
+For strings the build has to resolve itself — `aria-label`, `title` — use `t`,
+which is already the active language: `aria-label="{{ t.a11y.open_menu }}"`.
+
+### Adding a locale
+
+Add an entry to `src/data/locales.js`, add the matching `data-<code>` attributes
+(or `*_<code>` YAML fields), and add a `translations.<code>` block. The permalinks,
+`hreflang` set, sitemap and language switch all follow automatically.
+
+> **Note:** pages use Nunjucks `{% extends %}` rather than Eleventy's `layout:`
+> front matter. Eleventy 2.0.1 throws `Cannot assign to read only property
+> 'content'` when a template uses `layout:` together with `pagination`, and every
+> localized page is paginated over `locales`. Upgrading Eleventy would remove that
+> constraint.
+
 ## Theme System
 
 The website features a sophisticated **CSS variable-based theme system** enabling seamless light/dark mode switching.
@@ -210,6 +279,13 @@ The website features a sophisticated **CSS variable-based theme system** enablin
 - **Architecture**: CSS variables declared in `:root` for light theme (default)
 - **Dark Variant**: `[data-theme='dark']` attribute on document element overrides variables
 - **Theme Toggle**: Button in header; persists user preference in localStorage
+- **No flash**: a small inline script in `<head>` reads the saved theme and sets
+  `data-theme` **before the first paint**. It has to stay inline and stay in the
+  head — deferred or moved to the end of `<body>` it becomes a white flash on
+  every visit, because the default theme (`themes.yaml` → `dark.isDefault`) is
+  dark. The toggle's click handler lives in `assets/js/main.js`
+- **Icon**: both icons are in the markup and CSS picks one off `[data-theme]`, so
+  the icon cannot flash either — JS never assigns it
 - **Coverage**: 40+ CSS variables per theme ensure uniform styling
 - **Readability**: Text colors automatically adjust for contrast (dark text on light, light text on dark)
 - **Variables**: All colors, backgrounds, borders, and shadows use CSS variables
@@ -400,7 +476,8 @@ For instructions on safely editing content and design, see our [Content Modifica
 - **Team info**: `src/data/team.js` (with validation)
 - **Utilities**: `src/utils/` 
 - **Components**: `src/components/`
-- **Layouts**: `src/layouts/`
+- **Page shell**: `src/components/base.njk`
+- **Locales**: `src/data/locales.js`
 
 ### Data Validation
 
