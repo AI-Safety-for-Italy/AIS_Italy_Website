@@ -1,11 +1,23 @@
 ---
-layout: page.njk
 title: Home
-permalink: /
+# basePath is the locale-independent path; the permalink glues the locale prefix
+# in front of it, so this page is built at / and at /it/.
+basePath: /
+pagination:
+  data: locales
+  size: 1
+  alias: locale
+  # Without this only the first locale reaches collections.all,
+  # and the sitemap would list the English pages only.
+  addAllPagesToCollections: true
+permalink: '{{ locale.prefix }}{{ basePath }}'
 seoTitle: "AI Safety for Italy"
+seoTitle_it: "AI Safety for Italy | La community italiana per la sicurezza dell'IA"
 seoDescription: "AI Safety for Italy is Italy's grassroots community reducing risks from advanced AI through awareness, education, and collaboration. Open to researchers, students, and professionals."
+seoDescription_it: "AI Safety for Italy è la community italiana che lavora per ridurre i rischi dell'IA avanzata attraverso divulgazione, formazione e collaborazione. Aperta a ricercatori, studenti e professionisti."
 ---
-
+{% extends "base.njk" %}
+{% block content %}
 <!-- Hero Section -->
 <section class="hero">
     <div class="container">
@@ -73,3 +85,4 @@ seoDescription: "AI Safety for Italy is Italy's grassroots community reducing ri
         </div>
     </div>
 </section>
+{% endblock %}

@@ -2,31 +2,40 @@
 permalink: /sitemap.xml
 eleventyExcludeFromCollections: true
 ---
+{#- Every page is listed once per locale. The alternates are built from the
+    page's `basePath` (its locale-independent path) rather than from page.url,
+    so an Italian entry advertises /about/ and /it/about/ — not /it/it/about/.
+    A page without a basePath is single-language and gets no alternates. -#}
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
         xmlns:xhtml="http://www.w3.org/1999/xhtml">
-  {%- for page in collections.all %}
-  {%- if page.url and not page.data.excludeFromSitemap %}
+  {%- for entry in collections.all %}
+  {%- if entry.url and not entry.data.excludeFromSitemap %}
+  {%- set base = entry.data.basePath %}
   <url>
-    <loc>https://aisafetycommunity.it{{ page.url }}</loc>
-    <lastmod>{{ page.date | date("Y-m-d") }}</lastmod>
+    <loc>https://aisafetycommunity.it{{ entry.url }}</loc>
+    <lastmod>{{ entry.date | date("Y-m-d") }}</lastmod>
     <changefreq>
-      {%- if page.url == "/" or "/events" in page.url -%}weekly
-      {%- elif "/about" in page.url or "/community" in page.url or "/faq" in page.url -%}monthly
+      {%- if base == "/" -%}weekly
+      {%- elif base == "/initiatives/" or base == "/community/" -%}monthly
+      {%- elif base == "/about/" or base == "/faq/" -%}monthly
       {%- else -%}yearly
       {%- endif -%}
     </changefreq>
     <priority>
-      {%- if page.url == "/" -%}1.0
-      {%- elif "/about" in page.url -%}0.9
-      {%- elif "/events" in page.url or "/faq" in page.url -%}0.8
-      {%- elif "/community" in page.url -%}0.7
+      {%- if base == "/" -%}1.0
+      {%- elif base == "/about/" -%}0.9
+      {%- elif base == "/faq/" or base == "/initiatives/" -%}0.8
+      {%- elif base == "/community/" -%}0.7
       {%- else -%}0.5
       {%- endif -%}
     </priority>
-    <xhtml:link rel="alternate" hreflang="en" href="https://aisafetycommunity.it{{ page.url }}"/>
-    <xhtml:link rel="alternate" hreflang="it" href="https://aisafetycommunity.it/it{{ page.url }}"/>
-    <xhtml:link rel="alternate" hreflang="x-default" href="https://aisafetycommunity.it{{ page.url }}"/>
+    {%- if base %}
+    {%- for l in locales %}
+    <xhtml:link rel="alternate" hreflang="{{ l.code }}" href="https://aisafetycommunity.it{{ l.prefix }}{{ base }}"/>
+    {%- endfor %}
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://aisafetycommunity.it{{ base }}"/>
+    {%- endif %}
   </url>
   {%- endif %}
   {%- endfor %}

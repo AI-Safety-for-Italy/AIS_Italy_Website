@@ -600,6 +600,28 @@ a:hover {
   border-color: var(--accent);
 }
 
+/* Theme toggle icon.
+   Both icons ship in the markup and the theme decides which one is displayed,
+   so the correct icon is painted on the first frame — the pre-paint bootstrap
+   in <head> has already set data-theme. Nothing here is swapped by JS, so the
+   icon cannot flash the way a JS-assigned one would. Each icon shows the theme
+   the button switches TO. */
+.theme-icon {
+  line-height: 1;
+}
+
+.theme-icon--to-light {
+  display: none;
+}
+
+[data-theme='dark'] .theme-icon--to-dark {
+  display: none;
+}
+
+[data-theme='dark'] .theme-icon--to-light {
+  display: inline;
+}
+
 .lang-btn {
   display: inline-flex;
   align-items: center;

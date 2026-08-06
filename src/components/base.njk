@@ -1,0 +1,272 @@
+{# ══════════════════════════════════════════════════════════════════════
+   Page shell. Content templates pull this in with Nunjucks inheritance:
+
+     {% extends "base.njk" %}
+     {% block content %}…{% endblock %}
+
+   Not with Eleventy's `layout:` front matter — Eleventy 2.0.1 crashes when a
+   template uses both `layout:` and `pagination` ("Cannot assign to read only
+   property 'content'"), and every localized page is paginated over `locales`.
+
+   `lang`, `loc`, `altLocales` and `t` come from src/content/content.11tydata.js.
+   `basePath` is the page's locale-independent path (front matter) and is what
+   the permalink, hreflang and the language switch are all built from — a page
+   without one is single-language and gets no alternates.
+   ══════════════════════════════════════════════════════════════════════ #}
+{%- set origin = "https://aisafetycommunity.it" -%}
+{%- set metaTitle = (seoTitle_it if lang == "it" and seoTitle_it else seoTitle) -%}
+{%- set metaTitle = metaTitle if metaTitle else (title + " | AI Safety for Italy") -%}
+{%- set metaDescription = (seoDescription_it if lang == "it" and seoDescription_it else seoDescription) -%}
+{%- set metaDescription = metaDescription if metaDescription else (description if description else site.description) -%}
+<!DOCTYPE html>
+<html lang="{{ lang | default('en') }}">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#008c45" />
+
+  {# ── Theme bootstrap ─────────────────────────────────────────────────
+     Must stay inline, in <head>, above the stylesheet: it sets data-theme
+     BEFORE the first paint. Moved to the end of <body> (or into main.js)
+     this becomes a white flash on every visit, because the default theme
+     is dark. The toggle's click handler lives in main.js; only the initial
+     read has to be render-blocking, so keep this small. #}
+  <script>
+    (function () {
+      try {
+        var saved = localStorage.getItem('{{ design.themes.toggle.storage.key | default("theme") }}');
+        var dark = saved
+          ? saved === 'dark'
+          : {{ "true" if design.themes.dark.isDefault else "false" }};
+        if (dark) document.documentElement.setAttribute('data-theme', 'dark');
+      } catch (e) {
+        /* Storage blocked: fall through to the stylesheet's default theme. */
+      }
+    })();
+  </script>
+
+  {# ── Core SEO ────────────────────────────────────────────────── #}
+  <title>{{ metaTitle }}</title>
+  <meta name="description" content="{{ metaDescription }}" />
+  <meta name="author" content="AI Safety for Italy" />
+
+  {# ── Canonical URL (page.url is already locale-prefixed) ─────── #}
+  <link rel="canonical" href="{{ origin }}{{ page.url }}" />
+
+  {# ── hreflang: one per locale, from src/data/locales.js ──────── #}
+  {%- if basePath %}
+  {%- for l in locales %}
+  <link rel="alternate" hreflang="{{ l.code }}" href="{{ origin }}{{ l.prefix }}{{ basePath }}" />
+  {%- endfor %}
+  <link rel="alternate" hreflang="x-default" href="{{ origin }}{{ basePath }}" />
+  {%- endif %}
+
+  {# ── Open Graph ──────────────────────────────────────────────── #}
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="AI Safety for Italy" />
+  <meta property="og:title" content="{{ metaTitle }}" />
+  <meta property="og:description" content="{{ metaDescription }}" />
+  <meta property="og:url" content="{{ origin }}{{ page.url }}" />
+  <meta property="og:image" content="{{ origin }}/assets/img/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="{% if lang == 'it' %}AI Safety for Italy: costruire un futuro più sicuro attraverso consapevolezza, educazione e community{% else %}AI Safety for Italy: Building a safer future through awareness, education, and community{% endif %}" />
+  <meta property="og:locale" content="{{ loc.ogLocale | default('en_US') }}" />
+  {%- for l in locales %}{% if l.code != lang %}
+  <meta property="og:locale:alternate" content="{{ l.ogLocale }}" />
+  {%- endif %}{% endfor %}
+
+  {# ── Twitter / X Card ────────────────────────────────────────── #}
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="{{ metaTitle }}" />
+  <meta name="twitter:description" content="{{ metaDescription }}" />
+  <meta name="twitter:image" content="{{ origin }}/assets/img/og-image.png" />
+
+  {# ── Favicon ─────────────────────────────────────────────────── #}
+  <link rel="icon" href="/favicon.ico" sizes="48x48" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+  {# ── Preload logo SVG ────────────────────────────────────────── #}
+  <link rel="preload" as="image" href="/assets/img/ais4i-logo.svg" />
+
+  {# ── Webfonts: Source Serif 4 (display) + Hanken Grotesk (body) ── #}
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600;8..60,700&family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap" />
+
+  {# ── CSS ─────────────────────────────────────────────────────── #}
+  <link rel="stylesheet" href="/assets/css/style.css" />
+
+  {# ══════════════════════════════════════════════════════════════
+     STRUCTURED DATA (JSON-LD)
+     Keyed on `basePath`, so each block emits on both the English page and its
+     /it/ counterpart. `url` and `inLanguage` describe the localized page; the
+     "#organization" / "#website" @ids stay un-prefixed because an @id is a
+     stable identifier for one real-world entity, not a per-language URL.
+     ══════════════════════════════════════════════════════════════ #}
+
+  {# Homepage: Organization + WebSite #}
+  {% if basePath == "/" %}
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": "https://aisafetycommunity.it/#organization",
+        "name": "AI Safety for Italy",
+        "alternateName": ["AI Safety Italia", "AIS4I"],
+        "url": "https://aisafetycommunity.it/",
+        "logo": {
+          "@type": "ImageObject",
+          "url": "https://aisafetycommunity.it/assets/img/ais4i-logo-512.png",
+          "width": 512,
+          "height": 512
+        },
+        "description": "Italy's grassroots community reducing risks from advanced AI through awareness, education, and collaboration.",
+        "knowsAbout": ["AI safety", "AI alignment", "AI governance", "Existential risk from AI", "Machine learning interpretability"],
+        "contactPoint": {
+          "@type": "ContactPoint",
+          "email": "aisafetyitalia@gmail.com",
+          "contactType": "general"
+        },
+        "sameAs": [
+          "https://www.linkedin.com/company/ai-safety-italia/"
+        ]
+      },
+      {
+        "@type": "WebSite",
+        "@id": "https://aisafetycommunity.it/#website",
+        "url": "https://aisafetycommunity.it/",
+        "name": "AI Safety for Italy",
+        "inLanguage": [{% for l in locales %}"{{ l.code }}"{% if not loop.last %}, {% endif %}{% endfor %}],
+        "publisher": { "@id": "https://aisafetycommunity.it/#organization" }
+      },
+      {
+        "@type": "WebPage",
+        "url": "{{ origin }}{{ page.url }}",
+        "name": {{ metaTitle | jsonld | safe }},
+        "inLanguage": "{{ lang }}",
+        "isPartOf": { "@id": "https://aisafetycommunity.it/#website" },
+        "about": { "@id": "https://aisafetycommunity.it/#organization" }
+      }
+    ]
+  }
+  </script>
+  {% endif %}
+
+  {# About page #}
+  {% if basePath == "/about/" %}
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "AboutPage",
+    "url": "{{ origin }}{{ page.url }}",
+    "name": {{ metaTitle | jsonld | safe }},
+    "inLanguage": "{{ lang }}",
+    "isPartOf": { "@id": "https://aisafetycommunity.it/#website" },
+    "about": { "@id": "https://aisafetycommunity.it/#organization" }
+  }
+  </script>
+  {% endif %}
+
+  {# FAQ page: enables Google FAQ rich results.
+     Built from data/faq.yaml in the active language — rich results are only
+     valid while the markup matches the answers visible on the page, so this
+     must not be hand-maintained alongside the template. #}
+  {% if basePath == "/faq/" %}
+  {%- set faqQuestions = faq.categories | pluckFlat("questions") -%}
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "url": "{{ origin }}{{ page.url }}",
+    "inLanguage": "{{ lang }}",
+    "isPartOf": { "@id": "https://aisafetycommunity.it/#website" },
+    "mainEntity": [
+      {%- for q in faqQuestions %}
+      {
+        "@type": "Question",
+        "name": {{ (q.question_it if lang == "it" and q.question_it else q.question) | jsonld | safe }},
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": {{ (q.answer_it if lang == "it" and q.answer_it else q.answer) | jsonld | safe }}
+        }
+      }{% if not loop.last %},{% endif %}
+      {%- endfor %}
+    ]
+  }
+  </script>
+  {% endif %}
+
+  {# Community page #}
+  {% if basePath == "/community/" %}
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    "url": "{{ origin }}{{ page.url }}",
+    "name": {{ metaTitle | jsonld | safe }},
+    "inLanguage": "{{ lang }}",
+    "isPartOf": { "@id": "https://aisafetycommunity.it/#website" },
+    "about": {
+      "@type": "Organization",
+      "@id": "https://aisafetycommunity.it/#organization",
+      "department": [
+        { "@type": "Organization", "name": "Mentorship Working Group" },
+        { "@type": "Organization", "name": "Governance and Fundraising Working Group" },
+        { "@type": "Organization", "name": "Communications Working Group" },
+        { "@type": "Organization", "name": "Technical Infrastructure Working Group" },
+        { "@type": "Organization", "name": "Events Working Group" },
+        { "@type": "Organization", "name": "Education and Outreach Working Group" }
+      ]
+    }
+  }
+  </script>
+  {% endif %}
+
+  {# Contact page #}
+  {% if basePath == "/contact/" %}
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "ContactPage",
+    "url": "{{ origin }}{{ page.url }}",
+    "name": {{ metaTitle | jsonld | safe }},
+    "inLanguage": "{{ lang }}",
+    "isPartOf": { "@id": "https://aisafetycommunity.it/#website" },
+    "mainEntity": {
+      "@type": "Organization",
+      "@id": "https://aisafetycommunity.it/#organization",
+      "contactPoint": {
+        "@type": "ContactPoint",
+        "email": "aisafetyitalia@gmail.com",
+        "contactType": "general",
+        "availableLanguage": ["English", "Italian"]
+      }
+    }
+  }
+  </script>
+  {% endif %}
+
+  {# Optional: any page can inject extra <head> content via frontmatter extraHead #}
+  {% if extraHead %}{{ extraHead | safe }}{% endif %}
+
+</head>
+<body style="background-color: var(--bg-primary); color: var(--text-primary);">
+    {% include "header.njk" %}
+
+    <main id="main">
+        {% block content %}{% endblock %}
+    </main>
+
+    {% include "footer.njk" %}
+
+    {# Site behaviour: menu, theme toggle, scroll reveal, pointer effects.
+       External + deferred so it is fetched once and cached across pages
+       instead of being re-parsed inline on every one. The only inline
+       script is the pre-paint theme bootstrap in <head>. #}
+    <script src="/assets/js/main.js" defer></script>
+</body>
+</html>

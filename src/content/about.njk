@@ -1,11 +1,21 @@
 ---
-layout: page.njk
 title: About Us
-permalink: /about/
+basePath: /about/
+pagination:
+  data: locales
+  size: 1
+  alias: locale
+  # Without this only the first locale reaches collections.all,
+  # and the sitemap would list the English pages only.
+  addAllPagesToCollections: true
+permalink: '{{ locale.prefix }}{{ basePath }}'
 seoTitle: 'About AI Safety for Italy: Our Mission & Community'
+seoTitle_it: 'Chi siamo: la missione e la community di AI Safety for Italy'
 seoDescription: "Learn about AI Safety for Italy's mission to reduce AI risks in Italy through learning, education, and community building across 9 active working groups."
+seoDescription_it: "Scopri la missione di AI Safety for Italy: ridurre i rischi dell'IA in Italia attraverso studio, divulgazione e costruzione di community, con 9 gruppi di lavoro attivi."
 ---
-
+{% extends "base.njk" %}
+{% block content %}
 <!-- Page hero -->
 <section class="page-hero">
     <div class="container">
@@ -95,3 +105,4 @@ seoDescription: "Learn about AI Safety for Italy's mission to reduce AI risks in
         </div>
     </div>
 </section>
+{% endblock %}

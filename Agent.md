@@ -79,9 +79,8 @@ AIS Italy Website/
 │   │   ├── components.yaml    # Component-specific styles
 │   │   ├── layout.yaml        # Grid, breakpoints, animations, z-index
 │   │   └── README.md          # Design system documentation
-│   ├── layouts/
-│   │   ├── base.njk           # Root HTML template with theme system
-│   │   └── page.njk           # Page wrapper layout
+│   │   └── base.njk           # Page shell: head/SEO/JSON-LD + theme system.
+│   │                          # Pages use {% extends "base.njk" %}, NOT layout:
 │   ├── content/
 │   │   ├── index.md           # Homepage entry
 │   │   ├── about.md           # About page
@@ -363,10 +362,12 @@ See `ModificationGuide.md` for detailed instructions.
 3. Make reusable and configurable
 4. Add CSS variables for theming
 
-**Modifying Layouts**:
-1. Update `src/layouts/base.njk` for global changes
-2. Update `src/layouts/page.njk` for page-specific changes
-3. Test in both light and dark themes
+**Modifying the Page Shell**:
+1. Update `src/components/base.njk` for global changes (head, SEO, header/footer)
+2. Pages pull it in with `{% extends "base.njk" %}` + `{% block content %}` —
+   Eleventy's `layout:` front matter is not used, because it crashes on Eleventy
+   2.0.1 when combined with the `pagination` that builds the localized pages
+3. Test in both light and dark themes, and on both `/…/` and `/it/…/`
 
 **Adding Utilities**:
 1. Use `src/utils/` for reusable functions
@@ -488,7 +489,11 @@ buttons:
 - **Implementation**: 
   - CSS variables declared in `:root` for light theme (default)
   - `[data-theme='dark']` selector overrides variables for dark theme
-  - JavaScript in `base.njk` manages `data-theme` attribute and localStorage
+  - A small inline script in `<head>` applies `data-theme` before first paint;
+    the toggle handler lives in `src/assets/js/main.js`. Keep the bootstrap
+    inline and in the head — moving it reintroduces a white flash on every visit
+  - The toggle icon is chosen in CSS off `[data-theme]`, never assigned by JS
+    (note: language is NOT client-side state — see "Bilingual pages" in README.md)
   - All colors, backgrounds, and theme-aware styles use CSS variables
 - **Configuration**: Controlled via `src/design/themes.yaml` with 40+ CSS variables per theme
 - **Coverage**: Uniformly applied across all pages and components

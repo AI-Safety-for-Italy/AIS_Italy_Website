@@ -1,11 +1,21 @@
 ---
-layout: page.njk
 title: Resources
-permalink: /resources/
+basePath: /resources/
+pagination:
+  data: locales
+  size: 1
+  alias: locale
+  # Without this only the first locale reaches collections.all,
+  # and the sitemap would list the English pages only.
+  addAllPagesToCollections: true
+permalink: '{{ locale.prefix }}{{ basePath }}'
 seoTitle: 'Resources | AI Safety for Italy'
+seoTitle_it: 'Risorse | AI Safety for Italy'
 seoDescription: "Curated links to learn about AI safety: courses, fellowships and research programmes such as MATS, Pivotal, SPAR, MARS and ERA, plus the partners and national AI safety organizations working alongside us."
+seoDescription_it: "Link selezionati per studiare l'AI safety: corsi, fellowship e programmi di ricerca come MATS, Pivotal, SPAR, MARS ed ERA, oltre ai partner e alle organizzazioni nazionali che collaborano con noi."
 ---
-
+{% extends "base.njk" %}
+{% block content %}
 <!-- Page hero -->
 <section class="page-hero">
     <div class="container">
@@ -110,3 +120,4 @@ seoDescription: "Curated links to learn about AI safety: courses, fellowships an
         </div>
     </div>
 </section>
+{% endblock %}

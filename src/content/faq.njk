@@ -1,11 +1,21 @@
 ---
-layout: page.njk
 title: FAQ
-permalink: /faq/
+basePath: /faq/
+pagination:
+  data: locales
+  size: 1
+  alias: locale
+  # Without this only the first locale reaches collections.all,
+  # and the sitemap would list the English pages only.
+  addAllPagesToCollections: true
+permalink: '{{ locale.prefix }}{{ basePath }}'
 seoTitle: 'FAQ | AI Safety for Italy: What is AI Safety?'
+seoTitle_it: "FAQ | AI Safety for Italy: cos'è l'AI safety?"
 seoDescription: "Answers to common questions about AI safety, AI Safety for Italy's mission, how to join, and what working groups are available."
+seoDescription_it: "Risposte alle domande più comuni sull'AI safety, sulla missione di AI Safety for Italy, su come partecipare e sui gruppi di lavoro disponibili."
 ---
-
+{% extends "base.njk" %}
+{% block content %}
 <!-- Page hero -->
 <section class="page-hero">
     <div class="container">
@@ -49,3 +59,4 @@ seoDescription: "Answers to common questions about AI safety, AI Safety for Ital
         </div>
     </div>
 </section>
+{% endblock %}
