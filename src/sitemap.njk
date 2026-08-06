@@ -13,7 +13,7 @@ eleventyExcludeFromCollections: true
   {%- if entry.url and not entry.data.excludeFromSitemap %}
   {%- set base = entry.data.basePath %}
   <url>
-    <loc>https://aisafetycommunity.it{{ entry.url }}</loc>
+    <loc>https://ais4i.it{{ entry.url }}</loc>
     <lastmod>{{ entry.date | date("Y-m-d") }}</lastmod>
     <changefreq>
       {%- if base == "/" -%}weekly
@@ -32,9 +32,9 @@ eleventyExcludeFromCollections: true
     </priority>
     {%- if base %}
     {%- for l in locales %}
-    <xhtml:link rel="alternate" hreflang="{{ l.code }}" href="https://aisafetycommunity.it{{ l.prefix }}{{ base }}"/>
+    <xhtml:link rel="alternate" hreflang="{{ l.code }}" href="https://ais4i.it{{ l.prefix }}{{ base }}"/>
     {%- endfor %}
-    <xhtml:link rel="alternate" hreflang="x-default" href="https://aisafetycommunity.it{{ base }}"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ais4i.it{{ base }}"/>
     {%- endif %}
   </url>
   {%- endif %}
