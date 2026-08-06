@@ -13,21 +13,19 @@
     "watch:css": "postcss src/assets/css/style.css -o _site/assets/css/style.css --watch",
     "watch:eleventy": "eleventy --serve",
     "build:css": "postcss src/assets/css/style.css -o _site/assets/css/style.css",
-    "build:eleventy": "eleventy"
+    "build:eleventy": "eleventy",
+    "lint": "eslint \"src/**/*.js\" --fix",
+    "prepare": "husky install"
   },
   "lint-staged": {
-    "src/**/*.{js}": [
+    "src/**/*.js": [
       "eslint --fix",
-      "prettier --write",
-      "git add"
+      "prettier --write"
     ],
     "src/**/*.{md,css,json}": [
-      "prettier --write",
-      "git add"
+      "prettier --write"
     ]
   },
-  "prepare": "husky install",
-  "lint": "eslint \"src/**/*.{js}\" --fix",
   "keywords": [
     "ai-safety",
     "eleventy",

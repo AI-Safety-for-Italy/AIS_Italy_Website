@@ -1,3 +1,4 @@
 #!/usr/bin/env sh
-: "$(dirname "$0")"/..\node_modules\.bin\sh-help >/dev/null 2>&1 || true
+. "$(dirname -- "$0")/_/husky.sh"
+
 npx --no-install lint-staged

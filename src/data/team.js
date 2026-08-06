@@ -131,16 +131,8 @@ const teamData = [
     bio: 'Working on pioneering the Artificial Wisdom paradigm, a fundamental reconceptualization of AI alignment that positions meta-ethical reasoning and contextual understanding. This research challenges the conventional approach of treating ethics as post-hoc overlays on optimization systems, proposing instead that wisdom must be embedded at the foundational level of AI architecture.',
     bio_it:
       'Lavora per pioniere il paradigma dell’Artificial Wisdom, una riconcettualizzazione fondamentale dell’AI alignment che posiziona il ragionamento meta-etico e la comprensione contestuale. Questa ricerca sfida l’approccio convenzionale che tratta l’etica come sovrapposizione post-hoc sui sistemi di ottimizzazione, proponendo invece che la saggezza debba essere integrata al livello fondamentale dell’architettura dell’IA.',
-    areas: [
-      'Communications & Social Media',
-      'Website & Technical Infrastructure',
-    ],
-    interests: [
-      'Technical AI Safety',
-      'AI Ethics',
-      'Machine Ethics',
-      'Philosophy x AI',
-    ],
+    areas: ['Communications & Social Media', 'Website & Technical Infrastructure'],
+    interests: ['Technical AI Safety', 'AI Ethics', 'Machine Ethics', 'Philosophy x AI'],
     links: [
       { label: 'LinkedIn', url: 'https://www.linkedin.com/in/MadMyspy/' },
       { label: 'Website', url: 'https://myspy.vercel.app/' },
@@ -154,11 +146,7 @@ const teamData = [
     bio_it:
       'Un AI Engineer con diversi anni di esperienza in Software e ML Engineering e una laurea in biotecnologie. Attualmente interessato all’interpretabilità meccanicistica e in generale al machine learning interpretabile.',
     areas: ['Website & Technical Infrastructure'],
-    interests: [
-      'Mechanistic Interpretability',
-      'AI Alignment',
-      'Technical AI Safety',
-    ],
+    interests: ['Mechanistic Interpretability', 'AI Alignment', 'Technical AI Safety'],
     links: [{ label: 'Website', url: 'https://grokked.it' }],
   },
   {

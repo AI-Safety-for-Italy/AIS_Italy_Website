@@ -1,13 +1,18 @@
-name: Deploy to Production
+name: CI
 
+# `pull_request` with no `branches` filter fires for a PR against any base
+# branch, so the checks below gate every PR, not only the ones targeting main.
 on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
 
 jobs:
-  build-and-deploy:
+  # Named `checks` because this is what branch protection should require. Keep
+  # it separate from deploy: a formatting failure must block a merge, and a
+  # deploy step must never be what decides whether a PR is mergeable.
+  checks:
+    name: Build and format
     runs-on: ubuntu-latest
 
     steps:
@@ -23,16 +28,21 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Check formatting
+        run: npm run format:check
+
       - name: Build site
         run: npm run build
 
-      - name: Run tests
-        run: |
-          npm run format:check
-          # Add any additional tests here
+  deploy:
+    name: Deploy to production
+    needs: checks
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
 
-      - name: Deploy to production (if merged to main)
-        if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Deploy
         run: |
-          # Add deployment steps here (e.g., upload to hosting service)
+          # Production hosting is driven by vercel.json, so there is nothing to
+          # push from here yet. Add real deployment steps in this job.
           echo "Deploying to production..."
