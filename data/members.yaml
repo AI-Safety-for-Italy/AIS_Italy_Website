@@ -1,4 +1,4 @@
-last_updated: '2026-06-30'
+last_updated: '2026-08-18'
 members:
 - id: 1
   name: Angelo Leone
@@ -25,7 +25,6 @@ members:
   profile: https://grokked.it
   location: Milano, Italia
   career: Ricercatore / Professore / professionista senior
-  institution: n8n
   hours_per_month: 5–10 ore
   areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
     ecc.), Evaluation (capability evaluations, dangerous capability evals, benchmarking),
@@ -120,21 +119,6 @@ members:
   - events
   - education
 - id: 10
-  name: Carola Maria Caivano
-  email: carola.caivano@gmail.com
-  profile: https://www.linkedin.com/in/carolacaivano/
-  location: Torino, Italia
-  career: Ricercatore / professionista mid-career
-  institution: Indipendente
-  hours_per_month: 5–10 ore
-  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
-    ecc.), Evaluation (capability evaluations, dangerous capability evals, benchmarking),
-    AI governance e policy, Etica dell'AI e impatto sociale
-  groups:
-  - communication
-  - community
-  - events
-- id: 11
   name: Battista Biggio
   email: battista.biggio@unica.it
   profile: https://battistabiggio.github.io/
@@ -143,3 +127,336 @@ members:
   institution: Univ. Cagliari
   areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
     ecc.), Robustness e adversarial ML
+- id: 11
+  name: Elisabetta Rocchetti
+  email: elisabetta.rocchetti0@gmail.com
+  profile: https://www.linkedin.com/in/elisabetta-rocchetti-70a953143/ , https://eliroc98.github.io/
+  location: Milano, Italia
+  career: Dottorando / PhD student
+  institution: Università degli Studi di Milano
+  hours_per_month: 10–20 ore
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.)
+  groups:
+  - mentorship
+  - governance
+  - community
+- id: 12
+  name: Bernardo Manfriani
+  email: bernardomanfriani@gmail.com
+  profile: https://www.linkedin.com/in/bernardomanfriani/
+  location: Firenze, Italia
+  career: Studente triennale o magistrale
+  institution: Qursor.it, aimugello.it
+  hours_per_month: 2–5 ore
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.), AI governance e policy, Etica dell'AI e impatto sociale
+  groups:
+  - mentorship
+  - technical
+  - events
+  - seminars
+  - education
+- id: 13
+  name: Giuseppe Birardi
+  email: giuseppe.birardi@gmail.com
+  profile: https://www.lesswrong.com/users/giuseppe-birardi,  https://www.linkedin.com/in/giuseppe-birardi-18a7b011/,
+    https://scholar.google.com/citations?hl=en&user=-Be-HhwAAAAJ
+  location: Bari, Italia
+  career: Ricercatore / Professore / professionista senior
+  institution: Orma Lab Srl
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.), Alignment (RLHF, scalable oversight, value alignment), Robustness e adversarial
+    ML, Etica dell'AI e impatto sociale
+- id: 14
+  name: Gabriele Sarti
+  email: gabriele.sarti996@gmail.com
+  profile: https://gsarti.com
+  location: Bremen, Germania
+  career: Postdoc o ricercatore early-career (0–3 anni post-PhD)
+  institution: Northeastern University
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.), Evaluation (capability evaluations, dangerous capability evals, benchmarking)
+- id: 15
+  name: Alberto Cazzaniga
+  email: albe.cazzaniga@gmail.com
+  location: Italia, Italia
+  career: Ricercatore / Professore / professionista senior
+  institution: Area Science Park
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.), Evaluation (capability evaluations, dangerous capability evals, benchmarking)
+- id: 16
+  name: Lionel Tzatzkin
+  email: me@lionelt.dev
+  profile: https://www.lionelt.dev
+  location: Castiglione del Lago (PG), Italy
+  career: Ricercatore / Professore / professionista senior
+  institution: PIXEDEN LLC
+  hours_per_month: 5–10 ore
+  areas: Evaluation (capability evaluations, dangerous capability evals, benchmarking),
+    Etica dell'AI e impatto sociale
+  groups:
+  - mentorship
+  - technical
+  - community
+  - seminars
+  - education
+- id: 17
+  name: Niccolò Manfredi Selvaggi
+  email: niccolo.manfrediselvaggi@cdi.eu
+  profile: https://www.linkedin.com/in/niccolò-manfredi-selvaggi?utm_source=share_via&utm_content=profile&utm_medium=member_android
+  location: Torino, Italia
+  career: Ricercatore / professionista mid-career
+  institution: Indipendente
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.), Evaluation (capability evaluations, dangerous capability evals, benchmarking)
+- id: 18
+  name: Emanuele Marconato
+  email: marconatoemanuele@gmail.com
+  profile: https://emanuele-marconato.github.io/
+  location: Trento, Italia
+  career: Postdoc o ricercatore early-career (0–3 anni post-PhD)
+  institution: Università di Trento
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.), Robustness e adversarial ML, Etica dell'AI e impatto sociale, Rischi catastrofici
+    / esistenziali
+- id: 19
+  name: Nicola Novello
+  email: nikynovello.98@gmail.com
+  profile: https://nicolanovello.github.io/
+  location: Klagenfurt, Austria
+  career: Dottorando / PhD student
+  institution: University of Klagenfurt
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.), Robustness e adversarial ML, Etica dell'AI e impatto sociale
+- id: 20
+  name: Giovanni Duca
+  email: gduca.professional@pm.me
+  profile: https://r3lativo.github.io/
+  location: Paris, France
+  career: Studente triennale o magistrale
+  institution: Inria
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.), Alignment (RLHF, scalable oversight, value alignment), Etica dell'AI e
+    impatto sociale
+- id: 21
+  name: Orazio Oztas
+  email: orazio.oztas@gmail.com
+  profile: https://github.com/oraziooztas
+  location: Torino, Italia
+  career: Studente triennale o magistrale
+  institution: Università degli Studi di Torino (MSc Computational Linguistics) /
+    UCLouvain (Erasmus 2026/27)
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.), Evaluation (capability evaluations, dangerous capability evals, benchmarking),
+    Alignment (RLHF, scalable oversight, value alignment), Robustness e adversarial
+    ML
+- id: 22
+  name: Daniele Pace
+  email: danielekpace@gmail.com
+  profile: https://danielepace.tech/
+  location: London, United Kingdom
+  career: Postdoc o ricercatore early-career (0–3 anni post-PhD)
+  institution: LASR Labs
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.), Evaluation (capability evaluations, dangerous capability evals, benchmarking),
+    Alignment (RLHF, scalable oversight, value alignment)
+- id: 23
+  name: Leonardo Piano
+  email: leopiano.98@gmail.com
+  profile: https://www.linkedin.com/in/leonardo-piano-17663a1aa/, https://github.com/leonardoPiano
+  location: Cagliari, Italia
+  career: Postdoc o ricercatore early-career (0–3 anni post-PhD)
+  institution: Indipendente
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.), Evaluation (capability evaluations, dangerous capability evals, benchmarking),
+    Robustness e adversarial ML
+- id: 24
+  name: Yasmin Bougammoura
+  email: yasmin.bougammoura@gmail.com
+  location: Hannover, Germania
+  career: Dottorando / PhD student
+  institution: Leibniz University Hannover
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.), Evaluation (capability evaluations, dangerous capability evals, benchmarking),
+    Alignment (RLHF, scalable oversight, value alignment), Robustness e adversarial
+    ML, AI governance e policy, Etica dell'AI e impatto sociale, Sicurezza informatica
+    per modelli di frontiera
+- id: 25
+  name: Edoardo Cecchinato
+  email: edoardocecchinato.ec@gmail.com
+  profile: https://www.linkedin.com/in/edoardo-cecchinato-4799a9247/
+  location: Trento, Italia
+  career: Dottorando / PhD student
+  institution: Università degli Studi di Trento
+  hours_per_month: 5–10 ore
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.), Evaluation (capability evaluations, dangerous capability evals, benchmarking),
+    Alignment (RLHF, scalable oversight, value alignment), Etica dell'AI e impatto
+    sociale
+  groups:
+  - events
+  - seminars
+- id: 26
+  name: Enrico Bottazzi
+  email: enricobottazzi@icloud.com
+  profile: https://www.leku.ink/
+  location: Bergamo, Italia
+  career: Ricercatore / professionista mid-career
+  institution: Indipendente
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.)
+- id: 27
+  name: Maura Pintor
+  email: maura.pintor@unica.it
+  profile: https://maurapintor.github.io
+  location: Cagliari, Italia
+  career: Ricercatore / professionista mid-career
+  institution: Università degli Studi di Cagliari
+  hours_per_month: 5–10 ore
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.), Evaluation (capability evaluations, dangerous capability evals, benchmarking),
+    Alignment (RLHF, scalable oversight, value alignment), Robustness e adversarial
+    ML, AI governance e policy, Sicurezza informatica per modelli di frontiera
+  groups:
+  - mentorship
+  - community
+  - events
+  - seminars
+  - education
+- id: 28
+  name: Matteo Gallo
+  email: 99matteogallo@gmail.com
+  profile: https://www.linkedin.com/in/matteo-galloai
+  location: Trieste, Italia
+  career: Dottorando / PhD student
+  institution: UniTS, OGS
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.), Etica dell'AI e impatto sociale, Rischi catastrofici / esistenziali
+- id: 29
+  name: Francesco Diana
+  email: francescodiana99@gmail.com
+  profile: https://francescodiana99.github.io/
+  location: Nice, Francia
+  career: Dottorando / PhD student
+  institution: Inria
+  areas: Robustness e adversarial ML, Etica dell'AI e impatto sociale, Sicurezza informatica
+    per modelli di frontiera
+- id: 30
+  name: Fabio Brau
+  email: fabio.brau@unica.it
+  profile: https://fabiobrau.github.io/
+  location: Cagliari, Italia
+  career: Ricercatore / professionista mid-career
+  institution: Università di Cagliari
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.), Robustness e adversarial ML
+- id: 31
+  name: Carlo Martinucci
+  email: carlo.martinucci@gmail.com
+  profile: linkedin.com/in/carlomartinucci, carlomartinucci.substack.com
+  location: Padova, Italia
+  career: Ricercatore / Professore / professionista senior
+  institution: Indipendente
+  hours_per_month: 5–10 ore
+  areas: Alignment (RLHF, scalable oversight, value alignment), AI governance e policy,
+    Etica dell'AI e impatto sociale, Rischi catastrofici / esistenziali
+  groups:
+  - mentorship
+  - education
+- id: 32
+  name: Akash Mittal
+  email: ip.akashmittal@gmail.com
+  profile: https://www.linkedin.com/in/akash-mittal/
+  location: Milan, Italy
+  career: Studente triennale o magistrale
+  institution: Independent
+  hours_per_month: 5–10 ore
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.), Evaluation (capability evaluations, dangerous capability evals, benchmarking),
+    Alignment (RLHF, scalable oversight, value alignment), Robustness e adversarial
+    ML, AI governance e policy, Etica dell'AI e impatto sociale, Rischi catastrofici
+    / esistenziali
+  groups:
+  - mentorship
+  - governance
+  - communication
+  - technical
+  - community
+  - events
+  - seminars
+  - education
+- id: 33
+  name: Daniele Federico Rosa
+  email: danielefedericorosa@gmail.com
+  profile: https://www.linkedin.com/in/danielefedericorosa/
+  location: Roma, Italia
+  career: Ricercatore / Professore / professionista senior
+  institution: Italiacamp, Lering
+  areas: Alignment (RLHF, scalable oversight, value alignment), AI governance e policy,
+    Etica dell'AI e impatto sociale, Rischi catastrofici / esistenziali
+- id: 34
+  name: Gerson Enriquez
+  email: gersonenriquez94@gmail.com
+  profile: https://www.linkedin.com/in/gerson-enriquez/
+  location: Milano, Italia
+  career: Studente triennale o magistrale
+  institution: Pillar
+  hours_per_month: 5–10 ore
+  areas: Alignment (RLHF, scalable oversight, value alignment), Etica dell'AI e impatto
+    sociale, Sicurezza informatica per modelli di frontiera, Rischi catastrofici /
+    esistenziali
+  groups:
+  - community
+  - events
+  - seminars
+- id: 35
+  name: Maria Beatrice Panico
+  email: mbpanico@gmail.com
+  profile: https://www.linkedin.com/in/maria-beatrice-panico-09337b84/
+  location: Londra, Gran Bretagna
+  career: Ricercatore / Professore / professionista senior
+  institution: Scendea
+  areas: AI governance e policy, Etica dell'AI e impatto sociale
+- id: 36
+  name: Eleonira Giunchiglia
+  email: e.giunchiglia@imperial.ac.uk
+  profile: https://profiles.imperial.ac.uk/e.giunchiglia
+  location: London, United Kingdom
+  career: Ricercatore / Professore / professionista senior
+  institution: Imperial College
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.), Alignment (RLHF, scalable oversight, value alignment), Rischi catastrofici
+    / esistenziali
+- id: 37
+  name: Michele Luca Contalbo
+  email: luca.contalbo@gmail.com
+  profile: https://www.linkedin.com/in/luca-contalbo-31894421b/
+  location: Reggio Emilia, Italia
+  career: Dottorando / PhD student
+  institution: Università di Modena e Reggio Emilia
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.), Evaluation (capability evaluations, dangerous capability evals, benchmarking),
+    Robustness e adversarial ML
+- id: 38
+  name: Daniele Potertì
+  email: daniele.poterti@gmail.com
+  profile: https://scholar.google.com/citations?user=S071miUAAAAJ&hl=it
+  location: Singapore, Singapore
+  career: Dottorando / PhD student
+  institution: NTU/Bicocca
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.), Evaluation (capability evaluations, dangerous capability evals, benchmarking)
+- id: 39
+  name: Stefano Pisciotta
+  email: stefano.pisciotta.007@gmail.com
+  profile: https://www.linkedin.com/in/stefano-pisciotta1/
+  location: Torino, Italia
+  career: Ricercatore / professionista mid-career
+  institution: ALTEC S.p.A.
+  hours_per_month: 10–20 ore
+  areas: Evaluation (capability evaluations, dangerous capability evals, benchmarking),
+    Alignment (RLHF, scalable oversight, value alignment), Robustness e adversarial
+    ML, Sicurezza informatica per modelli di frontiera, Rischi catastrofici / esistenziali
+  groups:
+  - technical

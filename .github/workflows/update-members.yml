@@ -1,0 +1,114 @@
+name: Update members
+
+# Regenerates data/members.yaml from the registration form's response sheet and
+# pushes the result to a branch for review.
+#
+# It pushes a branch rather than opening a pull request because this repository
+# does not permit GitHub Actions to create pull requests
+# ("can_approve_pull_request_reviews" is false, and only an organisation admin
+# can change that). Pushing a branch needs no such permission. The run summary
+# links straight to the compare page, so opening the PR is one click.
+#
+# Review matters here: the generated file decides who appears in the public
+# community directory, and members are removed as well as added.
+#
+# If anything goes wrong the script exits non-zero and never touches
+# members.yaml, so a failed run leaves the site exactly as it was.
+on:
+  schedule:
+    # 05:15 UTC daily. Off the hour because GitHub's scheduler queues heavily
+    # at :00 and may drop runs.
+    - cron: "15 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  BRANCH: chore/update-members
+
+jobs:
+  update:
+    name: Sync from the response sheet
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          # Full history: the push step compares the sync branch against the
+          # base to work out who last committed on it, which a shallow clone
+          # cannot answer.
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r scripts/requirements.txt
+
+      # Guards the sync itself: if the parser is broken, fail here rather than
+      # pushing a branch that quietly removes people.
+      - name: Test members sync
+        run: python3 -m unittest discover -s scripts -p 'test_*.py'
+
+      - name: Regenerate members.yaml
+        run: python3 scripts/update-members.py
+
+      - name: Push the change for review
+        run: |
+          if git diff --quiet -- data/members.yaml; then
+            echo "No change to the directory; nothing to push." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          added=$(git diff -U0 -- data/members.yaml | sed -n 's/^+  name: //p' || true)
+          removed=$(git diff -U0 -- data/members.yaml | sed -n 's/^-  name: //p' || true)
+
+          # The sync branch is rebuilt from the base every run, so yesterday's
+          # unmerged commit is meant to be replaced. Anything a person put there
+          # is not: stop rather than force-push over someone's work.
+          # (--force-with-lease cannot express this. Its lease is taken from the
+          # fetch we just did, so it would always agree with the remote and
+          # degrade into a plain --force.)
+          git fetch -q --no-tags origin "+refs/heads/$BRANCH:refs/remotes/origin/$BRANCH" 2>/dev/null || true
+          if git rev-parse -q --verify "refs/remotes/origin/$BRANCH" >/dev/null; then
+            non_bot=$(git log --format='%ae' "origin/$BRANCH" --not "origin/$BASE" \
+                      | grep -v 'github-actions\[bot\]' || true)
+            if [ -n "$non_bot" ]; then
+              echo "::error::Branch $BRANCH carries commits by $(echo "$non_bot" | tr '\n' ' ')." \
+                   "Refusing to overwrite them. Merge or delete the branch, then re-run." \
+                   "data/members.yaml on $BASE was NOT changed."
+              exit 1
+            fi
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -qc "$BRANCH"
+          git add data/members.yaml
+          git commit -qm "chore: update community members from the response sheet"
+          git push -q --force origin "$BRANCH"
+
+          {
+            echo "### Directory changes"
+            echo
+            echo "**Added**"
+            echo
+            [ -n "$added" ] && echo "$added" | sed 's/^/- /' || echo "_none_"
+            echo
+            echo "**Removed**"
+            echo
+            [ -n "$removed" ] && echo "$removed" | sed 's/^/- /' || echo "_none_"
+            echo
+            echo "A removal is expected when someone's row leaves the sheet."
+            echo "Several at once usually means the parser broke instead."
+            echo
+            echo "[**Open the pull request**]($SERVER/$REPO/compare/$BASE...$BRANCH?expand=1)"
+          } >> "$GITHUB_STEP_SUMMARY"
+        env:
+          BASE: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+          SERVER: ${{ github.server_url }}

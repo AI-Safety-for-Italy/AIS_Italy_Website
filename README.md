@@ -57,8 +57,8 @@ npm run lint
 1. Clone the repository
 
 ```bash
-git clone https://github.com/yourusername/AI_Safety_Italy_Website.git
-cd AI_Safety_Italy_Website
+git clone https://github.com/AI-Safety-for-Italy/AIS_Italy_Website.git
+cd AIS_Italy_Website
 ```
 
 2. Install dependencies
@@ -104,7 +104,7 @@ This will:
 ## Project Structure
 
 ```
-AI_Safety_Italy_Website/
+AIS_Italy_Website/
 ├── data/                         # Content data files (YAML) - Edit here for content changes
 │   ├── home.yaml                 # Homepage content
 │   ├── about.yaml                # About page content
@@ -478,6 +478,72 @@ For instructions on safely editing content and design, see our [Content Modifica
 - **Components**: `src/components/`
 - **Page shell**: `src/components/base.njk`
 - **Locales**: `src/data/locales.js`
+
+### Community Directory (`data/members.yaml`)
+
+The member table on the Community page is generated, not hand-edited. Running
+
+```bash
+pip install -r scripts/requirements.txt   # one-off
+python3 scripts/update-members.py
+```
+
+downloads the registration form's response sheet and rewrites
+`data/members.yaml`. A daily GitHub Action
+(`.github/workflows/update-members.yml`) does the same and pushes the result to
+the `chore/update-members` branch, so new sign-ups reach the site without
+anyone exporting a spreadsheet.
+
+The Action pushes a branch rather than opening a pull request because this
+organisation does not allow GitHub Actions to create PRs. Opening it is one
+click: the run summary lists who joined and who left, and links to the compare
+page. The Action refuses to run if someone has committed to that branch by
+hand, rather than force-pushing over their work.
+
+Two things to know before editing that file by hand — the next sync overwrites it:
+
+- **Consent.** Sign-ups from 2026-06-30 onward appear only if they ticked the
+  publication-consent question. Earlier sign-ups predate that question and are
+  grandfathered in, which depends on the timestamp parsing correctly.
+- **Removals.** The script writes the sheet's current state, so people
+  disappear when their row leaves the sheet. That is why the Action opens a PR
+  rather than committing straight to `main` — read the diff.
+
+**If the sync fails, the current directory stays put.** `members.yaml` is only
+replaced once a full, sane result has been rendered, so a bad run leaves the
+site exactly as it was. The script aborts with a non-zero exit — failing the
+Action and opening no pull request — when:
+
+- the sheet cannot be downloaded, or answers with a sign-in page instead of CSV
+  (which is what a sheet that stopped being link-readable looks like);
+- a column the parser needs has been renamed in the form;
+- the export has no rows, or yields no publishable members;
+- the run would remove more than 25% of the published directory, which is far
+  more often a parsing break than a real exodus. Re-run with `--force` once
+  you have confirmed the removal is genuine.
+
+`last_updated` only moves when the roster actually changes, so an unchanged day
+produces no diff and no pull request.
+
+Pass `--local` to read the newest export in `data/` instead of the live sheet,
+or `--file PATH` for a specific `.xlsx`/`.csv`.
+
+The parser is covered by `scripts/test_update_members.py`, which CI runs on
+every pull request:
+
+```bash
+npm test
+```
+
+Two repository settings this depends on:
+
+- The sync needs no special permissions beyond `contents: write`, which the
+  workflow requests for itself. It deliberately does not depend on *"Allow
+  GitHub Actions to create and approve pull requests"*, which is disabled here
+  and only an organisation admin can change.
+- GitHub **disables scheduled workflows after 60 days without repository
+  activity**, without notice. If the repo goes quiet, re-enable the workflow
+  from the Actions tab — the sync stops silently otherwise.
 
 ### Data Validation
 

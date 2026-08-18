@@ -5,8 +5,8 @@ Thank you for your interest in contributing to the AI Safety Italia Website! We 
 ## Getting Started
 
 1. Fork the repository
-2. Clone your fork: `git clone https://github.com/MadhusudhanPathak/AIS_Italy_Website`
-3. Navigate to the project directory: `cd AI_Safety_Italy_Website`
+2. Clone your fork: `git clone https://github.com/AI-Safety-for-Italy/AIS_Italy_Website`
+3. Navigate to the project directory: `cd AIS_Italy_Website`
 4. Install dependencies: `npm install`
 5. Create a new branch: `git checkout -b feature/your-feature-name`
 

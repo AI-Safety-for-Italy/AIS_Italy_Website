@@ -31,6 +31,20 @@ jobs:
       - name: Check formatting
         run: npm run format:check
 
+      # The members sync decides who appears in the public community directory,
+      # and its failure mode is silent: a parsing break exits 0 and writes a
+      # well-formed file with people missing. Gate merges on these tests.
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python dependencies
+        run: pip install -r scripts/requirements.txt
+
+      - name: Test members sync
+        run: npm run test:members
+
       - name: Build site
         run: npm run build
 

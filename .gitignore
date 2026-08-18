@@ -99,3 +99,10 @@ temp/
 
 # Local design-system reference (not part of the site)
 Design/
+
+# Python bytecode from scripts/
+__pycache__/
+*.pyc
+
+# Local Python environment for scripts/
+.venv/
