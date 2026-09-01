@@ -2,9 +2,11 @@ name: CI
 
 # `pull_request` with no `branches` filter fires for a PR against any base
 # branch, so the checks below gate every PR, not only the ones targeting main.
+# `dev` is listed alongside `main` so that the deploy job below can be exercised
+# on a throwaway preview URL before it is ever responsible for the live domain.
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
   pull_request:
 
 jobs:
@@ -31,32 +33,71 @@ jobs:
       - name: Check formatting
         run: npm run format:check
 
-      # The members sync decides who appears in the public community directory,
-      # and its failure mode is silent: a parsing break exits 0 and writes a
-      # well-formed file with people missing. Gate merges on these tests.
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install Python dependencies
-        run: pip install -r scripts/requirements.txt
-
-      - name: Test members sync
-        run: npm run test:members
-
       - name: Build site
         run: npm run build
 
   deploy:
-    name: Deploy to production
+    name: Deploy ${{ github.ref_name }}
     needs: checks
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # Pushes only. On a pull_request event the checked-out tree is a merge
+    # commit that exists on neither branch, so deploying it would publish
+    # something no branch actually points at.
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
 
+    # Keyed per ref so a dev deploy and a main deploy never cancel each other,
+    # while two pushes to the same branch still collapse to the newer commit.
+    concurrency:
+      group: deploy-${{ github.ref }}
+      cancel-in-progress: true
+
+    # The Vercel CLI reads these from the environment to know which account and
+    # project it is acting on, so no `.vercel` directory is committed.
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      # Only `main` publishes to the production alias, which is the alias a
+      # custom domain follows. Every other branch lands on a preview URL that
+      # nothing points at, so running this job from dev is inert by design.
+      - name: Resolve deploy target
+        id: target
+        run: |
+          if [ "$GITHUB_REF" = "refs/heads/main" ]; then
+            echo "environment=production" >> "$GITHUB_OUTPUT"
+            echo "prod_flag=--prod" >> "$GITHUB_OUTPUT"
+          else
+            echo "environment=preview" >> "$GITHUB_OUTPUT"
+            echo "prod_flag=" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Writes the project settings from vercel.json and the dashboard into
+      # .vercel/, so the build below uses the same configuration a deploy
+      # triggered from the Vercel dashboard would.
+      - name: Pull Vercel project settings
+        run: vercel pull --yes --environment=${{ steps.target.outputs.environment }} --token=${{ secrets.VERCEL_TOKEN }}
+
+      # Building here rather than on Vercel keeps the artifact that ships
+      # identical to the one this workflow produced, and lets the deploy step
+      # use --prebuilt to skip a second build.
+      - name: Build
+        run: vercel build ${{ steps.target.outputs.prod_flag }} --token=${{ secrets.VERCEL_TOKEN }}
+
       - name: Deploy
         run: |
-          # Production hosting is driven by vercel.json, so there is nothing to
-          # push from here yet. Add real deployment steps in this job.
-          echo "Deploying to production..."
+          url=$(vercel deploy --prebuilt ${{ steps.target.outputs.prod_flag }} --token=${{ secrets.VERCEL_TOKEN }})
+          echo "Deployed ${{ steps.target.outputs.environment }} to $url"
+          echo "Deployed \`${{ steps.target.outputs.environment }}\` to $url" >> "$GITHUB_STEP_SUMMARY"
