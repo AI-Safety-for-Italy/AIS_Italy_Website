@@ -1,4 +1,4 @@
-last_updated: '2026-08-18'
+last_updated: '2026-09-05'
 members:
 - id: 1
   name: Angelo Leone
@@ -460,3 +460,30 @@ members:
     ML, Sicurezza informatica per modelli di frontiera, Rischi catastrofici / esistenziali
   groups:
   - technical
+- id: 40
+  name: Lucia Cerulo
+  email: lca.cerulo@gmail.com
+  location: Bologna, Italia
+  career: Studente triennale o magistrale
+  institution: Cooperativa sociale
+  areas: Alignment (RLHF, scalable oversight, value alignment), AI governance e policy,
+    Etica dell'AI e impatto sociale, Rischi catastrofici / esistenziali
+- id: 41
+  name: Jacopo Zacchigna
+  email: jaczac2002@gmail.com
+  profile: https://jac-zac.github.io/
+  location: Trieste, Italia
+  career: Studente triennale o magistrale
+  institution: Università di Trieste
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.)
+- id: 42
+  name: elettra decise
+  email: ellie.decise@gmail.com
+  profile: linkedin.com/in/elettra-decise , github.com/eledecise
+  location: torino, italia
+  career: Studente triennale o magistrale
+  institution: indipendente
+  areas: Alignment (RLHF, scalable oversight, value alignment), Robustness e adversarial
+    ML, AI governance e policy, Etica dell'AI e impatto sociale, Sicurezza informatica
+    per modelli di frontiera
