@@ -1100,13 +1100,26 @@ a:hover {
    Supporters — funder logos at the foot of the home page
    ========================================================================== */
 
+/* No tinted background and no rules: the band should stay quiet between the
+   sections it sits among, and keeps the label tight to the logo. */
 .supporters {
-  padding: 3rem 0;
+  padding: 1rem 0 0.5rem;
+  text-align: center;
 }
 
-/* The band carries an eyebrow only, so it needs far less room than a full head */
-.supporters .section-head {
-  margin-bottom: 1.6rem;
+/* The CTA below carries another 4.5rem; trim it so the logo does not sit in
+   the middle of an empty stretch */
+.supporters + .section {
+  padding-top: 2.5rem;
+}
+
+.supporters-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin-bottom: 0.75rem;
 }
 
 .supporter-list {
@@ -1136,8 +1149,8 @@ a:hover {
   display: block;
   width: auto;
   height: auto;
-  max-height: 64px;
-  max-width: min(280px, 70vw);
+  max-height: 88px;
+  max-width: min(340px, 75vw);
 }
 
 /* A dark wordmark would disappear on the dark background, so give it a plate */

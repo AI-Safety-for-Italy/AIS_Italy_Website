@@ -32,9 +32,6 @@ seoDescription_it: "AI Safety for Italy è la community italiana che lavora per 
     </div>
 </section>
 
-{% set newsAlt = true %}
-{% include "news-carousel.njk" %}
-
 <!-- What We Do -->
 <section class="section" id="learn-more">
     <div class="container">
@@ -73,25 +70,10 @@ seoDescription_it: "AI Safety for Italy è la community italiana che lavora per 
     </div>
 </section>
 
-{% include "contact-form.njk" %}
-
-<!-- CTA Section -->
-<section class="section">
-    <div class="container">
-        <div class="cta-band reveal">
-            <h2 data-en="{{ translations.en.cta.title }}" data-it="{{ translations.it.cta.title }}">{{ translations.en.cta.title }}</h2>
-            <p data-en="{{ translations.en.cta.description }}" data-it="{{ translations.it.cta.description }}">{{ translations.en.cta.description }}</p>
-            <a href="{{ site.forms.mailingList }}" target="_blank" class="btn" data-en="{{ translations.en.cta.button }}" data-it="{{ translations.it.cta.button }}">{{ translations.en.cta.button }}</a>
-        </div>
-    </div>
-</section>
-
 <!-- Supported by -->
-<section class="section section-alt supporters">
+<section class="section supporters">
     <div class="container">
-        <div class="section-head center reveal">
-            <span class="eyebrow" data-en="{{ translations.en.supporters.heading }}" data-it="{{ translations.it.supporters.heading }}">{{ translations.en.supporters.heading }}</span>
-        </div>
+        <p class="supporters-label reveal" data-en="{{ translations.en.supporters.heading }}" data-it="{{ translations.it.supporters.heading }}">{{ translations.en.supporters.heading }}</p>
         <ul class="supporter-list reveal">
             {% for supporter in home.supporters %}
             <li>
@@ -101,6 +83,17 @@ seoDescription_it: "AI Safety for Italy è la community italiana che lavora per 
             </li>
             {% endfor %}
         </ul>
+    </div>
+</section>
+
+<!-- CTA Section -->
+<section class="section">
+    <div class="container">
+        <div class="cta-band reveal">
+            <h2 data-en="{{ translations.en.cta.title }}" data-it="{{ translations.it.cta.title }}">{{ translations.en.cta.title }}</h2>
+            <p data-en="{{ translations.en.cta.description }}" data-it="{{ translations.it.cta.description }}">{{ translations.en.cta.description }}</p>
+            <a href="{{ site.forms.mailingList }}" target="_blank" class="btn" data-en="{{ translations.en.cta.button }}" data-it="{{ translations.it.cta.button }}">{{ translations.en.cta.button }}</a>
+        </div>
     </div>
 </section>
 {% endblock %}
