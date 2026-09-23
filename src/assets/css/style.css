@@ -991,6 +991,32 @@ a:hover {
   transform: translateX(3px);
 }
 
+/* A card with an internal details page: the title link stretches over the
+   whole card, and the external link stays clickable above it. */
+.news-card.is-linked {
+  position: relative;
+}
+
+.news-card-link {
+  color: inherit;
+}
+
+.news-card-link::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+
+.news-card.is-linked:hover .news-card-link {
+  color: var(--accent);
+}
+
+.news-card.is-linked .news-link {
+  position: relative;
+  z-index: 1;
+}
+
 /* ==========================================================================
    Split (challenge / solution) — colored top borders
    ========================================================================== */
@@ -1348,6 +1374,41 @@ a:hover {
   flex-shrink: 0;
 }
 
+/* Inset panel: the recessed surface used by section-alt and table heads,
+   set inside the white card. */
+.program-agenda-box {
+  margin-top: 1.5rem;
+  padding: 1rem 1.25rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+}
+
+.program-agenda-title {
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin: 0 0 0.5rem;
+}
+
+.program-agenda {
+  margin-top: 0;
+  display: block;
+}
+
+.program-agenda li {
+  border: none;
+}
+
+.program-agenda strong {
+  min-width: 110px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 /* ==========================================================================
    FAQ accordion
    ========================================================================== */
@@ -1635,6 +1696,7 @@ textarea.form-input {
     stroke-dashoffset: 1;
     stroke-opacity: 0;
   }
+
   to {
     stroke-dashoffset: 0;
     stroke-opacity: 0.22;
@@ -1663,15 +1725,19 @@ textarea.form-input {
     stroke-dashoffset: 1;
     opacity: 0;
   }
+
   25% {
     opacity: 0.5;
   }
+
   50% {
     opacity: 0.75;
   }
+
   75% {
     opacity: 0.45;
   }
+
   100% {
     stroke-dashoffset: 0;
     opacity: 0;
@@ -1695,6 +1761,7 @@ textarea.form-input {
     opacity: 0;
     transform: scale(0.2);
   }
+
   to {
     opacity: 1;
     transform: scale(1);
@@ -1727,6 +1794,7 @@ textarea.form-input {
     opacity: 0.55;
     transform: scale(1);
   }
+
   70%,
   100% {
     opacity: 0;

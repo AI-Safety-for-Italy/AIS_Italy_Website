@@ -41,6 +41,54 @@ upcoming_events:
     register_link: 'placeholder'
     register_target: '_blank'
 
+  - id: 4
+    anchor: 'meetup-milano-2026'
+    category: 'seminar'
+    title: 'AI Safety for Italy Meetup'
+    title_it: 'Meetup AI Safety for Italy'
+    date: 'Monday 5 October 2026, 18:00–20:30'
+    date_it: 'Lunedì 5 ottobre 2026, 18:00–20:30'
+    status: 'Upcoming'
+    status_it: 'In arrivo'
+    description: "The first official meetup of the AI Safety for Italy community! We will introduce the community, our mission and the projects ahead, then open the floor for an aperitivo: time to meet each other and talk research, policy and AI ethics over a drink and something to nibble."
+    description_it: "Il primo meetup ufficiale della community AI Safety for Italy! Presenteremo la community, la nostra mission e i progetti futuri, poi spazio all'aperitivo: un momento per conoscerci e scambiare idee su ricerca, policy ed etica dell'IA davanti a un buon drink e qualcosa da stuzzicare."
+    format_info:
+      - label: 'Format'
+        label_it: 'Formato'
+        value: 'In person, Milan'
+        value_it: 'In presenza, Milano'
+      - label: 'Who is it for'
+        label_it: 'Per chi'
+        value: 'Anyone interested in AI safety'
+        value_it: "Chiunque sia interessato all'AI safety"
+    agenda:
+      - time: '18:00–18:05'
+        title: 'Welcome and opening'
+        title_it: 'Accoglienza e introduzione'
+      - time: '18:05–18:30'
+        title: 'Introduction to AI Safety'
+        title_it: "Introduzione all'AI Safety"
+      - time: '18:30–18:40'
+        title: 'AI Safety for Italy: who we are, what we do and how to get involved'
+        title_it: 'AI Safety for Italy: chi siamo, cosa facciamo e come partecipare'
+      - time: '18:40–18:45'
+        title: 'Presenting the mentorship program'
+        title_it: 'Presentazione del programma di mentorship'
+      - time: '18:45–19:00'
+        title: 'Q&A'
+        title_it: 'Q&A'
+      - time: '19:00–20:30'
+        title: 'Networking and aperitivo'
+        title_it: 'Networking e aperitivo'
+    register_text: 'Register on Luma'
+    register_text_it: 'Iscriviti su Luma'
+    register_link: 'https://luma.com/jcx4jd7z'
+    register_target: '_blank'
+    # Fill in when the streaming link is ready; the button appears on its own.
+    stream_text: 'Watch the livestream'
+    stream_text_it: 'Segui la diretta'
+    stream_link: ''
+
   - id: 3
     category: 'seminar'
     title: 'Wednesday Researcher Meetup'

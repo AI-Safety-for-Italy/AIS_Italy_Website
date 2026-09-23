@@ -17,7 +17,7 @@ seoDescription_it: "Programmi di mentorship, seminari e le ultime notizie da AI 
 {% extends "base.njk" %}
 {% block content %}
 {% macro initiativeCard(event) %}
-<div class="card program-card reveal">
+<div class="card program-card reveal"{% if event.anchor %} id="{{ event.anchor }}"{% endif %}>
     <span class="chip{% if event.status == 'Upcoming' %} red{% endif %}" data-en="{{ event.status }}" data-it="{{ event.status_it }}">{{ event.status }}</span>
     <h3 data-en="{{ event.title }}" data-it="{{ event.title_it }}">{{ event.title }}</h3>
     <div class="flex items-center gap-2 mb-4" style="font-size: 0.95rem; font-weight: 600; color: var(--text-secondary);">
@@ -35,10 +35,29 @@ seoDescription_it: "Programmi di mentorship, seminari e le ultime notizie da AI 
         {% endfor %}
     </ul>
     {% endif %}
-    {% if event.register_link and event.register_text %}
-    <p style="margin-top: 1.5rem; margin-bottom: 0;">
+    {% if event.agenda %}
+    <div class="program-agenda-box">
+        <h4 class="program-agenda-title" data-en="Agenda" data-it="Programma">Agenda</h4>
+        <ul class="program-meta program-agenda">
+            {% for slot in event.agenda %}
+            <li>
+                <strong>{{ slot.time }}</strong>
+                <span data-en="{{ slot.title }}" data-it="{{ slot.title_it }}">{{ slot.title }}</span>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+    {% if (event.register_link and event.register_text) or event.stream_link %}
+    <p class="flex flex-wrap gap-3" style="margin-top: 1.5rem; margin-bottom: 0;">
+        {% if event.register_link and event.register_text %}
         <a href="{{ event.register_link }}" target="{{ event.register_target }}" class="btn btn-outline"
            data-en="{{ event.register_text }}" data-it="{{ event.register_text_it }}">{{ event.register_text }}</a>
+        {% endif %}
+        {% if event.stream_link %}
+        <a href="{{ event.stream_link }}" target="_blank" rel="noopener noreferrer" class="btn btn-outline"
+           data-en="{{ event.stream_text }}" data-it="{{ event.stream_text_it }}">{{ event.stream_text }}</a>
+        {% endif %}
     </p>
     {% endif %}
 </div>
