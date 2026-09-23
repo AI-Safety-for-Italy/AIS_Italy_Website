@@ -54,6 +54,9 @@ en:
     description: "Whether you're a researcher, student, professional, or simply curious about AI safety, there's a place for you in our community."
     button: 'Join the Community'
 
+  supporters:
+    heading: 'Supported by'
+
   community:
     hero_title: 'Join Our Community'
     hero_subtitle: 'Connect with researchers, practitioners, and enthusiasts passionate about AI safety.'
@@ -124,6 +127,9 @@ it:
     title: 'Pronto a Unirti alla Nostra Community?'
     description: "Che tu sia un ricercatore, studente, professionista o semplicemente curioso riguardo all'AI safety, c'è un posto per te nella nostra community."
     button: 'Unisciti alla Community'
+
+  supporters:
+    heading: 'Con il supporto di'
 
   community:
     hero_title: 'Unisciti alla Community'

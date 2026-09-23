@@ -1097,6 +1097,56 @@ a:hover {
 }
 
 /* ==========================================================================
+   Supporters — funder logos at the foot of the home page
+   ========================================================================== */
+
+.supporters {
+  padding: 3rem 0;
+}
+
+/* The band carries an eyebrow only, so it needs far less room than a full head */
+.supporters .section-head {
+  margin-bottom: 1.6rem;
+}
+
+.supporter-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem 2.5rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.supporter-logo {
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--radius-sm);
+  transition: opacity 0.2s ease;
+}
+
+.supporter-logo:hover,
+.supporter-logo:focus-visible {
+  opacity: 0.7;
+}
+
+.supporter-logo img {
+  display: block;
+  width: auto;
+  height: auto;
+  max-height: 64px;
+  max-width: min(280px, 70vw);
+}
+
+/* A dark wordmark would disappear on the dark background, so give it a plate */
+[data-theme='dark'] .supporter-logo {
+  background: #fff;
+  padding: 0.7rem 1.1rem;
+}
+
+/* ==========================================================================
    Team — avatar/initials head, green contribution tags, red interest tags
    ========================================================================== */
 

@@ -95,3 +95,20 @@ cta:
   description: "Whether you're a researcher, student, professional, or simply curious about AI safety, there's a place for you in our community."
   button_text: 'Join Our Discord'
   # Link handled directly in template via `site.social.discord`
+
+# Supporters Section
+# Logos shown in the "Supported by" band at the bottom of the home page.
+# To add one: drop the logo file in src/assets/img/supporters/ and point `logo`
+# at it. Set `width` and `height` to the file's own intrinsic size so the
+# browser reserves the right space while it loads; the CSS caps the rendered
+# height at 64px, so a raster file should be twice that tall.
+#
+# Coefficient Giving logo: Aarongertler, CC BY 4.0, via Wikimedia Commons
+# https://commons.wikimedia.org/wiki/File:Coefficient_Logo_Green.png
+supporters:
+  - id: 1
+    name: 'Coefficient Giving'
+    url: 'https://www.coefficientgiving.org/'
+    logo: '/assets/img/supporters/coefficient-giving.png'
+    width: 332
+    height: 128
