@@ -1,5 +1,10 @@
+---
+permalink: /robots.txt
+eleventyExcludeFromCollections: true
+---
+{%- set origin = "https://" + site.site.domain -%}
 # robots.txt — AI Safety for Italy
-# https://ais4i.it/robots.txt
+# {{ origin }}/robots.txt
 
 # ─── General: allow all crawlers ───────────────────────────────────────────
 User-agent: *
@@ -55,4 +60,4 @@ User-agent: Applebot
 Allow: /
 
 # ─── Sitemap ───────────────────────────────────────────────────────────────
-Sitemap: https://ais4i.it/sitemap.xml
+Sitemap: {{ origin }}/sitemap.xml

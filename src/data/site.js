@@ -8,7 +8,7 @@ const siteData = {
     name: 'AI Safety for Italy',
     description:
       "AI Safety for Italy is Italy's grassroots community reducing risks from advanced AI through awareness, education, and collaboration. Open to researchers, students, and professionals.",
-    domain: 'ais4i.it',
+    domain: 'www.ais4i.it',
     email: 'aisafetyitalia@gmail.com',
   },
   navigation: [

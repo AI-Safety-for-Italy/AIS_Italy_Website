@@ -6,6 +6,7 @@ eleventyExcludeFromCollections: true
     page's `basePath` (its locale-independent path) rather than from page.url,
     so an Italian entry advertises /about/ and /it/about/ — not /it/it/about/.
     A page without a basePath is single-language and gets no alternates. -#}
+{%- set origin = "https://" + site.site.domain -%}
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
         xmlns:xhtml="http://www.w3.org/1999/xhtml">
@@ -13,7 +14,7 @@ eleventyExcludeFromCollections: true
   {%- if entry.url and not entry.data.excludeFromSitemap %}
   {%- set base = entry.data.basePath %}
   <url>
-    <loc>https://ais4i.it{{ entry.url }}</loc>
+    <loc>{{ origin }}{{ entry.url }}</loc>
     <lastmod>{{ entry.date | date("Y-m-d") }}</lastmod>
     <changefreq>
       {%- if base == "/" -%}weekly
@@ -32,9 +33,9 @@ eleventyExcludeFromCollections: true
     </priority>
     {%- if base %}
     {%- for l in locales %}
-    <xhtml:link rel="alternate" hreflang="{{ l.code }}" href="https://ais4i.it{{ l.prefix }}{{ base }}"/>
+    <xhtml:link rel="alternate" hreflang="{{ l.code }}" href="{{ origin }}{{ l.prefix }}{{ base }}"/>
     {%- endfor %}
-    <xhtml:link rel="alternate" hreflang="x-default" href="https://ais4i.it{{ base }}"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="{{ origin }}{{ base }}"/>
     {%- endif %}
   </url>
   {%- endif %}

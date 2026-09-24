@@ -20,13 +20,13 @@
     {
       "source": "/:path*",
       "has": [{ "type": "host", "value": "aisafetycommunity.it" }],
-      "destination": "https://ais4i.it/:path*",
+      "destination": "https://www.ais4i.it/:path*",
       "permanent": true
     },
     {
       "source": "/:path*",
       "has": [{ "type": "host", "value": "www.aisafetycommunity.it" }],
-      "destination": "https://ais4i.it/:path*",
+      "destination": "https://www.ais4i.it/:path*",
       "permanent": true
     }
   ]
