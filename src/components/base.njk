@@ -49,9 +49,14 @@
   <title>{{ metaTitle }}</title>
   <meta name="description" content="{{ metaDescription }}" />
   <meta name="author" content="AI Safety for Italy" />
+  {%- if noindex %}
+  <meta name="robots" content="noindex" />
+  {%- endif %}
 
   {# ── Canonical URL (page.url is already locale-prefixed) ─────── #}
+  {%- if not noindex %}
   <link rel="canonical" href="{{ origin }}{{ page.url }}" />
+  {%- endif %}
 
   {# ── hreflang: one per locale, from src/data/locales.js ──────── #}
   {%- if basePath %}

@@ -5,7 +5,11 @@ eleventyExcludeFromCollections: true
 {#- Every page is listed once per locale. The alternates are built from the
     page's `basePath` (its locale-independent path) rather than from page.url,
     so an Italian entry advertises /about/ and /it/about/ — not /it/it/about/.
-    A page without a basePath is single-language and gets no alternates. -#}
+    A page without a basePath is single-language and gets no alternates.
+
+    No <lastmod>: the only date available here is the build date, which would
+    claim every page changed on every deploy, and Google stops trusting a
+    lastmod that is wrong. Leaving it out is better than lying. -#}
 {%- set origin = "https://" + site.site.domain -%}
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
@@ -15,7 +19,6 @@ eleventyExcludeFromCollections: true
   {%- set base = entry.data.basePath %}
   <url>
     <loc>{{ origin }}{{ entry.url }}</loc>
-    <lastmod>{{ entry.date | date("Y-m-d") }}</lastmod>
     <changefreq>
       {%- if base == "/" -%}weekly
       {%- elif base == "/initiatives/" or base == "/community/" -%}monthly
