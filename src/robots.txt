@@ -1,5 +1,5 @@
 # robots.txt — AI Safety for Italy
-# https://aisafetycommunity.it/robots.txt
+# https://ais4i.it/robots.txt
 
 # ─── General: allow all crawlers ───────────────────────────────────────────
 User-agent: *
@@ -55,4 +55,4 @@ User-agent: Applebot
 Allow: /
 
 # ─── Sitemap ───────────────────────────────────────────────────────────────
-Sitemap: https://aisafetycommunity.it/sitemap.xml
+Sitemap: https://ais4i.it/sitemap.xml

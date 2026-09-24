@@ -13,7 +13,7 @@
    the permalink, hreflang and the language switch are all built from — a page
    without one is single-language and gets no alternates.
    ══════════════════════════════════════════════════════════════════════ #}
-{%- set origin = "https://aisafetycommunity.it" -%}
+{%- set origin = "https://ais4i.it" -%}
 {%- set metaTitle = (seoTitle_it if lang == "it" and seoTitle_it else seoTitle) -%}
 {%- set metaTitle = metaTitle if metaTitle else (title + " | AI Safety for Italy") -%}
 {%- set metaDescription = (seoDescription_it if lang == "it" and seoDescription_it else seoDescription) -%}
@@ -114,13 +114,13 @@
     "@graph": [
       {
         "@type": "Organization",
-        "@id": "https://aisafetycommunity.it/#organization",
+        "@id": "https://ais4i.it/#organization",
         "name": "AI Safety for Italy",
         "alternateName": ["AI Safety Italia", "AIS4I"],
-        "url": "https://aisafetycommunity.it/",
+        "url": "https://ais4i.it/",
         "logo": {
           "@type": "ImageObject",
-          "url": "https://aisafetycommunity.it/assets/img/ais4i-logo-512.png",
+          "url": "https://ais4i.it/assets/img/ais4i-logo-512.png",
           "width": 512,
           "height": 512
         },
@@ -137,19 +137,19 @@
       },
       {
         "@type": "WebSite",
-        "@id": "https://aisafetycommunity.it/#website",
-        "url": "https://aisafetycommunity.it/",
+        "@id": "https://ais4i.it/#website",
+        "url": "https://ais4i.it/",
         "name": "AI Safety for Italy",
         "inLanguage": [{% for l in locales %}"{{ l.code }}"{% if not loop.last %}, {% endif %}{% endfor %}],
-        "publisher": { "@id": "https://aisafetycommunity.it/#organization" }
+        "publisher": { "@id": "https://ais4i.it/#organization" }
       },
       {
         "@type": "WebPage",
         "url": "{{ origin }}{{ page.url }}",
         "name": {{ metaTitle | jsonld | safe }},
         "inLanguage": "{{ lang }}",
-        "isPartOf": { "@id": "https://aisafetycommunity.it/#website" },
-        "about": { "@id": "https://aisafetycommunity.it/#organization" }
+        "isPartOf": { "@id": "https://ais4i.it/#website" },
+        "about": { "@id": "https://ais4i.it/#organization" }
       }
     ]
   }
@@ -165,8 +165,8 @@
     "url": "{{ origin }}{{ page.url }}",
     "name": {{ metaTitle | jsonld | safe }},
     "inLanguage": "{{ lang }}",
-    "isPartOf": { "@id": "https://aisafetycommunity.it/#website" },
-    "about": { "@id": "https://aisafetycommunity.it/#organization" }
+    "isPartOf": { "@id": "https://ais4i.it/#website" },
+    "about": { "@id": "https://ais4i.it/#organization" }
   }
   </script>
   {% endif %}
@@ -183,7 +183,7 @@
     "@type": "FAQPage",
     "url": "{{ origin }}{{ page.url }}",
     "inLanguage": "{{ lang }}",
-    "isPartOf": { "@id": "https://aisafetycommunity.it/#website" },
+    "isPartOf": { "@id": "https://ais4i.it/#website" },
     "mainEntity": [
       {%- for q in faqQuestions %}
       {
@@ -209,10 +209,10 @@
     "url": "{{ origin }}{{ page.url }}",
     "name": {{ metaTitle | jsonld | safe }},
     "inLanguage": "{{ lang }}",
-    "isPartOf": { "@id": "https://aisafetycommunity.it/#website" },
+    "isPartOf": { "@id": "https://ais4i.it/#website" },
     "about": {
       "@type": "Organization",
-      "@id": "https://aisafetycommunity.it/#organization",
+      "@id": "https://ais4i.it/#organization",
       "department": [
         { "@type": "Organization", "name": "Mentorship Working Group" },
         { "@type": "Organization", "name": "Governance and Fundraising Working Group" },
@@ -235,10 +235,10 @@
     "url": "{{ origin }}{{ page.url }}",
     "name": {{ metaTitle | jsonld | safe }},
     "inLanguage": "{{ lang }}",
-    "isPartOf": { "@id": "https://aisafetycommunity.it/#website" },
+    "isPartOf": { "@id": "https://ais4i.it/#website" },
     "mainEntity": {
       "@type": "Organization",
-      "@id": "https://aisafetycommunity.it/#organization",
+      "@id": "https://ais4i.it/#organization",
       "contactPoint": {
         "@type": "ContactPoint",
         "email": "aisafetyitalia@gmail.com",
