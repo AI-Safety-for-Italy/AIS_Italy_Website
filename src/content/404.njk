@@ -1,0 +1,24 @@
+---
+title: Page not found
+# Vercel serves /404.html for any path that matches nothing, with a 404 status.
+# It is one file for every locale, so it carries both languages at once rather
+# than being paginated like the other pages.
+permalink: /404.html
+excludeFromSitemap: true
+noindex: true
+---
+{% extends "base.njk" %}
+{% block content %}
+<section class="page-hero">
+    <div class="container">
+        <span class="eyebrow">404</span>
+        <h1>Page not found</h1>
+        <p class="lede">The page you are looking for does not exist or has moved.</p>
+        <p class="lede" lang="it">La pagina che cerchi non esiste o è stata spostata.</p>
+        <p style="margin-top: 2rem; display: flex; flex-wrap: wrap; gap: 0.75rem;">
+            <a href="/" class="btn btn-primary">Back to the homepage</a>
+            <a href="/it/" class="btn btn-secondary" lang="it">Torna alla home</a>
+        </p>
+    </div>
+</section>
+{% endblock %}
