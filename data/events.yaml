@@ -50,30 +50,34 @@ upcoming_events:
     date_it: 'Lunedì 5 ottobre 2026, 18:00–20:30'
     status: 'Upcoming'
     status_it: 'In arrivo'
-    description: "The first official meetup of the AI Safety for Italy community! We will introduce the community, our mission and the projects ahead, then open the floor for an aperitivo: time to meet each other and talk research, policy and AI ethics over a drink and something to nibble."
-    description_it: "Il primo meetup ufficiale della community AI Safety for Italy! Presenteremo la community, la nostra mission e i progetti futuri, poi spazio all'aperitivo: un momento per conoscerci e scambiare idee su ricerca, policy ed etica dell'IA davanti a un buon drink e qualcosa da stuzzicare."
+    description: "The first in-person meetup of the AI Safety for Italy community, active since January 2026 and now over 50 members strong. The evening has three goals: <strong>meet each other face to face</strong> for the first time, <strong>introduce AI safety to newcomers</strong> and bring more people into the field, and <strong>present what we are building</strong>: the mentorship program, the new local groups in Milan, Turin, Trento, Padua and Genoa, the seminar series and the podcast. The talks will also be <strong>streamed online</strong>. Then the aperitivo, with time to talk research, policy and AI ethics over a drink. Milan is easy to reach and home to Statale, Politecnico, Bicocca and Bocconi: if you study or work in AI there, this evening is for you."
+    description_it: "Il primo meetup in presenza della community AI Safety for Italy, attiva da gennaio 2026 e oggi con più di 50 membri. La serata ha tre obiettivi: <strong>incontrarci di persona</strong> per la prima volta, <strong>avvicinare all'AI safety chi ancora non la conosce</strong> e portare più persone nel campo, e <strong>presentare i progetti in cantiere</strong>: il programma di mentorship, i nuovi gruppi locali di Milano, Torino, Trento, Padova e Genova, il ciclo di seminari e il podcast. Gli interventi saranno <strong>trasmessi anche online</strong>. Poi l'aperitivo, con il tempo per parlare di ricerca, policy ed etica dell'IA davanti a un drink. Milano è facile da raggiungere e ospita Statale, Politecnico, Bicocca e Bocconi: se studi o lavori nell'IA lì, questa serata è per te."
     format_info:
       - label: 'Format'
         label_it: 'Formato'
-        value: 'In person, Milan'
-        value_it: 'In presenza, Milano'
+        value: 'In person, talks also streamed online'
+        value_it: 'In presenza, interventi anche in streaming'
+      - label: 'Where'
+        label_it: 'Dove'
+        value: 'Milan, venue to be announced'
+        value_it: 'Milano, sede in via di definizione'
       - label: 'Who is it for'
         label_it: 'Per chi'
-        value: 'Anyone interested in AI safety'
-        value_it: "Chiunque sia interessato all'AI safety"
+        value: 'Students, researchers and professionals with a technical background, and anyone curious about AI safety'
+        value_it: "Studenti, ricercatori e professionisti con background tecnico, e chiunque sia curioso dell'AI safety"
     agenda:
       - time: '18:00–18:05'
         title: 'Welcome and opening'
         title_it: 'Accoglienza e introduzione'
       - time: '18:05–18:30'
-        title: 'Introduction to AI Safety'
-        title_it: "Introduzione all'AI Safety"
+        title: 'Introduction to AI Safety: what it is and what recent events, like the Hugging Face incident, tell us'
+        title_it: "Introduzione all'AI Safety: cos'è e cosa ci dicono i casi recenti, come l'incidente Hugging Face"
       - time: '18:30–18:40'
         title: 'AI Safety for Italy: who we are, what we do and how to get involved'
         title_it: 'AI Safety for Italy: chi siamo, cosa facciamo e come partecipare'
       - time: '18:40–18:45'
-        title: 'Presenting the mentorship program'
-        title_it: 'Presentazione del programma di mentorship'
+        title: 'Our projects: mentorship program, local groups, seminars and podcast'
+        title_it: 'I nostri progetti: mentorship, gruppi locali, seminari e podcast'
       - time: '18:45–19:00'
         title: 'Q&A'
         title_it: 'Q&A'
@@ -84,7 +88,7 @@ upcoming_events:
     register_text_it: 'Iscriviti su Luma'
     register_link: 'https://luma.com/jcx4jd7z'
     register_target: '_blank'
-    # Fill in when the streaming link is ready; the button appears on its own.
+    # The button is shown disabled until stream_link is filled in.
     stream_text: 'Watch the livestream'
     stream_text_it: 'Segui la diretta'
     stream_link: ''

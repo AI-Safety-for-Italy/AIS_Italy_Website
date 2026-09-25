@@ -24,7 +24,8 @@ seoDescription_it: "Programmi di mentorship, seminari e le ultime notizie da AI 
         <svg class="ds-icon" style="width:1.05rem;height:1.05rem;color:var(--accent);" aria-hidden="true"><use href="#icon-calendar"></use></svg>
         <span data-en="{{ event.date }}" data-it="{{ event.date_it }}">{{ event.date }}</span>
     </div>
-    <p data-en="{{ event.description }}" data-it="{{ event.description_it }}">{{ event.description }}</p>
+    {# Rendered per language (not via data-en/data-it) so the description may carry inline <strong>. #}
+    <p>{{ (event.description_it if lang == "it" and event.description_it else event.description) | safe }}</p>
     {% if event.format_info %}
     <ul class="program-meta">
         {% for info in event.format_info %}
@@ -48,7 +49,7 @@ seoDescription_it: "Programmi di mentorship, seminari e le ultime notizie da AI 
         </ul>
     </div>
     {% endif %}
-    {% if (event.register_link and event.register_text) or event.stream_link %}
+    {% if (event.register_link and event.register_text) or event.stream_text %}
     <p class="flex flex-wrap gap-3" style="margin-top: 1.5rem; margin-bottom: 0;">
         {% if event.register_link and event.register_text %}
         <a href="{{ event.register_link }}" target="{{ event.register_target }}" class="btn btn-outline"
@@ -57,6 +58,9 @@ seoDescription_it: "Programmi di mentorship, seminari e le ultime notizie da AI 
         {% if event.stream_link %}
         <a href="{{ event.stream_link }}" target="_blank" rel="noopener noreferrer" class="btn btn-outline"
            data-en="{{ event.stream_text }}" data-it="{{ event.stream_text_it }}">{{ event.stream_text }}</a>
+        {% elif event.stream_text %}
+        <span class="btn btn-outline is-pending" aria-disabled="true"
+              data-en="{{ event.stream_text }}" data-it="{{ event.stream_text_it }}">{{ event.stream_text }}</span>
         {% endif %}
     </p>
     {% endif %}

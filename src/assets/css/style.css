@@ -444,6 +444,19 @@ a:hover {
   transform: translateY(-1px);
 }
 
+/* A button whose link is not ready yet (e.g. a livestream announced before the URL exists) */
+.btn.is-pending {
+  border-style: dashed;
+  color: var(--text-secondary);
+  cursor: default;
+}
+
+.btn.is-pending:hover {
+  border-color: var(--border-default);
+  color: var(--text-secondary);
+  transform: none;
+}
+
 /* Secondary — clean surface with border (hero pairing) */
 .btn-secondary {
   background: var(--card-bg);
