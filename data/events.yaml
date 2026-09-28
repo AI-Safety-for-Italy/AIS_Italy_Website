@@ -60,7 +60,7 @@ upcoming_events:
         <li>Plenty of concrete ways to get involved, from the mentorship program to the new local groups, with more projects on the way.</li>
         <li>New connections: after the talks we move on to the aperitivo, to talk about AI over a drink with people who share the same interests.</li>
       </ul>
-      <p><strong>In Milan?</strong> Join us in person: the best part of the evening is meeting face to face.<br><strong>Can't make it?</strong> You can follow the talks via <a href="/streaming" target="_blank" rel="noopener noreferrer">livestream</a>.</p>
+      <p><strong>In Milan?</strong> Join us in person: the best part of the evening is meeting face to face. To attend in person you need to <a href="https://luma.com/jcx4jd7z" target="_blank" rel="noopener noreferrer">register on Luma</a>.<br><strong>Can't make it?</strong> You can follow the talks via <a href="/streaming" target="_blank" rel="noopener noreferrer">livestream</a>.</p>
     description_it: |
       <p>Ti sei mai chiesto come possiamo assicurarci che l'intelligenza artificiale resti sicura e utile per tutti? Che tu ci lavori già o ti stia solo avvicinando al tema, questa serata è pensata per te. Non servono conoscenze tecniche: basta la curiosità.</p>
       <p>AI Safety for Italy è la community italiana nata a gennaio 2026 che oggi riunisce più di 50 persone interessate a ricerca, policy ed etica dell'IA. Questo è il primo incontro in presenza, aperto a chiunque voglia unirsi.</p>
@@ -70,7 +70,7 @@ upcoming_events:
         <li>Tanti modi concreti per mettersi in gioco, dal programma di mentorship ai nuovi gruppi locali, e altri progetti in arrivo.</li>
         <li>Nuove conoscenze: dopo gli interventi ci si sposta all'aperitivo, per parlare di IA davanti a un drink con persone che condividono gli stessi interessi.</li>
       </ul>
-      <p><strong>Sei a Milano?</strong> Vieni in presenza: il bello della serata è conoscersi di persona.<br><strong>Non riesci a esserci?</strong> Puoi seguire gli interventi in <a href="/streaming" target="_blank" rel="noopener noreferrer">streaming online</a>.</p>
+      <p><strong>Sei a Milano?</strong> Vieni in presenza: il bello della serata è conoscersi di persona. Per partecipare in presenza è necessaria l'<a href="https://luma.com/jcx4jd7z" target="_blank" rel="noopener noreferrer">iscrizione su Luma</a>.<br><strong>Non riesci a esserci?</strong> Puoi seguire gli interventi in <a href="/streaming" target="_blank" rel="noopener noreferrer">streaming online</a>.</p>
     format_info:
       - label: 'Format'
         label_it: 'Formato'
@@ -80,6 +80,10 @@ upcoming_events:
         label_it: 'Dove'
         value: 'Cascina Cuccagna, Via Privata Cuccagna 2/4, Milan'
         value_it: 'Cascina Cuccagna, Via Privata Cuccagna 2/4, Milano'
+      - label: 'Registration'
+        label_it: 'Iscrizione'
+        value: 'Required on Luma to attend in person'
+        value_it: 'Obbligatoria su Luma per partecipare in presenza'
       - label: 'Who is it for'
         label_it: 'Per chi'
         value: 'Students, researchers and professionals with a technical background, and anyone curious about AI safety'
