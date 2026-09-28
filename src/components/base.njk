@@ -18,6 +18,10 @@
 {%- set metaTitle = metaTitle if metaTitle else (title + " | AI Safety for Italy") -%}
 {%- set metaDescription = (seoDescription_it if lang == "it" and seoDescription_it else seoDescription) -%}
 {%- set metaDescription = metaDescription if metaDescription else (description if description else site.description) -%}
+{#- OG card per page and locale, rendered by scripts/og-images.js and named
+    after basePath ("/" is "home"). Pages without a basePath share the home card. -#}
+{%- set ogName = ("home" if (not basePath or basePath == "/") else basePath | replace("/", "")) -%}
+{%- set ogImage = origin + "/assets/img/og/" + ogName + "-" + (lang | default("en")) + ".png" -%}
 <!DOCTYPE html>
 <html lang="{{ lang | default('en') }}">
 <head>
@@ -72,10 +76,10 @@
   <meta property="og:title" content="{{ metaTitle }}" />
   <meta property="og:description" content="{{ metaDescription }}" />
   <meta property="og:url" content="{{ origin }}{{ page.url }}" />
-  <meta property="og:image" content="{{ origin }}/assets/img/og-image.png" />
+  <meta property="og:image" content="{{ ogImage }}" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
-  <meta property="og:image:alt" content="{% if lang == 'it' %}AI Safety for Italy: costruire un futuro più sicuro attraverso consapevolezza, educazione e community{% else %}AI Safety for Italy: Building a safer future through awareness, education, and community{% endif %}" />
+  <meta property="og:image:alt" content="{{ metaTitle }}" />
   <meta property="og:locale" content="{{ loc.ogLocale | default('en_US') }}" />
   {%- for l in locales %}{% if l.code != lang %}
   <meta property="og:locale:alternate" content="{{ l.ogLocale }}" />
@@ -85,7 +89,7 @@
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="{{ metaTitle }}" />
   <meta name="twitter:description" content="{{ metaDescription }}" />
-  <meta name="twitter:image" content="{{ origin }}/assets/img/og-image.png" />
+  <meta name="twitter:image" content="{{ ogImage }}" />
 
   {# ── Favicon ─────────────────────────────────────────────────── #}
   <link rel="icon" href="/favicon.ico" sizes="48x48" />
