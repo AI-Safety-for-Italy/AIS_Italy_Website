@@ -1364,6 +1364,28 @@ a:hover {
   font-size: 1.35rem;
 }
 
+.program-description > :last-child {
+  margin-bottom: 0;
+}
+
+.program-description ul {
+  list-style: disc;
+  margin: 0 0 1em;
+  padding-left: 1.25rem;
+  display: grid;
+  gap: 0.4rem;
+  color: var(--text-secondary);
+}
+
+.program-description li::marker {
+  color: var(--accent);
+}
+
+/* The lead-in sits on its list. */
+.program-description p:has(+ ul) {
+  margin-bottom: 0.5em;
+}
+
 .program-meta {
   list-style: none;
   margin: 1.25rem 0 0;

@@ -24,8 +24,14 @@ seoDescription_it: "Programmi di mentorship, seminari e le ultime notizie da AI 
         <svg class="ds-icon" style="width:1.05rem;height:1.05rem;color:var(--accent);" aria-hidden="true"><use href="#icon-calendar"></use></svg>
         <span data-en="{{ event.date }}" data-it="{{ event.date_it }}">{{ event.date }}</span>
     </div>
-    {# Rendered per language (not via data-en/data-it) so the description may carry inline <strong>. #}
-    <p>{{ (event.description_it if lang == "it" and event.description_it else event.description) | safe }}</p>
+    {# Rendered per language (not via data-en/data-it) so the description may carry markup:
+       inline <strong> in a plain one, or its own <p> and <ul> blocks. #}
+    {% set description = event.description_it if lang == "it" and event.description_it else event.description %}
+    {% if "<p>" in description %}
+    <div class="program-description">{{ description | safe }}</div>
+    {% else %}
+    <p>{{ description | safe }}</p>
+    {% endif %}
     {% if event.format_info %}
     <ul class="program-meta">
         {% for info in event.format_info %}
