@@ -18,6 +18,26 @@
   "devCommand": "npm start",
   "redirects": [
     {
+      "source": "/streaming",
+      "destination": "https://www.youtube.com/@ais4i",
+      "permanent": false
+    },
+    {
+      "source": "/streaming/",
+      "destination": "https://www.youtube.com/@ais4i",
+      "permanent": false
+    },
+    {
+      "source": "/it/streaming",
+      "destination": "https://www.youtube.com/@ais4i",
+      "permanent": false
+    },
+    {
+      "source": "/it/streaming/",
+      "destination": "https://www.youtube.com/@ais4i",
+      "permanent": false
+    },
+    {
       "source": "/:path*",
       "has": [{ "type": "host", "value": "aisafetycommunity.it" }],
       "destination": "https://www.ais4i.it/:path*",

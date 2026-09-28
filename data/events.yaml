@@ -41,6 +41,78 @@ upcoming_events:
     register_link: 'placeholder'
     register_target: '_blank'
 
+  - id: 4
+    anchor: 'meetup-milano-2026'
+    category: 'seminar'
+    title: 'AI Safety for Italy Meetup'
+    title_it: 'Meetup AI Safety for Italy'
+    date: 'Monday 5 October 2026, 18:00–20:30'
+    date_it: 'Lunedì 5 ottobre 2026, 18:00–20:30'
+    status: 'Upcoming'
+    status_it: 'In arrivo'
+    # A description written as blocks (<p>, <ul>) is rendered as is; plain text gets its own <p>.
+    description: |
+      <p>Have you ever wondered how we can make sure artificial intelligence stays safe and beneficial for everyone? Whether you already work in the field or are just getting started, this evening is for you. No technical knowledge required: curiosity is all you need.</p>
+      <p>AI Safety for Italy is the Italian community founded in January 2026, now bringing together more than 50 people interested in AI research, policy and ethics. This is our first in-person meetup, open to anyone who wants to join.</p>
+      <p><strong>What the evening offers:</strong></p>
+      <ul>
+        <li>A clear introduction to AI safety: what it's about, why it matters and where to start.</li>
+        <li>Plenty of concrete ways to get involved, from the mentorship program to the new local groups, with more projects on the way.</li>
+        <li>New connections: after the talks we move on to the aperitivo, to talk about AI over a drink with people who share the same interests.</li>
+      </ul>
+      <p><strong>In Milan?</strong> Join us in person: the best part of the evening is meeting face to face.<br><strong>Can't make it?</strong> You can follow the talks via <a href="/streaming" target="_blank" rel="noopener noreferrer">livestream</a>.</p>
+    description_it: |
+      <p>Ti sei mai chiesto come possiamo assicurarci che l'intelligenza artificiale resti sicura e utile per tutti? Che tu ci lavori già o ti stia solo avvicinando al tema, questa serata è pensata per te. Non servono conoscenze tecniche: basta la curiosità.</p>
+      <p>AI Safety for Italy è la community italiana nata a gennaio 2026 che oggi riunisce più di 50 persone interessate a ricerca, policy ed etica dell'IA. Questo è il primo incontro in presenza, aperto a chiunque voglia unirsi.</p>
+      <p><strong>Cosa offre la serata:</strong></p>
+      <ul>
+        <li>Un'introduzione chiara all'AI safety: di cosa si occupa, perché è importante e da dove iniziare.</li>
+        <li>Tanti modi concreti per mettersi in gioco, dal programma di mentorship ai nuovi gruppi locali, e altri progetti in arrivo.</li>
+        <li>Nuove conoscenze: dopo gli interventi ci si sposta all'aperitivo, per parlare di IA davanti a un drink con persone che condividono gli stessi interessi.</li>
+      </ul>
+      <p><strong>Sei a Milano?</strong> Vieni in presenza: il bello della serata è conoscersi di persona.<br><strong>Non riesci a esserci?</strong> Puoi seguire gli interventi in <a href="/streaming" target="_blank" rel="noopener noreferrer">streaming online</a>.</p>
+    format_info:
+      - label: 'Format'
+        label_it: 'Formato'
+        value: 'Talks with Q&A, in person and livestreamed, followed by in-person networking'
+        value_it: 'Talk con Q&A in presenza e in streaming, seguiti da networking dal vivo'
+      - label: 'Where'
+        label_it: 'Dove'
+        value: 'Cascina Cuccagna, Via Privata Cuccagna 2/4, Milan'
+        value_it: 'Cascina Cuccagna, Via Privata Cuccagna 2/4, Milano'
+      - label: 'Who is it for'
+        label_it: 'Per chi'
+        value: 'Students, researchers and professionals with a technical background, and anyone curious about AI safety'
+        value_it: "Studenti, ricercatori e professionisti con background tecnico, e chiunque sia curioso dell'AI safety"
+    agenda:
+      - time: '18:00–18:05'
+        title: 'Welcome and opening'
+        title_it: 'Accoglienza e introduzione'
+      - time: '18:05–18:30'
+        title: 'Introduction to AI Safety'
+        title_it: "Introduzione all'AI Safety"
+      - time: '18:30–18:40'
+        title: 'AI Safety for Italy: who we are, what we do and how to get involved'
+        title_it: 'AI Safety for Italy: chi siamo, cosa facciamo e come partecipare'
+      - time: '18:40–18:45'
+        title: 'Focus on: the AIS4I mentorship program, in collaboration with CePTE'
+        title_it: 'Focus su: il programma di mentorship di AIS4I, in collaborazione con CePTE'
+      - time: '18:45–19:00'
+        title: 'Q&A'
+        title_it: 'Q&A'
+      - time: '19:00–20:30'
+        title: 'Networking and aperitivo'
+        title_it: 'Networking e aperitivo'
+    register_text: 'Register on Luma'
+    register_text_it: 'Iscriviti su Luma'
+    register_link: 'https://luma.com/jcx4jd7z'
+    register_target: '_blank'
+    # The button is shown disabled until stream_link is filled in.
+    # /streaming is a redirect in vercel.json: the YouTube URL is changed there, not here.
+    stream_text: 'Watch the livestream'
+    stream_text_it: 'Segui la diretta'
+    stream_link: '/streaming'
+
   - id: 3
     category: 'seminar'
     title: 'Wednesday Researcher Meetup'
