@@ -27,6 +27,11 @@ const siteData = {
     mailingList: 'https://forms.gle/mtBnGSNY21bABNSt7',
     courseApplication: 'placeholder', // Update with actual link when available
   },
+  // GA4 measurement ID. Only production deploys get it, so local builds and
+  // Vercel previews never render the consent banner or send hits.
+  analytics: {
+    gaId: process.env.VERCEL_ENV === 'production' ? 'G-6TQQPS64JE' : null,
+  },
 };
 
 // Validate site data on module load

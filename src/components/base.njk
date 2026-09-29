@@ -272,6 +272,19 @@
 
     {% include "footer.njk" %}
 
+    {# Cookie consent for GA4. Rendered only when site.analytics.gaId is set
+       (production). main.js shows it until the visitor picks, and gtag.js is
+       not requested at all before an "accept". #}
+    {% if site.analytics.gaId %}
+    <div class="consent-banner" id="consentBanner" role="region" aria-label="{{ t.consent.label }}" data-ga-id="{{ site.analytics.gaId }}" hidden>
+      <p data-en="{{ translations.en.consent.text }}" data-it="{{ translations.it.consent.text }}">{{ translations.en.consent.text }}</p>
+      <div class="consent-actions">
+        <button type="button" class="btn btn-outline" data-consent="denied" data-en="{{ translations.en.consent.reject }}" data-it="{{ translations.it.consent.reject }}">{{ translations.en.consent.reject }}</button>
+        <button type="button" class="btn btn-primary" data-consent="granted" data-en="{{ translations.en.consent.accept }}" data-it="{{ translations.it.consent.accept }}">{{ translations.en.consent.accept }}</button>
+      </div>
+    </div>
+    {% endif %}
+
     {# Site behaviour: menu, theme toggle, scroll reveal, pointer effects.
        External + deferred so it is fetched once and cached across pages
        instead of being re-parsed inline on every one. The only inline
