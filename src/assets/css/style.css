@@ -1955,6 +1955,63 @@ textarea.form-input {
 }
 
 /* ==========================================================================
+   Cookie consent — fixed card, bottom of the viewport
+   ========================================================================== */
+
+.consent-banner {
+  position: fixed;
+  left: 1rem;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 60;
+  max-width: 34rem;
+  margin: 0 auto;
+  padding: 1.25rem;
+  display: grid;
+  gap: 1rem;
+  background: var(--card-bg);
+  border: 1px solid var(--border-strong);
+  border-radius: 1rem;
+  box-shadow: var(--shadow-lg);
+  color: var(--text-primary);
+}
+
+.consent-banner[hidden] {
+  display: none;
+}
+
+.consent-banner p {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+}
+
+.consent-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.consent-actions .btn {
+  padding: 0.55rem 1.25rem;
+  font-size: 0.95rem;
+}
+
+.footer-consent {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.footer-consent:hover {
+  color: var(--accent);
+}
+
+/* ==========================================================================
    Footer — green-white-red dots
    ========================================================================== */
 

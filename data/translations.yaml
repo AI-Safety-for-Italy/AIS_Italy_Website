@@ -77,6 +77,12 @@ en:
     links_heading: 'Quick Links'
     connect_heading: 'Connect With Us'
     copyright: '© 2026 AI Safety for Italy | Advancing AI Safety'
+    cookie_settings: 'Cookie preferences'
+  consent:
+    label: 'Cookie consent'
+    text: 'We use Google Analytics to understand how the site is used. It only sets cookies if you accept.'
+    accept: 'Accept'
+    reject: 'Reject'
 
 it:
   nav:
@@ -148,3 +154,9 @@ it:
     links_heading: 'Link Rapidi'
     connect_heading: 'Connettiti con Noi'
     copyright: "© 2026 AI Safety for Italy | Per un'IA più sicura"
+    cookie_settings: 'Preferenze cookie'
+  consent:
+    label: 'Consenso ai cookie'
+    text: 'Usiamo Google Analytics per capire come viene usato il sito. Imposta cookie solo se accetti.'
+    accept: 'Accetta'
+    reject: 'Rifiuta'
