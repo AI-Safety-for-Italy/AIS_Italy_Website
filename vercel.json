@@ -19,22 +19,22 @@
   "redirects": [
     {
       "source": "/streaming",
-      "destination": "https://www.youtube.com/@ais4i",
+      "destination": "https://www.youtube.com/live/YEEHur3o_wM",
       "permanent": false
     },
     {
       "source": "/streaming/",
-      "destination": "https://www.youtube.com/@ais4i",
+      "destination": "https://www.youtube.com/live/YEEHur3o_wM",
       "permanent": false
     },
     {
       "source": "/it/streaming",
-      "destination": "https://www.youtube.com/@ais4i",
+      "destination": "https://www.youtube.com/live/YEEHur3o_wM",
       "permanent": false
     },
     {
       "source": "/it/streaming/",
-      "destination": "https://www.youtube.com/@ais4i",
+      "destination": "https://www.youtube.com/live/YEEHur3o_wM",
       "permanent": false
     },
     {
