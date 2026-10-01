@@ -126,34 +126,6 @@ upcoming_events:
     stream_text_it: 'Segui la diretta'
     stream_link: '/streaming'
 
-  - id: 3
-    category: 'seminar'
-    title: 'Wednesday Researcher Meetup'
-    title_it: 'Incontro Ricercatori del Mercoledì'
-    date: 'Every 2nd Wednesday at 18:00 CET'
-    date_it: 'Ogni 2° mercoledì alle 18:00 CET'
-    status: 'Recurring'
-    status_it: 'Ricorrente'
-    description: 'Informal gathering for AI safety researchers, students, and enthusiasts to discuss and collaborate on projects. A great place to network with the community!'
-    description_it: 'Incontro informale per ricercatori, studenti e appassionati di AI safety per discutere e collaborare su progetti. Un ottimo posto per fare networking con la community!'
-    format_info:
-      - label: 'Format'
-        label_it: 'Formato'
-        value: 'Virtual Meetup'
-        value_it: 'Incontro virtuale'
-      - label: 'Size'
-        label_it: 'Dimensione'
-        value: '3-10 participants'
-        value_it: '3-10 partecipanti'
-      - label: 'Level'
-        label_it: 'Livello'
-        value: 'All experience welcome'
-        value_it: 'Tutte le esperienze benvenute'
-    register_text: ''
-    register_text_it: ''
-    register_link: ''
-    register_target: '_blank'
-
 recent_highlights: []
 
 cta:

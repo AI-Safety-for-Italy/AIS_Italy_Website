@@ -105,6 +105,7 @@ cta:
 #
 # Coefficient Giving logo: Aarongertler, CC BY 4.0, via Wikimedia Commons
 # https://commons.wikimedia.org/wiki/File:Coefficient_Logo_Green.png
+# BlueDot Impact logo: from bluedot.org (/images/logo/BlueDot_Impact_Logo.svg)
 supporters:
   - id: 1
     name: 'Coefficient Giving'
@@ -112,3 +113,9 @@ supporters:
     logo: '/assets/img/supporters/coefficient-giving.png'
     width: 456
     height: 176
+  - id: 2
+    name: 'BlueDot Impact'
+    url: 'https://bluedot.org/'
+    logo: '/assets/img/supporters/bluedot-impact.svg'
+    width: 1003
+    height: 133
