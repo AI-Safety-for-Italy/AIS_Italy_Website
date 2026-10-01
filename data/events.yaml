@@ -1,10 +1,10 @@
-# Events & News Page Content Data
+# Initiatives Page Content Data
 
 hero:
   title: 'Initiatives'
   title_it: 'Iniziative'
-  subtitle: 'Our programs and gatherings: mentorship, seminars, and the latest news from the community.'
-  subtitle_it: 'I nostri programmi e incontri: mentorship, seminari e le ultime novità dalla community.'
+  subtitle: 'Our programs and gatherings: mentorship, talks and meetups.'
+  subtitle_it: 'I nostri programmi e incontri: mentorship, talk e meetup.'
 
 section_upcoming_title: 'Upcoming & Recent Events'
 section_upcoming_title_it: 'Eventi Imminenti e Recenti'
