@@ -97,7 +97,17 @@ jobs:
         run: vercel build ${{ steps.target.outputs.prod_flag }} --token=${{ secrets.VERCEL_TOKEN }}
 
       - name: Deploy
+        id: deploy
         run: |
           url=$(vercel deploy --prebuilt ${{ steps.target.outputs.prod_flag }} --token=${{ secrets.VERCEL_TOKEN }})
+          echo "url=$url" >> "$GITHUB_OUTPUT"
           echo "Deployed ${{ steps.target.outputs.environment }} to $url"
           echo "Deployed \`${{ steps.target.outputs.environment }}\` to $url" >> "$GITHUB_STEP_SUMMARY"
+
+      # Each preview gets its own URL, so dev also gets a fixed alias that always
+      # follows its latest deploy: one link to share before merging into main.
+      - name: Point the dev alias at this deploy
+        if: github.ref == 'refs/heads/dev'
+        run: |
+          vercel alias set "${{ steps.deploy.outputs.url }}" ais4i-dev.vercel.app --token=${{ secrets.VERCEL_TOKEN }}
+          echo "Aliased to https://ais4i-dev.vercel.app" >> "$GITHUB_STEP_SUMMARY"
