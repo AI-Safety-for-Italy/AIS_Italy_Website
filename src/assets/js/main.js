@@ -13,6 +13,7 @@
   'use strict';
 
   var THEME_KEY = 'theme';
+  var CONSENT_KEY = 'analytics-consent';
   var root = document.documentElement;
   var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   var canHover = window.matchMedia('(hover: hover)').matches;
@@ -230,9 +231,96 @@
     });
   }
 
+  // ── Analytics consent ─────────────────────────────────────────────────
+  // GA4 in basic consent mode: gtag.js is not even requested until the visitor
+  // accepts, so a "reject" (or no answer) means no request to Google at all.
+  // The choice is kept in localStorage; the footer button reopens the banner
+  // so consent can be withdrawn as easily as it was given.
+  function initConsent() {
+    var banner = document.getElementById('consentBanner');
+    if (!banner) return;
+    var gaId = banner.getAttribute('data-ga-id');
+    var loaded = false;
+
+    function readChoice() {
+      try {
+        return localStorage.getItem(CONSENT_KEY);
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function loadAnalytics() {
+      if (loaded) {
+        window.gtag('consent', 'update', { analytics_storage: 'granted' });
+        return;
+      }
+      loaded = true;
+      window.dataLayer = window.dataLayer || [];
+      window.gtag = function () {
+        window.dataLayer.push(arguments);
+      };
+      window.gtag('consent', 'default', {
+        analytics_storage: 'granted',
+        ad_storage: 'denied',
+        ad_user_data: 'denied',
+        ad_personalization: 'denied',
+      });
+      window.gtag('js', new Date());
+      window.gtag('config', gaId, { allow_google_signals: false });
+      var s = document.createElement('script');
+      s.async = true;
+      s.src = 'https://www.googletagmanager.com/gtag/js?id=' + encodeURIComponent(gaId);
+      document.head.appendChild(s);
+    }
+
+    // Withdrawing consent: stop storage and drop the cookies GA already set.
+    function stopAnalytics() {
+      if (loaded) window.gtag('consent', 'update', { analytics_storage: 'denied' });
+      document.cookie.split(';').forEach(function (c) {
+        var name = c.split('=')[0].trim();
+        if (name.indexOf('_ga') !== 0) return;
+        var host = location.hostname.replace(/^www\./, '');
+        ['', '; domain=' + host, '; domain=.' + host].forEach(function (d) {
+          document.cookie = name + '=; Max-Age=0; path=/' + d;
+        });
+      });
+    }
+
+    function choose(value) {
+      try {
+        localStorage.setItem(CONSENT_KEY, value);
+      } catch (e) {
+        /* Storage blocked: the choice holds for this page only. */
+      }
+      banner.hidden = true;
+      if (value === 'granted') loadAnalytics();
+      else stopAnalytics();
+    }
+
+    Array.prototype.forEach.call(banner.querySelectorAll('[data-consent]'), function (btn) {
+      btn.addEventListener('click', function () {
+        choose(btn.getAttribute('data-consent'));
+      });
+    });
+
+    var reopen = document.getElementById('consentReopen');
+    if (reopen) {
+      reopen.addEventListener('click', function () {
+        banner.hidden = false;
+        banner.querySelector('[data-consent]').focus();
+      });
+    }
+
+    var choice = readChoice();
+    if (choice === 'granted') loadAnalytics();
+    else if (choice !== 'denied') banner.hidden = false;
+  }
+
   initMenu();
   initThemeToggle();
   initScrollReveal();
   initHeroGlow();
   initDotSpotlight();
+  initConsent();
 })();

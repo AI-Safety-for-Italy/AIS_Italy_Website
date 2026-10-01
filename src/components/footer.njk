@@ -28,6 +28,9 @@
     </div>
     <div class="footer-bottom">
       <span data-en="{{ translations.en.footer.copyright }}" data-it="{{ translations.it.footer.copyright }}">{{ translations.en.footer.copyright }}</span>
+      {%- if site.analytics.gaId %}
+      <button type="button" class="footer-consent" id="consentReopen" data-en="{{ translations.en.footer.cookie_settings }}" data-it="{{ translations.it.footer.cookie_settings }}">{{ translations.en.footer.cookie_settings }}</button>
+      {%- endif %}
       <span class="footer-flag" aria-hidden="true"><i></i><i></i><i></i></span>
     </div>
   </div>

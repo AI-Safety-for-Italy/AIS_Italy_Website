@@ -5,7 +5,12 @@ eleventyExcludeFromCollections: true
 {#- Every page is listed once per locale. The alternates are built from the
     page's `basePath` (its locale-independent path) rather than from page.url,
     so an Italian entry advertises /about/ and /it/about/ — not /it/it/about/.
-    A page without a basePath is single-language and gets no alternates. -#}
+    A page without a basePath is single-language and gets no alternates.
+
+    No <lastmod>: the only date available here is the build date, which would
+    claim every page changed on every deploy, and Google stops trusting a
+    lastmod that is wrong. Leaving it out is better than lying. -#}
+{%- set origin = "https://" + site.site.domain -%}
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
         xmlns:xhtml="http://www.w3.org/1999/xhtml">
@@ -13,8 +18,7 @@ eleventyExcludeFromCollections: true
   {%- if entry.url and not entry.data.excludeFromSitemap %}
   {%- set base = entry.data.basePath %}
   <url>
-    <loc>https://aisafetycommunity.it{{ entry.url }}</loc>
-    <lastmod>{{ entry.date | date("Y-m-d") }}</lastmod>
+    <loc>{{ origin }}{{ entry.url }}</loc>
     <changefreq>
       {%- if base == "/" -%}weekly
       {%- elif base == "/initiatives/" or base == "/community/" -%}monthly
@@ -32,9 +36,9 @@ eleventyExcludeFromCollections: true
     </priority>
     {%- if base %}
     {%- for l in locales %}
-    <xhtml:link rel="alternate" hreflang="{{ l.code }}" href="https://aisafetycommunity.it{{ l.prefix }}{{ base }}"/>
+    <xhtml:link rel="alternate" hreflang="{{ l.code }}" href="{{ origin }}{{ l.prefix }}{{ base }}"/>
     {%- endfor %}
-    <xhtml:link rel="alternate" hreflang="x-default" href="https://aisafetycommunity.it{{ base }}"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="{{ origin }}{{ base }}"/>
     {%- endif %}
   </url>
   {%- endif %}

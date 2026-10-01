@@ -184,7 +184,6 @@ module.exports = function(eleventyConfig) {
   eleventyConfig.addPassthroughCopy({ "src/assets/img/favicon.ico": "favicon.ico" });
   eleventyConfig.addPassthroughCopy({ "src/assets/img/apple-touch-icon.png": "apple-touch-icon.png" });
 
-  eleventyConfig.addPassthroughCopy("src/robots.txt");
   eleventyConfig.addPassthroughCopy("src/llms.txt");
 
   // Watch targets for live reload
