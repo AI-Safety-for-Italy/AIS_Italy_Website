@@ -9,10 +9,10 @@ pagination:
   # and the sitemap would list the English pages only.
   addAllPagesToCollections: true
 permalink: '{{ locale.prefix }}{{ basePath }}'
-seoTitle: 'Initiatives: Mentorship, Seminars & News | AI Safety for Italy'
-seoTitle_it: 'Iniziative: mentorship, seminari e notizie | AI Safety for Italy'
-seoDescription: 'Mentorship programs, seminars, and the latest news from AI Safety for Italy, Italy''s grassroots AI safety community.'
-seoDescription_it: "Programmi di mentorship, seminari e le ultime notizie da AI Safety for Italy, la community italiana dedicata alla sicurezza dell'IA."
+seoTitle: 'Initiatives: Mentorship & Meetups | AI Safety for Italy'
+seoTitle_it: 'Iniziative: mentorship e incontri | AI Safety for Italy'
+seoDescription: 'Mentorship programs, talks and meetups from AI Safety for Italy, Italy''s grassroots AI safety community.'
+seoDescription_it: "Programmi di mentorship, talk e incontri di AI Safety for Italy, la community italiana dedicata alla sicurezza dell'IA."
 ---
 {% extends "base.njk" %}
 {% block content %}
@@ -111,9 +111,6 @@ seoDescription_it: "Programmi di mentorship, seminari e le ultime notizie da AI 
         </div>
     </div>
 </section>
-
-<!-- News & updates -->
-{% include "news-carousel.njk" %}
 
 <!-- CTA Section -->
 <section class="section">

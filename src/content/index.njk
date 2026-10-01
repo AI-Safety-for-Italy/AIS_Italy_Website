@@ -18,10 +18,19 @@ seoDescription_it: "AI Safety for Italy è la community italiana che lavora per 
 ---
 {% extends "base.njk" %}
 {% block content %}
+{# The event flagged `featured: true` in events.yaml, if any, leads the page. #}
+{% set featured = events.upcoming_events | selectattr("featured") | first %}
 <!-- Hero Section -->
 <section class="hero">
     <div class="container">
         <img class="hero-logo" src="/assets/img/ais4i-logo-label.svg" alt="AI Safety for Italy logo" width="200" height="200">
+        {% if featured %}
+        <a class="hero-notice" href="#{{ featured.anchor }}">
+            <span class="hero-notice-dot" aria-hidden="true"></span>
+            <span data-en="{{ featured.teaser }}" data-it="{{ featured.teaser_it }}">{{ featured.teaser }}</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+        </a>
+        {% endif %}
         <h1 class="hero-title" data-en="{{ translations.en.hero.title }}" data-it="{{ translations.it.hero.title }}">{{ translations.en.hero.title }}</h1>
         <p class="hero-tagline" data-en="{{ translations.en.hero.subtitle }}" data-it="{{ translations.it.hero.subtitle }}">{{ translations.en.hero.subtitle }}</p>
         <p class="hero-sub" data-en="{{ translations.en.hero.description }}" data-it="{{ translations.it.hero.description }}">{{ translations.en.hero.description }}</p>
@@ -32,8 +41,37 @@ seoDescription_it: "AI Safety for Italy è la community italiana che lavora per 
     </div>
 </section>
 
-{% set newsAlt = true %}
-{% include "news-carousel.njk" %}
+{% if featured %}
+<!-- Featured event -->
+<section class="section section-alt featured-event" id="{{ featured.anchor }}">
+    <div class="container">
+        <div class="featured-event-card reveal">
+            <div class="featured-event-body">
+                <span class="chip red" data-en="Next event" data-it="Prossimo evento">Next event</span>
+                <h2 data-en="{{ featured.title }}" data-it="{{ featured.title_it }}">{{ featured.title }}</h2>
+                <ul class="featured-event-facts">
+                    <li>
+                        <svg class="ds-icon" aria-hidden="true"><use href="#icon-calendar"></use></svg>
+                        <span data-en="{{ featured.date }}" data-it="{{ featured.date_it }}">{{ featured.date }}</span>
+                    </li>
+                    <li>
+                        <svg class="ds-icon" aria-hidden="true"><use href="#icon-users"></use></svg>
+                        <span data-en="{{ featured.place }}" data-it="{{ featured.place_it }}">{{ featured.place }}</span>
+                    </li>
+                </ul>
+                <p data-en="{{ featured.summary }}" data-it="{{ featured.summary_it }}">{{ featured.summary }}</p>
+            </div>
+            <div class="featured-event-actions">
+                <a href="{{ featured.register_link }}" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-lg" data-en="{{ featured.register_text }}" data-it="{{ featured.register_text_it }}">{{ featured.register_text }}</a>
+                {% if featured.stream_link %}
+                <a href="{{ featured.stream_link }}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-lg" data-en="{{ featured.stream_text }}" data-it="{{ featured.stream_text_it }}">{{ featured.stream_text }}</a>
+                {% endif %}
+                <a href="/initiatives/#{{ featured.anchor }}" class="news-link" data-en="Programme and details" data-it="Programma e dettagli">Programme and details</a>
+            </div>
+        </div>
+    </div>
+</section>
+{% endif %}
 
 <!-- What We Do -->
 <section class="section" id="learn-more">
@@ -43,10 +81,9 @@ seoDescription_it: "AI Safety for Italy è la community italiana che lavora per 
             <h2 data-en="Three ways we build a safer AI ecosystem" data-it="Tre modi in cui costruiamo un ecosistema AI più sicuro">Three ways we build a safer AI ecosystem</h2>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {% set icons = ["graduation", "handshake", "flask"] %}
             {% for feature in home.features %}
-            <article class="card reveal">
-                <span class="card-icon"><svg class="ds-icon" aria-hidden="true"><use href="#icon-{{ icons[loop.index0] }}"></use></svg></span>
+            <article class="feature reveal">
+                <span class="feature-num">0{{ loop.index }}</span>
                 <h3 data-en="{{ feature.title }}" data-it="{{ feature.title_it }}">{{ feature.title }}</h3>
                 <p style="margin-bottom: 0;" data-en="{{ feature.description }}" data-it="{{ feature.description_it }}">{{ feature.description }}</p>
             </article>
@@ -59,12 +96,12 @@ seoDescription_it: "AI Safety for Italy è la community italiana che lavora per 
 <section class="section section-alt">
     <div class="container">
         <div class="split">
-            <div class="split-card accent-red reveal">
+            <div class="split-card reveal">
                 <h2 data-en="{{ home.mission.problem_title }}" data-it="{{ home.mission.problem_title_it }}">{{ home.mission.problem_title }}</h2>
                 <p data-en="{{ home.mission.problem_description | split('\n\n') | first }}" data-it="{{ home.mission.problem_description_it | split('\n\n') | first }}">{{ home.mission.problem_description | split('\n\n') | first }}</p>
                 <p style="margin-bottom: 0;" data-en="{{ home.mission.problem_description | split('\n\n') | last }}" data-it="{{ home.mission.problem_description_it | split('\n\n') | last }}">{{ home.mission.problem_description | split('\n\n') | last }}</p>
             </div>
-            <div class="split-card accent-green reveal">
+            <div class="split-card reveal">
                 <h2 data-en="{{ home.mission.solution_title }}" data-it="{{ home.mission.solution_title_it }}">{{ home.mission.solution_title }}</h2>
                 <p data-en="{{ home.mission.solution_description | split('\n\n') | first }}" data-it="{{ home.mission.solution_description_it | split('\n\n') | first }}">{{ home.mission.solution_description | split('\n\n') | first }}</p>
                 <p style="margin-top: 1.5rem; margin-bottom: 0;"><a href="{{ site.forms.mailingList }}" target="_blank" class="btn btn-primary" data-en="Get involved today" data-it="Partecipa oggi">Get involved today</a></p>
@@ -73,7 +110,21 @@ seoDescription_it: "AI Safety for Italy è la community italiana che lavora per 
     </div>
 </section>
 
-{% include "contact-form.njk" %}
+<!-- Supported by -->
+<section class="section supporters">
+    <div class="container">
+        <p class="supporters-label reveal" data-en="{{ translations.en.supporters.heading }}" data-it="{{ translations.it.supporters.heading }}">{{ translations.en.supporters.heading }}</p>
+        <ul class="supporter-list reveal">
+            {% for supporter in home.supporters %}
+            <li>
+                <a class="supporter-logo" href="{{ supporter.url }}" target="_blank" rel="noopener noreferrer">
+                    <img src="{{ supporter.logo }}" alt="{{ supporter.name }}" loading="lazy" decoding="async"{% if supporter.width %} width="{{ supporter.width }}" height="{{ supporter.height }}"{% endif %}{% if supporter.max_height %} style="max-height: {{ supporter.max_height }}px"{% endif %}>
+                </a>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+</section>
 
 <!-- CTA Section -->
 <section class="section">

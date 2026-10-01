@@ -1,10 +1,10 @@
-# Events & News Page Content Data
+# Initiatives Page Content Data
 
 hero:
   title: 'Initiatives'
   title_it: 'Iniziative'
-  subtitle: 'Our programs and gatherings: mentorship, seminars, and the latest news from the community.'
-  subtitle_it: 'I nostri programmi e incontri: mentorship, seminari e le ultime novità dalla community.'
+  subtitle: 'Our programs and gatherings: mentorship, talks and meetups.'
+  subtitle_it: 'I nostri programmi e incontri: mentorship, talk e meetup.'
 
 section_upcoming_title: 'Upcoming & Recent Events'
 section_upcoming_title_it: 'Eventi Imminenti e Recenti'
@@ -43,6 +43,15 @@ upcoming_events:
 
   - id: 4
     anchor: 'meetup-milano-2026'
+    # featured: true puts this event at the top of the home page (hero notice and
+    # its own band). Remove it once the event is over.
+    featured: true
+    teaser: 'First in-person meetup · Milan, 5 October'
+    teaser_it: 'Primo meetup in presenza · Milano, 5 ottobre'
+    place: 'Cascina Cuccagna, Milan'
+    place_it: 'Cascina Cuccagna, Milano'
+    summary: 'An evening open to everyone: a clear introduction to AI safety, the community''s new projects and how to get involved, then aperitivo and networking. No technical background needed. Registration on Luma is required to attend in person; the talks are also livestreamed.'
+    summary_it: "Una serata aperta a tutti: un'introduzione chiara all'AI safety, i nuovi progetti della community e come partecipare, poi aperitivo e networking. Non servono conoscenze tecniche. Per venire in presenza è necessaria l'iscrizione su Luma; i talk sono anche in streaming."
     category: 'seminar'
     title: 'AI Safety for Italy Meetup'
     title_it: 'Meetup AI Safety for Italy'
@@ -116,34 +125,6 @@ upcoming_events:
     stream_text: 'Watch the livestream'
     stream_text_it: 'Segui la diretta'
     stream_link: '/streaming'
-
-  - id: 3
-    category: 'seminar'
-    title: 'Wednesday Researcher Meetup'
-    title_it: 'Incontro Ricercatori del Mercoledì'
-    date: 'Every 2nd Wednesday at 18:00 CET'
-    date_it: 'Ogni 2° mercoledì alle 18:00 CET'
-    status: 'Recurring'
-    status_it: 'Ricorrente'
-    description: 'Informal gathering for AI safety researchers, students, and enthusiasts to discuss and collaborate on projects. A great place to network with the community!'
-    description_it: 'Incontro informale per ricercatori, studenti e appassionati di AI safety per discutere e collaborare su progetti. Un ottimo posto per fare networking con la community!'
-    format_info:
-      - label: 'Format'
-        label_it: 'Formato'
-        value: 'Virtual Meetup'
-        value_it: 'Incontro virtuale'
-      - label: 'Size'
-        label_it: 'Dimensione'
-        value: '3-10 participants'
-        value_it: '3-10 partecipanti'
-      - label: 'Level'
-        label_it: 'Livello'
-        value: 'All experience welcome'
-        value_it: 'Tutte le esperienze benvenute'
-    register_text: ''
-    register_text_it: ''
-    register_link: ''
-    register_target: '_blank'
 
 recent_highlights: []
 
