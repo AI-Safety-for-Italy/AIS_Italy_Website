@@ -228,95 +228,6 @@ body > main {
   flex: 1 0 auto;
 }
 
-/* Fixed dot texture — a barely-there grid that stays put while the page
-   scrolls. position:fixed keeps it out of the flex flow above; the negative
-   z-index paints it over the body background but under all content. */
-body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background-image: radial-gradient(circle, rgba(11, 61, 33, 0.5) 1px, transparent 1.2px);
-  background-size: 22px 22px;
-  opacity: 0.16;
-}
-
-[data-theme='dark'] body::before {
-  background-image: radial-gradient(circle, rgba(180, 230, 200, 0.55) 1px, transparent 1.2px);
-  opacity: 0.13;
-}
-
-/* Cursor spotlight — the same dot grid, brighter, revealed only through a mask
-   of three soft circles. JS (initDotSpotlight) lerps those circles along a
-   chain, each lagging further behind the cursor, which draws the tail. The
-   opacity transition is what makes the tail fade out slowly once the pointer
-   stops or leaves. Positions default off-screen so nothing shows until the
-   first pointermove. */
-body::after {
-  content: '';
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background-image: radial-gradient(circle, rgba(11, 61, 33, 0.9) 1px, transparent 1.2px);
-  background-size: 22px 22px;
-  opacity: 0;
-  transition: opacity 0.65s ease-out;
-  -webkit-mask-image: radial-gradient(
-      circle 130px at var(--spot-x0, -999px) var(--spot-y0, -999px),
-      #000 0%,
-      rgba(0, 0, 0, 0.45) 55%,
-      transparent 75%
-    ),
-    radial-gradient(
-      circle 100px at var(--spot-x1, -999px) var(--spot-y1, -999px),
-      rgba(0, 0, 0, 0.6) 0%,
-      transparent 72%
-    ),
-    radial-gradient(
-      circle 74px at var(--spot-x2, -999px) var(--spot-y2, -999px),
-      rgba(0, 0, 0, 0.35) 0%,
-      transparent 70%
-    );
-  mask-image: radial-gradient(
-      circle 130px at var(--spot-x0, -999px) var(--spot-y0, -999px),
-      #000 0%,
-      rgba(0, 0, 0, 0.45) 55%,
-      transparent 75%
-    ),
-    radial-gradient(
-      circle 100px at var(--spot-x1, -999px) var(--spot-y1, -999px),
-      rgba(0, 0, 0, 0.6) 0%,
-      transparent 72%
-    ),
-    radial-gradient(
-      circle 74px at var(--spot-x2, -999px) var(--spot-y2, -999px),
-      rgba(0, 0, 0, 0.35) 0%,
-      transparent 70%
-    );
-  -webkit-mask-composite: source-over;
-  mask-composite: add;
-}
-
-body.spotlight-on::after {
-  opacity: 0.5;
-}
-
-[data-theme='dark'] body::after {
-  background-image: radial-gradient(circle, rgba(190, 240, 210, 0.95) 1px, transparent 1.2px);
-}
-
-[data-theme='dark'] body.spotlight-on::after {
-  opacity: 0.42;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  body.spotlight-on::after {
-    opacity: 0;
-  }
-}
-
 img {
   max-width: 100%;
 }
@@ -398,7 +309,7 @@ a:hover {
   justify-content: center;
   gap: 0.5rem;
   padding: 0.75rem 1.5rem;
-  border-radius: var(--radius-full);
+  border-radius: 8px;
   border: 1px solid transparent;
   font-family: var(--font-sans);
   font-size: 1rem;
@@ -413,13 +324,11 @@ a:hover {
 .btn-primary {
   background: var(--accent);
   color: #fff;
-  box-shadow: 0 6px 16px -6px rgba(0, 140, 69, 0.5);
 }
 
 .btn-primary:hover {
   background: var(--accent-700);
   color: #fff;
-  transform: translateY(-1px);
 }
 
 [data-theme='dark'] .btn-primary {
@@ -441,7 +350,6 @@ a:hover {
 .btn-outline:hover {
   border-color: var(--accent);
   color: var(--accent);
-  transform: translateY(-1px);
 }
 
 /* A button whose link is not ready yet (e.g. a livestream announced before the URL exists) */
@@ -462,13 +370,11 @@ a:hover {
   background: var(--card-bg);
   border-color: var(--border-strong);
   color: var(--text-primary);
-  box-shadow: var(--shadow-sm);
 }
 
 .btn-secondary:hover {
   border-color: var(--accent);
   color: var(--accent);
-  transform: translateY(-1px);
 }
 
 /* CTA — surface card with accent border (style guide) */
@@ -710,7 +616,7 @@ a:hover {
 }
 
 /* ==========================================================================
-   Hero — logo, serif title, italic tagline, green/red glows
+   Hero — logo, serif title, italic tagline
    ========================================================================== */
 
 .hero {
@@ -718,42 +624,7 @@ a:hover {
   overflow: hidden;
   padding: 6rem 0 5rem;
   text-align: center;
-}
-
-/* Logo-echo glow: green petals left, red petals right */
-.hero::before,
-.hero::after {
-  content: '';
-  position: absolute;
-  width: 560px;
-  height: 560px;
-  border-radius: 50%;
-  filter: blur(90px);
-  opacity: 0.26;
-  pointer-events: none;
-}
-
-.hero::before {
-  background: var(--accent);
-  left: -160px;
-  top: -120px;
-  transform: translate3d(var(--glow-a-x, 0px), var(--glow-a-y, 0px), 0);
-}
-
-.hero::after {
-  background: var(--secondary);
-  right: -160px;
-  bottom: -180px;
-  transform: translate3d(var(--glow-b-x, 0px), var(--glow-b-y, 0px), 0);
-}
-
-/* Cursor repulsion is driven by JS (initHeroGlow); the easing lives there,
-   so no CSS transition here — it would fight the rAF interpolation. */
-@media (prefers-reduced-motion: reduce) {
-  .hero::before,
-  .hero::after {
-    transform: none;
-  }
+  border-bottom: 1px solid var(--border-default);
 }
 
 .hero .container {
@@ -808,7 +679,6 @@ a:hover {
   border: 1px solid var(--secondary-200, var(--border-strong));
   border-radius: var(--radius-full);
   background: var(--card-bg);
-  box-shadow: var(--shadow-sm);
   color: var(--text-primary);
   font-size: 0.95rem;
   font-weight: 600;
@@ -826,7 +696,6 @@ a:hover {
 
 .hero-notice:hover {
   border-color: var(--secondary);
-  box-shadow: var(--shadow);
 }
 
 .hero-notice svg {
@@ -845,23 +714,6 @@ a:hover {
   height: 8px;
   border-radius: 50%;
   background: var(--secondary);
-  box-shadow: 0 0 0 0 rgba(205, 33, 42, 0.5);
-  animation: notice-pulse 2s ease-out infinite;
-}
-
-@keyframes notice-pulse {
-  70% {
-    box-shadow: 0 0 0 8px rgba(205, 33, 42, 0);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgba(205, 33, 42, 0);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .hero-notice-dot {
-    animation: none;
-  }
 }
 
 /* Featured event band, right under the hero */
@@ -875,10 +727,8 @@ a:hover {
   align-items: center;
   background: var(--card-bg);
   border: 1px solid var(--border-default);
-  border-top: 3px solid var(--secondary);
   border-radius: var(--radius);
   padding: 2rem;
-  box-shadow: var(--card-shadow);
 }
 
 @media (min-width: 900px) {
@@ -945,30 +795,6 @@ a:hover {
   background: var(--bg-secondary);
 }
 
-.page-hero::before,
-.page-hero::after {
-  content: '';
-  position: absolute;
-  width: 420px;
-  height: 420px;
-  border-radius: 50%;
-  filter: blur(100px);
-  opacity: 0.12;
-  pointer-events: none;
-}
-
-.page-hero::before {
-  background: var(--accent);
-  left: -140px;
-  top: -160px;
-}
-
-.page-hero::after {
-  background: var(--secondary);
-  right: -140px;
-  bottom: -220px;
-}
-
 .page-hero .container {
   position: relative;
   z-index: 1;
@@ -1023,7 +849,7 @@ a:hover {
   margin-bottom: 0;
 }
 
-/* Two-tone eyebrow echoing the logo petals */
+/* Small uppercase label above section titles */
 .eyebrow {
   display: inline-flex;
   align-items: center;
@@ -1034,14 +860,6 @@ a:hover {
   text-transform: uppercase;
   color: var(--text-tertiary);
   margin-bottom: 0.9rem;
-}
-
-.eyebrow::before {
-  content: '';
-  width: 26px;
-  height: 3px;
-  border-radius: 3px;
-  background: linear-gradient(90deg, var(--accent) 62%, var(--secondary) 62%);
 }
 
 /* ==========================================================================
@@ -1055,16 +873,36 @@ a:hover {
   border: 1px solid var(--border-default);
   border-radius: var(--radius);
   padding: 1.75rem;
-  box-shadow: var(--card-shadow);
   color: var(--text-primary);
   height: 100%;
   transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
 .card:hover {
-  transform: translateY(-3px);
-  box-shadow: var(--card-shadow-hover);
-  border-color: var(--accent-200);
+  border-color: var(--border-strong);
+}
+
+/* Home "what we do" columns: a rule and a number instead of boxed cards */
+.feature {
+  border-top: 1px solid var(--border-strong);
+  padding-top: 1.25rem;
+}
+
+.feature-num {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 0.75rem;
+}
+
+.feature h3 {
+  margin-bottom: 0.5rem;
+}
+
+.feature p {
+  color: var(--text-secondary);
 }
 
 .card h3 {
@@ -1169,7 +1007,7 @@ a:hover {
 }
 
 /* ==========================================================================
-   Split (challenge / solution) — colored top borders
+   Split (challenge / solution)
    ========================================================================== */
 
 .split {
@@ -1189,7 +1027,6 @@ a:hover {
   padding: 2.25rem;
   border: 1px solid var(--border-default);
   background: var(--card-bg);
-  box-shadow: var(--card-shadow);
 }
 
 .split-card h2,
@@ -1205,45 +1042,21 @@ a:hover {
   margin-bottom: 0;
 }
 
-.split-card.accent-green {
-  border-top: 4px solid var(--accent);
-}
-
-.split-card.accent-red {
-  border-top: 4px solid var(--secondary);
-}
-
 /* ==========================================================================
-   CTA band — translucent deep-green gradient + red corner glow + white button.
-   The green stops sit at 85% alpha so the page shows through. Because that
-   composites toward the page background, the stops are darker in light mode
-   and lighter in dark mode — both tuned so white text stays ≥ WCAG AA
-   (≥4.5:1) over bg-primary and bg-secondary alike. Never use the raw
-   bright dark-mode green here.
+   CTA band — one flat deep green with a white button. White text on
+   #005c2e clears WCAG AA in both themes.
    ========================================================================== */
 
 .cta-band {
   position: relative;
   overflow: hidden;
-  background: radial-gradient(
-      720px 470px at 95% 128%,
-      rgba(229, 72, 77, 0.6),
-      rgba(229, 72, 77, 0) 72%
-    ),
-    linear-gradient(120deg, rgba(0, 110, 52, 0.85) 0%, rgba(0, 84, 40, 0.85) 100%);
+  /* A fixed value: the dark theme flips the accent scale, so a token here
+     would turn light behind the white text. */
+  background: #005c2e;
   color: #fff;
   border-radius: var(--radius);
   padding: 3.5rem 2.5rem;
   text-align: center;
-}
-
-[data-theme='dark'] .cta-band {
-  background: radial-gradient(
-      720px 470px at 95% 128%,
-      rgba(229, 72, 77, 0.6),
-      rgba(229, 72, 77, 0) 72%
-    ),
-    linear-gradient(120deg, rgba(0, 140, 67, 0.85) 0%, rgba(0, 110, 54, 0.85) 100%);
 }
 
 .cta-band h2 {
@@ -1265,12 +1078,10 @@ a:hover {
   z-index: 1;
   background: #fff;
   color: #006f38;
-  box-shadow: 0 8px 20px -8px rgba(0, 0, 0, 0.35);
 }
 
 .cta-band .btn:hover {
   color: #005c2e;
-  transform: translateY(-1px);
 }
 
 /* ==========================================================================
@@ -1765,7 +1576,6 @@ a:hover {
 .contact-method:hover {
   border-color: var(--accent);
   color: var(--text-primary);
-  transform: translateY(-1px);
 }
 
 .contact-method svg {

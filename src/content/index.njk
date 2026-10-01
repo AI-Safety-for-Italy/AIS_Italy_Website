@@ -81,10 +81,9 @@ seoDescription_it: "AI Safety for Italy è la community italiana che lavora per 
             <h2 data-en="Three ways we build a safer AI ecosystem" data-it="Tre modi in cui costruiamo un ecosistema AI più sicuro">Three ways we build a safer AI ecosystem</h2>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {% set icons = ["graduation", "handshake", "flask"] %}
             {% for feature in home.features %}
-            <article class="card reveal">
-                <span class="card-icon"><svg class="ds-icon" aria-hidden="true"><use href="#icon-{{ icons[loop.index0] }}"></use></svg></span>
+            <article class="feature reveal">
+                <span class="feature-num">0{{ loop.index }}</span>
                 <h3 data-en="{{ feature.title }}" data-it="{{ feature.title_it }}">{{ feature.title }}</h3>
                 <p style="margin-bottom: 0;" data-en="{{ feature.description }}" data-it="{{ feature.description_it }}">{{ feature.description }}</p>
             </article>
@@ -97,12 +96,12 @@ seoDescription_it: "AI Safety for Italy è la community italiana che lavora per 
 <section class="section section-alt">
     <div class="container">
         <div class="split">
-            <div class="split-card accent-red reveal">
+            <div class="split-card reveal">
                 <h2 data-en="{{ home.mission.problem_title }}" data-it="{{ home.mission.problem_title_it }}">{{ home.mission.problem_title }}</h2>
                 <p data-en="{{ home.mission.problem_description | split('\n\n') | first }}" data-it="{{ home.mission.problem_description_it | split('\n\n') | first }}">{{ home.mission.problem_description | split('\n\n') | first }}</p>
                 <p style="margin-bottom: 0;" data-en="{{ home.mission.problem_description | split('\n\n') | last }}" data-it="{{ home.mission.problem_description_it | split('\n\n') | last }}">{{ home.mission.problem_description | split('\n\n') | last }}</p>
             </div>
-            <div class="split-card accent-green reveal">
+            <div class="split-card reveal">
                 <h2 data-en="{{ home.mission.solution_title }}" data-it="{{ home.mission.solution_title_it }}">{{ home.mission.solution_title }}</h2>
                 <p data-en="{{ home.mission.solution_description | split('\n\n') | first }}" data-it="{{ home.mission.solution_description_it | split('\n\n') | first }}">{{ home.mission.solution_description | split('\n\n') | first }}</p>
                 <p style="margin-top: 1.5rem; margin-bottom: 0;"><a href="{{ site.forms.mailingList }}" target="_blank" class="btn btn-primary" data-en="Get involved today" data-it="Partecipa oggi">Get involved today</a></p>
