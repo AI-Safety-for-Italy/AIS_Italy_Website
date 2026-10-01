@@ -615,7 +615,8 @@ a:hover {
    icon cannot flash the way a JS-assigned one would. Each icon shows the theme
    the button switches TO. */
 .theme-icon {
-  line-height: 1;
+  width: 18px;
+  height: 18px;
 }
 
 .theme-icon--to-light {
@@ -627,7 +628,7 @@ a:hover {
 }
 
 [data-theme='dark'] .theme-icon--to-light {
-  display: inline;
+  display: block;
 }
 
 .lang-btn {
@@ -2481,19 +2482,194 @@ pre code {
     height: 34px;
   }
 
+  /* Type: the desktop clamps bottom out too large for a 390px column */
+  h1 {
+    font-size: 2rem;
+  }
+
+  h2 {
+    font-size: 1.6rem;
+  }
+
+  h3 {
+    font-size: 1.15rem;
+  }
+
+  body {
+    font-size: 1rem;
+  }
+
+  /* Rhythm: tighter vertical spacing so a screen holds more than one idea */
   .hero {
-    padding: 4rem 0 3.5rem;
+    padding: 2.5rem 0 2.75rem;
+  }
+
+  .hero-logo {
+    width: 104px;
+    margin-bottom: 1.25rem;
+  }
+
+  .hero-title {
+    font-size: 2.3rem;
+  }
+
+  .hero-tagline {
+    font-size: 1.1rem;
+    margin-bottom: 0.9rem;
+  }
+
+  .hero-sub {
+    font-size: 1rem;
+  }
+
+  .page-hero {
+    padding: 2.5rem 0 2rem;
   }
 
   .section {
-    padding: 3.25rem 0;
+    padding: 2.75rem 0;
+  }
+
+  .section-head {
+    margin-bottom: 1.75rem;
+  }
+
+  .section-head p {
+    font-size: 1rem;
+  }
+
+  /* Stacked buttons share one width instead of each hugging its label */
+  .hero-ctas {
+    flex-direction: column;
+    align-items: stretch;
+    max-width: 20rem;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .btn-lg {
+    padding: 0.8rem 1.25rem;
+    font-size: 1rem;
+  }
+
+  /* Cards: less inner padding so text gets the width */
+  .card,
+  .split-card,
+  .featured-event-card {
+    padding: 1.35rem;
+  }
+
+  .featured-event-card {
+    gap: 1.5rem;
+  }
+
+  .featured-event-actions {
+    min-width: 0;
+  }
+
+  .featured-event-facts {
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .split-card h2,
+  .split-card h3 {
+    font-size: 1.35rem;
   }
 
   .cta-band {
-    padding: 2.5rem 1.5rem;
+    padding: 2.25rem 1.25rem;
   }
 
-  .split-card {
-    padding: 1.75rem;
+  .cta-band h2 {
+    font-size: 1.5rem;
+  }
+
+  .cta-band p {
+    margin-bottom: 1.25rem;
+  }
+
+  .supporters {
+    padding-top: 0.5rem;
+  }
+
+  /* Footer: brand on top, the two link lists side by side */
+  .site-footer {
+    padding: 2.5rem 0 1.5rem;
+  }
+
+  .footer-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 1.75rem 1.25rem;
+    margin-bottom: 1.75rem;
+  }
+
+  .footer-grid > :first-child {
+    grid-column: 1 / -1;
+  }
+
+  .footer-bottom {
+    font-size: 0.82rem;
+  }
+
+  /* Members directory: each row becomes a compact block (name, links,
+     location, areas) instead of a three-column table squeezed to 390px */
+  .table-wrap {
+    max-height: 70vh !important;
+  }
+
+  .table-wrap thead {
+    display: none;
+  }
+
+  .table-wrap table,
+  .table-wrap tbody,
+  .table-wrap tr,
+  .table-wrap td {
+    display: block;
+    width: 100%;
+  }
+
+  .table-wrap tbody tr {
+    padding: 0.85rem 1rem;
+  }
+
+  .table-wrap tbody tr + tr {
+    border-top: 1px solid var(--border-default);
+  }
+
+  .table-wrap tbody tr + tr td {
+    border-top: 0;
+  }
+
+  .table-wrap td {
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  .table-wrap td:nth-child(2):not(:empty) {
+    margin-top: 0.35rem;
+    padding-left: 2.25rem;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+  }
+
+  .table-wrap td:nth-child(3):not(:empty) {
+    margin-top: 0.2rem;
+    padding-left: 2.25rem;
+    font-size: 0.8rem !important;
+    color: var(--text-tertiary);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .member-links {
+    gap: 0.15rem 0.6rem;
+  }
+
+  .member-links a {
+    overflow-wrap: anywhere;
   }
 }
