@@ -32,9 +32,6 @@ seoDescription_it: "AI Safety for Italy è la community italiana che lavora per 
     </div>
 </section>
 
-{% set newsAlt = true %}
-{% include "news-carousel.njk" %}
-
 <!-- What We Do -->
 <section class="section" id="learn-more">
     <div class="container">
@@ -73,7 +70,21 @@ seoDescription_it: "AI Safety for Italy è la community italiana che lavora per 
     </div>
 </section>
 
-{% include "contact-form.njk" %}
+<!-- Supported by -->
+<section class="section supporters">
+    <div class="container">
+        <p class="supporters-label reveal" data-en="{{ translations.en.supporters.heading }}" data-it="{{ translations.it.supporters.heading }}">{{ translations.en.supporters.heading }}</p>
+        <ul class="supporter-list reveal">
+            {% for supporter in home.supporters %}
+            <li>
+                <a class="supporter-logo" href="{{ supporter.url }}" target="_blank" rel="noopener noreferrer">
+                    <img src="{{ supporter.logo }}" alt="{{ supporter.name }}" loading="lazy" decoding="async"{% if supporter.width %} width="{{ supporter.width }}" height="{{ supporter.height }}"{% endif %}>
+                </a>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+</section>
 
 <!-- CTA Section -->
 <section class="section">

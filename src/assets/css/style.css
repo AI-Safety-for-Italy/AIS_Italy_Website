@@ -1136,6 +1136,69 @@ a:hover {
 }
 
 /* ==========================================================================
+   Supporters — funder logos at the foot of the home page
+   ========================================================================== */
+
+/* No tinted background and no rules: the band should stay quiet between the
+   sections it sits among, and keeps the label tight to the logo. */
+.supporters {
+  padding: 1rem 0 0.5rem;
+  text-align: center;
+}
+
+/* The CTA below carries another 4.5rem; trim it so the logo does not sit in
+   the middle of an empty stretch */
+.supporters + .section {
+  padding-top: 2.5rem;
+}
+
+.supporters-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin-bottom: 0.75rem;
+}
+
+.supporter-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem 2.5rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.supporter-logo {
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--radius-sm);
+  transition: opacity 0.2s ease;
+}
+
+.supporter-logo:hover,
+.supporter-logo:focus-visible {
+  opacity: 0.7;
+}
+
+.supporter-logo img {
+  display: block;
+  width: auto;
+  height: auto;
+  max-height: 88px;
+  max-width: min(340px, 75vw);
+}
+
+/* A dark wordmark would disappear on the dark background, so give it a plate */
+[data-theme='dark'] .supporter-logo {
+  background: #fff;
+  padding: 0.7rem 1.1rem;
+}
+
+/* ==========================================================================
    Team — avatar/initials head, green contribution tags, red interest tags
    ========================================================================== */
 
