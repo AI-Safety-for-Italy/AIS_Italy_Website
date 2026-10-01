@@ -101,7 +101,9 @@ cta:
 # To add one: drop the logo file in src/assets/img/supporters/ and point `logo`
 # at it. Set `width` and `height` to the file's own intrinsic size so the
 # browser reserves the right space while it loads; the CSS caps the rendered
-# height at 88px, so a raster file should be twice that tall.
+# height at 88px, so a raster file should be twice that tall. A long, one-line
+# wordmark looks far bigger than a stacked one at the same cap, so `max_height`
+# (in px) lowers the cap for that logo alone.
 #
 # Coefficient Giving logo: Aarongertler, CC BY 4.0, via Wikimedia Commons
 # https://commons.wikimedia.org/wiki/File:Coefficient_Logo_Green.png
@@ -119,3 +121,4 @@ supporters:
     logo: '/assets/img/supporters/bluedot-impact.svg'
     width: 1003
     height: 133
+    max_height: 30

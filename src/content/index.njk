@@ -119,7 +119,7 @@ seoDescription_it: "AI Safety for Italy è la community italiana che lavora per 
             {% for supporter in home.supporters %}
             <li>
                 <a class="supporter-logo" href="{{ supporter.url }}" target="_blank" rel="noopener noreferrer">
-                    <img src="{{ supporter.logo }}" alt="{{ supporter.name }}" loading="lazy" decoding="async"{% if supporter.width %} width="{{ supporter.width }}" height="{{ supporter.height }}"{% endif %}>
+                    <img src="{{ supporter.logo }}" alt="{{ supporter.name }}" loading="lazy" decoding="async"{% if supporter.width %} width="{{ supporter.width }}" height="{{ supporter.height }}"{% endif %}{% if supporter.max_height %} style="max-height: {{ supporter.max_height }}px"{% endif %}>
                 </a>
             </li>
             {% endfor %}
