@@ -18,10 +18,19 @@ seoDescription_it: "AI Safety for Italy è la community italiana che lavora per 
 ---
 {% extends "base.njk" %}
 {% block content %}
+{# The event flagged `featured: true` in events.yaml, if any, leads the page. #}
+{% set featured = events.upcoming_events | selectattr("featured") | first %}
 <!-- Hero Section -->
 <section class="hero">
     <div class="container">
         <img class="hero-logo" src="/assets/img/ais4i-logo-label.svg" alt="AI Safety for Italy logo" width="200" height="200">
+        {% if featured %}
+        <a class="hero-notice" href="#{{ featured.anchor }}">
+            <span class="hero-notice-dot" aria-hidden="true"></span>
+            <span data-en="{{ featured.teaser }}" data-it="{{ featured.teaser_it }}">{{ featured.teaser }}</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+        </a>
+        {% endif %}
         <h1 class="hero-title" data-en="{{ translations.en.hero.title }}" data-it="{{ translations.it.hero.title }}">{{ translations.en.hero.title }}</h1>
         <p class="hero-tagline" data-en="{{ translations.en.hero.subtitle }}" data-it="{{ translations.it.hero.subtitle }}">{{ translations.en.hero.subtitle }}</p>
         <p class="hero-sub" data-en="{{ translations.en.hero.description }}" data-it="{{ translations.it.hero.description }}">{{ translations.en.hero.description }}</p>
@@ -31,6 +40,38 @@ seoDescription_it: "AI Safety for Italy è la community italiana che lavora per 
         </div>
     </div>
 </section>
+
+{% if featured %}
+<!-- Featured event -->
+<section class="section section-alt featured-event" id="{{ featured.anchor }}">
+    <div class="container">
+        <div class="featured-event-card reveal">
+            <div class="featured-event-body">
+                <span class="chip red" data-en="Next event" data-it="Prossimo evento">Next event</span>
+                <h2 data-en="{{ featured.title }}" data-it="{{ featured.title_it }}">{{ featured.title }}</h2>
+                <ul class="featured-event-facts">
+                    <li>
+                        <svg class="ds-icon" aria-hidden="true"><use href="#icon-calendar"></use></svg>
+                        <span data-en="{{ featured.date }}" data-it="{{ featured.date_it }}">{{ featured.date }}</span>
+                    </li>
+                    <li>
+                        <svg class="ds-icon" aria-hidden="true"><use href="#icon-users"></use></svg>
+                        <span data-en="{{ featured.place }}" data-it="{{ featured.place_it }}">{{ featured.place }}</span>
+                    </li>
+                </ul>
+                <p data-en="{{ featured.summary }}" data-it="{{ featured.summary_it }}">{{ featured.summary }}</p>
+            </div>
+            <div class="featured-event-actions">
+                <a href="{{ featured.register_link }}" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-lg" data-en="{{ featured.register_text }}" data-it="{{ featured.register_text_it }}">{{ featured.register_text }}</a>
+                {% if featured.stream_link %}
+                <a href="{{ featured.stream_link }}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-lg" data-en="{{ featured.stream_text }}" data-it="{{ featured.stream_text_it }}">{{ featured.stream_text }}</a>
+                {% endif %}
+                <a href="/initiatives/#{{ featured.anchor }}" class="news-link" data-en="Programme and details" data-it="Programma e dettagli">Programme and details</a>
+            </div>
+        </div>
+    </div>
+</section>
+{% endif %}
 
 <!-- What We Do -->
 <section class="section" id="learn-more">

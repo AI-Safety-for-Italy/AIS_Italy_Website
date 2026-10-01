@@ -43,6 +43,15 @@ upcoming_events:
 
   - id: 4
     anchor: 'meetup-milano-2026'
+    # featured: true puts this event at the top of the home page (hero notice and
+    # its own band). Remove it once the event is over.
+    featured: true
+    teaser: 'First in-person meetup · Milan, 5 October'
+    teaser_it: 'Primo meetup in presenza · Milano, 5 ottobre'
+    place: 'Cascina Cuccagna, Milan'
+    place_it: 'Cascina Cuccagna, Milano'
+    summary: 'An evening open to everyone: a clear introduction to AI safety, the community''s new projects and how to get involved, then aperitivo and networking. No technical background needed. Registration on Luma is required to attend in person; the talks are also livestreamed.'
+    summary_it: "Una serata aperta a tutti: un'introduzione chiara all'AI safety, i nuovi progetti della community e come partecipare, poi aperitivo e networking. Non servono conoscenze tecniche. Per venire in presenza è necessaria l'iscrizione su Luma; i talk sono anche in streaming."
     category: 'seminar'
     title: 'AI Safety for Italy Meetup'
     title_it: 'Meetup AI Safety for Italy'
