@@ -7,6 +7,14 @@ links:
   mentor_apply: 'https://forms.gle/mtBnGSNY21bABNSt7'
   mentee_interest: 'https://forms.gle/mtBnGSNY21bABNSt7'
 
+# Partner organisation, shown as "In partnership with" on the mentorship page
+# and in the open-call band on the home page. Remove the block to hide it.
+partner:
+  name: 'CePTE'
+  full_name: 'Centro per le Politiche sulle Tecnologie Emergenti'
+  url: 'https://www.cepte.it/'
+  logo: '/assets/img/orgs/cepte.png'
+
 # Shown as a pulsing "Open call" label while true.
 call_open: true
 

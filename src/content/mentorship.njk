@@ -35,6 +35,7 @@ seoDescription_it: "Candidati come mentor o esprimi interesse come mentee nel pr
                 <a href="{{ m.links.mentor_apply }}" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-lg" data-en="{{ m.mentor.button }}" data-it="{{ m.mentor.button_it }}">{{ m.mentor.button }}</a>
                 <a href="{{ m.links.mentee_interest }}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-lg" data-en="{{ m.mentee.button }} (mentee)" data-it="{{ m.mentee.button_it }} (mentee)">{{ m.mentee.button }} (mentee)</a>
             </div>
+            {% include "mentorship-partner.njk" %}
         </div>
         <dl class="facts">
             {% for f in m.facts %}
