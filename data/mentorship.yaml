@@ -13,7 +13,9 @@ partner:
   name: 'CePTE'
   full_name: 'Centro per le Politiche sulle Tecnologie Emergenti'
   url: 'https://www.cepte.it/'
-  logo: '/assets/img/orgs/cepte.png'
+  # Wordmark cropped from orgs/cepte.png without its trailing bar; dark ink on
+  # transparent, inverted by CSS on the dark theme.
+  logo: '/assets/img/orgs/cepte-wordmark.png'
 
 # Shown as a pulsing "Open call" label while true.
 call_open: true

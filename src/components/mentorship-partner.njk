@@ -5,7 +5,7 @@
 {% set pt = mentorship.partner %}
 <a class="partner-badge" href="{{ pt.url }}" target="_blank" rel="noopener noreferrer">
     <span class="partner-label" data-en="In partnership with" data-it="In partnership con">In partnership with</span>
-    <span class="partner-logo"><img src="{{ pt.logo }}" alt="{{ pt.name }}" width="128" height="128" loading="lazy"></span>
+    <img class="partner-logo" src="{{ pt.logo }}" alt="{{ pt.name }}" width="119" height="30" loading="lazy">
     <span class="partner-name">{{ pt.full_name }}</span>
 </a>
 {% endif %}

@@ -1423,15 +1423,14 @@ a:hover {
   }
 }
 
-/* "In partnership with" + partner logo. The logo files are square with the
-   wordmark in the middle, so the plate is wide and the image is cropped to
-   the wordmark (object-fit: cover). The plate stays white in both themes
-   because the wordmark is dark. */
+/* "In partnership with" + partner wordmark. The wordmark is dark ink on a
+   transparent background, so it sits straight on the page and is inverted
+   on the dark theme. */
 .partner-badge {
   display: inline-flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 0.5rem 0.75rem;
+  gap: 0.5rem 0.85rem;
   margin-top: 1.5rem;
   color: var(--text-secondary);
   text-decoration: none;
@@ -1450,25 +1449,18 @@ a:hover {
 }
 
 .partner-logo {
-  display: inline-flex;
-  width: 104px;
-  height: 40px;
-  border-radius: var(--radius-sm);
-  background: #fff;
-  border: 1px solid var(--border-default);
-  overflow: hidden;
-  transition: border-color 0.2s ease, transform 0.2s ease;
+  display: block;
+  height: 24px;
+  width: auto;
+  transition: opacity 0.2s ease;
 }
 
 .partner-badge:hover .partner-logo {
-  border-color: var(--accent);
-  transform: translateY(-1px);
+  opacity: 0.75;
 }
 
-.partner-logo img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+[data-theme='dark'] .partner-logo {
+  filter: invert(1);
 }
 
 .partner-name {
