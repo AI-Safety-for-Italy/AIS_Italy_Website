@@ -5,7 +5,7 @@
 # Light Theme
 light:
   name: "Light"
-  isDefault: false
+  isDefault: true
   
   # Primary Backgrounds
   css:
@@ -89,7 +89,7 @@ light:
 # Dark Theme
 dark:
   name: "Dark"
-  isDefault: true
+  isDefault: false
   
   # CSS Variables for dark theme
   css:

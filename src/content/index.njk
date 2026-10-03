@@ -18,103 +18,181 @@ seoDescription_it: "AI Safety for Italy è la community italiana che lavora per 
 ---
 {% extends "base.njk" %}
 {% block content %}
-{# The event flagged `featured: true` in events.yaml, if any, leads the page. #}
+{# The event flagged `featured: true` in events.yaml, if any, sits beside the
+   hero. The stats strip reads its numbers from the data files, so it stays
+   true as members and cities are added. #}
 {% set featured = events.upcoming_events | selectattr("featured") | first %}
-<!-- Hero Section -->
-<section class="hero">
-    <div class="container">
-        <img class="hero-logo" src="/assets/img/ais4i-logo-label.svg" alt="AI Safety for Italy logo" width="200" height="200">
+{% set memberCount = members.members | length %}
+{% set cityCount = about.map.cities | length %}
+
+<!-- Hero: what we do, the next step, and the next event -->
+<section class="home-hero">
+    <div class="container home-hero-grid">
+        <div class="home-hero-copy hero-enter">
+            <img class="home-hero-logo" src="/assets/img/ais4i-logo-label.svg" alt="AI Safety for Italy logo" width="200" height="200">
+            <h1 class="home-hero-title" data-en="Helping Italy prepare for advanced AI, safely." data-it="Aiutiamo l'Italia a prepararsi all'IA avanzata, in sicurezza.">Helping Italy prepare for advanced AI, safely.</h1>
+            <p class="home-hero-lede" data-en="{{ translations.en.hero.description }}" data-it="{{ translations.it.hero.description }}">{{ translations.en.hero.description }}</p>
+            <div class="home-hero-ctas">
+                <a href="{{ home.hero.cta_link }}" class="btn btn-primary btn-lg" data-en="{{ translations.en.hero.cta }}" data-it="{{ translations.it.hero.cta }}">{{ translations.en.hero.cta }}</a>
+                <a href="#what-we-do" class="btn btn-secondary btn-lg" data-en="See what we do" data-it="Cosa facciamo">See what we do</a>
+            </div>
+        </div>
+
         {% if featured %}
-        <a class="hero-notice" href="#{{ featured.anchor }}">
-            <span class="hero-notice-dot" aria-hidden="true"></span>
-            <span data-en="{{ featured.teaser }}" data-it="{{ featured.teaser_it }}">{{ featured.teaser }}</span>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-        </a>
+        <article class="event-card hero-enter" id="{{ featured.anchor }}">
+            <div class="event-card-body">
+                <div class="event-card-top">
+                    <span class="mono-label red live-label"><span class="live-dot" aria-hidden="true"></span><span data-en="Next event" data-it="Prossimo evento">Next event</span></span>
+                    <span class="mono-label" data-en="Free · Livestreamed" data-it="Gratuito · In streaming">Free · Livestreamed</span>
+                </div>
+                <div class="event-card-head">
+                    <span class="date-badge" aria-hidden="true">
+                        <span class="date-badge-month" data-en="{{ featured.month }}" data-it="{{ featured.month_it }}">{{ featured.month }}</span>
+                        <span class="date-badge-day">{{ featured.day }}</span>
+                    </span>
+                    <div>
+                        <h2 data-en="{{ featured.title }}" data-it="{{ featured.title_it }}">{{ featured.title }}</h2>
+                        <p class="event-card-when" data-en="{{ featured.date }}" data-it="{{ featured.date_it }}">{{ featured.date }}</p>
+                        <p class="event-card-when" data-en="{{ featured.place }}" data-it="{{ featured.place_it }}">{{ featured.place }}</p>
+                    </div>
+                </div>
+                <p class="event-card-summary" data-en="An evening open to everyone: an introduction to AI safety, the community's new projects and how to get involved, then aperitivo. No technical background needed." data-it="Una serata aperta a tutti: un'introduzione all'AI safety, i nuovi progetti della community e come partecipare, poi aperitivo. Non servono conoscenze tecniche.">An evening open to everyone: an introduction to AI safety, the community's new projects and how to get involved, then aperitivo. No technical background needed.</p>
+                <a href="/initiatives/#{{ featured.anchor }}" class="text-link" data-en="Programme and details →" data-it="Programma e dettagli →">Programme and details →</a>
+            </div>
+            <div class="event-card-actions">
+                <a href="{{ featured.register_link }}" target="_blank" rel="noopener noreferrer" class="event-card-primary" data-en="{{ featured.register_text }}" data-it="{{ featured.register_text_it }}">{{ featured.register_text }}</a>
+                {% if featured.stream_link %}
+                <a href="{{ featured.stream_link }}" target="_blank" rel="noopener noreferrer" class="event-card-secondary" data-en="{{ featured.stream_text }}" data-it="{{ featured.stream_text_it }}">{{ featured.stream_text }}</a>
+                {% endif %}
+            </div>
+        </article>
         {% endif %}
-        <h1 class="hero-title" data-en="{{ translations.en.hero.title }}" data-it="{{ translations.it.hero.title }}">{{ translations.en.hero.title }}</h1>
-        <p class="hero-tagline" data-en="{{ translations.en.hero.subtitle }}" data-it="{{ translations.it.hero.subtitle }}">{{ translations.en.hero.subtitle }}</p>
-        <p class="hero-sub" data-en="{{ translations.en.hero.description }}" data-it="{{ translations.it.hero.description }}">{{ translations.en.hero.description }}</p>
-        <div class="hero-ctas">
-            <a href="{{ home.hero.cta_link }}" class="btn btn-primary btn-lg" data-en="{{ translations.en.hero.cta }}" data-it="{{ translations.it.hero.cta }}">{{ translations.en.hero.cta }}</a>
-            <a href="{{ home.hero.secondary_cta_link }}" class="btn btn-secondary btn-lg" data-en="{{ translations.en.hero.secondary_cta }}" data-it="{{ translations.it.hero.secondary_cta }}">{{ translations.en.hero.secondary_cta }}</a>
+    </div>
+</section>
+
+<!-- At a glance -->
+<section class="stats-strip" aria-label="At a glance">
+    <div class="container stats-grid">
+        <div class="stat reveal">
+            <span class="stat-value" data-count="{{ memberCount }}">{{ memberCount }}</span>
+            <span class="stat-label" data-en="members in the network" data-it="membri nella rete">members in the network</span>
+        </div>
+        <div class="stat reveal">
+            <span class="stat-value" data-count="{{ cityCount }}">{{ cityCount }}</span>
+            <span class="stat-label" data-en="cities" data-it="città">cities</span>
+        </div>
+        <div class="stat reveal">
+            <span class="stat-value" data-count="2026">2026</span>
+            <span class="stat-label" data-en="founded in January" data-it="fondata a gennaio">founded in January</span>
         </div>
     </div>
 </section>
 
-{% if featured %}
-<!-- Featured event -->
-<section class="section section-alt featured-event" id="{{ featured.anchor }}">
+{% set call = home.mentorship_call %}
+{% if call %}
+<!-- Open call: research mentorship program -->
+<section class="section call-section" id="mentorship-call">
     <div class="container">
-        <div class="featured-event-card reveal">
-            <div class="featured-event-body">
-                <span class="chip red" data-en="Next event" data-it="Prossimo evento">Next event</span>
-                <h2 data-en="{{ featured.title }}" data-it="{{ featured.title_it }}">{{ featured.title }}</h2>
-                <ul class="featured-event-facts">
-                    <li>
-                        <svg class="ds-icon" aria-hidden="true"><use href="#icon-calendar"></use></svg>
-                        <span data-en="{{ featured.date }}" data-it="{{ featured.date_it }}">{{ featured.date }}</span>
-                    </li>
-                    <li>
-                        <svg class="ds-icon" aria-hidden="true"><use href="#icon-users"></use></svg>
-                        <span data-en="{{ featured.place }}" data-it="{{ featured.place_it }}">{{ featured.place }}</span>
-                    </li>
-                </ul>
-                <p data-en="{{ featured.summary }}" data-it="{{ featured.summary_it }}">{{ featured.summary }}</p>
+        <div class="call-card reveal">
+            <div class="call-intro">
+                <span class="mono-label red live-label"><span class="live-dot" aria-hidden="true"></span><span data-en="Open call" data-it="Call aperta">Open call</span></span>
+                <h2 data-en="{{ call.title }}" data-it="{{ call.title_it }}">{{ call.title }}</h2>
+                <p data-en="{{ call.description }}" data-it="{{ call.description_it }}">{{ call.description }}</p>
+                <a href="/initiatives/#mentorship-program" class="text-link" data-en="Programme details →" data-it="Dettagli del programma →">Programme details →</a>
             </div>
-            <div class="featured-event-actions">
-                <a href="{{ featured.register_link }}" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-lg" data-en="{{ featured.register_text }}" data-it="{{ featured.register_text_it }}">{{ featured.register_text }}</a>
-                {% if featured.stream_link %}
-                <a href="{{ featured.stream_link }}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-lg" data-en="{{ featured.stream_text }}" data-it="{{ featured.stream_text_it }}">{{ featured.stream_text }}</a>
-                {% endif %}
-                <a href="/initiatives/#{{ featured.anchor }}" class="news-link" data-en="Programme and details" data-it="Programma e dettagli">Programme and details</a>
+            <div class="call-roles">
+                <div class="call-role">
+                    <h3 data-en="Become a mentee" data-it="Diventa mentee">Become a mentee</h3>
+                    <p data-en="{{ call.mentee }}" data-it="{{ call.mentee_it }}">{{ call.mentee }}</p>
+                    <a href="{{ call.apply_link }}" target="_blank" rel="noopener noreferrer" class="btn btn-primary" data-en="Apply as mentee" data-it="Candidati come mentee">Apply as mentee</a>
+                </div>
+                <div class="call-role">
+                    <h3 data-en="Become a mentor" data-it="Diventa mentor">Become a mentor</h3>
+                    <p data-en="{{ call.mentor }}" data-it="{{ call.mentor_it }}">{{ call.mentor }}</p>
+                    <a href="{{ call.apply_link }}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary" data-en="Apply as mentor" data-it="Candidati come mentor">Apply as mentor</a>
+                </div>
             </div>
         </div>
     </div>
 </section>
 {% endif %}
 
-<!-- What We Do -->
-<section class="section" id="learn-more">
-    <div class="container">
-        <div class="section-head center reveal">
-            <span class="eyebrow" data-en="{{ translations.en.features.heading }}" data-it="{{ translations.it.features.heading }}">{{ translations.en.features.heading }}</span>
-            <h2 data-en="Three ways we build a safer AI ecosystem" data-it="Tre modi in cui costruiamo un ecosistema AI più sicuro">Three ways we build a safer AI ecosystem</h2>
+<!-- Why AI safety -->
+<section class="section home-why">
+    <div class="container home-why-grid">
+        <div class="reveal">
+            <span class="eyebrow" data-en="Why AI safety" data-it="Perché l'AI safety">Why AI safety</span>
+            <h2 class="statement" data-en="AI will reshape society within our lifetimes. Making it safe is one of the most pressing problems of our time." data-it="L'IA trasformerà la società nel corso della nostra vita. Renderla sicura è una delle sfide più urgenti del nostro tempo.">AI will reshape society within our lifetimes. Making it safe is one of the most pressing problems of our time.</h2>
         </div>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="home-why-body reveal">
+            <p data-en="{{ home.mission.problem_description | split('\n\n') | first }}" data-it="{{ home.mission.problem_description_it | split('\n\n') | first }}">{{ home.mission.problem_description | split('\n\n') | first }}</p>
+            <p data-en="{{ home.mission.solution_description | split('\n\n') | first }}" data-it="{{ home.mission.solution_description_it | split('\n\n') | first }}">{{ home.mission.solution_description | split('\n\n') | first }}</p>
+            <a href="/about/" class="text-link" data-en="About us and our approach →" data-it="Chi siamo e il nostro approccio →">About us and our approach →</a>
+        </div>
+    </div>
+</section>
+
+<!-- What we do -->
+<section class="section" id="what-we-do">
+    <div class="container">
+        <div class="rule-head reveal">
+            <h2 data-en="What we do" data-it="Cosa facciamo">What we do</h2>
+            <a href="/initiatives/" class="text-link" data-en="All initiatives →" data-it="Tutte le iniziative →">All initiatives →</a>
+        </div>
+        <div class="program-grid">
             {% for feature in home.features %}
-            <article class="feature reveal">
-                <span class="feature-num">0{{ loop.index }}</span>
+            <article class="program reveal">
+                <svg class="program-icon" aria-hidden="true"><use href="#icon-{{ feature.icon }}"></use></svg>
                 <h3 data-en="{{ feature.title }}" data-it="{{ feature.title_it }}">{{ feature.title }}</h3>
-                <p style="margin-bottom: 0;" data-en="{{ feature.description }}" data-it="{{ feature.description_it }}">{{ feature.description }}</p>
+                <p data-en="{{ feature.description }}" data-it="{{ feature.description_it }}">{{ feature.description }}</p>
+                <span class="mono-label green" data-en="{{ feature.status }}" data-it="{{ feature.status_it }}">{{ feature.status }}</span>
             </article>
             {% endfor %}
         </div>
     </div>
 </section>
 
-<!-- Mission Split -->
+{# Left off the live site until the structure is approved: see `board.published`
+   in data/community.yaml. Local and preview builds always show it. #}
+{% if community.board.published or not site.isProduction %}
+<!-- Leadership team (direttivo) -->
 <section class="section section-alt">
     <div class="container">
-        <div class="split">
-            <div class="split-card reveal">
-                <h2 data-en="{{ home.mission.problem_title }}" data-it="{{ home.mission.problem_title_it }}">{{ home.mission.problem_title }}</h2>
-                <p data-en="{{ home.mission.problem_description | split('\n\n') | first }}" data-it="{{ home.mission.problem_description_it | split('\n\n') | first }}">{{ home.mission.problem_description | split('\n\n') | first }}</p>
-                <p style="margin-bottom: 0;" data-en="{{ home.mission.problem_description | split('\n\n') | last }}" data-it="{{ home.mission.problem_description_it | split('\n\n') | last }}">{{ home.mission.problem_description | split('\n\n') | last }}</p>
-            </div>
-            <div class="split-card reveal">
-                <h2 data-en="{{ home.mission.solution_title }}" data-it="{{ home.mission.solution_title_it }}">{{ home.mission.solution_title }}</h2>
-                <p data-en="{{ home.mission.solution_description | split('\n\n') | first }}" data-it="{{ home.mission.solution_description_it | split('\n\n') | first }}">{{ home.mission.solution_description | split('\n\n') | first }}</p>
-                <p style="margin-top: 1.5rem; margin-bottom: 0;"><a href="{{ site.forms.mailingList }}" target="_blank" class="btn btn-primary" data-en="Get involved today" data-it="Partecipa oggi">Get involved today</a></p>
-            </div>
+        <div class="rule-head reveal">
+            <h2 data-en="Leadership team" data-it="Direttivo">Leadership team</h2>
+            <a href="/about/#board" class="text-link" data-en="About us →" data-it="Chi siamo →">About us →</a>
         </div>
+        <ul class="people-grid people-grid--board">
+            {% for member in team | where("tier", "leadership") | sort(false, false, "board_order") %}
+            {% set parts = (member.name | replace("Dr. ", "") | trim) | split(" ") %}
+            <li class="person reveal">
+                {% if member.photo %}
+                <img class="person-photo" src="{{ member.photo }}" alt="" loading="lazy" width="240" height="300">
+                {% else %}
+                <span class="person-photo person-initials" aria-hidden="true">{{ (parts | first)[0] }}{{ (parts | last)[0] if (parts | length) > 1 else "" }}</span>
+                {% endif %}
+                <span class="person-name">{{ member.name }}</span>
+                <span class="person-role" data-en="{{ member.board_role or member.role }}" data-it="{{ member.board_role_it or member.board_role or member.role }}">{{ member.board_role or member.role }}</span>
+            </li>
+            {% endfor %}
+            {% for seat in community.board.open_seats %}
+            {% set parts = (seat.name or "") | split(" ") %}
+            <li class="person person--open reveal">
+                <span class="person-photo person-initials" aria-hidden="true">{{ ((parts | first)[0] ~ (parts | last)[0]) if seat.name else "?" }}</span>
+                <span class="person-name">{% if seat.name %}{{ seat.name }}{% else %}<span data-en="To be defined" data-it="Da definire">To be defined</span>{% endif %}</span>
+                <span class="person-role" data-en="{{ seat.role }}" data-it="{{ seat.role_it }}">{{ seat.role }}</span>
+            </li>
+            {% endfor %}
+        </ul>
     </div>
 </section>
+{% endif %}
 
 <!-- Supported by -->
-<section class="section supporters">
-    <div class="container">
-        <p class="supporters-label reveal" data-en="{{ translations.en.supporters.heading }}" data-it="{{ translations.it.supporters.heading }}">{{ translations.en.supporters.heading }}</p>
-        <ul class="supporter-list reveal">
+<section class="supporters">
+    <div class="container supporters-row reveal">
+        <p class="mono-label" data-en="{{ translations.en.supporters.heading }}" data-it="{{ translations.it.supporters.heading }}">{{ translations.en.supporters.heading }}</p>
+        <ul class="supporter-list">
             {% for supporter in home.supporters %}
             <li>
                 <a class="supporter-logo" href="{{ supporter.url }}" target="_blank" rel="noopener noreferrer">
@@ -126,13 +204,26 @@ seoDescription_it: "AI Safety for Italy è la community italiana che lavora per 
     </div>
 </section>
 
-<!-- CTA Section -->
-<section class="section">
-    <div class="container">
-        <div class="cta-band reveal">
-            <h2 data-en="{{ translations.en.cta.title }}" data-it="{{ translations.it.cta.title }}">{{ translations.en.cta.title }}</h2>
+<!-- Get involved -->
+<section class="join-band">
+    <div class="container join-grid">
+        <div class="reveal">
+            <h2 data-en="Get involved" data-it="Partecipa">Get involved</h2>
             <p data-en="{{ translations.en.cta.description }}" data-it="{{ translations.it.cta.description }}">{{ translations.en.cta.description }}</p>
-            <a href="{{ site.forms.mailingList }}" target="_blank" class="btn" data-en="{{ translations.en.cta.button }}" data-it="{{ translations.it.cta.button }}">{{ translations.en.cta.button }}</a>
+        </div>
+        <div class="join-actions reveal">
+            <a href="{{ site.forms.mailingList }}" target="_blank" rel="noopener noreferrer" class="join-action">
+                <span class="join-action-title" data-en="Join the community" data-it="Unisciti alla community">Join the community</span>
+                <span class="join-action-text" data-en="Sign up to get our updates, or to help in a working group. No commitment needed." data-it="Iscriviti per ricevere aggiornamenti, o per dare una mano in un gruppo di lavoro. Nessun impegno richiesto.">Sign up to get our updates, or to help in a working group. No commitment needed.</span>
+            </a>
+            <a href="{{ site.social.discord }}" target="_blank" rel="noopener noreferrer" class="join-action">
+                <span class="join-action-title" data-en="Chat on Discord" data-it="Scrivici su Discord">Chat on Discord</span>
+                <span class="join-action-text" data-en="Follow events and discussions, ask questions, or just read along." data-it="Segui eventi e discussioni, fai domande, o semplicemente leggi.">Follow events and discussions, ask questions, or just read along.</span>
+            </a>
+            <a href="{{ site.social.linkedin }}" target="_blank" rel="noopener noreferrer" class="join-action">
+                <span class="join-action-title" data-en="Follow on LinkedIn" data-it="Seguici su LinkedIn">Follow on LinkedIn</span>
+                <span class="join-action-text" data-en="News, events and opportunities." data-it="Notizie, eventi e opportunità.">News, events and opportunities.</span>
+            </a>
         </div>
     </div>
 </section>

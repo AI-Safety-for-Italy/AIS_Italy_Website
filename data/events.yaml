@@ -14,15 +14,16 @@ section_highlights_title_it: '✨ Momenti Recenti'
 
 upcoming_events:
   - id: 1
+    anchor: 'mentorship-program'
     category: 'mentorship'
-    title: 'Mentorship Program: Coming Soon'
-    title_it: 'Programma di Mentorship: In Arrivo'
-    date: 'Summer 2026'
-    date_it: 'Estate 2026'
-    status: 'Upcoming'
-    status_it: 'In arrivo'
-    description: 'We are preparing our first structured mentorship program, pairing AI safety newcomers with more experienced members of the community. The program will include regular 1-on-1 sessions, curated reading materials, and access to our working groups. Stay tuned, applications will open soon!'
-    description_it: "Stiamo preparando il nostro primo programma di mentorship strutturato, abbinando i nuovi arrivati all'AI safety con membri più esperti della community. Il programma includerà sessioni 1-to-1 regolari, materiali di lettura selezionati e accesso ai nostri gruppi di lavoro. Restate sintonizzati: le candidature apriranno presto!"
+    title: 'Research Mentorship Program: Open Call'
+    title_it: 'Programma di Mentorship di Ricerca: Call Aperta'
+    date: 'Applications open'
+    date_it: 'Candidature aperte'
+    status: 'Open call'
+    status_it: 'Call aperta'
+    description: 'We are opening our first structured research mentorship program, pairing AI safety newcomers with more experienced members of the community. The program includes regular 1-on-1 sessions, curated reading materials, and access to our working groups. We are looking for both mentors and mentees.'
+    description_it: "Apriamo il nostro primo programma strutturato di mentorship di ricerca, che affianca chi si avvicina all'AI safety a membri più esperti della community. Il programma include sessioni 1-a-1 regolari, materiali di lettura selezionati e accesso ai nostri gruppi di lavoro. Cerchiamo sia mentor sia mentee."
     format_info:
       - label: 'Format'
         label_it: 'Formato'
@@ -36,9 +37,9 @@ upcoming_events:
         label_it: 'Per chi'
         value: 'Students, researchers, and professionals new to AI safety'
         value_it: "Studenti, ricercatori e professionisti alle prime armi con l'AI safety"
-    register_text: 'Express your interest'
-    register_text_it: 'Esprimi il tuo interesse'
-    register_link: 'placeholder'
+    register_text: 'Apply'
+    register_text_it: 'Candidati'
+    register_link: 'https://forms.gle/mtBnGSNY21bABNSt7'
     register_target: '_blank'
 
   - id: 4
@@ -48,6 +49,10 @@ upcoming_events:
     featured: true
     teaser: 'First in-person meetup · Milan, 5 October'
     teaser_it: 'Primo meetup in presenza · Milano, 5 ottobre'
+    # day / month feed the calendar badge on the home page event card.
+    day: '5'
+    month: 'Oct'
+    month_it: 'Ott'
     place: 'Cascina Cuccagna, Milan'
     place_it: 'Cascina Cuccagna, Milano'
     summary: 'An evening open to everyone: a clear introduction to AI safety, the community''s new projects and how to get involved, then aperitivo and networking. No technical background needed. Registration on Luma is required to attend in person; the talks are also livestreamed.'

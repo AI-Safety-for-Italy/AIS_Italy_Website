@@ -235,6 +235,33 @@ module.exports = function(eleventyConfig) {
    * Concatenates one array-valued key across a list of objects.
    * Used to flatten faq.categories[].questions into a single list.
    */
+  // Items whose `key` equals (or, with whereNot, differs from) `value`.
+  // Nunjucks' selectattr only tests truthiness, so it can't pick team members
+  // by tier.
+  eleventyConfig.addFilter("where", (list, key, value) =>
+    (list || []).filter(item => item && item[key] === value)
+  );
+  eleventyConfig.addFilter("whereNot", (list, key, value) =>
+    (list || []).filter(item => item && item[key] !== value)
+  );
+
+  // Community members (data/members.yaml) who declared stable participation in
+  // any of `keys` on the registration form, minus anyone already listed on the
+  // team, so nobody appears twice under the same group.
+  eleventyConfig.addFilter("participants", (list, keys, team) => {
+    const onTeam = new Set((team || []).map(t => t.name.trim().toLowerCase()));
+    return (list || []).filter(m =>
+      Array.isArray(m.groups) &&
+      m.groups.some(g => (keys || []).includes(g)) &&
+      !onTeam.has(String(m.name).trim().toLowerCase())
+    );
+  });
+
+  // Team members (src/data/team.js) who work in the working group `id`.
+  eleventyConfig.addFilter("inGroup", (list, id) =>
+    (list || []).filter(m => Array.isArray(m.groups) && m.groups.includes(id))
+  );
+
   eleventyConfig.addFilter("pluckFlat", (list, key) => {
     return (list || []).reduce((acc, item) => acc.concat((item && item[key]) || []), []);
   });

@@ -68,26 +68,49 @@ mission:
   solution_cta_text: 'Get Involved Today'
   solution_cta_link: '{{ site.forms.mailingList }}'
 
+# Open call band on the home page, under the stats strip. Remove the block
+# when the call closes and the band disappears. `apply_link` is used by both
+# buttons until there are separate mentor and mentee forms; for now it is the
+# community registration form, which asks about the mentorship program.
+mentorship_call:
+  title: 'AI Safety for Italy Research Mentorship Program'
+  title_it: 'Programma di mentorship di ricerca di AI Safety for Italy'
+  description: 'We are opening our first research mentorship cohort: 8–12 weeks of 1-on-1 mentorship and group sessions, pairing people new to AI safety with experienced researchers and professionals.'
+  description_it: "Apriamo la prima edizione del nostro programma di mentorship di ricerca: 8–12 settimane di mentorship 1-a-1 e sessioni di gruppo, che affiancano chi si avvicina all'AI safety a ricercatori e professionisti esperti."
+  mentee: 'Students, researchers and professionals who want to start working on AI safety.'
+  mentee_it: "Studenti, ricercatori e professionisti che vogliono iniziare a lavorare sull'AI safety."
+  mentor: 'Researchers and practitioners with AI safety experience who can give a few hours a month.'
+  mentor_it: "Ricercatori e professionisti con esperienza in AI safety che possono dedicare qualche ora al mese."
+  apply_link: 'https://forms.gle/mtBnGSNY21bABNSt7'
+
 # Features Section
+# The three "What we do" columns on the home page. `icon` names a symbol in
+# src/components/icons.njk; `status` is the short line under each column.
 features:
   - id: 1
-    emoji: '🎓'
-    title: 'Educational Programs'
-    title_it: 'Programmi Formativi'
-    description: 'Comprehensive courses and workshops designed to upskill individuals in AI safety concepts and practices.'
-    description_it: "Corsi e workshop completi, pensati per far crescere le competenze nei concetti e nelle pratiche dell'AI safety."
+    icon: 'graduation'
+    title: 'Education'
+    title_it: 'Formazione'
+    description: 'Reading groups, seminars and an 8–12 week mentorship program that pairs newcomers with experienced members of the community.'
+    description_it: "Gruppi di lettura, seminari e un programma di mentorship di 8–12 settimane che affianca chi inizia a membri più esperti della community."
+    status: 'Research mentorship · open call'
+    status_it: 'Mentorship di ricerca · call aperta'
   - id: 2
-    emoji: '🤝'
-    title: 'Community Building'
-    title_it: 'Costruire la Community'
-    description: 'Connect with like-minded individuals passionate about AI safety through our events and networking opportunities.'
-    description_it: "Entra in contatto con persone che condividono la passione per l'AI safety attraverso i nostri eventi e le occasioni di networking."
+    icon: 'users'
+    title: 'Community'
+    title_it: 'Community'
+    description: 'In-person meetups across Italian cities, an active Discord and links to the international AI safety network.'
+    description_it: "Meetup in presenza in diverse città italiane, un Discord attivo e collegamenti con la rete internazionale dell'AI safety."
+    status: 'Next: Milan · 5 October'
+    status_it: 'Prossimo: Milano · 5 ottobre'
   - id: 3
-    emoji: '🔬'
-    title: 'Research & Resources'
-    title_it: 'Ricerca e Risorse'
-    description: 'Access curated research materials and resources to stay updated on the latest developments in AI safety.'
-    description_it: "Accedi a materiali di ricerca e risorse selezionate per restare aggiornato sugli ultimi sviluppi dell'AI safety."
+    icon: 'flask'
+    title: 'Research & policy'
+    title_it: 'Ricerca e policy'
+    description: 'Working groups on technical safety (interpretability, evaluations, alignment) and on AI governance and policy.'
+    description_it: "Gruppi di lavoro sulla sicurezza tecnica (interpretabilità, valutazioni, allineamento) e su governance e policy dell'IA."
+    status: 'Open to all members'
+    status_it: 'Aperti a tutti i membri'
 
 # CTA Section
 cta:
