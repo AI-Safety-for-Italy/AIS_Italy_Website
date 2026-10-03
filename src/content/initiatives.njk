@@ -76,7 +76,6 @@ seoDescription_it: "Programmi di mentorship, talk e incontri di AI Safety for It
 <!-- Page hero -->
 <section class="page-hero">
     <div class="container">
-        <span class="eyebrow" data-en="{{ translations.en.nav.events }}" data-it="{{ translations.it.nav.events }}">{{ translations.en.nav.events }}</span>
         <h1 data-en="{{ events.hero.title }}" data-it="{{ events.hero.title_it }}">{{ events.hero.title }}</h1>
         <p class="lede" data-en="{{ events.hero.subtitle }}" data-it="{{ events.hero.subtitle_it }}">{{ events.hero.subtitle }}</p>
     </div>
@@ -86,10 +85,7 @@ seoDescription_it: "Programmi di mentorship, talk e incontri di AI Safety for It
 <section class="section" id="mentorship">
     <div class="container">
         <div class="section-head reveal">
-            <span class="eyebrow" data-en="Mentorship" data-it="Mentorship">Mentorship</span>
-            <h2 data-en="Guidance from experienced members" data-it="Guida da parte di membri esperti">Guidance from experienced members</h2>
-            <p data-en="We pair newcomers with experienced members through structured one-on-one guidance and group sessions."
-               data-it="Affianchiamo i nuovi arrivati a membri esperti con percorsi strutturati di guida uno-a-uno e sessioni di gruppo.">We pair newcomers with experienced members through structured one-on-one guidance and group sessions.</p>
+            <h2 data-en="Research mentorship program" data-it="Programma di mentorship di ricerca">Research mentorship program</h2>
         </div>
         <div class="grid grid-cols-1 gap-6" style="max-width: 48rem;">
             {% for event in events.upcoming_events %}{% if event.category == "mentorship" %}{{ initiativeCard(event) }}{% endif %}{% endfor %}
@@ -101,10 +97,7 @@ seoDescription_it: "Programmi di mentorship, talk e incontri di AI Safety for It
 <section class="section section-alt" id="seminars">
     <div class="container">
         <div class="section-head reveal">
-            <span class="eyebrow" data-en="Seminars" data-it="Seminari">Seminars</span>
             <h2 data-en="Talks &amp; meetups" data-it="Talk e incontri">Talks &amp; meetups</h2>
-            <p data-en="Regular talks and informal meetups where the community learns, discusses, and collaborates."
-               data-it="Incontri e talk regolari dove la community impara, discute e collabora.">Regular talks and informal meetups where the community learns, discusses, and collaborates.</p>
         </div>
         <div class="grid grid-cols-1 gap-6" style="max-width: 48rem;">
             {% for event in events.upcoming_events %}{% if event.category == "seminar" %}{{ initiativeCard(event) }}{% endif %}{% endfor %}
