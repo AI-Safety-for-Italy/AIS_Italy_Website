@@ -2,7 +2,6 @@ last_updated: '2026-09-30'
 members:
 - id: 1
   name: Angelo Leone
-  email: angelo.leone1204@gmail.com
   location: Londra, Regno Unito
   career: Postdoc o ricercatore early-career (0–3 anni post-PhD)
   institution: Indipendente
@@ -21,7 +20,6 @@ members:
   - education
 - id: 2
   name: Luca Mattiazzi
-  email: l.d.mattiazzi@gmail.com
   profile: https://grokked.it
   location: Milano, Italia
   career: Ricercatore / Professore / professionista senior
@@ -34,7 +32,6 @@ members:
   - technical
 - id: 3
   name: Cristian Curaba
-  email: cristiancuraba00@gmail.com
   profile: https://cristian-curaba.github.io/
   location: Udine, Italia
   career: Dottorando / PhD student
@@ -46,7 +43,6 @@ members:
   - education
 - id: 4
   name: Madhusudhan Pathak
-  email: madhu.sudhan.pathak.ais@gmail.com
   profile: https://myspy.vercel.app/
   location: Padova, Italy
   career: Studente triennale o magistrale
@@ -60,7 +56,6 @@ members:
   - education
 - id: 5
   name: Lorenzo Pacchiardi
-  email: lorenzo.pacchiardi@gmail.com
   profile: http://www.lorenzopacchiardi.me/
   location: Cambridge, United Kingdom
   career: Ricercatore / professionista mid-career
@@ -70,7 +65,6 @@ members:
     Rischi catastrofici / esistenziali
 - id: 6
   name: Raffaele Mura
-  email: raffaele.mura@unica.it
   profile: https://rmura498.github.io/
   location: Cagliari, Italia
   career: Dottorando / PhD student
@@ -83,7 +77,6 @@ members:
   - seminars
 - id: 7
   name: Giulia Consonni
-  email: kawngc@gmail.coml
   profile: https://www.linkedin.com/in/gconsonni/, https://github.com/joleencfh/
   location: Neustadt (Weinstr.), Germania
   career: Ricercatore / professionista mid-career
@@ -91,7 +84,6 @@ members:
   areas: Rischi catastrofici / esistenziali, AI safety communications
 - id: 8
   name: Luca Scionis
-  email: luca.scionis@unica.it
   profile: linkedin.com/in/luca-scionis-148b37251/
   location: Cagliari, Italia
   career: Dottorando / PhD student
@@ -100,7 +92,6 @@ members:
     Robustness e adversarial ML
 - id: 9
   name: Giovanni Occhipinti
-  email: occhidipinti00@gmail.com
   profile: https://www.linkedin.com/in/occhipintigiovanni, https://github.com/Joe-Occhipinti,
     https://scholar.google.com/citations?hl=it&view_op=list_works&gmla=AIqSsVvv-UWkc_1GO81G7DLSWJR_-QuSCtoSjW4WWgfnizSwlf7S68xhXSKiPprPDZLtYP_RcbFWGELDVM9azolz&user=2vWR8IAAAAAJ
   location: Bologna, Italia
@@ -120,7 +111,6 @@ members:
   - education
 - id: 10
   name: Battista Biggio
-  email: battista.biggio@unica.it
   profile: https://battistabiggio.github.io/
   location: Cagliari, Italia
   career: Ricercatore / Professore / professionista senior
@@ -129,7 +119,6 @@ members:
     ecc.), Robustness e adversarial ML
 - id: 11
   name: Elisabetta Rocchetti
-  email: elisabetta.rocchetti0@gmail.com
   profile: https://www.linkedin.com/in/elisabetta-rocchetti-70a953143/ , https://eliroc98.github.io/
   location: Milano, Italia
   career: Dottorando / PhD student
@@ -143,7 +132,6 @@ members:
   - community
 - id: 12
   name: Bernardo Manfriani
-  email: bernardomanfriani@gmail.com
   profile: https://www.linkedin.com/in/bernardomanfriani/
   location: Firenze, Italia
   career: Studente triennale o magistrale
@@ -159,7 +147,6 @@ members:
   - education
 - id: 13
   name: Giuseppe Birardi
-  email: giuseppe.birardi@gmail.com
   profile: https://www.lesswrong.com/users/giuseppe-birardi,  https://www.linkedin.com/in/giuseppe-birardi-18a7b011/,
     https://scholar.google.com/citations?hl=en&user=-Be-HhwAAAAJ
   location: Bari, Italia
@@ -170,7 +157,6 @@ members:
     ML, Etica dell'AI e impatto sociale
 - id: 14
   name: Gabriele Sarti
-  email: gabriele.sarti996@gmail.com
   profile: https://gsarti.com
   location: Bremen, Germania
   career: Postdoc o ricercatore early-career (0–3 anni post-PhD)
@@ -179,7 +165,6 @@ members:
     ecc.), Evaluation (capability evaluations, dangerous capability evals, benchmarking)
 - id: 15
   name: Alberto Cazzaniga
-  email: albe.cazzaniga@gmail.com
   location: Italia, Italia
   career: Ricercatore / Professore / professionista senior
   institution: Area Science Park
@@ -187,7 +172,6 @@ members:
     ecc.), Evaluation (capability evaluations, dangerous capability evals, benchmarking)
 - id: 16
   name: Lionel Tzatzkin
-  email: me@lionelt.dev
   profile: https://www.lionelt.dev
   location: Castiglione del Lago (PG), Italy
   career: Ricercatore / Professore / professionista senior
@@ -203,7 +187,6 @@ members:
   - education
 - id: 17
   name: Niccolò Manfredi Selvaggi
-  email: niccolo.manfrediselvaggi@cdi.eu
   profile: https://www.linkedin.com/in/niccolò-manfredi-selvaggi?utm_source=share_via&utm_content=profile&utm_medium=member_android
   location: Torino, Italia
   career: Ricercatore / professionista mid-career
@@ -212,7 +195,6 @@ members:
     ecc.), Evaluation (capability evaluations, dangerous capability evals, benchmarking)
 - id: 18
   name: Emanuele Marconato
-  email: marconatoemanuele@gmail.com
   profile: https://emanuele-marconato.github.io/
   location: Trento, Italia
   career: Postdoc o ricercatore early-career (0–3 anni post-PhD)
@@ -222,7 +204,6 @@ members:
     / esistenziali
 - id: 19
   name: Nicola Novello
-  email: nikynovello.98@gmail.com
   profile: https://nicolanovello.github.io/
   location: Klagenfurt, Austria
   career: Dottorando / PhD student
@@ -231,7 +212,6 @@ members:
     ecc.), Robustness e adversarial ML, Etica dell'AI e impatto sociale
 - id: 20
   name: Giovanni Duca
-  email: gduca.professional@pm.me
   profile: https://r3lativo.github.io/
   location: Paris, France
   career: Studente triennale o magistrale
@@ -241,7 +221,6 @@ members:
     impatto sociale
 - id: 21
   name: Orazio Oztas
-  email: orazio.oztas@gmail.com
   profile: https://github.com/oraziooztas
   location: Torino, Italia
   career: Studente triennale o magistrale
@@ -253,7 +232,6 @@ members:
     ML
 - id: 22
   name: Daniele Pace
-  email: danielekpace@gmail.com
   profile: https://danielepace.tech/
   location: London, United Kingdom
   career: Postdoc o ricercatore early-career (0–3 anni post-PhD)
@@ -263,7 +241,6 @@ members:
     Alignment (RLHF, scalable oversight, value alignment)
 - id: 23
   name: Leonardo Piano
-  email: leopiano.98@gmail.com
   profile: https://www.linkedin.com/in/leonardo-piano-17663a1aa/, https://github.com/leonardoPiano
   location: Cagliari, Italia
   career: Postdoc o ricercatore early-career (0–3 anni post-PhD)
@@ -273,7 +250,6 @@ members:
     Robustness e adversarial ML
 - id: 24
   name: Yasmin Bougammoura
-  email: yasmin.bougammoura@gmail.com
   location: Hannover, Germania
   career: Dottorando / PhD student
   institution: Leibniz University Hannover
@@ -284,7 +260,6 @@ members:
     per modelli di frontiera
 - id: 25
   name: Edoardo Cecchinato
-  email: edoardocecchinato.ec@gmail.com
   profile: https://www.linkedin.com/in/edoardo-cecchinato-4799a9247/
   location: Trento, Italia
   career: Dottorando / PhD student
@@ -299,7 +274,6 @@ members:
   - seminars
 - id: 26
   name: Riccardo Conte
-  email: riccardoconte.italia@protonmail.com
   profile: https://www.linkedin.com/in/riccardoconte-cybersecurity/
   location: Orebro, Svezia
   career: Dottorando / PhD student
@@ -310,7 +284,6 @@ members:
     divulgazione dell'AI safety
 - id: 27
   name: Enrico Bottazzi
-  email: enricobottazzi@icloud.com
   profile: https://www.leku.ink/
   location: Bergamo, Italia
   career: Ricercatore / professionista mid-career
@@ -319,7 +292,6 @@ members:
     ecc.)
 - id: 28
   name: Maura Pintor
-  email: maura.pintor@unica.it
   profile: https://maurapintor.github.io
   location: Cagliari, Italia
   career: Ricercatore / professionista mid-career
@@ -337,7 +309,6 @@ members:
   - education
 - id: 29
   name: Matteo Gallo
-  email: 99matteogallo@gmail.com
   profile: https://www.linkedin.com/in/matteo-galloai
   location: Trieste, Italia
   career: Dottorando / PhD student
@@ -346,7 +317,6 @@ members:
     ecc.), Etica dell'AI e impatto sociale, Rischi catastrofici / esistenziali
 - id: 30
   name: Francesco Diana
-  email: francescodiana99@gmail.com
   profile: https://francescodiana99.github.io/
   location: Nice, Francia
   career: Dottorando / PhD student
@@ -355,7 +325,6 @@ members:
     per modelli di frontiera
 - id: 31
   name: Fabio Brau
-  email: fabio.brau@unica.it
   profile: https://fabiobrau.github.io/
   location: Cagliari, Italia
   career: Ricercatore / professionista mid-career
@@ -364,7 +333,6 @@ members:
     ecc.), Robustness e adversarial ML
 - id: 32
   name: Carlo Martinucci
-  email: carlo.martinucci@gmail.com
   profile: linkedin.com/in/carlomartinucci, carlomartinucci.substack.com
   location: Padova, Italia
   career: Ricercatore / Professore / professionista senior
@@ -377,7 +345,6 @@ members:
   - education
 - id: 33
   name: Akash Mittal
-  email: ip.akashmittal@gmail.com
   profile: https://www.linkedin.com/in/akash-mittal/
   location: Milan, Italy
   career: Studente triennale o magistrale
@@ -399,7 +366,6 @@ members:
   - education
 - id: 34
   name: Daniele Federico Rosa
-  email: danielefedericorosa@gmail.com
   profile: https://www.linkedin.com/in/danielefedericorosa/
   location: Roma, Italia
   career: Ricercatore / Professore / professionista senior
@@ -408,7 +374,6 @@ members:
     Etica dell'AI e impatto sociale, Rischi catastrofici / esistenziali
 - id: 35
   name: Gerson Enriquez
-  email: gersonenriquez94@gmail.com
   profile: https://www.linkedin.com/in/gerson-enriquez/
   location: Milano, Italia
   career: Studente triennale o magistrale
@@ -423,7 +388,6 @@ members:
   - seminars
 - id: 36
   name: Maria Beatrice Panico
-  email: mbpanico@gmail.com
   profile: https://www.linkedin.com/in/maria-beatrice-panico-09337b84/
   location: Londra, Gran Bretagna
   career: Ricercatore / Professore / professionista senior
@@ -431,7 +395,6 @@ members:
   areas: AI governance e policy, Etica dell'AI e impatto sociale
 - id: 37
   name: Eleonira Giunchiglia
-  email: e.giunchiglia@imperial.ac.uk
   profile: https://profiles.imperial.ac.uk/e.giunchiglia
   location: London, United Kingdom
   career: Ricercatore / Professore / professionista senior
@@ -441,7 +404,6 @@ members:
     / esistenziali
 - id: 38
   name: Michele Luca Contalbo
-  email: luca.contalbo@gmail.com
   profile: https://www.linkedin.com/in/luca-contalbo-31894421b/
   location: Reggio Emilia, Italia
   career: Dottorando / PhD student
@@ -451,7 +413,6 @@ members:
     Robustness e adversarial ML
 - id: 39
   name: Daniele Potertì
-  email: daniele.poterti@gmail.com
   profile: https://scholar.google.com/citations?user=S071miUAAAAJ&hl=it
   location: Singapore, Singapore
   career: Dottorando / PhD student
@@ -460,7 +421,6 @@ members:
     ecc.), Evaluation (capability evaluations, dangerous capability evals, benchmarking)
 - id: 40
   name: Stefano Pisciotta
-  email: stefano.pisciotta.007@gmail.com
   profile: https://www.linkedin.com/in/stefano-pisciotta1/
   location: Torino, Italia
   career: Ricercatore / professionista mid-career
@@ -473,7 +433,6 @@ members:
   - technical
 - id: 41
   name: Lucia Cerulo
-  email: lca.cerulo@gmail.com
   location: Bologna, Italia
   career: Studente triennale o magistrale
   institution: Cooperativa sociale
@@ -481,7 +440,6 @@ members:
     Etica dell'AI e impatto sociale, Rischi catastrofici / esistenziali
 - id: 42
   name: Jacopo Zacchigna
-  email: jaczac2002@gmail.com
   profile: https://jac-zac.github.io/
   location: Trieste, Italia
   career: Studente triennale o magistrale
@@ -490,7 +448,6 @@ members:
     ecc.)
 - id: 43
   name: elettra decise
-  email: ellie.decise@gmail.com
   profile: linkedin.com/in/elettra-decise , github.com/eledecise
   location: torino, italia
   career: Studente triennale o magistrale
@@ -500,7 +457,6 @@ members:
     per modelli di frontiera
 - id: 44
   name: Daniele La Ciura
-  email: DANIELE.LACIURA@GMAIL.COM
   profile: https://www.linkedin.com/in/daniele-la-ciura/
   location: Milano, Italia
   career: Ricercatore / professionista mid-career
@@ -513,7 +469,6 @@ members:
   - events
 - id: 45
   name: Federica Marocco
-  email: federicamarocco559@gmail.com
   profile: www.linkedin.com/in/federica-marocco
   location: Torino, Italia
   career: Studente triennale o magistrale
@@ -524,7 +479,6 @@ members:
     frontiera
 - id: 46
   name: Aldo Pisano
-  email: Aldopisano92@gmail.com
   profile: https://aldopisano.github.io/
   location: Catania, Italia
   career: Postdoc o ricercatore early-career (0–3 anni post-PhD)
@@ -533,7 +487,6 @@ members:
     ecc.), AI governance e policy, Etica dell'AI e impatto sociale
 - id: 47
   name: Michele Canarino
-  email: michele.canarino@gmail.com
   profile: https://www.linkedin.com/in/mcanarino?utm_source=share_via&utm_content=profile&utm_medium=member_ios
   location: Roma, Italia
   career: Ricercatore / professionista mid-career
@@ -545,7 +498,6 @@ members:
   - communication
 - id: 48
   name: Ettore Matsaganis
-  email: hector.matsaganis@gmail.com
   location: Milano, Italia
   career: Ricercatore / professionista mid-career
   institution: Indipendente
@@ -553,7 +505,6 @@ members:
     / esistenziali, Impatto AI sulle middle powers
 - id: 49
   name: Igor Maljkovic
-  email: igor.maljkovic@proton.me
   profile: https://www.linkedin.com/in/igor-maljkovic-875b02264/
   location: Genova, Italia
   career: Dottorando / PhD student
@@ -562,7 +513,6 @@ members:
     ecc.), Robustness e adversarial ML, Sicurezza informatica per modelli di frontiera
 - id: 50
   name: Marco Zoppetti
-  email: zop13kevin@gmail.com
   profile: www.linkedin.com/in/marco-zoppetti-a560aa39b
   location: Borgosesia, Italia
   career: Ricercatore / professionista mid-career
@@ -580,7 +530,6 @@ members:
     e, soprattutto, continuare a imparare.'
 - id: 51
   name: Fabio Spagliardi
-  email: spagliardi.fabio@gmail.com
   profile: https://www.linkedin.com/in/fabiospagliardi, https://github.com/fabiospagliardi,
     https://scholar.google.com/citations?user=T75Q7TYAAAAJ&hl=en
   location: Milano/Bergamo, Italia
@@ -597,7 +546,6 @@ members:
   - seminars
 - id: 52
   name: Cristoforo Caffi
-  email: cristoforo.caffi@gmail.com
   profile: www.linkedin.com/in/cristoforo-caffi-80079b86
   location: Firenze, Italy
   career: Ricercatore / professionista mid-career
@@ -609,7 +557,6 @@ members:
     per modelli di frontiera, Rischi catastrofici / esistenziali
 - id: 53
   name: Sara Candussio
-  email: saracandussio@gmail.com
   profile: https://www.linkedin.com/in/sara-candussio-830772283?utm_source=share_via&utm_content=profile&utm_medium=member_android,
     https://github.com/saracandussio, https://saracandussio.github.io/, https://scholar.google.com/citations?user=ktAv1wgAAAAJ&hl=en
   location: Trieste, Italia
@@ -627,7 +574,6 @@ members:
   - education
 - id: 54
   name: Maria Federica Martino Lena
-  email: mariafederica.lenamartino@gmail.com
   location: Londra, Regno Unito
   career: Postdoc o ricercatore early-career (0–3 anni post-PhD)
   institution: Talos Network/CeSIA
@@ -636,7 +582,6 @@ members:
     Etica dell'AI e impatto sociale
 - id: 55
   name: Leonhard Waibl
-  email: leonhardwaibl@gmail.com
   profile: https://www.linkedin.com/in/leonhard-waibl/
   location: Graz, Austria
   career: Studente triennale o magistrale
@@ -647,7 +592,6 @@ members:
     ML
 - id: 56
   name: Emanuel Marino
-  email: Marinoemanuel02@gmail.com
   profile: /
   location: Torino, Italia
   career: Studente triennale o magistrale
@@ -656,7 +600,6 @@ members:
     / esistenziali
 - id: 57
   name: Alessandro Pisent
-  email: alessandro.pisent@phd.unipd.it
   profile: https://www.linkedin.com/in/alessandro-pisent/
   location: Padova, Italia
   career: Dottorando / PhD student
@@ -665,7 +608,6 @@ members:
     per modelli di frontiera
 - id: 58
   name: Luigi Gresele
-  email: luigi.gresele@gmail.com
   profile: https://lgresele.github.io/
   location: Copenhagen, Danimarca
   career: Postdoc o ricercatore early-career (0–3 anni post-PhD)
@@ -674,7 +616,6 @@ members:
     ecc.), Evaluation (capability evaluations, dangerous capability evals, benchmarking)
 - id: 59
   name: Shelyn Liu
-  email: shelynlxy@gmail.com
   profile: shelyn liu in linkeidn
   location: Torino, Torino
   career: Ricercatore / professionista mid-career
@@ -685,7 +626,6 @@ members:
     robotica: raccolta dati di training, biometria e conformità normativa'
 - id: 60
   name: Margherita Rigato
-  email: margherita.rigato00@gmail.com
   profile: https://www.linkedin.com/in/margherita-rigato-184116247?utm_source=share_via&utm_content=profile&utm_medium=member_android
   location: Padova, Italia
   career: Studente triennale o magistrale
@@ -696,7 +636,6 @@ members:
     catastrofici / esistenziali
 - id: 61
   name: Ilyass Ouardi
-  email: ilyassouardi@gmail.com
   profile: https://ouardi-ilyass.github.io/, https://github.com/OUARDI-ILYASS, https://www.linkedin.com/in/ilyass-ouardi/
   location: Milano, Italia
   career: Studente triennale o magistrale

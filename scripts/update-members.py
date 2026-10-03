@@ -273,7 +273,6 @@ def parse(rows):
         member_id += 1
 
         name     = f"{row.get('Nome','')} {row.get('Cognome','')}".strip()
-        email    = row.get('Indirizzo email', '')
         profile  = row.get('Sito o profilo professionale', '')
         city     = row.get('Città in cui vivi attualmente', '')
         country  = row.get('Paese in cui ti trovi attualmente', '')
@@ -287,7 +286,10 @@ def parse(rows):
             if any(active in row.get(col, '') for active in ACTIVE_VALUES)
         ]
 
-        m = {'id': member_id, 'name': name, 'email': email}
+        # No email: members.yaml is committed to a public repository and the
+        # site never shows it. The address is still used above, in memory, to
+        # merge repeat submissions.
+        m = {'id': member_id, 'name': name}
         if profile:    m['profile']     = profile
         if city or country:
                        m['location']    = ', '.join(filter(None, [city, country]))
