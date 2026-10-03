@@ -1226,6 +1226,203 @@ a:hover {
   color: var(--text-tertiary);
 }
 
+/* ==========================================================================
+   Mentorship page — hero facts, timeline
+   ========================================================================== */
+
+.mentorship-hero-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 3rem;
+  align-items: center;
+}
+
+.mentorship-hero h1 {
+  margin-top: 1rem;
+}
+
+.mentorship-ctas {
+  margin-top: 1.75rem;
+}
+
+.facts {
+  margin: 0;
+  display: grid;
+  gap: 0;
+  background: var(--card-bg);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius);
+}
+
+.fact {
+  display: grid;
+  gap: 0.15rem;
+  padding: 1rem 1.25rem;
+}
+
+.fact + .fact {
+  border-top: 1px solid var(--border-default);
+}
+
+.fact dt {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.fact dd {
+  margin: 0;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.timeline-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr);
+  gap: 4rem;
+  align-items: start;
+}
+
+.timeline-intro {
+  position: sticky;
+  top: calc(var(--header-h) + 2rem);
+}
+
+.timeline-intro p {
+  margin: 0;
+}
+
+/* A vertical line with a marker per step. Done steps are filled green,
+   the current one pulses, upcoming ones are hollow. */
+.timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  position: relative;
+}
+
+.timeline-step {
+  position: relative;
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr);
+  gap: 1rem;
+  padding-bottom: 2rem;
+}
+
+.timeline-step:last-child {
+  padding-bottom: 0;
+}
+
+/* The connecting line runs from this marker down to the next one */
+.timeline-step:not(:last-child)::before {
+  content: '';
+  position: absolute;
+  left: calc(1rem - 1px);
+  top: 1.4rem;
+  bottom: -0.2rem;
+  width: 2px;
+  background: var(--border-strong);
+}
+
+.timeline-step.is-done:not(:last-child)::before {
+  background: var(--accent);
+}
+
+.timeline-marker {
+  position: relative;
+  justify-self: center;
+  margin-top: 0.3rem;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--border-strong);
+  background: var(--bg-primary);
+  z-index: 1;
+}
+
+.is-done .timeline-marker {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.is-current .timeline-marker {
+  border-color: #cd212a;
+  background: #cd212a;
+}
+
+.is-current .timeline-marker::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 50%;
+  background: #cd212a;
+  animation: live-pulse 1.8s ease-out infinite;
+}
+
+.timeline-date {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0 0 0.2rem;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  letter-spacing: 0.02em;
+  color: var(--text-tertiary);
+}
+
+.is-current .timeline-date {
+  color: var(--secondary-600);
+}
+
+.is-done .timeline-date {
+  color: var(--accent);
+}
+
+.timeline-now {
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.05rem 0.45rem;
+  border-radius: var(--radius-full);
+  background: #cd212a;
+  color: #fff;
+}
+
+.timeline-body h3 {
+  font-family: var(--font-sans);
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.is-upcoming .timeline-body h3 {
+  color: var(--text-secondary);
+}
+
+.timeline-body p:not(.timeline-date) {
+  margin: 0.3rem 0 0;
+  font-size: 0.95rem;
+}
+
+@media (max-width: 960px) {
+  .mentorship-hero-grid,
+  .timeline-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2rem;
+  }
+
+  .timeline-intro {
+    position: static;
+  }
+}
+
+@media (max-width: 640px) {
+  .mentorship-ctas .btn {
+    white-space: normal;
+  }
+}
+
 .call-section {
   padding-bottom: 0;
 }

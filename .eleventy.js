@@ -300,6 +300,7 @@ module.exports = function(eleventyConfig) {
    */
   const dataFileNames = [
     'home.yaml',
+    'mentorship.yaml',
     'about.yaml',
     'events.yaml',
     'activities.yaml',

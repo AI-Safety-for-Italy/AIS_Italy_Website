@@ -69,9 +69,8 @@ mission:
   solution_cta_link: '{{ site.forms.mailingList }}'
 
 # Open call band on the home page, under the stats strip. Remove the block
-# when the call closes and the band disappears. `apply_link` is used by both
-# buttons until there are separate mentor and mentee forms; for now it is the
-# community registration form, which asks about the mentorship program.
+# when the call closes and the band disappears. The buttons' links and labels
+# come from data/mentorship.yaml.
 mentorship_call:
   title: 'AI Safety for Italy Research Mentorship Program'
   title_it: 'Programma di mentorship di ricerca di AI Safety for Italy'
@@ -81,7 +80,6 @@ mentorship_call:
   mentee_it: "Studenti, ricercatori e professionisti che vogliono iniziare a lavorare sull'AI safety."
   mentor: 'Researchers and practitioners with AI safety experience who can give a few hours a month.'
   mentor_it: "Ricercatori e professionisti con esperienza in AI safety che possono dedicare qualche ora al mese."
-  apply_link: 'https://forms.gle/mtBnGSNY21bABNSt7'
 
 # Features Section
 # The three "What we do" columns on the home page. `icon` names a symbol in

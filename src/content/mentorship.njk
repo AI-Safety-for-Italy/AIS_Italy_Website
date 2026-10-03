@@ -1,0 +1,107 @@
+---
+title: Mentorship
+basePath: /mentorship/
+pagination:
+  data: locales
+  size: 1
+  alias: locale
+  # Without this only the first locale reaches collections.all,
+  # and the sitemap would list the English pages only.
+  addAllPagesToCollections: true
+permalink: '{{ locale.prefix }}{{ basePath }}'
+# No dedicated social card yet (scripts/og-images.js); reuse the initiatives one.
+ogImageName: initiatives
+seoTitle: 'Research Mentorship Program | AI Safety for Italy'
+seoTitle_it: 'Programma di mentorship di ricerca | AI Safety for Italy'
+seoDescription: 'Apply as a mentor or express interest as a mentee in the AI Safety for Italy Research Mentorship Program: 8–12 weeks of 1-on-1 mentorship and group sessions.'
+seoDescription_it: "Candidati come mentor o esprimi interesse come mentee nel programma di mentorship di ricerca di AI Safety for Italy: 8–12 settimane di mentorship 1-a-1 e sessioni di gruppo."
+---
+{% extends "base.njk" %}
+{% block content %}
+{% set m = mentorship %}
+
+<!-- Hero -->
+<section class="page-hero mentorship-hero">
+    <div class="container mentorship-hero-grid">
+        <div>
+            {% if m.call_open %}
+            <span class="mono-label red live-label"><span class="live-dot" aria-hidden="true"></span><span data-en="Open call" data-it="Call aperta">Open call</span></span>
+            {% else %}
+            <span class="eyebrow" data-en="Mentorship" data-it="Mentorship">Mentorship</span>
+            {% endif %}
+            <h1 data-en="{{ m.title }}" data-it="{{ m.title_it }}">{{ m.title }}</h1>
+            <p class="lede" data-en="{{ m.lede }}" data-it="{{ m.lede_it }}">{{ m.lede }}</p>
+            <div class="home-hero-ctas mentorship-ctas">
+                <a href="{{ m.links.mentor_apply }}" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-lg" data-en="{{ m.mentor.button }}" data-it="{{ m.mentor.button_it }}">{{ m.mentor.button }}</a>
+                <a href="{{ m.links.mentee_interest }}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-lg" data-en="{{ m.mentee.button }} (mentee)" data-it="{{ m.mentee.button_it }} (mentee)">{{ m.mentee.button }} (mentee)</a>
+            </div>
+        </div>
+        <dl class="facts">
+            {% for f in m.facts %}
+            <div class="fact">
+                <dt data-en="{{ f.label }}" data-it="{{ f.label_it }}">{{ f.label }}</dt>
+                <dd data-en="{{ f.value }}" data-it="{{ f.value_it }}">{{ f.value }}</dd>
+            </div>
+            {% endfor %}
+        </dl>
+    </div>
+</section>
+
+<!-- Timeline -->
+<section class="section" id="timeline">
+    <div class="container timeline-layout">
+        <div class="timeline-intro reveal">
+            <h2 data-en="Timeline" data-it="Timeline">Timeline</h2>
+            <p data-en="Dates still marked as to be announced will be published here and in the newsletter." data-it="Le date ancora da annunciare verranno pubblicate qui e nella newsletter.">Dates still marked as to be announced will be published here and in the newsletter.</p>
+        </div>
+        <ol class="timeline">
+            {% for step in m.timeline %}
+            <li class="timeline-step is-{{ step.status }} reveal"{% if step.status == "current" %} aria-current="step"{% endif %}>
+                <span class="timeline-marker" aria-hidden="true"></span>
+                <div class="timeline-body">
+                    <p class="timeline-date">
+                        {% if step.date %}
+                        <span data-en="{{ step.date }}" data-it="{{ step.date_it or step.date }}">{{ step.date }}</span>
+                        {% else %}
+                        <span data-en="To be announced" data-it="Da annunciare">To be announced</span>
+                        {% endif %}
+                        {% if step.status == "current" %}<span class="timeline-now" data-en="Now" data-it="Ora">Now</span>{% endif %}
+                    </p>
+                    <h3 data-en="{{ step.title }}" data-it="{{ step.title_it }}">{{ step.title }}</h3>
+                    {% if step.description %}
+                    <p data-en="{{ step.description }}" data-it="{{ step.description_it }}">{{ step.description }}</p>
+                    {% endif %}
+                </div>
+            </li>
+            {% endfor %}
+        </ol>
+    </div>
+</section>
+
+<!-- Mentor / mentee -->
+<section class="section section-alt" id="apply">
+    <div class="container">
+        <div class="rule-head reveal">
+            <h2 data-en="Take part" data-it="Partecipa">Take part</h2>
+        </div>
+        <div class="ways-grid">
+            <article class="way-card reveal">
+                <span class="mono-label green" data-en="Applications open" data-it="Candidature aperte">Applications open</span>
+                <h3 data-en="{{ m.mentor.title }}" data-it="{{ m.mentor.title_it }}">{{ m.mentor.title }}</h3>
+                <p data-en="{{ m.mentor.text }}" data-it="{{ m.mentor.text_it }}">{{ m.mentor.text }}</p>
+                <div class="way-actions">
+                    <a href="{{ m.links.mentor_apply }}" target="_blank" rel="noopener noreferrer" class="btn btn-primary" data-en="{{ m.mentor.button }}" data-it="{{ m.mentor.button_it }}">{{ m.mentor.button }}</a>
+                </div>
+            </article>
+            <article class="way-card reveal">
+                <span class="mono-label green" data-en="Expressions of interest" data-it="Espressioni di interesse">Expressions of interest</span>
+                <h3 data-en="{{ m.mentee.title }}" data-it="{{ m.mentee.title_it }}">{{ m.mentee.title }}</h3>
+                <p data-en="{{ m.mentee.text }}" data-it="{{ m.mentee.text_it }}">{{ m.mentee.text }}</p>
+                <div class="way-actions">
+                    <a href="{{ m.links.mentee_interest }}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary" data-en="{{ m.mentee.button }}" data-it="{{ m.mentee.button_it }}">{{ m.mentee.button }}</a>
+                </div>
+            </article>
+        </div>
+    </div>
+</section>
+{% endblock %}

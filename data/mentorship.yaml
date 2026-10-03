@@ -1,0 +1,92 @@
+# Research Mentorship Program — the /mentorship/ page, the open-call band on
+# the home page and the announcement bar all read from here.
+
+# Where the two buttons go. Until there are dedicated forms both point at the
+# community registration form, which asks about the mentorship program.
+links:
+  mentor_apply: 'https://forms.gle/mtBnGSNY21bABNSt7'
+  mentee_interest: 'https://forms.gle/mtBnGSNY21bABNSt7'
+
+# Shown as a pulsing "Open call" label while true.
+call_open: true
+
+title: 'Research Mentorship Program'
+title_it: 'Programma di mentorship di ricerca'
+lede: 'Our first research mentorship cohort pairs people new to AI safety with experienced researchers and professionals, through 1-on-1 mentorship and group sessions.'
+lede_it: "La prima edizione del nostro programma di mentorship di ricerca affianca chi si avvicina all'AI safety a ricercatori e professionisti esperti, con mentorship 1-a-1 e sessioni di gruppo."
+
+# The program at a glance.
+facts:
+  - label: 'Format'
+    label_it: 'Formato'
+    value: '1-on-1 mentorship + group sessions'
+    value_it: 'Mentorship 1-a-1 + sessioni di gruppo'
+  - label: 'Duration'
+    label_it: 'Durata'
+    value: '8–12 weeks'
+    value_it: '8–12 settimane'
+  - label: 'Who is it for'
+    label_it: 'Per chi'
+    value: 'Students, researchers and professionals new to AI safety'
+    value_it: "Studenti, ricercatori e professionisti alle prime armi con l'AI safety"
+  - label: 'Includes'
+    label_it: 'Include'
+    value: 'Curated reading materials and access to our working groups'
+    value_it: 'Materiali di lettura selezionati e accesso ai nostri gruppi di lavoro'
+
+# Timeline, in order. `status`: done | current | upcoming. Leave `date` empty
+# for a step whose date isn't set yet: the page shows "To be announced".
+timeline:
+  - title: 'Call opens'
+    title_it: 'Apertura della call'
+    date: 'October 2026'
+    date_it: 'Ottobre 2026'
+    status: done
+  - title: 'Mentor applications and mentee expressions of interest'
+    title_it: 'Candidature dei mentor ed espressioni di interesse dei mentee'
+    description: 'Mentors apply; people who would like to be mentored tell us they are interested.'
+    description_it: 'I mentor si candidano; chi vorrebbe essere seguito ci fa sapere che è interessato.'
+    date: 'Open now'
+    date_it: 'Aperte ora'
+    status: current
+  - title: 'Application deadline'
+    title_it: 'Scadenza delle candidature'
+    date: ''
+    status: upcoming
+  - title: 'Screening and matching'
+    title_it: 'Selezione e abbinamento'
+    description: 'We review applications and pair each mentee with a mentor.'
+    description_it: 'Valutiamo le candidature e abbiniamo ogni mentee a un mentor.'
+    date: ''
+    status: upcoming
+  - title: 'Results communicated'
+    title_it: 'Comunicazione dei risultati'
+    description: 'Everyone who applied hears back from us by email.'
+    description_it: 'Tutte le persone che si sono candidate ricevono una risposta via email.'
+    date: ''
+    status: upcoming
+  - title: 'Program starts'
+    title_it: 'Inizio del programma'
+    date: ''
+    status: upcoming
+  - title: 'Program ends'
+    title_it: 'Fine del programma'
+    date: '8–12 weeks after the start'
+    date_it: "8–12 settimane dopo l'inizio"
+    status: upcoming
+
+mentee:
+  title: 'Become a mentee'
+  title_it: 'Diventa mentee'
+  text: 'For students, researchers and professionals who want to start working on AI safety. Tell us you are interested and we will contact you when mentee applications open.'
+  text_it: "Per studenti, ricercatori e professionisti che vogliono iniziare a lavorare sull'AI safety. Facci sapere che sei interessato e ti contatteremo quando apriranno le candidature per i mentee."
+  button: 'Express interest'
+  button_it: 'Esprimi interesse'
+
+mentor:
+  title: 'Become a mentor'
+  title_it: 'Diventa mentor'
+  text: 'For researchers and practitioners with AI safety experience who want to guide someone through their first steps in the field.'
+  text_it: "Per ricercatori e professionisti con esperienza in AI safety che vogliono guidare qualcuno nei primi passi nel campo."
+  button: 'Apply as mentor'
+  button_it: 'Candidati come mentor'

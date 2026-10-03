@@ -37,11 +37,13 @@
 </div>
 {%- endif %}
 
-{# Primary navigation: the four sections a visitor chooses between. Home is the
+{# Primary navigation: the sections a visitor chooses between. Active state
+   compares basePath, so /it/about/ highlights About as well. Home is the
    logo; FAQ and Contact live in the footer and the mobile menu. #}
 {%- set navItems = [
   { url: "/about/", key: "about" },
   { url: "/initiatives/", key: "events" },
+  { url: "/mentorship/", key: "mentorship" },
   { url: "/community/", key: "community" },
   { url: "/resources/", key: "resources" }
 ] -%}
@@ -55,7 +57,7 @@
 
     <nav class="main-nav" aria-label="{{ t.a11y.main_nav }}">
       {%- for item in navItems %}
-      <a href="{{ item.url }}" {% if item.url == page.url %}class="active" aria-current="page"{% endif %} data-en="{{ translations.en.nav[item.key] }}" data-it="{{ translations.it.nav[item.key] }}">{{ translations.en.nav[item.key] }}</a>
+      <a href="{{ item.url }}" {% if item.url == basePath %}class="active" aria-current="page"{% endif %} data-en="{{ translations.en.nav[item.key] }}" data-it="{{ translations.it.nav[item.key] }}">{{ translations.en.nav[item.key] }}</a>
       {%- endfor %}
     </nav>
 
@@ -83,7 +85,7 @@
   <div id="mobileMenu" class="mobile-menu hidden">
     <nav aria-label="{{ t.a11y.mobile_nav }}" class="mobile-nav">
       {%- for item in navItems %}
-      <a href="{{ item.url }}" {% if item.url == page.url %}class="active" aria-current="page"{% endif %} data-en="{{ translations.en.nav[item.key] }}" data-it="{{ translations.it.nav[item.key] }}">{{ translations.en.nav[item.key] }}</a>
+      <a href="{{ item.url }}" {% if item.url == basePath %}class="active" aria-current="page"{% endif %} data-en="{{ translations.en.nav[item.key] }}" data-it="{{ translations.it.nav[item.key] }}">{{ translations.en.nav[item.key] }}</a>
       {%- endfor %}
     </nav>
     <div class="mobile-secondary">

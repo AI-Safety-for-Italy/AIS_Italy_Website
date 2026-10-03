@@ -20,7 +20,8 @@
 {%- set metaDescription = metaDescription if metaDescription else (description if description else site.description) -%}
 {#- OG card per page and locale, rendered by scripts/og-images.js and named
     after basePath ("/" is "home"). Pages without a basePath share the home card. -#}
-{%- set ogName = ("home" if (not basePath or basePath == "/") else basePath | replace("/", "")) -%}
+{#- A page without its own card can borrow another with `ogImageName`. -#}
+{%- set ogName = ogImageName or ("home" if (not basePath or basePath == "/") else basePath | replace("/", "")) -%}
 {%- set ogImage = origin + "/assets/img/og/" + ogName + "-" + (lang | default("en")) + ".png" -%}
 <!DOCTYPE html>
 <html lang="{{ lang | default('en') }}">

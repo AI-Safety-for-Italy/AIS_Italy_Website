@@ -37,10 +37,10 @@ upcoming_events:
         label_it: 'Per chi'
         value: 'Students, researchers, and professionals new to AI safety'
         value_it: "Studenti, ricercatori e professionisti alle prime armi con l'AI safety"
-    register_text: 'Apply'
-    register_text_it: 'Candidati'
-    register_link: 'https://forms.gle/mtBnGSNY21bABNSt7'
-    register_target: '_blank'
+    register_text: 'Timeline and how to apply'
+    register_text_it: 'Timeline e come candidarsi'
+    register_link: '/mentorship/'
+    register_target: '_self'
 
   - id: 4
     anchor: 'meetup-milano-2026'

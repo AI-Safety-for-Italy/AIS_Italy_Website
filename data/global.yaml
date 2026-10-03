@@ -123,7 +123,7 @@ icons:
 announcements:
   - text: 'Open call for mentors and mentees: AI Safety for Italy Research Mentorship Program'
     text_it: 'Call aperta per mentor e mentee: programma di mentorship di ricerca di AI Safety for Italy'
-    link: '/#mentorship-call'
+    link: '/mentorship/'
     link_text: 'Find out more'
     link_text_it: 'Scopri di più'
   - text: 'First in-person meetup · Milan, 5 October'
