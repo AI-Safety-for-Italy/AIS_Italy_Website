@@ -2404,10 +2404,18 @@ a:hover {
   padding-top: 0.5rem;
 }
 
-.join-steps--stacked {
+/* Inside a card the steps read as a short list, one per line. Doubled class:
+   .join-steps comes later in the file and would otherwise win. */
+.join-steps.join-steps--stacked {
   grid-template-columns: minmax(0, 1fr);
-  gap: 0.9rem;
+  gap: 0.6rem;
   margin-bottom: 0.25rem;
+}
+
+.join-steps--stacked li {
+  flex-direction: row;
+  align-items: baseline;
+  gap: 0.75rem;
 }
 
 @media (max-width: 860px) {
