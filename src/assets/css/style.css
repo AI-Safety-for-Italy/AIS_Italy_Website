@@ -1423,6 +1423,267 @@ a:hover {
   }
 }
 
+/* Edition line under the title: "First edition, winter 2026/27: ..." */
+.mentorship-edition,
+.call-edition {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  letter-spacing: 0.02em;
+  color: var(--accent);
+  margin: 0 0 1rem;
+}
+
+.call-edition {
+  margin: -0.4rem 0 0;
+}
+
+/* "Express your interest" band: text on the left, the single button on the right */
+.interest-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2rem 3rem;
+  align-items: center;
+  padding: 2.5rem;
+  background: var(--card-bg);
+  border: 1px solid var(--border-default);
+  border-left: 4px solid var(--accent);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+}
+
+.interest-text h2 {
+  font-size: clamp(1.5rem, 2.4vw, 1.9rem);
+  margin: 0 0 0.6rem;
+}
+
+.interest-text p {
+  margin: 0;
+}
+
+.interest-note {
+  margin-top: 0.75rem !important;
+  padding-top: 0.75rem;
+  border-top: 1px dashed var(--border-strong);
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+}
+
+/* The two tracks: numbered cards with a commitment / outcome footer */
+.track-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.track-index {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  color: var(--secondary-600);
+}
+
+.track-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin: auto 0 0;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border-default);
+}
+
+.track-meta dt {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin-bottom: 0.2rem;
+}
+
+.track-meta dd {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+/* Who can take part: role descriptions on the left, requirements on the right */
+.who-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.who-roles {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.who-role {
+  padding: 1.75rem 2rem;
+  background: var(--card-bg);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius);
+}
+
+.who-role h3 {
+  font-family: var(--font-sans);
+  font-size: 1.25rem;
+  margin: 0 0 0.6rem;
+}
+
+.who-role p {
+  margin: 0;
+}
+
+.requirements {
+  padding: 1.75rem 2rem;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius);
+}
+
+.requirements h3 {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin: 0 0 1rem;
+}
+
+.requirements-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.requirements-list li {
+  position: relative;
+  padding-left: 1.6rem;
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+}
+
+.requirements-list li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.45em;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.requirements-note {
+  margin: 1.25rem 0 0;
+  padding-top: 1rem;
+  border-top: 1px dashed var(--border-strong);
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+}
+
+/* How selection works: prose on the left, the AI-use note as a callout */
+.selection-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 3rem;
+  align-items: start;
+}
+
+.selection-text p:last-child {
+  margin-bottom: 0;
+}
+
+.ai-note {
+  padding: 1.5rem 1.75rem;
+  background: var(--card-bg);
+  border: 1px solid var(--border-default);
+  border-left: 4px solid var(--secondary-600);
+  border-radius: var(--radius);
+}
+
+.ai-note h3 {
+  font-family: var(--font-sans);
+  font-size: 1.1rem;
+  margin: 0 0 0.5rem;
+}
+
+.ai-note p {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+/* Contacts: heading and the email on one line */
+.contact-strip {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1.5rem 3rem;
+  flex-wrap: wrap;
+  padding-top: 2rem;
+  border-top: 1px solid var(--text-primary);
+}
+
+.contact-strip h2 {
+  font-size: clamp(1.4rem, 2.2vw, 1.75rem);
+  margin: 0 0 0.3rem;
+}
+
+.contact-strip p {
+  margin: 0;
+}
+
+.contact-email {
+  font-family: var(--font-mono);
+  font-size: 1.05rem;
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 1px solid currentColor;
+  overflow-wrap: anywhere;
+}
+
+.contact-email:hover {
+  color: var(--text-primary);
+}
+
+@media (max-width: 960px) {
+  .who-grid,
+  .selection-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.5rem;
+  }
+
+  .interest-card {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.5rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .interest-card,
+  .who-role,
+  .requirements {
+    padding: 1.35rem;
+  }
+
+  .interest-action .btn {
+    width: 100%;
+    white-space: normal;
+  }
+
+  .track-meta {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 /* "In partnership with" + partner wordmark. The wordmark is dark ink on a
    transparent background, so it sits straight on the page and is inverted
    on the dark theme. */

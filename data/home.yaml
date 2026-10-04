@@ -71,15 +71,18 @@ mission:
 # Open call band on the home page, under the stats strip. Remove the block
 # when the call closes and the band disappears. The buttons' links and labels
 # come from data/mentorship.yaml.
+# The texts are the mentorship team's official wording (see data/mentorship.yaml).
 mentorship_call:
-  title: 'AI Safety for Italy Research Mentorship Program'
-  title_it: 'Programma di mentorship di ricerca di AI Safety for Italy'
-  description: 'We are opening our first research mentorship cohort: 8–12 weeks of 1-on-1 mentorship and group sessions, pairing people new to AI safety with experienced researchers and professionals.'
-  description_it: "Apriamo la prima edizione del nostro programma di mentorship di ricerca: 8–12 settimane di mentorship 1-a-1 e sessioni di gruppo, che affiancano chi si avvicina all'AI safety a ricercatori e professionisti esperti."
-  mentee: 'Students, researchers and professionals who want to start working on AI safety.'
-  mentee_it: "Studenti, ricercatori e professionisti che vogliono iniziare a lavorare sull'AI safety."
-  mentor: 'Researchers and practitioners with AI safety experience who can give a few hours a month.'
-  mentor_it: "Ricercatori e professionisti con esperienza in AI safety che possono dedicare qualche ora al mese."
+  title: 'AI Safety for Italy Mentorship Program'
+  title_it: 'Programma di mentorship AI Safety for Italy'
+  edition: 'First edition, winter 2026/27: from 15 December 2026 to 15 March 2027'
+  edition_it: 'Prima edizione, inverno 2026/27: dal 15 dicembre 2026 al 15 marzo 2027'
+  description: "The AI Safety for Italy mentorship program connects people who want to enter the field of AI safety, ethics and governance with people who already work in it, in Italy and abroad. The goal is to lower the barrier to entry for those who have no one around them working on AI safety, to produce concrete work that stays with the community, and to build lasting connections between people working in this field inside and outside Italy."
+  description_it: "Il programma di mentorship di AI Safety for Italy mette in contatto chi vuole entrare nel campo della sicurezza, dell'etica e della governance dell'intelligenza artificiale con persone che ci lavorano già, in Italia e all'estero. L'obiettivo è abbassare la barriera d'ingresso per chi non ha nel proprio ambiente persone che si occupano di AI safety, produrre lavoro concreto che resti alla comunità e costruire connessioni durature tra chi lavora in questo campo dentro e fuori dall'Italia."
+  mentee: 'Students, recent graduates, PhD students, professionals and researchers, but also people with other backgrounds. No experience in AI safety is required.'
+  mentee_it: 'Studenti, neolaureati, dottorandi, professionisti e ricercatori, ma anche persone con altri percorsi. Non è richiesta esperienza in AI safety.'
+  mentor: 'People with relevant experience in AI safety or AI governance, from universities, research, industry, policy or institutions. You do not need to be a senior figure: what matters is being able to offer competent, continuous support.'
+  mentor_it: "Persone con esperienza rilevante in AI safety o governance dell'IA, da università, ricerca, industria, policy o istituzioni. Non serve essere figure senior: serve poter offrire un supporto competente e continuativo."
 
 # Features Section
 # The three "What we do" columns on the home page. `icon` names a symbol in
@@ -89,10 +92,10 @@ features:
     icon: 'graduation'
     title: 'Education'
     title_it: 'Formazione'
-    description: 'Reading groups, seminars and an 8–12 week mentorship program that pairs newcomers with experienced members of the community.'
-    description_it: "Gruppi di lettura, seminari e un programma di mentorship di 8–12 settimane che affianca chi inizia a membri più esperti della community."
-    status: 'Research mentorship · open call'
-    status_it: 'Mentorship di ricerca · call aperta'
+    description: 'Reading groups, seminars and a 12-week mentorship program that connects newcomers with people already working in AI safety, in Italy and abroad.'
+    description_it: "Gruppi di lettura, seminari e un programma di mentorship di 12 settimane che mette in contatto chi inizia con persone che lavorano già nell'AI safety, in Italia e all'estero."
+    status: 'Mentorship program · open call'
+    status_it: 'Programma di mentorship · call aperta'
   - id: 2
     icon: 'users'
     title: 'Community'

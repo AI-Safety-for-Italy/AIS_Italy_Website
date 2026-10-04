@@ -121,8 +121,8 @@ icons:
 # external ones open a new one. Remove an entry when it is over; with no
 # entries the bar falls back to the event flagged `featured: true` in events.yaml.
 announcements:
-  - text: 'Open call for mentors and mentees: AI Safety for Italy Research Mentorship Program'
-    text_it: 'Call aperta per mentor e mentee: programma di mentorship di ricerca di AI Safety for Italy'
+  - text: 'Open call for mentors and mentees: AI Safety for Italy Mentorship Program, first edition 15 December 2026 – 15 March 2027'
+    text_it: 'Call aperta per mentor e mentee: programma di mentorship AI Safety for Italy, prima edizione 15 dicembre 2026 – 15 marzo 2027'
     link: '/mentorship/'
     link_text: 'Find out more'
     link_text_it: 'Scopri di più'

@@ -1,11 +1,17 @@
-# Research Mentorship Program — the /mentorship/ page, the open-call band on
-# the home page and the announcement bar all read from here.
+# AI Safety for Italy Mentorship Program — the /mentorship/ page, the open-call
+# band on the home page and the announcement bar all read from here.
+#
+# The Italian texts are the official ones written by the mentorship team and
+# must stay verbatim; the English texts are their translation. Change the
+# wording only together with the team.
 
-# Where the two buttons go. Until there are dedicated forms both point at the
-# community registration form, which asks about the mentorship program.
+# One expression-of-interest form for both mentors and mentees. Until the
+# team shares the dedicated form, this points at the community registration
+# form, which asks about the mentorship program.
 links:
-  mentor_apply: 'https://forms.gle/mtBnGSNY21bABNSt7'
-  mentee_interest: 'https://forms.gle/mtBnGSNY21bABNSt7'
+  interest_form: 'https://forms.gle/mtBnGSNY21bABNSt7'
+
+contact_email: 'aisafetyitalia@gmail.com'
 
 # Partner organisation, shown as "In partnership with" on the mentorship page
 # and in the open-call band on the home page. Remove the block to hide it.
@@ -20,83 +26,189 @@ partner:
 # Shown as a pulsing "Open call" label while true.
 call_open: true
 
-title: 'Research Mentorship Program'
-title_it: 'Programma di mentorship di ricerca'
-lede: 'Our first research mentorship cohort pairs people new to AI safety with experienced researchers and professionals, through 1-on-1 mentorship and group sessions.'
-lede_it: "La prima edizione del nostro programma di mentorship di ricerca affianca chi si avvicina all'AI safety a ricercatori e professionisti esperti, con mentorship 1-a-1 e sessioni di gruppo."
+title: 'AI Safety for Italy Mentorship Program'
+title_it: 'Programma di mentorship AI Safety for Italy'
+edition: 'First edition, winter 2026/27: from 15 December 2026 to 15 March 2027'
+edition_it: 'Prima edizione, inverno 2026/27: dal 15 dicembre 2026 al 15 marzo 2027'
+lede: "The AI Safety for Italy mentorship program connects people who want to enter the field of AI safety, ethics and governance with people who already work in it, in Italy and abroad. The goal is to lower the barrier to entry for those who have no one around them working on AI safety, to produce concrete work that stays with the community, and to build lasting connections between people working in this field inside and outside Italy."
+lede_it: "Il programma di mentorship di AI Safety for Italy mette in contatto chi vuole entrare nel campo della sicurezza, dell'etica e della governance dell'intelligenza artificiale con persone che ci lavorano già, in Italia e all'estero. L'obiettivo è abbassare la barriera d'ingresso per chi non ha nel proprio ambiente persone che si occupano di AI safety, produrre lavoro concreto che resti alla comunità e costruire connessioni durature tra chi lavora in questo campo dentro e fuori dall'Italia."
 
-# The program at a glance.
+# "Express your interest": the single call to action for both roles.
+interest:
+  title: 'Express your interest'
+  title_it: 'Manifesta il tuo interesse'
+  text: 'Would you like to be a mentor, or take part as a mentee? Fill in the expression of interest form.'
+  text_it: 'Vuoi fare da mentor o partecipare come mentee? Compila la manifestazione di interesse.'
+  note: 'Mentors will receive the full application form, to be submitted by 20 October 2026. Mentees will hear from us when applications open, on 1 November 2026.'
+  note_it: "Ai mentor invieremo il form di candidatura completo, da inviare entro il 20 ottobre 2026. Ai mentee scriveremo all'apertura delle candidature, il 1 novembre 2026."
+  button: 'Express your interest'
+  button_it: 'Manifesta il tuo interesse'
+  dates_button: 'Key dates'
+  dates_button_it: 'Date principali'
+
+# "In breve": the program at a glance, in the hero.
 facts:
-  - label: 'Format'
-    label_it: 'Formato'
-    value: '1-on-1 mentorship + group sessions'
-    value_it: 'Mentorship 1-a-1 + sessioni di gruppo'
   - label: 'Duration'
     label_it: 'Durata'
-    value: '8–12 weeks'
-    value_it: '8–12 settimane'
-  - label: 'Who is it for'
-    label_it: 'Per chi'
-    value: 'Students, researchers and professionals new to AI safety'
-    value_it: "Studenti, ricercatori e professionisti alle prime armi con l'AI safety"
-  - label: 'Includes'
-    label_it: 'Include'
-    value: 'Curated reading materials and access to our working groups'
-    value_it: 'Materiali di lettura selezionati e accesso ai nostri gruppi di lavoro'
+    value: '12 weeks'
+    value_it: '12 settimane'
+  - label: 'Format'
+    label_it: 'Modalità'
+    value: 'Online, with optional in-person meetings agreed between mentor and mentee'
+    value_it: 'Online, con eventuali incontri in presenza concordati tra mentor e mentee'
+  - label: 'Cost'
+    label_it: 'Costo'
+    value: 'Free; participation is voluntary and unpaid'
+    value_it: 'Gratuito; la partecipazione è volontaria e non retribuita'
+  - label: 'Language'
+    label_it: 'Lingua'
+    value: 'Meetings in Italian or English, materials in Italian'
+    value_it: 'Incontri in italiano o inglese, materiali in italiano'
+  - label: 'Places'
+    label_it: 'Posti'
+    value: 'Between 10 and 20 in total'
+    value_it: 'Tra 10 e 20 in totale'
 
-# Timeline, in order. `status`: done | current | upcoming. Leave `date` empty
-# for a step whose date isn't set yet: the page shows "To be announced".
+# "Due percorsi". `with_partner: true` shows the "In collaboration with CePTE"
+# label on a track.
+tracks_title: 'Two tracks'
+tracks_title_it: 'Due percorsi'
+tracks:
+  - title: 'Career orientation'
+    title_it: 'Orientamento professionale'
+    with_partner: true
+    text: 'An individual track for those who want to find their way among study and career opportunities in AI safety and AI governance. Mentor and mentee meet regularly to talk about interests, skills to develop, study and job opportunities, networking and concrete next steps. No technical skills are needed.'
+    text_it: "Un percorso individuale per chi vuole orientarsi tra le opportunità di studio e di carriera nell'AI safety e nella governance dell'IA. Mentor e mentee si incontrano regolarmente per parlare di interessi, competenze da sviluppare, opportunità di studio e lavoro, networking e prossimi passi concreti. Non servono competenze tecniche."
+    commitment: 'At least 2 hours a week'
+    commitment_it: 'Almeno 2 ore a settimana'
+    outcome: 'A personal action plan'
+    outcome_it: "Un piano d'azione personale"
+  - title: 'AI safety projects'
+    title_it: 'Progetti di AI safety'
+    text: 'A hands-on track for those who already have a clear idea of their interests and want to gain experience on a real project, defined and supervised by one or more mentors. Projects may cover model interpretability and evaluation, governance and policy, AI ethics and other topics related to reducing the risks of advanced AI systems. For students, the project can become the basis of a thesis, subject to agreement with their university.'
+    text_it: "Un percorso pratico per chi ha già un'idea chiara dei propri interessi e vuole fare esperienza su un progetto reale, definito e supervisionato da uno o più mentor. I progetti possono riguardare interpretabilità e valutazione dei modelli, governance e policy, etica dell'IA e altri temi legati alla riduzione dei rischi dei sistemi di IA avanzati. Per chi studia, il progetto può diventare la base di una tesi, previo accordo con la propria università."
+    commitment: 'At least 8 hours a week'
+    commitment_it: 'Almeno 8 ore a settimana'
+    outcome: 'A concrete deliverable: report, scientific article, software, educational material'
+    outcome_it: 'Un deliverable concreto: report, articolo scientifico, software, materiale educativo'
+
+# "Chi può partecipare"
+participants:
+  title: 'Who can take part'
+  title_it: 'Chi può partecipare'
+  mentor:
+    title: 'Mentors'
+    title_it: 'Mentor'
+    text: 'People with relevant experience in AI safety or AI governance, from universities, research, industry, policy or institutions. You do not need to be a senior figure: what matters is being able to offer competent, continuous support.'
+    text_it: "Persone con esperienza rilevante in AI safety o governance dell'IA, da università, ricerca, industria, policy o istituzioni. Non serve essere figure senior: serve poter offrire un supporto competente e continuativo."
+  mentee:
+    title: 'Mentees'
+    title_it: 'Mentee'
+    text: 'Students, recent graduates, PhD students, professionals and researchers, but also people with other backgrounds. No experience in AI safety is required. If you do not meet all the requirements of a project you are interested in, apply anyway and explain why you think you could benefit from the track.'
+    text_it: "Studenti, neolaureati, dottorandi, professionisti e ricercatori, ma anche persone con altri percorsi. Non è richiesta esperienza in AI safety. Se non soddisfi tutti i requisiti di un progetto che ti interessa, candidati comunque e spiega perché pensi di poter beneficiare dal percorso."
+  requirements_title: 'Requirements for everyone'
+  requirements_title_it: 'Requisiti per tutti'
+  requirements:
+    - text: 'having a connection with Italy, for example Italian citizenship, living in Italy, studying or working (now or in the past) at an organisation based in Italy. If you do not fit these examples, explain your connection in your application;'
+      text_it: "avere un legame con l'Italia, per esempio cittadinanza italiana, vivere in Italia, studiare o lavorare (oggi o in passato) presso un ente con sede in Italia. Se non rientri in questi esempi, spiega il tuo legame nella candidatura;"
+    - text: 'being at least 18 years old;'
+      text_it: 'avere almeno 18 anni;'
+    - text: 'having a time availability compatible with the chosen track;'
+      text_it: 'avere una disponibilità oraria compatibile con il percorso scelto;'
+    - text: "accepting the program's code of conduct."
+      text_it: 'accettare il codice di condotta del programma.'
+  note: 'You can take part alongside other programs (SPAR, BlueDot, ARENA, etc.).'
+  note_it: 'È possibile partecipare in parallelo ad altri programmi (SPAR, BlueDot, ARENA, ecc.).'
+
+# "Date principali", in order. `status`: done | current | upcoming. Move
+# `current` down as the program advances.
+timeline_title: 'Key dates'
+timeline_title_it: 'Date principali'
+timeline_notes:
+  - text: 'Deadlines are at 23:59 (Italian time) on the date shown.'
+    text_it: "Le scadenze si intendono alle 23:59 (ora italiana) della data indicata."
+  - text: 'A spring edition is planned, indicatively from 1 April to 30 June 2027.'
+    text_it: "Un'edizione primaverile è prevista indicativamente dal 1 aprile al 30 giugno 2027."
 timeline:
-  - title: 'Call opens'
-    title_it: 'Apertura della call'
-    date: 'October 2026'
-    date_it: 'Ottobre 2026'
-    status: done
-  - title: 'Mentor applications and mentee expressions of interest'
-    title_it: 'Candidature dei mentor ed espressioni di interesse dei mentee'
-    description: 'Mentors apply; people who would like to be mentored tell us they are interested.'
-    description_it: 'I mentor si candidano; chi vorrebbe essere seguito ci fa sapere che è interessato.'
-    date: 'Open now'
-    date_it: 'Aperte ora'
+  - date: 'From now'
+    date_it: 'Da ora'
+    title: 'Expression of interest for mentors and mentees'
+    title_it: 'Manifestazione di interesse per mentor e mentee'
     status: current
-  - title: 'Application deadline'
-    title_it: 'Scadenza delle candidature'
-    date: ''
+  - date: '20 October 2026'
+    date_it: '20 ottobre 2026'
+    title: 'Mentor applications close'
+    title_it: 'Chiusura candidature mentor'
     status: upcoming
-  - title: 'Screening and matching'
-    title_it: 'Selezione e abbinamento'
-    description: 'We review applications and pair each mentee with a mentor.'
-    description_it: 'Valutiamo le candidature e abbiniamo ogni mentee a un mentor.'
-    date: ''
+  - date: '31 October 2026'
+    date_it: '31 ottobre 2026'
+    title: 'List of mentors and projects published'
+    title_it: 'Pubblicazione elenco mentor e progetti'
     status: upcoming
-  - title: 'Results communicated'
-    title_it: 'Comunicazione dei risultati'
-    description: 'Everyone who applied hears back from us by email.'
-    description_it: 'Tutte le persone che si sono candidate ricevono una risposta via email.'
-    date: ''
+  - date: '1 November 2026'
+    date_it: '1 novembre 2026'
+    title: 'Mentee applications open'
+    title_it: 'Apertura candidature mentee'
     status: upcoming
-  - title: 'Program starts'
-    title_it: 'Inizio del programma'
-    date: ''
+  - date: '20 November 2026'
+    date_it: '20 novembre 2026'
+    title: 'Mentee applications close'
+    title_it: 'Chiusura candidature mentee'
     status: upcoming
-  - title: 'Program ends'
+  - date: '21 November – 3 December 2026'
+    date_it: '21 novembre – 3 dicembre 2026'
+    title: 'Interviews and shortlist'
+    title_it: 'Colloqui e shortlist'
+    status: upcoming
+  - date: '8 December 2026'
+    date_it: '8 dicembre 2026'
+    title: 'Matches published'
+    title_it: 'Pubblicazione degli abbinamenti'
+    status: upcoming
+  - date: '15 December 2026'
+    date_it: '15 dicembre 2026'
+    title: 'Opening event'
+    title_it: 'Evento di apertura'
+    status: upcoming
+  - date: '15 March 2027'
+    date_it: '15 marzo 2027'
+    title: 'End of the program'
     title_it: 'Fine del programma'
-    date: '8–12 weeks after the start'
-    date_it: "8–12 settimane dopo l'inizio"
+    description: 'With a closing event where mentees present their projects.'
+    description_it: 'Con evento di chiusura in cui i mentee presentano i propri progetti.'
     status: upcoming
 
+# "Come si viene selezionati"
+selection:
+  title: 'How selection works'
+  title_it: 'Come si viene selezionati'
+  paragraphs:
+    - text: 'Mentors are assessed on the relevance and feasibility of the proposed project and on their supervision ability. For the projects track, each mentor selects their own candidates, possibly with a short interview, and the final match takes into account the preferences of both sides. For the orientation track, matching is handled by AIS4I together with CePTE. The eligibility of all applications is assessed by the AIS4I team.'
+      text_it: "I mentor sono valutati sulla rilevanza e la fattibilità del progetto proposto e sulla capacità di supervisione. Per il percorso progetti, ogni mentor seleziona i propri candidati, eventualmente con un breve colloquio, e l'abbinamento finale tiene conto delle preferenze di entrambe le parti. Per l'orientamento, l'abbinamento è curato da AIS4I insieme a CePTE. L'ammissibilità di tutte le candidature è valutata dal team AIS4I."
+  ai_title: 'Use of AI in your application'
+  ai_title_it: "Uso dell'IA nella candidatura"
+  ai_text: 'The open answers must be written by you. You may use a language model to find your way among the projects, but not to write or polish your answers. Short, direct answers are perfectly fine.'
+  ai_text_it: 'Le risposte aperte devono essere scritte da te. Puoi usare un modello linguistico per orientarti tra i progetti, ma non per scrivere o rifinire le risposte. Risposte brevi e dirette vanno benissimo.'
+
+contact:
+  title: 'Contacts'
+  title_it: 'Contatti'
+  text: 'Questions about the program? Write to us.'
+  text_it: 'Domande sul programma? Scrivici.'
+
+# Short role descriptions reused by the open-call band on the home page.
 mentee:
-  title: 'Become a mentee'
-  title_it: 'Diventa mentee'
-  text: 'For students, researchers and professionals who want to start working on AI safety. Tell us you are interested and we will contact you when mentee applications open.'
-  text_it: "Per studenti, ricercatori e professionisti che vogliono iniziare a lavorare sull'AI safety. Facci sapere che sei interessato e ti contatteremo quando apriranno le candidature per i mentee."
-  button: 'Express interest'
-  button_it: 'Esprimi interesse'
+  title: 'Mentees'
+  title_it: 'Mentee'
+  text: 'Students, recent graduates, PhD students, professionals and researchers, but also people with other backgrounds. No experience in AI safety is required.'
+  text_it: 'Studenti, neolaureati, dottorandi, professionisti e ricercatori, ma anche persone con altri percorsi. Non è richiesta esperienza in AI safety.'
+  button: 'Express interest as a mentee'
+  button_it: 'Manifesta interesse come mentee'
 
 mentor:
-  title: 'Become a mentor'
-  title_it: 'Diventa mentor'
-  text: 'For researchers and practitioners with AI safety experience who want to guide someone through their first steps in the field.'
-  text_it: "Per ricercatori e professionisti con esperienza in AI safety che vogliono guidare qualcuno nei primi passi nel campo."
-  button: 'Apply as mentor'
-  button_it: 'Candidati come mentor'
+  title: 'Mentors'
+  title_it: 'Mentor'
+  text: 'People with relevant experience in AI safety or AI governance, from universities, research, industry, policy or institutions. You do not need to be a senior figure: what matters is being able to offer competent, continuous support.'
+  text_it: "Persone con esperienza rilevante in AI safety o governance dell'IA, da università, ricerca, industria, policy o istituzioni. Non serve essere figure senior: serve poter offrire un supporto competente e continuativo."
+  button: 'Express interest as a mentor'
+  button_it: 'Manifesta interesse come mentor'
