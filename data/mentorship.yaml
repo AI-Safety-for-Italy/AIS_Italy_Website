@@ -5,11 +5,9 @@
 # must stay verbatim; the English texts are their translation. Change the
 # wording only together with the team.
 
-# One expression-of-interest form for both mentors and mentees. Until the
-# team shares the dedicated form, this points at the community registration
-# form, which asks about the mentorship program.
+# The expression-of-interest form, shared by mentors and mentees.
 links:
-  interest_form: 'https://forms.gle/mtBnGSNY21bABNSt7'
+  interest_form: 'https://forms.gle/eopxRMZVf7gK5XPW7'
 
 contact_email: 'aisafetyitalia@gmail.com'
 
