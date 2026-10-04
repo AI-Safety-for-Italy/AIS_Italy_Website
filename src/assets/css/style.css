@@ -1460,14 +1460,6 @@ a:hover {
   margin: 0;
 }
 
-.interest-note {
-  margin-top: 0.75rem !important;
-  padding-top: 0.75rem;
-  border-top: 1px dashed var(--border-strong);
-  font-size: 0.95rem;
-  color: var(--text-secondary);
-}
-
 /* The two tracks: numbered cards with a commitment / outcome footer */
 .track-head {
   display: flex;

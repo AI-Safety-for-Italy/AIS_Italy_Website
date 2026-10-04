@@ -39,8 +39,6 @@ interest:
   title_it: 'Manifesta il tuo interesse'
   text: 'Would you like to be a mentor, or take part as a mentee? Fill in the expression of interest form.'
   text_it: 'Vuoi fare da mentor o partecipare come mentee? Compila la manifestazione di interesse.'
-  note: 'Mentors will receive the full application form, to be submitted by 20 October 2026. Mentees will hear from us when applications open, on 1 November 2026.'
-  note_it: "Ai mentor invieremo il form di candidatura completo, da inviare entro il 20 ottobre 2026. Ai mentee scriveremo all'apertura delle candidature, il 1 novembre 2026."
   button: 'Express your interest'
   button_it: 'Manifesta il tuo interesse'
   dates_button: 'Key dates'
