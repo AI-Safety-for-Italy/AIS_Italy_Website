@@ -2582,14 +2582,11 @@ a:hover {
   margin: 0 0 0.85rem;
 }
 
+/* Full bio, never clamped: a cut-off sentence reads as a broken card. */
 .board-bio {
   font-size: 0.925rem;
   line-height: 1.6;
   margin: 0 0 0.85rem;
-  display: -webkit-box;
-  -webkit-line-clamp: 6;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
 }
 
 .wg-grid {
