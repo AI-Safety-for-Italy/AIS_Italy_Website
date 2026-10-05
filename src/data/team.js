@@ -192,6 +192,7 @@ const teamData = [
     board_role_it: 'Responsabile programma di mentorship',
     groups: ['mentorship', 'governance'],
     role: 'Co-founder — Governance & Mentorship',
+    photo: '/assets/img/team/lorenzo-basile.jpg',
     bio: 'Lorenzo is a co-founder of AI Safety for Italy and a postdoctoral researcher at Area Science Park (Trieste). His research focuses on the interpretability of multimodal foundation models and representation alignment. He previously obtained a PhD in AI at the University of Trieste, supervised by Luca Bortolussi, with a research visit in Francesco Locatello’s Causal Learning and AI lab at IST Austria.',
     bio_it:
       'Lorenzo è co-founder di AI Safety for Italy e ricercatore post-doc presso Area Science Park (Trieste). La sua ricerca si concentra sull’interpretabilità dei modelli fondazionali multimodali e sull’allineamento delle rappresentazioni. In precedenza ha conseguito un dottorato in IA presso l’Università di Trieste, sotto la supervisione di Luca Bortolussi, con un periodo di ricerca presso il laboratorio di Causal Learning and AI di Francesco Locatello all’IST Austria.',
