@@ -226,7 +226,8 @@ const teamData = [
     role: 'Seminars',
     role_it: 'Seminari',
     bio: 'Edoardo coordinates the seminars of AI Safety for Italy. He is a PhD student at the University of Trento.',
-    bio_it: "Edoardo coordina i seminari di AI Safety for Italy. È dottorando all'Università di Trento.",
+    bio_it:
+      "Edoardo coordina i seminari di AI Safety for Italy. È dottorando all'Università di Trento.",
     areas: ['Seminars'],
     interests: ['Interpretability', 'Evaluations', 'Alignment'],
     links: [
@@ -244,12 +245,11 @@ const teamData = [
     role: 'Community & Education',
     role_it: 'Community e formazione',
     bio: 'Riccardo coordinates the community and the educational activities of AI Safety for Italy. He is a PhD student at Örebro University.',
-    bio_it: "Riccardo coordina la community e le attività formative di AI Safety for Italy. È dottorando alla Örebro University.",
+    bio_it:
+      'Riccardo coordina la community e le attività formative di AI Safety for Italy. È dottorando alla Örebro University.',
     areas: ['Community', 'Education'],
     interests: ['Interpretability', 'Robustness', 'AI governance and policy'],
-    links: [
-      { label: 'LinkedIn', url: 'https://www.linkedin.com/in/riccardoconte-cybersecurity/' },
-    ],
+    links: [{ label: 'LinkedIn', url: 'https://www.linkedin.com/in/riccardoconte-cybersecurity/' }],
   },
 ];
 
