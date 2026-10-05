@@ -1,0 +1,11 @@
+{# "In partnership with" badge for the mentorship program, from
+   `partner` in data/mentorship.yaml. Included on the mentorship page and in
+   the open-call band on the home page. #}
+{% if mentorship.partner %}
+{% set pt = mentorship.partner %}
+<a class="partner-badge" href="{{ pt.url }}" target="_blank" rel="noopener noreferrer">
+    <span class="partner-label" data-en="In partnership with" data-it="In partnership con">In partnership with</span>
+    <img class="partner-logo" src="{{ pt.logo }}" alt="{{ pt.name }}" width="119" height="30" loading="lazy">
+    <span class="partner-name">{{ pt.full_name }}</span>
+</a>
+{% endif %}

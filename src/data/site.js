@@ -27,6 +27,10 @@ const siteData = {
     mailingList: 'https://forms.gle/mtBnGSNY21bABNSt7',
     courseApplication: 'placeholder', // Update with actual link when available
   },
+  // True only for the live site (main, deployed with --prod). Local builds,
+  // the dev preview (ais4i-dev.vercel.app) and other previews are false, which
+  // lets drafts such as an unapproved leadership team show there and not live.
+  isProduction: process.env.VERCEL_ENV === 'production',
   // GA4 measurement ID. Only production deploys get it, so local builds and
   // Vercel previews never render the consent banner or send hits.
   analytics: {

@@ -182,6 +182,12 @@ class Parse(unittest.TestCase):
         self.assertEqual(m['location'], 'Udine, Italia')
         self.assertEqual(m['profile'], 'https://example.org')
 
+    def test_email_is_never_written(self):
+        """members.yaml is public; the address must not reach it."""
+        m = um.parse([row()])[0][0]
+        self.assertNotIn('email', m)
+        self.assertNotIn('giulia@example.org', repr(m))
+
     def test_empty_optional_fields_are_omitted_not_blank(self):
         m = um.parse([row()])[0][0]
         for absent in ('profile', 'location', 'career', 'institution', 'groups'):

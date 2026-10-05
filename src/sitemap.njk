@@ -21,7 +21,7 @@ eleventyExcludeFromCollections: true
     <loc>{{ origin }}{{ entry.url }}</loc>
     <changefreq>
       {%- if base == "/" -%}weekly
-      {%- elif base == "/initiatives/" or base == "/community/" -%}monthly
+      {%- elif base == "/initiatives/" or base == "/community/" or base == "/mentorship/" -%}monthly
       {%- elif base == "/about/" or base == "/faq/" -%}monthly
       {%- else -%}yearly
       {%- endif -%}
@@ -29,7 +29,7 @@ eleventyExcludeFromCollections: true
     <priority>
       {%- if base == "/" -%}1.0
       {%- elif base == "/about/" -%}0.9
-      {%- elif base == "/faq/" or base == "/initiatives/" -%}0.8
+      {%- elif base == "/faq/" or base == "/initiatives/" or base == "/mentorship/" -%}0.8
       {%- elif base == "/community/" -%}0.7
       {%- else -%}0.5
       {%- endif -%}

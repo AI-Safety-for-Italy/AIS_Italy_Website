@@ -20,6 +20,63 @@ benefits:
     description: "Get guidance on career paths in AI safety, job opportunities, and connections to organizations working in the field."
 
 
+# Working groups, in the order the community page lists them.
+# Each person in src/data/team.js names the groups they work in by `id`
+# (their `groups` list). `form_keys` are the group keys that
+# scripts/update-members.py writes into data/members.yaml for people who
+# declared stable participation or coordination on the registration form;
+# they are listed under the group as participants.
+working_groups:
+  - id: mentorship
+    form_keys: ['mentorship']
+    title: 'Mentorship'
+    title_it: 'Mentorship'
+    description: 'Runs the mentorship program: matches newcomers with experienced members and supports each cohort.'
+    description_it: 'Gestisce il programma di mentorship: abbina chi inizia a membri esperti e segue ogni gruppo.'
+  - id: events
+    form_keys: ['events', 'community']
+    title: 'Events & local groups'
+    title_it: 'Eventi e gruppi locali'
+    description: 'Organises meetups, seminars and the city groups across Italy.'
+    description_it: 'Organizza meetup, seminari e i gruppi cittadini in tutta Italia.'
+  - id: communications
+    form_keys: ['communication']
+    title: 'Communications'
+    title_it: 'Comunicazione'
+    description: 'Newsletter, social media, press and the public voice of the organisation.'
+    description_it: "Newsletter, social, stampa e la voce pubblica dell'associazione."
+  - id: governance
+    form_keys: ['governance']
+    title: 'Governance & fundraising'
+    title_it: 'Governance e fundraising'
+    description: 'Legal structure, finances, grants and relationships with funders.'
+    description_it: 'Struttura legale, finanze, bandi e rapporti con i finanziatori.'
+  - id: education
+    form_keys: ['education', 'seminars']
+    title: 'Education'
+    title_it: 'Formazione'
+    description: 'Courses, reading groups and learning materials on AI safety.'
+    description_it: "Corsi, gruppi di lettura e materiali didattici sull'AI safety."
+  - id: tech
+    form_keys: ['technical']
+    title: 'Technical infrastructure'
+    title_it: 'Infrastruttura tecnica'
+    description: 'The website, internal tools and the Discord server.'
+    description_it: 'Il sito, gli strumenti interni e il server Discord.'
+
+# The organizing team.
+#   published: false — shown locally and on preview deploys (ais4i-dev.vercel.app)
+#                      but left off the live site, on the home and About pages.
+#                      Set it to true once the structure is approved.
+#   draft: true      — shows the "this is a proposal" note above it.
+#   open_seats       — optional list of seats not yet held by someone in
+#                      src/data/team.js ({role, role_it, name?, description?}).
+board:
+  published: true
+  draft: false
+  note: 'The organizing team is being defined: roles and composition shown here are a proposal.'
+  note_it: 'La struttura del team organizzativo è in fase di definizione: ruoli e composizione sono una proposta.'
+
 # Team Section
 team_section:
   title: "Our Team"

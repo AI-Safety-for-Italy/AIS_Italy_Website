@@ -114,3 +114,20 @@ icons:
   alignment: "⚙️"
   theme_toggle: "🌙"
   theme_toggle_alt: "☀️"
+
+# Site-wide announcement bar, above the header on every page. With more than
+# one entry the bar slides between them every few seconds (dots let visitors
+# pick one, which stops the rotation). Internal links stay in the tab,
+# external ones open a new one. Remove an entry when it is over; with no
+# entries the bar falls back to the event flagged `featured: true` in events.yaml.
+announcements:
+  - text: 'Open call for mentors and mentees: AI Safety for Italy Mentorship Program, first edition 15 December 2026 – 15 March 2027'
+    text_it: 'Call aperta per mentor e mentee: programma di mentorship AI Safety for Italy, prima edizione 15 dicembre 2026 – 15 marzo 2027'
+    link: '/mentorship/'
+    link_text: 'Find out more'
+    link_text_it: 'Scopri di più'
+  - text: 'First in-person meetup · Milan, 5 October'
+    text_it: 'Primo meetup in presenza · Milano, 5 ottobre'
+    link: 'https://luma.com/jcx4jd7z'
+    link_text: 'Register'
+    link_text_it: 'Iscriviti'

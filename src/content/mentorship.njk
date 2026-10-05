@@ -1,0 +1,197 @@
+---
+title: Mentorship
+basePath: /mentorship/
+pagination:
+  data: locales
+  size: 1
+  alias: locale
+  # Without this only the first locale reaches collections.all,
+  # and the sitemap would list the English pages only.
+  addAllPagesToCollections: true
+permalink: '{{ locale.prefix }}{{ basePath }}'
+# No dedicated social card yet (scripts/og-images.js); reuse the initiatives one.
+ogImageName: initiatives
+seoTitle: 'Mentorship Program | AI Safety for Italy'
+seoTitle_it: 'Programma di mentorship | AI Safety for Italy'
+seoDescription: 'The AI Safety for Italy Mentorship Program connects people who want to enter AI safety, ethics and governance with people who already work in the field. First edition: 15 December 2026 to 15 March 2027.'
+seoDescription_it: "Il programma di mentorship di AI Safety for Italy mette in contatto chi vuole entrare nel campo della sicurezza, dell'etica e della governance dell'IA con persone che ci lavorano già. Prima edizione: dal 15 dicembre 2026 al 15 marzo 2027."
+---
+{% extends "base.njk" %}
+{% block content %}
+{% set m = mentorship %}
+
+<!-- Hero -->
+<section class="page-hero mentorship-hero">
+    <div class="container mentorship-hero-grid">
+        <div>
+            {% if m.call_open %}
+            <span class="mono-label red live-label"><span class="live-dot" aria-hidden="true"></span><span data-en="Open call" data-it="Call aperta">Open call</span></span>
+            {% else %}
+            <span class="eyebrow" data-en="Mentorship" data-it="Mentorship">Mentorship</span>
+            {% endif %}
+            <h1 data-en="{{ m.title }}" data-it="{{ m.title_it }}">{{ m.title }}</h1>
+            <p class="mentorship-edition" data-en="{{ m.edition }}" data-it="{{ m.edition_it }}">{{ m.edition }}</p>
+            <p class="lede" data-en="{{ m.lede }}" data-it="{{ m.lede_it }}">{{ m.lede }}</p>
+            <div class="home-hero-ctas mentorship-ctas">
+                <a href="{{ m.links.interest_form }}" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-lg" data-en="{{ m.interest.button }}" data-it="{{ m.interest.button_it }}">{{ m.interest.button }}</a>
+                <a href="#timeline" class="btn btn-secondary btn-lg" data-en="{{ m.interest.dates_button }}" data-it="{{ m.interest.dates_button_it }}">{{ m.interest.dates_button }}</a>
+            </div>
+            {% include "mentorship-partner.njk" %}
+        </div>
+        <dl class="facts">
+            {% for f in m.facts %}
+            <div class="fact">
+                <dt data-en="{{ f.label }}" data-it="{{ f.label_it }}">{{ f.label }}</dt>
+                <dd data-en="{{ f.value }}" data-it="{{ f.value_it }}">{{ f.value }}</dd>
+            </div>
+            {% endfor %}
+        </dl>
+    </div>
+</section>
+
+<!-- Express your interest -->
+<section class="section section-alt" id="interest">
+    <div class="container">
+        <div class="interest-card reveal">
+            <div class="interest-text">
+                <h2 data-en="{{ m.interest.title }}" data-it="{{ m.interest.title_it }}">{{ m.interest.title }}</h2>
+                <p data-en="{{ m.interest.text }}" data-it="{{ m.interest.text_it }}">{{ m.interest.text }}</p>
+            </div>
+            <div class="interest-action">
+                <a href="{{ m.links.interest_form }}" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-lg" data-en="{{ m.interest.button }}" data-it="{{ m.interest.button_it }}">{{ m.interest.button }}</a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Two tracks -->
+<section class="section" id="tracks">
+    <div class="container">
+        <div class="rule-head reveal">
+            <h2 data-en="{{ m.tracks_title }}" data-it="{{ m.tracks_title_it }}">{{ m.tracks_title }}</h2>
+        </div>
+        <div class="ways-grid">
+            {% for t in m.tracks %}
+            <article class="way-card track-card reveal">
+                <div class="track-head">
+                    <span class="track-index" aria-hidden="true">0{{ loop.index }}</span>
+                    {% if t.with_partner and m.partner %}
+                    <span class="mono-label green" data-en="In collaboration with {{ m.partner.name }}" data-it="In collaborazione con {{ m.partner.name }}">In collaboration with {{ m.partner.name }}</span>
+                    {% endif %}
+                </div>
+                <h3 data-en="{{ t.title }}" data-it="{{ t.title_it }}">{{ t.title }}</h3>
+                <p data-en="{{ t.text }}" data-it="{{ t.text_it }}">{{ t.text }}</p>
+                <dl class="track-meta">
+                    <div>
+                        <dt data-en="Commitment" data-it="Impegno">Commitment</dt>
+                        <dd data-en="{{ t.commitment }}" data-it="{{ t.commitment_it }}">{{ t.commitment }}</dd>
+                    </div>
+                    <div>
+                        <dt data-en="Outcome" data-it="Risultato">Outcome</dt>
+                        <dd data-en="{{ t.outcome }}" data-it="{{ t.outcome_it }}">{{ t.outcome }}</dd>
+                    </div>
+                </dl>
+            </article>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+
+<!-- Who can take part -->
+<section class="section section-alt" id="who">
+    {% set p = m.participants %}
+    <div class="container">
+        <div class="rule-head reveal">
+            <h2 data-en="{{ p.title }}" data-it="{{ p.title_it }}">{{ p.title }}</h2>
+        </div>
+        <div class="who-grid">
+            <div class="who-roles">
+                <article class="who-role reveal">
+                    <h3 data-en="{{ p.mentor.title }}" data-it="{{ p.mentor.title_it }}">{{ p.mentor.title }}</h3>
+                    <p data-en="{{ p.mentor.text }}" data-it="{{ p.mentor.text_it }}">{{ p.mentor.text }}</p>
+                </article>
+                <article class="who-role reveal">
+                    <h3 data-en="{{ p.mentee.title }}" data-it="{{ p.mentee.title_it }}">{{ p.mentee.title }}</h3>
+                    <p data-en="{{ p.mentee.text }}" data-it="{{ p.mentee.text_it }}">{{ p.mentee.text }}</p>
+                </article>
+            </div>
+            <aside class="requirements reveal">
+                <h3 data-en="{{ p.requirements_title }}" data-it="{{ p.requirements_title_it }}">{{ p.requirements_title }}</h3>
+                <ul class="requirements-list">
+                    {% for r in p.requirements %}
+                    <li data-en="{{ r.text }}" data-it="{{ r.text_it }}">{{ r.text }}</li>
+                    {% endfor %}
+                </ul>
+                <p class="requirements-note" data-en="{{ p.note }}" data-it="{{ p.note_it }}">{{ p.note }}</p>
+            </aside>
+        </div>
+    </div>
+</section>
+
+<!-- Key dates -->
+<section class="section" id="timeline">
+    <div class="container timeline-layout">
+        <div class="timeline-intro reveal">
+            <h2 data-en="{{ m.timeline_title }}" data-it="{{ m.timeline_title_it }}">{{ m.timeline_title }}</h2>
+            {% for n in m.timeline_notes %}
+            <p data-en="{{ n.text }}" data-it="{{ n.text_it }}">{{ n.text }}</p>
+            {% endfor %}
+        </div>
+        <ol class="timeline">
+            {% for step in m.timeline %}
+            <li class="timeline-step is-{{ step.status }} reveal"{% if step.status == "current" %} aria-current="step"{% endif %}>
+                <span class="timeline-marker" aria-hidden="true"></span>
+                <div class="timeline-body">
+                    <p class="timeline-date">
+                        {% if step.date %}
+                        <span data-en="{{ step.date }}" data-it="{{ step.date_it or step.date }}">{{ step.date }}</span>
+                        {% else %}
+                        <span data-en="To be announced" data-it="Da annunciare">To be announced</span>
+                        {% endif %}
+                        {% if step.status == "current" %}<span class="timeline-now" data-en="Now" data-it="Ora">Now</span>{% endif %}
+                    </p>
+                    <h3 data-en="{{ step.title }}" data-it="{{ step.title_it }}">{{ step.title }}</h3>
+                    {% if step.description %}
+                    <p data-en="{{ step.description }}" data-it="{{ step.description_it }}">{{ step.description }}</p>
+                    {% endif %}
+                </div>
+            </li>
+            {% endfor %}
+        </ol>
+    </div>
+</section>
+
+<!-- How selection works -->
+<section class="section section-alt" id="selection">
+    {% set s = m.selection %}
+    <div class="container">
+        <div class="rule-head reveal">
+            <h2 data-en="{{ s.title }}" data-it="{{ s.title_it }}">{{ s.title }}</h2>
+        </div>
+        <div class="selection-grid">
+            <div class="selection-text reveal">
+                {% for para in s.paragraphs %}
+                <p data-en="{{ para.text }}" data-it="{{ para.text_it }}">{{ para.text }}</p>
+                {% endfor %}
+            </div>
+            <aside class="ai-note reveal">
+                <h3 data-en="{{ s.ai_title }}" data-it="{{ s.ai_title_it }}">{{ s.ai_title }}</h3>
+                <p data-en="{{ s.ai_text }}" data-it="{{ s.ai_text_it }}">{{ s.ai_text }}</p>
+            </aside>
+        </div>
+    </div>
+</section>
+
+<!-- Contacts -->
+<section class="section" id="contacts">
+    <div class="container">
+        <div class="contact-strip reveal">
+            <div>
+                <h2 data-en="{{ m.contact.title }}" data-it="{{ m.contact.title_it }}">{{ m.contact.title }}</h2>
+                <p data-en="{{ m.contact.text }}" data-it="{{ m.contact.text_it }}">{{ m.contact.text }}</p>
+            </div>
+            <a class="contact-email" href="mailto:{{ m.contact_email }}">{{ m.contact_email }}</a>
+        </div>
+    </div>
+</section>
+{% endblock %}

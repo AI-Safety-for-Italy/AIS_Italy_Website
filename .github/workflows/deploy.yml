@@ -4,9 +4,11 @@ name: CI
 # branch, so the checks below gate every PR, not only the ones targeting main.
 # `dev` is listed alongside `main` so that the deploy job below can be exercised
 # on a throwaway preview URL before it is ever responsible for the live domain.
+# `design-improvements` gets its own preview too, to share the redesign
+# without touching dev.
 on:
   push:
-    branches: [main, dev]
+    branches: [main, dev, design-improvements]
   pull_request:
 
 jobs:
@@ -111,3 +113,10 @@ jobs:
         run: |
           vercel alias set "${{ steps.deploy.outputs.url }}" ais4i-dev.vercel.app --token=${{ secrets.VERCEL_TOKEN }}
           echo "Aliased to https://ais4i-dev.vercel.app" >> "$GITHUB_STEP_SUMMARY"
+
+      # Same idea for the redesign branch, on its own fixed address.
+      - name: Point the redesign alias at this deploy
+        if: github.ref == 'refs/heads/design-improvements'
+        run: |
+          vercel alias set "${{ steps.deploy.outputs.url }}" ais4i-redesign.vercel.app --token=${{ secrets.VERCEL_TOKEN }}
+          echo "Aliased to https://ais4i-redesign.vercel.app" >> "$GITHUB_STEP_SUMMARY"

@@ -14,32 +14,38 @@ section_highlights_title_it: '✨ Momenti Recenti'
 
 upcoming_events:
   - id: 1
+    anchor: 'mentorship-program'
     category: 'mentorship'
-    title: 'Mentorship Program: Coming Soon'
-    title_it: 'Programma di Mentorship: In Arrivo'
-    date: 'Summer 2026'
-    date_it: 'Estate 2026'
-    status: 'Upcoming'
-    status_it: 'In arrivo'
-    description: 'We are preparing our first structured mentorship program, pairing AI safety newcomers with more experienced members of the community. The program will include regular 1-on-1 sessions, curated reading materials, and access to our working groups. Stay tuned, applications will open soon!'
-    description_it: "Stiamo preparando il nostro primo programma di mentorship strutturato, abbinando i nuovi arrivati all'AI safety con membri più esperti della community. Il programma includerà sessioni 1-to-1 regolari, materiali di lettura selezionati e accesso ai nostri gruppi di lavoro. Restate sintonizzati: le candidature apriranno presto!"
+    title: 'AI Safety for Italy Mentorship Program: Open Call'
+    title_it: 'Programma di mentorship AI Safety for Italy: call aperta'
+    date: 'First edition, 15 December 2026 – 15 March 2027'
+    date_it: 'Prima edizione, 15 dicembre 2026 – 15 marzo 2027'
+    status: 'Open call'
+    status_it: 'Call aperta'
+    # Official wording from the mentorship team, kept in sync with data/mentorship.yaml.
+    description: "The AI Safety for Italy mentorship program connects people who want to enter the field of AI safety, ethics and governance with people who already work in it, in Italy and abroad. The goal is to lower the barrier to entry for those who have no one around them working on AI safety, to produce concrete work that stays with the community, and to build lasting connections between people working in this field inside and outside Italy."
+    description_it: "Il programma di mentorship di AI Safety for Italy mette in contatto chi vuole entrare nel campo della sicurezza, dell'etica e della governance dell'intelligenza artificiale con persone che ci lavorano già, in Italia e all'estero. L'obiettivo è abbassare la barriera d'ingresso per chi non ha nel proprio ambiente persone che si occupano di AI safety, produrre lavoro concreto che resti alla comunità e costruire connessioni durature tra chi lavora in questo campo dentro e fuori dall'Italia."
     format_info:
-      - label: 'Format'
-        label_it: 'Formato'
-        value: '1-on-1 mentorship + group sessions'
-        value_it: 'Mentorship 1-a-1 + sessioni di gruppo'
+      - label: 'Tracks'
+        label_it: 'Percorsi'
+        value: 'Career orientation (with CePTE) or AI safety projects'
+        value_it: 'Orientamento professionale (con CePTE) o progetti di AI safety'
       - label: 'Duration'
         label_it: 'Durata'
-        value: '8–12 weeks'
-        value_it: '8–12 settimane'
-      - label: 'Who is it for'
-        label_it: 'Per chi'
-        value: 'Students, researchers, and professionals new to AI safety'
-        value_it: "Studenti, ricercatori e professionisti alle prime armi con l'AI safety"
-    register_text: 'Express your interest'
-    register_text_it: 'Esprimi il tuo interesse'
-    register_link: 'placeholder'
-    register_target: '_blank'
+        value: '12 weeks, online'
+        value_it: '12 settimane, online'
+      - label: 'Places'
+        label_it: 'Posti'
+        value: 'Between 10 and 20 in total'
+        value_it: 'Tra 10 e 20 in totale'
+      - label: 'Expression of interest'
+        label_it: 'Manifestazione di interesse'
+        value: 'Open now; mentor applications close 20 October 2026, mentee applications open 1 November 2026'
+        value_it: 'Aperta ora; chiusura candidature mentor 20 ottobre 2026, apertura candidature mentee 1 novembre 2026'
+    register_text: 'Tracks, requirements and key dates'
+    register_text_it: 'Percorsi, requisiti e date principali'
+    register_link: '/mentorship/'
+    register_target: '_self'
 
   - id: 4
     anchor: 'meetup-milano-2026'
@@ -48,6 +54,10 @@ upcoming_events:
     featured: true
     teaser: 'First in-person meetup · Milan, 5 October'
     teaser_it: 'Primo meetup in presenza · Milano, 5 ottobre'
+    # day / month feed the calendar badge on the home page event card.
+    day: '5'
+    month: 'Oct'
+    month_it: 'Ott'
     place: 'Cascina Cuccagna, Milan'
     place_it: 'Cascina Cuccagna, Milano'
     summary: 'An evening open to everyone: a clear introduction to AI safety, the community''s new projects and how to get involved, then aperitivo and networking. No technical background needed. Registration on Luma is required to attend in person; the talks are also livestreamed.'

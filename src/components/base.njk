@@ -20,21 +20,22 @@
 {%- set metaDescription = metaDescription if metaDescription else (description if description else site.description) -%}
 {#- OG card per page and locale, rendered by scripts/og-images.js and named
     after basePath ("/" is "home"). Pages without a basePath share the home card. -#}
-{%- set ogName = ("home" if (not basePath or basePath == "/") else basePath | replace("/", "")) -%}
+{#- A page without its own card can borrow another with `ogImageName`. -#}
+{%- set ogName = ogImageName or ("home" if (not basePath or basePath == "/") else basePath | replace("/", "")) -%}
 {%- set ogImage = origin + "/assets/img/og/" + ogName + "-" + (lang | default("en")) + ".png" -%}
 <!DOCTYPE html>
 <html lang="{{ lang | default('en') }}">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#008c45" />
+  <meta name="theme-color" content="#f6f7f4" />
 
   {# ── Theme bootstrap ─────────────────────────────────────────────────
      Must stay inline, in <head>, above the stylesheet: it sets data-theme
      BEFORE the first paint. Moved to the end of <body> (or into main.js)
-     this becomes a white flash on every visit, because the default theme
-     is dark. The toggle's click handler lives in main.js; only the initial
-     read has to be render-blocking, so keep this small. #}
+     this becomes a flash of the wrong theme for anyone who picked dark.
+     The toggle's click handler lives in main.js; only the initial read has
+     to be render-blocking, so keep this small. #}
   <script>
     (function () {
       try {
@@ -99,10 +100,10 @@
   {# ── Preload logo SVG ────────────────────────────────────────── #}
   <link rel="preload" as="image" href="/assets/img/ais4i-logo.svg" />
 
-  {# ── Webfonts: Source Serif 4 (display) + Hanken Grotesk (body) ── #}
+  {# ── Webfonts: Source Serif 4 (display) + Hanken Grotesk (body) + IBM Plex Mono (labels) ── #}
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600;8..60,700&family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600;8..60,700&family=Hanken+Grotesk:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" />
 
   {# ── CSS ─────────────────────────────────────────────────────── #}
   <link rel="stylesheet" href="/assets/css/style.css" />
@@ -285,7 +286,7 @@
     </div>
     {% endif %}
 
-    {# Site behaviour: menu, theme toggle, scroll reveal, pointer effects.
+    {# Site behaviour: menu, theme toggle, analytics consent.
        External + deferred so it is fetched once and cached across pages
        instead of being re-parsed inline on every one. The only inline
        script is the pre-paint theme bootstrap in <head>. #}
