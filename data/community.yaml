@@ -64,7 +64,7 @@ working_groups:
     description: 'The website, internal tools and the Discord server.'
     description_it: 'Il sito, gli strumenti interni e il server Discord.'
 
-# The leadership team (direttivo).
+# The organizing team.
 #   published: false — shown locally and on preview deploys (ais4i-dev.vercel.app)
 #                      but left off the live site, on the home and About pages.
 #                      Set it to true once the structure is approved.
@@ -73,8 +73,8 @@ working_groups:
 board:
   published: false
   draft: false
-  note: 'The leadership team is being defined: roles and composition shown here are a proposal.'
-  note_it: 'La struttura del direttivo è in fase di definizione: ruoli e composizione sono una proposta.'
+  note: 'The organizing team is being defined: roles and composition shown here are a proposal.'
+  note_it: 'La struttura del team organizzativo è in fase di definizione: ruoli e composizione sono una proposta.'
   open_seats:
     - name: 'Mario Rossi'
       role: 'Operations lead'

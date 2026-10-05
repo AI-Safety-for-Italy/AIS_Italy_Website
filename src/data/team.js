@@ -31,7 +31,7 @@ function validateTeamData(teamMembers) {
 
 // Active members of AI Safety for Italy.
 // `tier` places the person on the community page:
-//   'leadership' — the board: shown first, with photo and bio
+//   'leadership' — the organizing team: shown first, with photo and bio
 //   'team'       — works in one or more working groups
 // `groups` lists the working groups they work in, by the ids in
 // data/community.yaml. `lead: ['mentorship']` marks them as lead of a group.
