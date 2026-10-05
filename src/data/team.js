@@ -215,6 +215,42 @@ const teamData = [
     interests: [],
     links: [],
   },
+  {
+    // Photo and full bio to be completed.
+    name: 'Edoardo Cecchinato',
+    tier: 'leadership',
+    board_order: 7,
+    board_role: 'Seminars lead',
+    board_role_it: 'Responsabile seminari',
+    groups: ['events', 'education'],
+    role: 'Seminars',
+    role_it: 'Seminari',
+    bio: 'Edoardo coordinates the seminars of AI Safety for Italy. He is a PhD student at the University of Trento.',
+    bio_it: "Edoardo coordina i seminari di AI Safety for Italy. È dottorando all'Università di Trento.",
+    areas: ['Seminars'],
+    interests: ['Interpretability', 'Evaluations', 'Alignment'],
+    links: [
+      { label: 'LinkedIn', url: 'https://www.linkedin.com/in/edoardo-cecchinato-4799a9247/' },
+    ],
+  },
+  {
+    // Photo and full bio to be completed.
+    name: 'Riccardo Conte',
+    tier: 'leadership',
+    board_order: 8,
+    board_role: 'Community & education lead',
+    board_role_it: 'Responsabile community e formazione',
+    groups: ['events', 'education'],
+    role: 'Community & Education',
+    role_it: 'Community e formazione',
+    bio: 'Riccardo coordinates the community and the educational activities of AI Safety for Italy. He is a PhD student at Örebro University.',
+    bio_it: "Riccardo coordina la community e le attività formative di AI Safety for Italy. È dottorando alla Örebro University.",
+    areas: ['Community', 'Education'],
+    interests: ['Interpretability', 'Robustness', 'AI governance and policy'],
+    links: [
+      { label: 'LinkedIn', url: 'https://www.linkedin.com/in/riccardoconte-cybersecurity/' },
+    ],
+  },
 ];
 
 module.exports = validateTeamData(teamData);

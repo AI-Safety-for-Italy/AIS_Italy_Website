@@ -208,6 +208,20 @@ html {
   scroll-padding-top: calc(var(--header-h) + 16px);
 }
 
+/* The layout is sized in rem, so raising the root size on wide screens scales
+   the whole page: without this a 1120px column looks lost on a 2000px display. */
+@media (min-width: 1600px) {
+  html {
+    font-size: 112.5%;
+  }
+}
+
+@media (min-width: 1920px) {
+  html {
+    font-size: 125%;
+  }
+}
+
 body {
   @apply antialiased;
   font-family: var(--font-sans);

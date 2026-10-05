@@ -69,24 +69,13 @@ working_groups:
 #                      but left off the live site, on the home and About pages.
 #                      Set it to true once the structure is approved.
 #   draft: true      — shows the "this is a proposal" note above it.
-#   open_seats       — seats not yet held by someone in src/data/team.js.
+#   open_seats       — optional list of seats not yet held by someone in
+#                      src/data/team.js ({role, role_it, name?, description?}).
 board:
   published: false
   draft: false
   note: 'The organizing team is being defined: roles and composition shown here are a proposal.'
   note_it: 'La struttura del team organizzativo è in fase di definizione: ruoli e composizione sono una proposta.'
-  open_seats:
-    - name: 'Mario Rossi'
-      role: 'Operations lead'
-      role_it: 'Responsabile operations'
-      description: 'Keeps the organisation running day to day: coordination, processes, tools and support across working groups.'
-      description_it: "Tiene in moto l'associazione ogni giorno: coordinamento, processi, strumenti e supporto ai gruppi di lavoro."
-    - role: 'Role to be defined'
-      role_it: 'Ruolo da definire'
-    - role: 'Role to be defined'
-      role_it: 'Ruolo da definire'
-    - role: 'Role to be defined'
-      role_it: 'Ruolo da definire'
 
 # Team Section
 team_section:
