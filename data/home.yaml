@@ -117,8 +117,8 @@ features:
 cta:
   title: 'Ready to Join Our Community?'
   description: "Whether you're a researcher, student, professional, or simply curious about AI safety, there's a place for you in our community."
-  button_text: 'Join Our Discord'
-  # Link handled directly in template via `site.social.discord`
+  button_text: 'Sign up to join the Discord'
+  # Link handled directly in template via `site.forms.mailingList`
 
 # Supporters Section
 # Logos shown in the "Supported by" band at the bottom of the home page.

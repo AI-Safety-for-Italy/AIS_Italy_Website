@@ -2754,6 +2754,22 @@ a:hover {
   gap: 0.75rem;
 }
 
+.ways-cta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 2rem;
+  text-align: center;
+}
+
+.ways-cta-note {
+  margin: 0;
+  max-width: 38rem;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+}
+
 @media (max-width: 860px) {
   .ways-grid {
     grid-template-columns: minmax(0, 1fr);
@@ -2765,8 +2781,10 @@ a:hover {
     padding: 1.35rem;
   }
 
-  .way-actions .btn {
+  .way-actions .btn,
+  .ways-cta .btn {
     flex: 1 1 100%;
+    width: 100%;
   }
 }
 
