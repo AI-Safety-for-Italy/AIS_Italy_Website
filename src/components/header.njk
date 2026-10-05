@@ -64,7 +64,7 @@
     <div class="header-actions">
       {%- if switchUrl %}
       <a class="lang-btn" href="{{ switchUrl }}" hreflang="{{ altLocale.code }}" lang="{{ altLocale.code }}"
-         aria-label="{{ altLocale.switchTitle }}" title="{{ altLocale.switchTitle }}" data-lang-switch>{{ altLocale.switchLabel }}</a>
+         aria-label="{{ altLocale.switchTitle }}" title="{{ altLocale.switchTitle }}" data-lang-switch><svg class="flag-icon" aria-hidden="true"><use href="#icon-flag-{{ altLocale.code }}"></use></svg><span class="sr-only">{{ altLocale.switchLabel }}</span></a>
       {%- endif %}
       <button class="icon-btn theme-btn" data-theme-toggle aria-label="{{ t.a11y.toggle_theme }}">
         {# Both icons are in the markup and CSS picks one off [data-theme], so the
@@ -94,7 +94,7 @@
     </div>
     <div class="mobile-prefs">
       {%- if switchUrl %}
-      <a class="mobile-pref" href="{{ switchUrl }}" hreflang="{{ altLocale.code }}" lang="{{ altLocale.code }}" data-lang-switch>{{ altLocale.switchTitle }}</a>
+      <a class="mobile-pref" href="{{ switchUrl }}" hreflang="{{ altLocale.code }}" lang="{{ altLocale.code }}" data-lang-switch><svg class="flag-icon" aria-hidden="true"><use href="#icon-flag-{{ altLocale.code }}"></use></svg>{{ altLocale.switchTitle }}</a>
       {%- endif %}
       <button type="button" class="mobile-pref" data-theme-toggle>
         <span class="theme-label--to-dark" data-en="Dark theme" data-it="Tema scuro">Dark theme</span>

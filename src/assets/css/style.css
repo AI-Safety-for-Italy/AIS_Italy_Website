@@ -821,6 +821,24 @@ a:hover {
   border-color: var(--accent);
 }
 
+/* The switch shows the flag of the language it leads to */
+.flag-icon {
+  display: block;
+  width: 22px;
+  height: 15px;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.12);
+  flex-shrink: 0;
+}
+
+.lang-btn:hover .flag-icon {
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.mobile-pref .flag-icon {
+  margin-right: 0.6rem;
+}
+
 .menu-toggle {
   display: none;
   align-items: center;
