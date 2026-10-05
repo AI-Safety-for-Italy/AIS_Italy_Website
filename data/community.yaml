@@ -72,7 +72,7 @@ working_groups:
 #   open_seats       — optional list of seats not yet held by someone in
 #                      src/data/team.js ({role, role_it, name?, description?}).
 board:
-  published: false
+  published: true
   draft: false
   note: 'The organizing team is being defined: roles and composition shown here are a proposal.'
   note_it: 'La struttura del team organizzativo è in fase di definizione: ruoli e composizione sono una proposta.'
