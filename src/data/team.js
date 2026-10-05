@@ -42,9 +42,26 @@ function validateTeamData(teamMembers) {
 // and `links` are contact links shown on the card.
 const teamData = [
   {
+    // Bio to be completed.
+    name: 'Bernardo Manfriani',
+    tier: 'leadership',
+    board_order: 2,
+    board_role: 'Operations',
+    board_role_it: 'Gestione operativa',
+    groups: ['mentorship', 'tech', 'events', 'education'],
+    role: 'Operations',
+    role_it: 'Gestione operativa',
+    photo: '/assets/img/team/bernardo-manfriani.jpg',
+    bio: 'Bernardo looks after the day-to-day operations of AI Safety for Italy. He is based in Florence.',
+    bio_it: 'Bernardo si occupa della gestione operativa di AI Safety for Italy. Vive a Firenze.',
+    areas: ['General Operations & Coordination'],
+    interests: [],
+    links: [{ label: 'LinkedIn', url: 'https://www.linkedin.com/in/bernardomanfriani/' }],
+  },
+  {
     name: 'Valeriia Povergo',
     tier: 'leadership',
-    board_order: 5,
+    board_order: 6,
     board_role: 'Governance & fundraising',
     board_role_it: 'Governance e fundraising',
     groups: ['governance', 'communications'],
@@ -67,7 +84,7 @@ const teamData = [
   {
     name: 'Carola Caivano',
     tier: 'leadership',
-    board_order: 2,
+    board_order: 3,
     board_role: 'Communications & partnerships',
     board_role_it: 'Comunicazione e partnership',
     groups: ['communications', 'events'],
@@ -122,7 +139,7 @@ const teamData = [
   {
     name: 'Francesco Ortu',
     tier: 'leadership',
-    board_order: 3,
+    board_order: 4,
     board_role: 'Technical infrastructure',
     board_role_it: 'Infrastruttura tecnica',
     groups: ['mentorship'],
@@ -187,7 +204,7 @@ const teamData = [
   {
     name: 'Lorenzo Basile',
     tier: 'leadership',
-    board_order: 4,
+    board_order: 5,
     board_role: 'Mentorship program',
     board_role_it: 'Programma di mentorship',
     groups: ['mentorship', 'governance'],
@@ -204,7 +221,7 @@ const teamData = [
     // Bio, photo and links to be completed.
     name: 'Francesco Rossetti',
     tier: 'leadership',
-    board_order: 6,
+    board_order: 7,
     board_role: 'Governance & fundraising',
     board_role_it: 'Governance e fundraising',
     groups: ['governance'],
@@ -220,7 +237,7 @@ const teamData = [
     // Photo and full bio to be completed.
     name: 'Edoardo Cecchinato',
     tier: 'leadership',
-    board_order: 7,
+    board_order: 8,
     board_role: 'Seminars',
     board_role_it: 'Seminari',
     groups: ['events', 'education'],
@@ -239,7 +256,7 @@ const teamData = [
     // Photo and full bio to be completed.
     name: 'Riccardo Conte',
     tier: 'leadership',
-    board_order: 8,
+    board_order: 9,
     board_role: 'Community & education',
     board_role_it: 'Community e formazione',
     groups: ['events', 'education'],
