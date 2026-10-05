@@ -66,6 +66,7 @@ const teamData = [
     board_role_it: 'Governance e fundraising',
     groups: ['governance', 'communications'],
     role: 'Organizing Team — Operations & Governance',
+    photo: '/assets/img/team/valeriia-povergo.jpg',
     bio: 'Valeriia is part of the organizing group of AI Safety for Italy, contributing to the coordination and development of the initiative across governance, finance, communications, and operational support. Her background is primarily in operations, project coordination, stakeholder relationship development, and fundraising across international initiatives and campaigns. She has experience supporting organizational processes, cross-functional coordination, and the development of operational infrastructure. Her recent involvement in AI safety includes participation in initiatives such as AI Safety Camp, Apart Research, and the Corda Democracy Fellowship.',
     bio_it:
       'Valeriia fa parte del gruppo organizzativo di AI Safety for Italy, contribuendo alla coordinazione e allo sviluppo dell’iniziativa su governance, finanza, comunicazione e supporto operativo. Il suo background è principalmente in ambito operativo, coordinamento di progetti, sviluppo di relazioni con gli stakeholder e fundraising attraverso iniziative e campagne internazionali. Ha esperienza nel supporto ai processi organizzativi, nella coordinazione interfunzionale e nello sviluppo di infrastrutture operative. Il suo coinvolgimento recente nell’AI safety include la partecipazione a iniziative come AI Safety Camp, Apart Research e il Corda Democracy Fellowship.',
@@ -218,7 +219,7 @@ const teamData = [
     links: [{ label: 'LinkedIn', url: 'https://www.linkedin.com/in/lorebasile/' }],
   },
   {
-    // Bio, photo and links to be completed.
+    // Bio and links to be completed.
     name: 'Francesco Rossetti',
     tier: 'leadership',
     board_order: 7,
@@ -227,6 +228,7 @@ const teamData = [
     groups: ['governance'],
     role: 'Governance & fundraising',
     role_it: 'Governance e fundraising',
+    photo: '/assets/img/team/francesco-rossetti.jpg',
     bio: 'Francesco works on the governance and fundraising of AI Safety for Italy.',
     bio_it: 'Francesco si occupa della governance e del fundraising di AI Safety for Italy.',
     areas: ['Governance & Finance'],
@@ -234,7 +236,7 @@ const teamData = [
     links: [],
   },
   {
-    // Photo and full bio to be completed.
+    // Full bio to be completed.
     name: 'Edoardo Cecchinato',
     tier: 'leadership',
     board_order: 8,
@@ -243,6 +245,7 @@ const teamData = [
     groups: ['events', 'education'],
     role: 'Seminars',
     role_it: 'Seminari',
+    photo: '/assets/img/team/edoardo-cecchinato.jpg',
     bio: 'Edoardo coordinates the seminars of AI Safety for Italy. He is a PhD student at the University of Trento.',
     bio_it:
       "Edoardo coordina i seminari di AI Safety for Italy. È dottorando all'Università di Trento.",
