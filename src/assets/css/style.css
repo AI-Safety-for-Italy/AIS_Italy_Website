@@ -1824,7 +1824,10 @@ a:hover {
 }
 
 .call-role .btn {
-  align-self: flex-start;
+  align-self: stretch;
+  max-width: 100%;
+  white-space: normal;
+  text-align: center;
 }
 
 @media (max-width: 960px) {
