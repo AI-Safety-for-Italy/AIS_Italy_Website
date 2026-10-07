@@ -31,11 +31,8 @@ upcoming_events:
       label_it: 'Call aperta'
       meta: 'Free · Online · 12 weeks'
       meta_it: 'Gratuito · Online · 12 settimane'
-      # The calendar badge shows the next deadline (see the timeline in
-      # data/mentorship.yaml): move it on once the date has passed.
-      day: '20'
-      month: 'Oct'
-      month_it: 'Ott'
+      # No day / month here: the calendar badge is for events, and the open call
+      # is not one. Add them back (e.g. day: '5', month: 'Oct') for an event.
       title: 'AI Safety for Italy Mentorship Program'
       title_it: 'Programma di mentorship AI Safety for Italy'
       lines:
