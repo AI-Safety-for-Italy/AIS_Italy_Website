@@ -79,6 +79,23 @@ GROUPS_MAP = {
 
 ACTIVE_VALUES = {"Coordinamento (o co-coordinamento)", "Partecipazione stabile"}
 
+# Column holding the areas of interest, and its checkbox options in the form's
+# order. Google Forms joins the ticked options with ", ", and appends whatever
+# was typed under "Altro" (sometimes a whole paragraph). Only these options are
+# published; free text never is. Some options contain commas, so they are
+# matched as whole strings rather than split.
+AREAS_COL = 'Quali aree ti interessano di più?'
+AREA_OPTIONS = [
+    "Interpretability (mechanistic interpretability, analisi delle rappresentazioni, ecc.)",
+    "Evaluation (capability evaluations, dangerous capability evals, benchmarking)",
+    "Alignment (RLHF, scalable oversight, value alignment)",
+    "Robustness e adversarial ML",
+    "AI governance e policy",
+    "Etica dell'AI e impatto sociale",
+    "Sicurezza informatica per modelli di frontiera",
+    "Rischi catastrofici / esistenziali",
+]
+
 # Column holding the publication consent (the form's last column).
 CONSENT_COL = "Consenso alla pubblicazione del profilo nella Community"
 # Only this answer authorises publishing a profile on the website.
@@ -99,7 +116,7 @@ EXCEL_EPOCH = date(1899, 12, 30)
 # Columns the parser depends on. If the form is edited and one of these is
 # renamed, every row silently loses that field — so a missing column aborts the
 # run instead of publishing a directory full of blanks.
-REQUIRED_COLS = [TIMESTAMP_COL, CONSENT_COL, 'Nome', 'Cognome', 'Indirizzo email']
+REQUIRED_COLS = [TIMESTAMP_COL, CONSENT_COL, 'Nome', 'Cognome', 'Indirizzo email', AREAS_COL]
 # A sync that would drop more than this fraction of the published directory is
 # treated as a parsing failure rather than a real exodus. Override with --force.
 MAX_SHRINK = 0.25
@@ -113,6 +130,20 @@ def _normalize(text):
     for fancy in ('‘', '’', '‚', '‛'):
         text = text.replace(fancy, "'")
     return re.sub(r'\s+', ' ', text).strip().lower()
+
+
+def known_areas(raw):
+    """The form's area options found in an answer, in form order, as one string."""
+    answer = _normalize(raw)
+    return ', '.join(opt for opt in AREA_OPTIONS if _normalize(opt) in answer)
+
+
+def location(city, country):
+    """'Udine, Italia'; just 'Italia' when both fields hold the same place."""
+    city, country = city.strip(), country.strip()
+    if city and _normalize(city) == _normalize(country):
+        return country
+    return ', '.join(filter(None, [city, country]))
 
 
 def has_consent(row):
@@ -337,32 +368,25 @@ def parse(rows):
             continue
         member_id += 1
 
-        name     = f"{row.get('Nome','')} {row.get('Cognome','')}".strip()
-        profile  = row.get('Sito o profilo professionale', '')
-        city     = row.get('Città in cui vivi attualmente', '')
-        country  = row.get('Paese in cui ti trovi attualmente', '')
-        career   = row.get('A quale livello di carriera ti collocheresti?', '')
-        institution = row.get('Presso quale istituzione, azienda o laboratorio studi o lavori?', '')
-        hours    = row.get('Quante ore vuoi dedicare ad AI Safety Italy ogni mese?', '')
-        areas    = row.get('Quali aree ti interessano di più?', '')
+        name    = f"{row.get('Nome','')} {row.get('Cognome','')}".strip()
+        profile = row.get('Sito o profilo professionale', '')
+        where   = location(row.get('Città in cui vivi attualmente', ''),
+                           row.get('Paese in cui ti trovi attualmente', ''))
+        areas   = known_areas(row.get(AREAS_COL, ''))
 
         groups = [
             key for col, key in GROUPS_MAP.items()
             if any(active in row.get(col, '') for active in ACTIVE_VALUES)
         ]
 
-        # No email: members.yaml is committed to a public repository and the
-        # site never shows it. The address is still used above, in memory, to
-        # merge repeat submissions.
+        # Only what the site shows: members.yaml is committed to a public
+        # repository. No email (it is used above, in memory, to merge repeat
+        # submissions), and none of the form's other answers.
         m = {'id': member_id, 'name': name}
-        if profile:    m['profile']     = profile
-        if city or country:
-                       m['location']    = ', '.join(filter(None, [city, country]))
-        if career:     m['career']      = career
-        if institution:m['institution'] = institution
-        if hours:      m['hours_per_month'] = hours
-        if areas:      m['areas']       = areas
-        if groups:     m['groups']      = groups
+        if profile: m['profile']  = profile
+        if where:   m['location'] = where
+        if areas:   m['areas']    = areas
+        if groups:  m['groups']   = groups
         members.append(m)
     return members, skipped, duplicates
 
@@ -374,6 +398,22 @@ def load_existing():
     with open(OUT_FILE, encoding='utf-8') as f:
         data = yaml.safe_load(f) or {}
     return data.get('members')
+
+
+def check_area_options(rows):
+    """Abort if the area answers no longer contain the options listed above.
+
+    If the form's options are renamed, every answer would silently lose its
+    areas, so a sync where most answers match no option is treated as an error.
+    """
+    answered = [r.get(AREAS_COL, '') for r in rows if r.get(AREAS_COL, '').strip()]
+    unmatched = sum(1 for a in answered if not known_areas(a))
+    if answered and unmatched > len(answered) / 2:
+        sys.exit(
+            f"{unmatched} of {len(answered)} answers to {AREAS_COL!r} match none "
+            "of AREA_OPTIONS. The form's options were probably edited. Update "
+            "AREA_OPTIONS in this script; members.yaml is left untouched."
+        )
 
 
 def check_columns(rows):
@@ -461,6 +501,7 @@ def main():
         print("Reading: the registration form's response sheet (Sheets API)")
         rows = fetch_sheet_rows(args.sheet_id)
     check_columns(rows)
+    check_area_options(rows)
     members, skipped, duplicates = parse(rows)
     if not members:
         sys.exit("The export produced no publishable members; "

@@ -39,6 +39,7 @@ def row(**over):
         'Nome': 'Giulia',
         'Cognome': 'Rossi',
         'Indirizzo email': 'giulia@example.org',
+        um.AREAS_COL: '',
     }
     base.update(over)
     return base
@@ -191,8 +192,24 @@ class Parse(unittest.TestCase):
 
     def test_empty_optional_fields_are_omitted_not_blank(self):
         m = um.parse([row()])[0][0]
-        for absent in ('profile', 'location', 'career', 'institution', 'groups'):
+        for absent in ('profile', 'location', 'areas', 'groups'):
             self.assertNotIn(absent, m)
+
+    def test_answers_the_site_does_not_show_are_never_written(self):
+        """members.yaml is public: only name, profile, location, areas and groups."""
+        m = um.parse([row(**{
+            'A quale livello di carriera ti collocheresti?': 'Dottorando / PhD student',
+            'Presso quale istituzione, azienda o laboratorio studi o lavori?': 'Università',
+            'Quante ore vuoi dedicare ad AI Safety Italy ogni mese?': '5',
+            'Infrastruttura tecnica': 'Partecipazione stabile',
+            um.AREAS_COL: 'Robustness e adversarial ML',
+        })])[0][0]
+        self.assertEqual(set(m), {'id', 'name', 'areas', 'groups'})
+
+    def test_same_city_and_country_is_shown_once(self):
+        m = um.parse([row(**{'Città in cui vivi attualmente': 'Italia',
+                             'Paese in cui ti trovi attualmente': ' italia'})])[0][0]
+        self.assertEqual(m['location'], 'italia')
 
     def test_active_participation_maps_to_group(self):
         m = um.parse([row(**{'Infrastruttura tecnica': 'Partecipazione stabile'})])[0][0]
@@ -221,6 +238,18 @@ class Parse(unittest.TestCase):
 
 class Guards(unittest.TestCase):
     """Every guard must exit non-zero rather than write a degraded directory."""
+
+    def test_renamed_area_options_abort(self):
+        rows = [row(**{um.AREAS_COL: 'Interpretabilità'}), row(**{um.AREAS_COL: 'Allineamento'})]
+        with self.assertRaises(SystemExit):
+            um.check_area_options(rows)
+
+    def test_some_free_text_only_answers_pass(self):
+        rows = [row(**{um.AREAS_COL: 'Robustness e adversarial ML'}),
+                row(**{um.AREAS_COL: 'Robustness e adversarial ML'}),
+                row(**{um.AREAS_COL: 'AI verification'}),
+                row()]
+        um.check_area_options(rows)  # must not raise
 
     def test_missing_required_column_aborts(self):
         bad = row()
@@ -313,6 +342,26 @@ class ReadCsv(unittest.TestCase):
             f.write('Nome ,Indirizzo email \n Giulia , giulia@example.org \n')
         rows = um.read_csv(path)
         self.assertEqual(rows[0], {'Nome': 'Giulia', 'Indirizzo email': 'giulia@example.org'})
+
+
+class Areas(unittest.TestCase):
+    INTERP = um.AREA_OPTIONS[0]  # contains commas inside its parentheses
+
+    def test_options_with_commas_are_kept_whole(self):
+        raw = f"{self.INTERP}, AI governance e policy"
+        self.assertEqual(um.known_areas(raw), raw)
+
+    def test_free_text_is_dropped(self):
+        raw = (f"AI governance e policy, {self.INTERP}, Mi sono avvicinato all'AI "
+               "partendo da zero, poi ho fatto due ricerche, soprattutto per imparare.")
+        self.assertEqual(um.known_areas(raw), f"{self.INTERP}, AI governance e policy")
+
+    def test_free_text_only_gives_no_areas(self):
+        self.assertEqual(um.known_areas('AI verification, Affidabilità'), '')
+
+    def test_curly_apostrophe_still_matches(self):
+        self.assertEqual(um.known_areas('Etica dell’AI e impatto sociale'),
+                         "Etica dell'AI e impatto sociale")
 
 
 class SheetsApi(unittest.TestCase):
