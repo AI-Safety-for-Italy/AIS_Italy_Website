@@ -153,7 +153,7 @@ seoDescription_it: "AI Safety for Italy è la community italiana che lavora per 
                 <svg class="program-icon" aria-hidden="true"><use href="#icon-{{ feature.icon }}"></use></svg>
                 <h3 data-en="{{ feature.title }}" data-it="{{ feature.title_it }}">{{ feature.title }}</h3>
                 <p data-en="{{ feature.description }}" data-it="{{ feature.description_it }}">{{ feature.description }}</p>
-                <span class="mono-label green" data-en="{{ feature.status }}" data-it="{{ feature.status_it }}">{{ feature.status }}</span>
+                {% if feature.status %}<span class="mono-label green" data-en="{{ feature.status }}" data-it="{{ feature.status_it }}">{{ feature.status }}</span>{% endif %}
             </article>
             {% endfor %}
         </div>

@@ -86,7 +86,7 @@ mentorship_call:
 
 # Features Section
 # The three "What we do" columns on the home page. `icon` names a symbol in
-# src/components/icons.njk; `status` is the short line under each column.
+# src/components/icons.njk; `status`, optional, is the short line under each column.
 features:
   - id: 1
     icon: 'graduation'
@@ -102,8 +102,6 @@ features:
     title_it: 'Community'
     description: 'In-person meetups across Italian cities, an active Discord and links to the international AI safety network.'
     description_it: "Meetup in presenza in diverse città italiane, un Discord attivo e collegamenti con la rete internazionale dell'AI safety."
-    status: 'Next: Milan · 5 October'
-    status_it: 'Prossimo: Milano · 5 ottobre'
   - id: 3
     icon: 'flask'
     title: 'Research & policy'
