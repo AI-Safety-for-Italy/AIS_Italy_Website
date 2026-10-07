@@ -18,10 +18,10 @@ seoDescription_it: "AI Safety for Italy è la community italiana che lavora per 
 ---
 {% extends "base.njk" %}
 {% block content %}
-{# The event flagged `featured: true` in events.yaml, if any, sits beside the
+{# The entry flagged `featured: true` in events.yaml, if any, sits beside the
    hero. The stats strip reads its numbers from the data files, so it stays
    true as members and cities are added. #}
-{% set featured = events.upcoming_events | selectattr("featured") | first %}
+{% set featured = events.upcoming_events | selectattr("featured") | selectattr("hero") | first %}
 {% set memberCount = members.members | length %}
 {% set cityCount = about.map.cities | length %}
 
@@ -39,30 +39,36 @@ seoDescription_it: "AI Safety for Italy è la community italiana che lavora per 
         </div>
 
         {% if featured %}
+        {# Everything the card says comes from the entry's `hero` block in
+           events.yaml, so it fits an event as well as an open call. #}
+        {% set card = featured.hero %}
         <article class="event-card hero-enter" id="{{ featured.anchor }}">
             <div class="event-card-body">
                 <div class="event-card-top">
-                    <span class="mono-label red live-label"><span class="live-dot" aria-hidden="true"></span><span data-en="Next event" data-it="Prossimo evento">Next event</span></span>
-                    <span class="mono-label" data-en="Free · Livestreamed" data-it="Gratuito · In streaming">Free · Livestreamed</span>
+                    <span class="mono-label red live-label"><span class="live-dot" aria-hidden="true"></span><span data-en="{{ card.label }}" data-it="{{ card.label_it }}">{{ card.label }}</span></span>
+                    {% if card.meta %}<span class="mono-label" data-en="{{ card.meta }}" data-it="{{ card.meta_it }}">{{ card.meta }}</span>{% endif %}
                 </div>
                 <div class="event-card-head">
+                    {% if card.day %}
                     <span class="date-badge" aria-hidden="true">
-                        <span class="date-badge-month" data-en="{{ featured.month }}" data-it="{{ featured.month_it }}">{{ featured.month }}</span>
-                        <span class="date-badge-day">{{ featured.day }}</span>
+                        <span class="date-badge-month" data-en="{{ card.month }}" data-it="{{ card.month_it }}">{{ card.month }}</span>
+                        <span class="date-badge-day">{{ card.day }}</span>
                     </span>
+                    {% endif %}
                     <div>
-                        <h2 data-en="{{ featured.title }}" data-it="{{ featured.title_it }}">{{ featured.title }}</h2>
-                        <p class="event-card-when" data-en="{{ featured.date }}" data-it="{{ featured.date_it }}">{{ featured.date }}</p>
-                        <p class="event-card-when" data-en="{{ featured.place }}" data-it="{{ featured.place_it }}">{{ featured.place }}</p>
+                        <h2 data-en="{{ card.title }}" data-it="{{ card.title_it }}">{{ card.title }}</h2>
+                        {% for line in card.lines %}
+                        <p class="event-card-when" data-en="{{ line.text }}" data-it="{{ line.text_it }}">{{ line.text }}</p>
+                        {% endfor %}
                     </div>
                 </div>
-                <p class="event-card-summary" data-en="An evening open to everyone: an introduction to AI safety, the community's new projects and how to get involved, then aperitivo. No technical background needed." data-it="Una serata aperta a tutti: un'introduzione all'AI safety, i nuovi progetti della community e come partecipare, poi aperitivo. Non servono conoscenze tecniche.">An evening open to everyone: an introduction to AI safety, the community's new projects and how to get involved, then aperitivo. No technical background needed.</p>
-                <a href="/initiatives/#{{ featured.anchor }}" class="text-link" data-en="Programme and details →" data-it="Programma e dettagli →">Programme and details →</a>
+                <p class="event-card-summary" data-en="{{ card.summary }}" data-it="{{ card.summary_it }}">{{ card.summary }}</p>
+                <a href="{{ card.details_link }}" class="text-link" data-en="{{ card.details_text }}" data-it="{{ card.details_text_it }}">{{ card.details_text }}</a>
             </div>
             <div class="event-card-actions">
-                <a href="{{ featured.register_link }}" target="_blank" rel="noopener noreferrer" class="event-card-primary" data-en="{{ featured.register_text }}" data-it="{{ featured.register_text_it }}">{{ featured.register_text }}</a>
-                {% if featured.stream_link %}
-                <a href="{{ featured.stream_link }}" target="_blank" rel="noopener noreferrer" class="event-card-secondary" data-en="{{ featured.stream_text }}" data-it="{{ featured.stream_text_it }}">{{ featured.stream_text }}</a>
+                <a href="{{ card.primary_link }}"{% if "://" in card.primary_link %} target="_blank" rel="noopener noreferrer"{% endif %} class="event-card-primary" data-en="{{ card.primary_text }}" data-it="{{ card.primary_text_it }}">{{ card.primary_text }}</a>
+                {% if card.secondary_link %}
+                <a href="{{ card.secondary_link }}"{% if "://" in card.secondary_link %} target="_blank" rel="noopener noreferrer"{% endif %} class="event-card-secondary" data-en="{{ card.secondary_text }}" data-it="{{ card.secondary_text_it }}">{{ card.secondary_text }}</a>
                 {% endif %}
             </div>
         </article>

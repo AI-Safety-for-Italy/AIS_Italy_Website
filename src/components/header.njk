@@ -11,18 +11,19 @@
 {% include "icons.njk" %}
 
 {# A thin bar above the header. The `announcements` in data/global.yaml win;
-   without any, the bar points at the featured event. With more than one,
-   main.js runs them as a ticker: one message at a time crosses the bar from
-   right to left, then the next one follows. Without JS (or with reduced
-   motion) the first message just sits in the middle. Internal links stay in
+   without any, the bar points at the featured event. main.js runs them as a
+   ticker, even a single one, so the bar stays one line tall on a phone: one
+   message at a time crosses the bar from right to left, then the next one
+   follows. Without JS (or with reduced motion) the first message just sits
+   in the middle. Internal links stay in
    the tab, external ones open a new one. #}
 {%- set featuredEvent = events.upcoming_events | selectattr("featured") | first -%}
 {%- set anns = global.announcements -%}
 {%- if not anns and featuredEvent -%}
-{%- set anns = [{ text: featuredEvent.teaser, text_it: featuredEvent.teaser_it, link: featuredEvent.register_link, link_text: "Register", link_text_it: "Iscriviti" }] -%}
+{%- set anns = [{ text: featuredEvent.teaser, text_it: featuredEvent.teaser_it, link: featuredEvent.register_link, link_text: featuredEvent.register_text, link_text_it: featuredEvent.register_text_it }] -%}
 {%- endif %}
 {%- if anns and anns | length %}
-<div class="announce-bar{% if anns | length > 1 %} is-ticker{% endif %}" data-announce>
+<div class="announce-bar is-ticker" data-announce>
   <div class="announce-viewport">
     {%- for ann in anns %}
     <p class="announce-item{% if loop.first %} is-current{% endif %}">

@@ -18,7 +18,7 @@ seoDescription_it: "Programmi di mentorship, talk e incontri di AI Safety for It
 {% block content %}
 {% macro initiativeCard(event) %}
 <div class="card program-card reveal"{% if event.anchor %} id="{{ event.anchor }}"{% endif %}>
-    <span class="chip{% if event.status == 'Upcoming' %} red{% endif %}" data-en="{{ event.status }}" data-it="{{ event.status_it }}">{{ event.status }}</span>
+    <span class="chip{% if event.status == 'Upcoming' %} red{% elif event.status == 'Past' %} muted{% endif %}" data-en="{{ event.status }}" data-it="{{ event.status_it }}">{{ event.status }}</span>
     <h3 data-en="{{ event.title }}" data-it="{{ event.title_it }}">{{ event.title }}</h3>
     <div class="flex items-center gap-2 mb-4" style="font-size: 0.95rem; font-weight: 600; color: var(--text-secondary);">
         <svg class="ds-icon" style="width:1.05rem;height:1.05rem;color:var(--accent);" aria-hidden="true"><use href="#icon-calendar"></use></svg>
@@ -93,6 +93,11 @@ seoDescription_it: "Programmi di mentorship, talk e incontri di AI Safety for It
     </div>
 </section>
 
+{# Talks and meetups show only while one is coming up; once it has taken
+   place, its entry moves to `past_events` in events.yaml. The sections after
+   the mentorship one alternate their background. #}
+{% set seminars = events.upcoming_events | where("category", "seminar") %}
+{% if seminars | length %}
 <!-- Seminars -->
 <section class="section section-alt" id="seminars">
     <div class="container">
@@ -100,10 +105,25 @@ seoDescription_it: "Programmi di mentorship, talk e incontri di AI Safety for It
             <h2 data-en="Talks &amp; meetups" data-it="Talk e incontri">Talks &amp; meetups</h2>
         </div>
         <div class="grid grid-cols-1 gap-6" style="max-width: 48rem;">
-            {% for event in events.upcoming_events %}{% if event.category == "seminar" %}{{ initiativeCard(event) }}{% endif %}{% endfor %}
+            {% for event in seminars %}{{ initiativeCard(event) }}{% endfor %}
         </div>
     </div>
 </section>
+{% endif %}
+
+{% if events.past_events and events.past_events | length %}
+<!-- Past events -->
+<section class="section{% if not seminars | length %} section-alt{% endif %}" id="past-events">
+    <div class="container">
+        <div class="section-head reveal">
+            <h2 data-en="{{ events.section_past_title }}" data-it="{{ events.section_past_title_it }}">{{ events.section_past_title }}</h2>
+        </div>
+        <div class="grid grid-cols-1 gap-6" style="max-width: 48rem;">
+            {% for event in events.past_events %}{{ initiativeCard(event) }}{% endfor %}
+        </div>
+    </div>
+</section>
+{% endif %}
 
 <!-- CTA Section -->
 <section class="section">

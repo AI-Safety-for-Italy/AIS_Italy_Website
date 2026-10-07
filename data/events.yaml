@@ -9,6 +9,9 @@ hero:
 section_upcoming_title: 'Upcoming & Recent Events'
 section_upcoming_title_it: 'Eventi Imminenti e Recenti'
 
+section_past_title: 'Past events'
+section_past_title_it: 'Eventi passati'
+
 section_highlights_title: '✨ Recent Highlights'
 section_highlights_title_it: '✨ Momenti Recenti'
 
@@ -16,6 +19,42 @@ upcoming_events:
   - id: 1
     anchor: 'mentorship-program'
     category: 'mentorship'
+    # featured: true puts this entry in the card beside the home page hero; only
+    # the first featured entry is shown. Move it to the next event when one is
+    # announced. The `hero` block holds what that card says.
+    featured: true
+    # Used by the announcement bar only when data/global.yaml lists no announcements.
+    teaser: 'Open call for mentors and mentees · first edition from 15 December'
+    teaser_it: 'Call aperta per mentor e mentee · prima edizione dal 15 dicembre'
+    hero:
+      label: 'Open call'
+      label_it: 'Call aperta'
+      meta: 'Free · Online · 12 weeks'
+      meta_it: 'Gratuito · Online · 12 settimane'
+      # The calendar badge shows the next deadline (see the timeline in
+      # data/mentorship.yaml): move it on once the date has passed.
+      day: '20'
+      month: 'Oct'
+      month_it: 'Ott'
+      title: 'AI Safety for Italy Mentorship Program'
+      title_it: 'Programma di mentorship AI Safety for Italy'
+      lines:
+        - text: 'Mentor applications close 20 October 2026'
+          text_it: 'Chiusura candidature mentor: 20 ottobre 2026'
+        - text: 'First edition, 15 December 2026 – 15 March 2027'
+          text_it: 'Prima edizione, 15 dicembre 2026 – 15 marzo 2027'
+      summary: 'The program connects people who want to enter the field of AI safety, ethics and governance with people who already work in it, in Italy and abroad.'
+      summary_it: "Il programma mette in contatto chi vuole entrare nel campo della sicurezza, dell'etica e della governance dell'intelligenza artificiale con persone che ci lavorano già, in Italia e all'estero."
+      details_text: 'Tracks, requirements and key dates →'
+      details_text_it: 'Percorsi, requisiti e date principali →'
+      details_link: '/mentorship/'
+      primary_text: 'Express your interest'
+      primary_text_it: 'Manifesta il tuo interesse'
+      # Same form as links.interest_form in data/mentorship.yaml.
+      primary_link: 'https://forms.gle/eopxRMZVf7gK5XPW7'
+      secondary_text: 'Key dates'
+      secondary_text_it: 'Date principali'
+      secondary_link: '/mentorship/#timeline'
     title: 'AI Safety for Italy Mentorship Program: Open Call'
     title_it: 'Programma di mentorship AI Safety for Italy: call aperta'
     date: 'First edition, 15 December 2026 – 15 March 2027'
@@ -47,49 +86,20 @@ upcoming_events:
     register_link: '/mentorship/'
     register_target: '_self'
 
+# Events that have taken place, newest first. Shown in the "Past events"
+# section of the Initiatives page. Each keeps its anchor so old links still land on it.
+past_events:
   - id: 4
     anchor: 'meetup-milano-2026'
-    # featured: true puts this event at the top of the home page (hero notice and
-    # its own band). Remove it once the event is over.
-    featured: true
-    teaser: 'First in-person meetup · Milan, 5 October'
-    teaser_it: 'Primo meetup in presenza · Milano, 5 ottobre'
-    # day / month feed the calendar badge on the home page event card.
-    day: '5'
-    month: 'Oct'
-    month_it: 'Ott'
-    place: 'Cascina Cuccagna, Milan'
-    place_it: 'Cascina Cuccagna, Milano'
-    summary: 'An evening open to everyone: a clear introduction to AI safety, the community''s new projects and how to get involved, then aperitivo and networking. No technical background needed. Registration on Luma is required to attend in person; the talks are also livestreamed.'
-    summary_it: "Una serata aperta a tutti: un'introduzione chiara all'AI safety, i nuovi progetti della community e come partecipare, poi aperitivo e networking. Non servono conoscenze tecniche. Per venire in presenza è necessaria l'iscrizione su Luma; i talk sono anche in streaming."
     category: 'seminar'
     title: 'AI Safety for Italy Meetup'
     title_it: 'Meetup AI Safety for Italy'
     date: 'Monday 5 October 2026, 18:00–20:30'
     date_it: 'Lunedì 5 ottobre 2026, 18:00–20:30'
-    status: 'Upcoming'
-    status_it: 'In arrivo'
-    # A description written as blocks (<p>, <ul>) is rendered as is; plain text gets its own <p>.
-    description: |
-      <p>Have you ever wondered how we can make sure artificial intelligence stays safe and beneficial for everyone? Whether you already work in the field or are just getting started, this evening is for you. No technical knowledge required: curiosity is all you need.</p>
-      <p>AI Safety for Italy is the Italian community founded in January 2026, now bringing together more than 50 people interested in AI research, policy and ethics. This is our first in-person meetup, open to anyone who wants to join.</p>
-      <p><strong>What the evening offers:</strong></p>
-      <ul>
-        <li>A clear introduction to AI safety: what it's about, why it matters and where to start.</li>
-        <li>Plenty of concrete ways to get involved, from the mentorship program to the new local groups, with more projects on the way.</li>
-        <li>New connections: after the talks we move on to the aperitivo, to talk about AI over a drink with people who share the same interests.</li>
-      </ul>
-      <p><strong>In Milan?</strong> Join us in person: the best part of the evening is meeting face to face. To attend in person you need to <a href="https://luma.com/jcx4jd7z" target="_blank" rel="noopener noreferrer">register on Luma</a>.<br><strong>Can't make it?</strong> You can follow the talks via <a href="/streaming" target="_blank" rel="noopener noreferrer">livestream</a>.</p>
-    description_it: |
-      <p>Ti sei mai chiesto come possiamo assicurarci che l'intelligenza artificiale resti sicura e utile per tutti? Che tu ci lavori già o ti stia solo avvicinando al tema, questa serata è pensata per te. Non servono conoscenze tecniche: basta la curiosità.</p>
-      <p>AI Safety for Italy è la community italiana nata a gennaio 2026 che oggi riunisce più di 50 persone interessate a ricerca, policy ed etica dell'IA. Questo è il primo incontro in presenza, aperto a chiunque voglia unirsi.</p>
-      <p><strong>Cosa offre la serata:</strong></p>
-      <ul>
-        <li>Un'introduzione chiara all'AI safety: di cosa si occupa, perché è importante e da dove iniziare.</li>
-        <li>Tanti modi concreti per mettersi in gioco, dal programma di mentorship ai nuovi gruppi locali, e altri progetti in arrivo.</li>
-        <li>Nuove conoscenze: dopo gli interventi ci si sposta all'aperitivo, per parlare di IA davanti a un drink con persone che condividono gli stessi interessi.</li>
-      </ul>
-      <p><strong>Sei a Milano?</strong> Vieni in presenza: il bello della serata è conoscersi di persona. Per partecipare in presenza è necessaria l'<a href="https://luma.com/jcx4jd7z" target="_blank" rel="noopener noreferrer">iscrizione su Luma</a>.<br><strong>Non riesci a esserci?</strong> Puoi seguire gli interventi in <a href="/streaming" target="_blank" rel="noopener noreferrer">streaming online</a>.</p>
+    status: 'Past'
+    status_it: 'Concluso'
+    description: 'Our first in-person meetup: an evening open to everyone at Cascina Cuccagna in Milan, with talks on AI safety and on the community''s projects, followed by aperitivo and networking.'
+    description_it: "Il nostro primo meetup in presenza: una serata aperta a tutti alla Cascina Cuccagna di Milano, con interventi sull'AI safety e sui progetti della community, seguiti da aperitivo e networking."
     format_info:
       - label: 'Format'
         label_it: 'Formato'
@@ -99,14 +109,6 @@ upcoming_events:
         label_it: 'Dove'
         value: 'Cascina Cuccagna, Via Privata Cuccagna 2/4, Milan'
         value_it: 'Cascina Cuccagna, Via Privata Cuccagna 2/4, Milano'
-      - label: 'Registration'
-        label_it: 'Iscrizione'
-        value: 'Required on Luma to attend in person'
-        value_it: 'Obbligatoria su Luma per partecipare in presenza'
-      - label: 'Who is it for'
-        label_it: 'Per chi'
-        value: 'Students, researchers and professionals with a technical background, and anyone curious about AI safety'
-        value_it: "Studenti, ricercatori e professionisti con background tecnico, e chiunque sia curioso dell'AI safety"
     agenda:
       - time: '18:00–18:05'
         title: 'Welcome and opening'
@@ -126,15 +128,6 @@ upcoming_events:
       - time: '19:00–20:30'
         title: 'Networking and aperitivo'
         title_it: 'Networking e aperitivo'
-    register_text: 'Register on Luma'
-    register_text_it: 'Iscriviti su Luma'
-    register_link: 'https://luma.com/jcx4jd7z'
-    register_target: '_blank'
-    # The button is shown disabled until stream_link is filled in.
-    # /streaming is a redirect in vercel.json: the YouTube URL is changed there, not here.
-    stream_text: 'Watch the livestream'
-    stream_text_it: 'Segui la diretta'
-    stream_link: '/streaming'
 
 recent_highlights: []
 
