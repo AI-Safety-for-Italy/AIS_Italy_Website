@@ -52,6 +52,8 @@ We use YAML format - it's human-readable and uses simple indentation.
 4. Increment the `id` number
 5. Save the file
 
+When an event is over, move its entry from `upcoming_events:` to `past_events:` (newest first). Drop the registration and livestream fields and rewrite the description in the past tense. It then shows in the "Past events" section of the Initiatives page. If it had `featured: true`, move that flag and its `hero` block to the next entry to show beside the home page hero.
+
 #### Changing Navigation Links
 
 1. Open `data/global.yaml`
@@ -466,7 +468,7 @@ padding:
 
 **File**: `data/events.yaml`
 
-- Add to upcoming_events list
+- Add to upcoming_events list; once it is over, move it to past_events
 
 ### Test Your Changes
 
