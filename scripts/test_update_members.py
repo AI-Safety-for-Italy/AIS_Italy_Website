@@ -16,6 +16,7 @@ import os
 import tempfile
 import unittest
 from datetime import date
+from unittest import mock
 
 try:
     import yaml
@@ -312,6 +313,51 @@ class ReadCsv(unittest.TestCase):
             f.write('Nome ,Indirizzo email \n Giulia , giulia@example.org \n')
         rows = um.read_csv(path)
         self.assertEqual(rows[0], {'Nome': 'Giulia', 'Indirizzo email': 'giulia@example.org'})
+
+
+class SheetsApi(unittest.TestCase):
+    """The live sheet is read through the Sheets API; the network is mocked."""
+
+    def test_rows_match_the_csv_reader(self):
+        """Same shape as read_csv: stripped headers and values, short rows padded."""
+        values = [['Nome ', 'Indirizzo email ', 'Città'], [' Giulia ', 'giulia@example.org ']]
+        self.assertEqual(um.rows_from_values(values),
+                         [{'Nome': 'Giulia', 'Indirizzo email': 'giulia@example.org', 'Città': ''}])
+
+    def test_empty_sheet_gives_no_rows(self):
+        self.assertEqual(um.rows_from_values([]), [])
+
+    def test_reads_the_tab_matching_the_gid(self):
+        meta = {'sheets': [
+            {'properties': {'sheetId': 7, 'title': 'Altro'}},
+            {'properties': {'sheetId': 0, 'title': "Risposte del modulo 1"}},
+        ]}
+        values = {'values': [['Nome'], ['Giulia']]}
+        urls = []
+
+        def fake_get(url, token):
+            urls.append(url)
+            return meta if len(urls) == 1 else values
+
+        with mock.patch.object(um, 'access_token', return_value='t'), \
+             mock.patch.object(um, '_api_get', side_effect=fake_get):
+            rows = um.fetch_sheet_rows('SHEET', 0)
+        self.assertEqual(rows, [{'Nome': 'Giulia'}])
+        self.assertIn("/values/%27Risposte%20del%20modulo%201%27", urls[1])
+
+    def test_missing_tab_aborts(self):
+        with mock.patch.object(um, 'access_token', return_value='t'), \
+             mock.patch.object(um, '_api_get', return_value={'sheets': []}):
+            with self.assertRaises(SystemExit):
+                um.fetch_sheet_rows('SHEET', 0)
+
+    def test_no_key_aborts_before_any_request(self):
+        env = {k: v for k, v in os.environ.items()
+               if k not in ('GOOGLE_SERVICE_ACCOUNT_JSON', 'GOOGLE_APPLICATION_CREDENTIALS')}
+        with mock.patch.dict(os.environ, env, clear=True):
+            with self.assertRaises(SystemExit) as ctx:
+                um.access_token()
+        self.assertIn('GOOGLE_SERVICE_ACCOUNT_JSON', str(ctx.exception))
 
 
 if __name__ == '__main__':

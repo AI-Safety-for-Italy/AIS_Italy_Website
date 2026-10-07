@@ -3,6 +3,11 @@ name: Update members
 # Regenerates data/members.yaml from the registration form's response sheet and
 # pushes the result to a branch for review.
 #
+# The sheet is private. The script reads it as a Google Cloud service account
+# the sheet is shared with (Viewer), using the JSON key stored in the
+# repository secret GOOGLE_SERVICE_ACCOUNT_JSON. Without that secret the run
+# fails and the site is left as it was.
+#
 # It pushes a branch rather than opening a pull request because this repository
 # does not permit GitHub Actions to create pull requests
 # ("can_approve_pull_request_reviews" is false, and only an organisation admin
@@ -56,6 +61,10 @@ jobs:
 
       - name: Regenerate members.yaml
         run: python3 scripts/update-members.py
+        env:
+          # Only this step sees the key. GitHub masks it in the logs, and the
+          # script never prints it.
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
 
       - name: Push the change for review
         run: |

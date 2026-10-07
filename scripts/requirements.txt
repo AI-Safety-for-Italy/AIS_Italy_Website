@@ -1,3 +1,6 @@
 # Dependencies for scripts/update-members.py and its tests.
 # Install with: pip install -r scripts/requirements.txt
 pyyaml==6.0.2
+# Sign-in as the service account that reads the response sheet.
+google-auth==2.60.0
+requests==2.34.2
