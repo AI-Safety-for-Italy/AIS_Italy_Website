@@ -7,10 +7,16 @@ Usage:
     python3 scripts/update-members.py --local      # use the newest export in data/
     python3 scripts/update-members.py --file X.csv # use a specific export
 
-By default the responses are downloaded straight from the form's response sheet
-(SHEET_CSV_URL), so no manual export step is needed. The sheet must stay
-readable by "anyone with the link" for this to work; if it is ever restricted,
-the download fails loudly rather than writing a truncated members.yaml.
+By default the responses are read straight from the form's response sheet
+through the Google Sheets API, so no manual export step is needed. The sheet is
+private: it is shared, read-only, with a Google Cloud service account, and the
+script signs in as that account. Its JSON key comes from one of:
+
+    GOOGLE_SERVICE_ACCOUNT_JSON     the key file's contents (the GitHub secret)
+    GOOGLE_APPLICATION_CREDENTIALS  the path to the key file (handy locally)
+
+Without a key, or if the sheet is not shared with the service account, the run
+fails loudly rather than writing a truncated members.yaml.
 
 --local/--file keep the old workflow: drop an export of "AI Safety Italy – Form
 di iscrizione (Risposte)" into data/ (.xlsx or .csv) and read that instead.
@@ -29,10 +35,13 @@ Publication rules:
 import argparse
 import csv
 import glob
+import json
 import os
 import re
 import sys
 import tempfile
+import urllib.error
+import urllib.parse
 import urllib.request
 import zipfile
 import xml.etree.ElementTree as ET
@@ -49,14 +58,13 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(SCRIPT_DIR, '..', 'data')
 OUT_FILE = os.path.join(DATA_DIR, 'members.yaml')
 
-# Response sheet of the registration form, exported as CSV. Reading this needs
-# no credentials as long as the sheet is shared with "anyone with the link".
+# Response sheet of the registration form, and the tab holding the responses
+# (the `gid` in the sheet's URL). The ID alone grants nothing: the sheet is
+# private and readable only by the accounts it is shared with.
 SHEET_ID = '1qoxGGUFxEQSXuxbrGaUr44cmgH0jEDRPDSEnE1s4Szo'
-SHEET_GID = '0'
-SHEET_CSV_URL = (
-    f'https://docs.google.com/spreadsheets/d/{SHEET_ID}/export'
-    f'?format=csv&gid={SHEET_GID}'
-)
+SHEET_GID = 0
+SHEETS_API = 'https://sheets.googleapis.com/v4/spreadsheets'
+SHEETS_SCOPE = 'https://www.googleapis.com/auth/spreadsheets.readonly'
 
 GROUPS_MAP = {
     "Programma di mentorship": "mentorship",
@@ -156,30 +164,87 @@ def find_export():
     sys.exit("No registration export found in data/ matching 'AI Safety Italy*'")
 
 
-def fetch_sheet(url=SHEET_CSV_URL):
-    """Download the response sheet as CSV into a temp file and return its path.
+def access_token():
+    """Sign in as the service account and return a short-lived access token.
 
-    Google answers a request for a sheet that is not link-readable with an HTML
-    sign-in page and a 200, so the content type is checked rather than trusted.
+    google-auth is imported here, not at the top, so --local/--file and the
+    tests work without it.
     """
-    try:
-        with urllib.request.urlopen(url, timeout=60) as resp:
-            content_type = resp.headers.get('Content-Type', '')
-            body = resp.read()
-    except OSError as err:
-        sys.exit(f"Could not download the response sheet: {err}")
-
-    if 'text/csv' not in content_type:
+    info = os.environ.get('GOOGLE_SERVICE_ACCOUNT_JSON', '').strip()
+    path = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS', '').strip()
+    if not info and not path:
         sys.exit(
-            "The response sheet did not return CSV (got "
-            f"'{content_type or 'no content type'}'). It is most likely no "
-            "longer shared with 'anyone with the link'."
+            "No service account key: set GOOGLE_SERVICE_ACCOUNT_JSON to the key "
+            "file's contents or GOOGLE_APPLICATION_CREDENTIALS to its path. "
+            "Without one, use --local or --file with an export of the sheet."
         )
+    try:
+        from google.oauth2 import service_account
+        from google.auth.transport.requests import Request
+    except ModuleNotFoundError:
+        sys.exit(
+            "google-auth is required to read the live sheet.\n"
+            "Install it with:  pip install -r scripts/requirements.txt"
+        )
+    try:
+        if info:
+            creds = service_account.Credentials.from_service_account_info(
+                json.loads(info), scopes=[SHEETS_SCOPE])
+        else:
+            creds = service_account.Credentials.from_service_account_file(
+                path, scopes=[SHEETS_SCOPE])
+        creds.refresh(Request())
+    except Exception as err:  # bad JSON, revoked key, network: never print the key
+        sys.exit(f"Could not sign in with the service account key: {type(err).__name__}: {err}")
+    return creds.token
 
-    fd, path = tempfile.mkstemp(prefix='ais-members-', suffix='.csv')
-    with os.fdopen(fd, 'wb') as f:
-        f.write(body)
-    return path
+
+def _api_get(url, token):
+    req = urllib.request.Request(url, headers={'Authorization': f'Bearer {token}'})
+    try:
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            return json.load(resp)
+    except urllib.error.HTTPError as err:
+        hints = {
+            403: "Share the sheet with the service account's email (Viewer), "
+                 "and check that the Google Sheets API is enabled in its project.",
+            404: "No sheet with this ID. Check SHEET_ID.",
+        }
+        sys.exit(f"The Sheets API refused the request (HTTP {err.code}). "
+                 f"{hints.get(err.code, '')}".strip())
+    except OSError as err:
+        sys.exit(f"Could not reach the Sheets API: {err}")
+
+
+def rows_from_values(values):
+    """Turn the API's list of rows into header->value dicts, like read_csv.
+
+    The API drops empty cells at the end of a row, so short rows are padded.
+    """
+    if not values:
+        return []
+    header = [(h or '').strip() for h in values[0]]
+    width = len(header)
+    return [
+        {header[i]: (str(row[i]) if i < len(row) else '').strip() for i in range(width)}
+        for row in values[1:]
+    ]
+
+
+def fetch_sheet_rows(sheet_id=SHEET_ID, gid=SHEET_GID):
+    """Read the responses tab of the live sheet through the Sheets API."""
+    token = access_token()
+    base = f"{SHEETS_API}/{urllib.parse.quote(sheet_id)}"
+    meta = _api_get(f"{base}?fields=sheets.properties(sheetId,title)", token)
+    titles = {s['properties']['sheetId']: s['properties']['title']
+              for s in meta.get('sheets', [])}
+    if gid not in titles:
+        sys.exit(f"The sheet has no tab with gid {gid}. Check SHEET_GID.")
+    # Quoted, so a tab name with spaces or apostrophes is still one range.
+    tab = "'" + titles[gid].replace("'", "''") + "'"
+    data = _api_get(f"{base}/values/{urllib.parse.quote(tab, safe='')}"
+                    "?majorDimension=ROWS&valueRenderOption=FORMATTED_VALUE", token)
+    return rows_from_values(data.get('values', []))
 
 
 def _col_index(cell_ref):
@@ -382,26 +447,19 @@ def main():
                      help="read the newest export in data/ instead of the live sheet")
     src.add_argument('--file', metavar='PATH',
                      help="read this .xlsx/.csv export instead of the live sheet")
-    ap.add_argument('--url', default=SHEET_CSV_URL,
-                    help="override the sheet CSV export URL")
+    ap.add_argument('--sheet-id', default=SHEET_ID,
+                    help="read this Google Sheet instead of the registration one")
     ap.add_argument('--force', action='store_true',
                     help="write even if the sync removes a large share of the directory")
     args = ap.parse_args()
 
-    temp_path = None
-    if args.file:
-        export_path = args.file
-    elif args.local:
-        export_path = find_export()
-    else:
-        temp_path = export_path = fetch_sheet(args.url)
-
-    print(f"Reading: {args.url if temp_path else export_path}")
-    try:
+    if args.file or args.local:
+        export_path = args.file or find_export()
+        print(f"Reading: {export_path}")
         rows = load_rows(export_path)
-    finally:
-        if temp_path:
-            os.unlink(temp_path)
+    else:
+        print("Reading: the registration form's response sheet (Sheets API)")
+        rows = fetch_sheet_rows(args.sheet_id)
     check_columns(rows)
     members, skipped, duplicates = parse(rows)
     if not members:

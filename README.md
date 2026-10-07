@@ -488,11 +488,16 @@ pip install -r scripts/requirements.txt   # one-off
 python3 scripts/update-members.py
 ```
 
-downloads the registration form's response sheet and rewrites
-`data/members.yaml`. A daily GitHub Action
+reads the registration form's response sheet and rewrites
+`data/members.yaml`. The sheet is private: the script reads it through the
+Google Sheets API as a service account the sheet is shared with (Viewer). It
+takes the account's JSON key from `GOOGLE_SERVICE_ACCOUNT_JSON` (the key's
+contents) or `GOOGLE_APPLICATION_CREDENTIALS` (a path to the key file). Without
+a key, `--file` reads a downloaded export instead. A daily GitHub Action
 (`.github/workflows/update-members.yml`) does the same and pushes the result to
 the `chore/update-members` branch, so new sign-ups reach the site without
-anyone exporting a spreadsheet.
+anyone exporting a spreadsheet. The Action gets the key from the repository
+secret `GOOGLE_SERVICE_ACCOUNT_JSON`.
 
 The Action pushes a branch rather than opening a pull request because this
 organisation does not allow GitHub Actions to create PRs. Opening it is one
