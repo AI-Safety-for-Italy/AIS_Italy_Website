@@ -1943,9 +1943,9 @@ a:hover {
   gap: 2rem 1.5rem;
 }
 
-/* Home board: ten seats, two rows of five */
+/* Home board: two rows of four */
 .people-grid--board {
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 @media (max-width: 960px) {
