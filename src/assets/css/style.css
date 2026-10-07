@@ -1185,13 +1185,18 @@ a:hover {
   color: var(--text-primary);
 }
 
+/* Each button is as wide as its label and never breaks it over two lines;
+   when both don't fit side by side, the second one moves to its own row. */
 .event-card-actions {
   display: flex;
+  flex-wrap: wrap;
   border-top: 1px solid var(--border-default);
 }
 
 .event-card-actions a {
-  flex: 1;
+  flex: 1 1 auto;
+  white-space: nowrap;
+  box-shadow: 0 -1px 0 var(--border-default);
   display: flex;
   align-items: center;
   justify-content: center;
