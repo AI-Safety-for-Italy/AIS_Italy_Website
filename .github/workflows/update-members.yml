@@ -19,12 +19,22 @@ name: Update members
 #
 # If anything goes wrong the script exits non-zero and never touches
 # members.yaml, so a failed run leaves the site exactly as it was.
+#
+# A second, independent job emails a single-use Discord invite to everyone
+# marked "Approvato" in the sheet, and records what it sent back in the sheet
+# (see scripts/send-discord-invites.py). It does not wait for the directory
+# pull request: being invited and being listed on the site are separate.
 on:
   schedule:
     # 05:15 UTC daily. Off the hour because GitHub's scheduler queues heavily
     # at :00 and may drop runs.
     - cron: "15 5 * * *"
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Discord invites: only report what would be sent"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -121,3 +131,54 @@ jobs:
           BASE: ${{ github.ref_name }}
           REPO: ${{ github.repository }}
           SERVER: ${{ github.server_url }}
+
+  invites:
+    name: Send Discord invites
+    runs-on: ubuntu-latest
+    # Writes go to the Google Sheet, never to the repository.
+    permissions:
+      contents: read
+    # Two overlapping runs (the schedule and a manual one) would both see the
+    # same unsent rows. Queue them instead: the second then finds the rows
+    # already marked as sent.
+    concurrency:
+      group: discord-invites
+      cancel-in-progress: false
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r scripts/requirements.txt
+
+      - name: Test invites
+        run: python3 -m unittest discover -s scripts -p 'test_*.py'
+
+      # Live only when the repository variable DISCORD_INVITES_ENABLED is
+      # "true" and the manual run did not ask for a dry run; until then every
+      # run, scheduled ones included, only reports what it would do.
+      - name: Send invites
+        run: |
+          if [ "$ENABLED" = "true" ] && [ "$DRY_RUN" != "true" ]; then
+            python3 scripts/send-discord-invites.py
+          else
+            python3 scripts/send-discord-invites.py --dry-run
+          fi
+        env:
+          ENABLED: ${{ vars.DISCORD_INVITES_ENABLED }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          # GitHub masks the secrets in the logs; the script never prints them,
+          # nor any email address or invite link.
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          DISCORD_CHANNEL_ID: ${{ secrets.DISCORD_CHANNEL_ID }}
+          SMTP_HOST: ${{ vars.SMTP_HOST }}
+          SMTP_PORT: ${{ vars.SMTP_PORT }}
+          SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}

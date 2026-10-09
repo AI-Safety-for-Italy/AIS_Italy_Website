@@ -40,6 +40,7 @@ def row(**over):
         'Cognome': 'Rossi',
         'Indirizzo email': 'giulia@example.org',
         um.AREAS_COL: '',
+        um.STATUS_COL: '',
     }
     base.update(over)
     return base
@@ -135,7 +136,50 @@ class Publication(unittest.TestCase):
         self.assertFalse(um.should_publish(
             row(**{um.TIMESTAMP_COL: 'garbage', um.CONSENT_COL: ''})
         ))
-        self.assertTrue(um.should_publish(row(**{um.TIMESTAMP_COL: 'garbage'})))
+        # Nor is it legacy: an unparseable date also needs explicit approval.
+        self.assertTrue(um.should_publish(
+            row(**{um.TIMESTAMP_COL: 'garbage', um.STATUS_COL: 'Approvato'})))
+
+
+class Approval(unittest.TestCase):
+    """From LEGACY_BEFORE on, only people approved by hand are published."""
+
+    NEW = (um.LEGACY_BEFORE.strftime('%d/%m/%Y')) + ' 10.00.00'
+
+    def test_legacy_member_published_without_status(self):
+        self.assertTrue(um.should_publish(row()))
+
+    def test_new_applicant_needs_approval(self):
+        self.assertFalse(um.should_publish(row(**{um.TIMESTAMP_COL: self.NEW})))
+
+    def test_approved_new_applicant_is_published(self):
+        self.assertTrue(um.should_publish(
+            row(**{um.TIMESTAMP_COL: self.NEW, um.STATUS_COL: 'Approvato'})))
+
+    def test_approval_still_needs_consent(self):
+        self.assertFalse(um.should_publish(row(**{
+            um.TIMESTAMP_COL: self.NEW, um.STATUS_COL: 'Approvato', um.CONSENT_COL: ''})))
+
+    def test_status_matching_ignores_case_and_padding(self):
+        self.assertTrue(um.should_publish(
+            row(**{um.TIMESTAMP_COL: self.NEW, um.STATUS_COL: ' approvato '})))
+
+    def test_pending_is_not_approved(self):
+        self.assertFalse(um.should_publish(
+            row(**{um.TIMESTAMP_COL: self.NEW, um.STATUS_COL: 'In attesa'})))
+
+    def test_rejection_removes_even_a_legacy_member(self):
+        self.assertFalse(um.should_publish(row(**{um.STATUS_COL: 'Rifiutato'})))
+
+    def test_unreadable_timestamp_is_not_legacy(self):
+        self.assertFalse(um.is_approved(row(**{um.TIMESTAMP_COL: 'garbage'})))
+
+    def test_legacy_member_who_resubmits_stays_published(self):
+        """Legacy status follows the person's first registration, not their latest."""
+        old = row()
+        new = row(**{um.TIMESTAMP_COL: self.NEW, 'Nome': 'New'})
+        members, _, _ = um.parse([old, new])
+        self.assertEqual([m['name'] for m in members], ['New Rossi'])
 
 
 class Dedupe(unittest.TestCase):
