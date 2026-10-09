@@ -30,6 +30,11 @@ Publication rules:
     "Acconsento alla pubblicazione delle informazioni sopra indicate nella
     sezione 'Community' del sito web." Anyone who left it blank or answered
     otherwise is skipped.
+  * On top of that, a person is published only once approved. Whoever first
+    registered BEFORE LEGACY_BEFORE was in the community before approvals
+    existed and counts as approved; from that date on the "Stato" column must
+    read "Approvato". "Rifiutato" removes anyone, whenever they registered.
+    The same column drives the Discord invites (send-discord-invites.py).
 """
 
 import argparse
@@ -113,10 +118,20 @@ GRANDFATHER_BEFORE = date(2026, 6, 30)
 # xlsx stores dates as serial numbers counted from this epoch.
 EXCEL_EPOCH = date(1899, 12, 30)
 
+# Column the organisers fill by hand to assess each application.
+STATUS_COL = "Stato"
+STATUS_APPROVED = "Approvato"
+STATUS_REJECTED = "Rifiutato"
+# People whose first registration predates this date joined before approvals
+# and Discord invites were introduced: they count as approved and as already in
+# the Discord server, unless their "Stato" says otherwise.
+LEGACY_BEFORE = date(2026, 10, 4)
+
 # Columns the parser depends on. If the form is edited and one of these is
 # renamed, every row silently loses that field — so a missing column aborts the
 # run instead of publishing a directory full of blanks.
-REQUIRED_COLS = [TIMESTAMP_COL, CONSENT_COL, 'Nome', 'Cognome', 'Indirizzo email', AREAS_COL]
+REQUIRED_COLS = [TIMESTAMP_COL, CONSENT_COL, STATUS_COL, 'Nome', 'Cognome',
+                 'Indirizzo email', AREAS_COL]
 # A sync that would drop more than this fraction of the published directory is
 # treated as a parsing failure rather than a real exodus. Override with --force.
 MAX_SHRINK = 0.25
@@ -173,8 +188,49 @@ def submission_date(row):
     return None
 
 
-def should_publish(row):
-    """Grandfather pre-cutoff registrations; require consent from the cutoff on."""
+def status(row):
+    """The organisers' verdict, normalised: 'approvato', 'rifiutato' or ''."""
+    return _normalize(row.get(STATUS_COL, ''))
+
+
+def is_legacy(first_submitted):
+    """Whether someone first registered before approvals existed."""
+    return first_submitted is not None and first_submitted < LEGACY_BEFORE
+
+
+def email_key(row):
+    return _normalize(row.get('Indirizzo email', ''))
+
+
+def first_submissions(rows):
+    """Earliest registration date per email, so a resubmission keeps legacy status."""
+    first = {}
+    for row in rows:
+        key, d = email_key(row), submission_date(row)
+        if key and d is not None and (key not in first or d < first[key]):
+            first[key] = d
+    return first
+
+
+def is_approved(row, first_submitted=None):
+    """Approved by hand, or a legacy member nobody has rejected.
+
+    `first_submitted` defaults to the row's own date; parse() passes the
+    person's earliest one.
+    """
+    if first_submitted is None:
+        first_submitted = submission_date(row)
+    verdict = status(row)
+    if verdict == _normalize(STATUS_REJECTED):
+        return False
+    return verdict == _normalize(STATUS_APPROVED) or is_legacy(first_submitted)
+
+
+def should_publish(row, first_submitted=None):
+    """Approved members only; among those, grandfather pre-cutoff registrations
+    and require consent from the cutoff on."""
+    if not is_approved(row, first_submitted):
+        return False
     d = submission_date(row)
     if d is not None and d < GRANDFATHER_BEFORE:
         return True
@@ -195,8 +251,11 @@ def find_export():
     sys.exit("No registration export found in data/ matching 'AI Safety Italy*'")
 
 
-def access_token():
+def access_token(scope=None):
     """Sign in as the service account and return a short-lived access token.
+
+    Read-only unless a wider `scope` is asked for: only the Discord invites,
+    which record what they sent, need to write to the sheet.
 
     google-auth is imported here, not at the top, so --local/--file and the
     tests work without it.
@@ -220,10 +279,10 @@ def access_token():
     try:
         if info:
             creds = service_account.Credentials.from_service_account_info(
-                json.loads(info), scopes=[SHEETS_SCOPE])
+                json.loads(info), scopes=[scope or SHEETS_SCOPE])
         else:
             creds = service_account.Credentials.from_service_account_file(
-                path, scopes=[SHEETS_SCOPE])
+                path, scopes=[scope or SHEETS_SCOPE])
         creds.refresh(Request())
     except Exception as err:  # bad JSON, revoked key, network: never print the key
         sys.exit(f"Could not sign in with the service account key: {type(err).__name__}: {err}")
@@ -344,8 +403,7 @@ def dedupe(rows):
     order = []
     removed = 0
     for idx, row in enumerate(rows):
-        email = _normalize(row.get('Indirizzo email', ''))
-        key = email or f"__noemail_{idx}"
+        key = email_key(row) or f"__noemail_{idx}"
         d = submission_date(row) or date.min
         if key not in by_key:
             by_key[key] = (d, row)
@@ -361,9 +419,10 @@ def parse(rows):
     members = []
     skipped = 0
     member_id = 0
+    first = first_submissions(rows)
     rows, duplicates = dedupe(rows)
     for row in rows:
-        if not should_publish(row):
+        if not should_publish(row, first.get(email_key(row))):
             skipped += 1
             continue
         member_id += 1
@@ -516,7 +575,8 @@ def main():
     else:
         print(f"Written {len(members)} members to {OUT_FILE} "
               f"({duplicates} duplicate submissions merged; "
-              f"{skipped} skipped: post-{GRANDFATHER_BEFORE.isoformat()} without consent)")
+              f"{skipped} skipped: not approved, or "
+              f"post-{GRANDFATHER_BEFORE.isoformat()} without consent)")
 
 
 if __name__ == '__main__':
