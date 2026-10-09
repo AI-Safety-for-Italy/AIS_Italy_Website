@@ -197,6 +197,13 @@ class Execute(unittest.TestCase):
 class Main(unittest.TestCase):
     """The loop: one bad row never stops the others, and dry runs touch nothing."""
 
+    def setUp(self):
+        # main() prints '::error::' lines, which GitHub would turn into real
+        # error annotations on the run that executes these tests.
+        patcher = mock.patch('builtins.print')
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     def run_main(self, rows, argv, **patches):
         sheet = mock.Mock(header=sdi.REQUIRED_COLS, rows=rows)
         env = {'DISCORD_BOT_TOKEN': 'tok', 'DISCORD_CHANNEL_ID': '123',
