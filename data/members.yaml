@@ -1,4 +1,4 @@
-last_updated: '2026-10-07'
+last_updated: '2026-10-10'
 members:
 - id: 1
   name: Angelo Leone
@@ -520,13 +520,6 @@ members:
   name: Federico Cavaletto
   profile: https://it.linkedin.com/in/fedecava
   location: Torino, Italy
-  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
-    ecc.), Alignment (RLHF, scalable oversight, value alignment), Rischi catastrofici
-    / esistenziali
-- id: 67
-  name: Valerio Lattarulo
-  profile: https://www.linkedin.com/in/valerio-lattarulo-2399ab307/?isSelfProfile=true
-  location: Milano, Italia
   areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
     ecc.), Alignment (RLHF, scalable oversight, value alignment), Rischi catastrofici
     / esistenziali
