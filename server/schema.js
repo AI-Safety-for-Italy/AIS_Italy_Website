@@ -4,6 +4,11 @@
 // of the `create table` — databases that already exist never re-run it.
 
 module.exports = `
+-- Two cold starts on an empty database would otherwise race to create the same
+-- tables, and one of them would fail. The lock is held until this batch ends
+-- (it runs as one implicit transaction) and is released automatically.
+select pg_advisory_xact_lock(7262201);
+
 create table if not exists polls (
   id uuid primary key default gen_random_uuid(),
   token text not null unique,

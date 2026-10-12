@@ -332,7 +332,10 @@ async function submitResponse(token, body) {
       let response;
       if (body.editToken) {
         const { rows } = await tx.query(
-          'select id, edit_token from poll_responses where poll_id = $1 and edit_token = $2',
+          // Locked until this transaction ends, so two saves of the same answer
+          // (e.g. from two tabs) run one after the other: the last one wins.
+          `select id, edit_token from poll_responses
+           where poll_id = $1 and edit_token = $2 for update`,
           [poll.id, String(body.editToken)]
         );
         if (!rows.length) throw new HttpError(403, 'This edit link is not valid for this poll');
@@ -371,13 +374,15 @@ async function submitResponse(token, body) {
     .catch((err) => {
       // Two people submitting the same name or email at the same moment both
       // pass assertAvailable; the unique indexes stop the second one here.
-      if (err.code === '23505') {
-        const field = /name/.test(err.constraint || err.message) ? 'name' : 'email';
-        throw TAKEN[field]();
+      if (err.code === '23505' && UNIQUE_FIELD[err.constraint]) {
+        throw TAKEN[UNIQUE_FIELD[err.constraint]]();
       }
       throw err;
     });
 }
+
+// The unique indexes in schema.js, and the field each one protects.
+const UNIQUE_FIELD = { poll_responses_name: 'name', poll_responses_email: 'email' };
 
 const TAKEN = {
   name: () =>

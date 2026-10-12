@@ -198,6 +198,73 @@ test('once the admin removes an answer, that person can answer again', async () 
   assert.equal((await polls.getPollAdmin(id)).responses.length, 1);
 });
 
+// Two submissions racing with the same name both pass the availability check
+// before either has inserted. PGlite runs one query at a time, so the race is
+// simulated by having that check report "free" while the row already exists.
+function blindAvailabilityCheck(pglite) {
+  const blind = (conn) => ({
+    query(text, params) {
+      if (/bool_or\(lower\(name\)/.test(text)) return { rows: [{ name: false, email: false }] };
+      return conn.query(text, params);
+    },
+  });
+  return {
+    query: (text, params) => pglite.query(text, params),
+    exec: (text) => pglite.exec(text),
+    transaction: (fn) => pglite.transaction((tx) => fn(blind(tx))),
+  };
+}
+
+test('a racing duplicate is stopped by the database with the right message', async () => {
+  const pglite = new PGlite();
+  db.setDb(pglite);
+  const { token } = await polls.createPoll(basePoll());
+  await polls.submitResponse(token, { name: 'Anna', email: 'anna@example.org' });
+
+  db.setDb(blindAvailabilityCheck(pglite));
+  await assert.rejects(
+    polls.submitResponse(token, { name: 'ANNA', email: 'other@example.org' }),
+    (err) => err.status === 409 && err.details.field === 'name'
+  );
+  await assert.rejects(
+    polls.submitResponse(token, { name: 'Marco', email: 'Anna@example.org' }),
+    (err) => err.status === 409 && err.details.field === 'email'
+  );
+  const { rows } = await pglite.query('select count(*)::int as n from poll_responses');
+  assert.equal(rows[0].n, 1);
+});
+
+test('other unique violations are not reported as a taken name or email', async () => {
+  const pglite = new PGlite();
+  db.setDb(pglite);
+  const { token } = await polls.createPoll(basePoll());
+  const clash = Object.assign(new Error('duplicate vote'), {
+    code: '23505',
+    constraint: 'poll_votes_pkey',
+  });
+  db.setDb({
+    query: (text, params) => pglite.query(text, params),
+    exec: (text) => pglite.exec(text),
+    transaction: () => Promise.reject(clash),
+  });
+  await assert.rejects(
+    polls.submitResponse(token, { name: 'Anna', email: 'anna@example.org' }),
+    (err) => err === clash
+  );
+});
+
+test('the schema can be applied again to an existing database', async () => {
+  const pglite = new PGlite();
+  db.setDb(pglite);
+  await db.ensureSchema();
+  db.setDb(pglite);
+  await db.ensureSchema();
+  const { rows } = await pglite.query(
+    "select count(*)::int as n from information_schema.tables where table_name like 'poll%'"
+  );
+  assert.equal(rows[0].n, 4);
+});
+
 test('votes for unknown slots are ignored; odd values and bad emails are refused', async () => {
   const { id, token } = await polls.createPoll(basePoll());
   const [a] = (await polls.getPollAdmin(id)).slots;
