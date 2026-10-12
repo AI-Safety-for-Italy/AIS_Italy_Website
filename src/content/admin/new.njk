@@ -1,0 +1,93 @@
+---
+title: New poll
+permalink: /admin/new/
+noindex: true
+excludeFromSitemap: true
+eleventyExcludeFromCollections: true
+adminTab: new
+seoTitle: 'New poll | AI Safety for Italy'
+---
+{% extends "base.njk" %}
+{% block content %}
+<section class="page-hero meet-hero">
+  <div class="container">
+    <span class="eyebrow">Admin · Meeting polls</span>
+    <h1>New poll</h1>
+  </div>
+</section>
+
+<section class="meet-main">
+  <div class="container">
+    {% include "admin-bar.njk" %}
+
+    <form id="pollForm" novalidate>
+      <div class="create-layout">
+        <div class="panel form-grid">
+          <div>
+            <label class="form-label" for="title">Title</label>
+            <input class="form-input is-compact" id="title" name="title" maxlength="200" required placeholder="e.g. Board meeting">
+          </div>
+          <div>
+            <label class="form-label" for="description">Description <span class="panel-note">(optional)</span></label>
+            <textarea class="form-input is-compact is-short" id="description" name="description" maxlength="5000" placeholder="Agenda, context…"></textarea>
+          </div>
+          <div>
+            <label class="form-label" for="location">Location <span class="panel-note">(optional)</span></label>
+            <input class="form-input is-compact" id="location" name="location" maxlength="500" placeholder="Address or link">
+          </div>
+          <div>
+            <span class="form-label" id="durationLabel">Duration</span>
+            <div class="chip-group" role="group" aria-labelledby="durationLabel" id="durationChips">
+              <button type="button" class="chip" data-minutes="30">30 min</button>
+              <button type="button" class="chip" data-minutes="45">45 min</button>
+              <button type="button" class="chip" data-minutes="60">1 h</button>
+              <button type="button" class="chip" data-minutes="90">1 h 30</button>
+              <button type="button" class="chip" data-minutes="120">2 h</button>
+              <label class="chip-custom">
+                <input class="form-input" type="number" id="durationCustom" min="5" max="1440" step="5" aria-label="Custom duration in minutes"> min
+              </label>
+            </div>
+          </div>
+          <div>
+            <label class="form-label" for="timezone">Time zone</label>
+            <select class="form-input is-compact" id="timezone" name="timezone"></select>
+          </div>
+          <div>
+            <label class="form-label" for="deadline">Voting deadline <span class="panel-note">(optional)</span></label>
+            <input class="form-input is-compact" id="deadline" name="deadline" type="datetime-local">
+          </div>
+          <label class="check-row">
+            <input type="checkbox" id="hideResponses" name="hideResponses">
+            <span>Hide answers from participants</span>
+          </label>
+        </div>
+
+        <div class="panel">
+          <div class="wk-toolbar">
+            <h2 class="wk-range" id="wkRange"></h2>
+            <div class="wk-nav">
+              <button type="button" class="btn btn-outline btn-sm" id="wkToday">Today</button>
+              <button type="button" class="icon-btn" id="wkPrev" aria-label="Previous days"></button>
+              <button type="button" class="icon-btn" id="wkNext" aria-label="Next days"></button>
+            </div>
+          </div>
+          <p class="wk-hint">Click or drag to add times · click a time to remove it</p>
+          <div class="wk" id="wk"></div>
+          <div class="slot-summary" id="slotSummary"></div>
+        </div>
+      </div>
+
+      <div class="form-error" id="formError" role="alert" hidden style="margin-top:1.25rem"></div>
+
+      <div class="action-bar">
+        <p id="slotCount"></p>
+        <button class="btn btn-primary" type="submit" id="createBtn">Create poll</button>
+      </div>
+    </form>
+  </div>
+</section>
+
+<script src="/assets/js/meet/common.js" defer></script>
+<script src="/assets/js/meet/admin-common.js" defer></script>
+<script src="/assets/js/meet/admin-new.js" defer></script>
+{% endblock %}
