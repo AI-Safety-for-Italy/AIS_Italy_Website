@@ -106,3 +106,9 @@ __pycache__/
 
 # Local Python environment for scripts/
 .venv/
+
+# Local database for scripts/meet-dev.js
+.meet-dev-db/
+
+# Local credentials (e.g. the Google OAuth client for scripts/meet-google-auth.js)
+.secrets/

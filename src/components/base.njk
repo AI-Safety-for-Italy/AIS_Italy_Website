@@ -260,23 +260,30 @@
   </script>
   {% endif %}
 
+  {# Meeting-poll pages (admin panel and /meet/): their stylesheet, and no
+     referrer so the private poll link never leaks to sites they link to. #}
+  {% if meetHead %}{% include "meet-head.njk" %}{% endif %}
+
   {# Optional: any page can inject extra <head> content via frontmatter extraHead #}
   {% if extraHead %}{{ extraHead | safe }}{% endif %}
 
 </head>
 <body style="background-color: var(--bg-primary); color: var(--text-primary);">
-    {% include "header.njk" %}
+    {# The meeting-poll pages get a bare logo header and footer line instead. #}
+    {% if meetHead %}{% include "meet-header.njk" %}{% else %}{% include "header.njk" %}{% endif %}
 
     <main id="main">
         {% block content %}{% endblock %}
     </main>
 
-    {% include "footer.njk" %}
+    {% if meetHead %}{% include "meet-footer.njk" %}{% else %}{% include "footer.njk" %}{% endif %}
 
     {# Cookie consent for GA4. Rendered only when site.analytics.gaId is set
        (production). main.js shows it until the visitor picks, and gtag.js is
        not requested at all before an "accept". #}
-    {% if site.analytics.gaId %}
+    {# Not on the meeting-poll pages: their URLs carry private poll tokens,
+       which would otherwise be reported to analytics. #}
+    {% if site.analytics.gaId and not meetHead %}
     <div class="consent-banner" id="consentBanner" role="region" aria-label="{{ t.consent.label }}" data-ga-id="{{ site.analytics.gaId }}" hidden>
       <p data-en="{{ translations.en.consent.text }}" data-it="{{ translations.it.consent.text }}">{{ translations.en.consent.text }}</p>
       <div class="consent-actions">

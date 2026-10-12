@@ -1,0 +1,9 @@
+{# Navigation across the admin pages. `adminTab` (front matter) marks the
+   current one. Sign-out is wired by assets/js/meet/admin-common.js. #}
+<div class="admin-bar">
+  <nav class="admin-tabs" aria-label="Admin">
+    <a href="/admin/"{% if adminTab == "polls" %} aria-current="page"{% endif %}>Polls</a>
+    <a href="/admin/new/"{% if adminTab == "new" %} aria-current="page"{% endif %}>New poll</a>
+  </nav>
+  <button type="button" class="link-button" data-sign-out>Sign out</button>
+</div>

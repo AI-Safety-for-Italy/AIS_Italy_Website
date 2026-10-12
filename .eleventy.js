@@ -178,6 +178,8 @@ module.exports = function(eleventyConfig) {
   // Pass through copy
   eleventyConfig.addPassthroughCopy("src/assets/img");
   eleventyConfig.addPassthroughCopy("src/assets/js");
+  // Only the meeting-poll pages load this; style.css is built by PostCSS.
+  eleventyConfig.addPassthroughCopy("src/assets/css/meet.css");
   eleventyConfig.addPassthroughCopy({ "src/assets/fonts": "assets/fonts" });
   // Copy favicons to root
   eleventyConfig.addPassthroughCopy({ "src/assets/img/favicon.svg": "favicon.svg" });

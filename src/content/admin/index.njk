@@ -1,0 +1,59 @@
+---
+title: Admin
+# Not linked from anywhere on the site, not indexed and not in the sitemap.
+# The password check happens in the API (api/admin/*); this page is only a
+# shell that asks it whether the visitor is signed in.
+permalink: /admin/
+noindex: true
+excludeFromSitemap: true
+eleventyExcludeFromCollections: true
+adminTab: polls
+seoTitle: 'Admin | AI Safety for Italy'
+---
+{% extends "base.njk" %}
+{% block content %}
+<section class="page-hero meet-hero">
+  <div class="container">
+    <span class="eyebrow">Admin</span>
+    <h1>Meeting polls</h1>
+  </div>
+</section>
+
+<section class="meet-main">
+  <div class="container">
+    <div data-view="loading"></div>
+
+    <div data-view="login" hidden>
+      <form class="panel login-card form-grid" id="loginForm" novalidate>
+        <div>
+          <img class="brand-mark" src="/assets/img/ais4i-logo.svg" alt="" width="44" height="44">
+          <h2 style="font-size:1.35rem;margin-bottom:.25rem">Sign in</h2>
+        </div>
+        <div>
+          <label class="form-label" for="password">Password</label>
+          <input class="form-input" id="password" name="password" type="password" autocomplete="current-password" required autofocus>
+        </div>
+        <div class="form-error" id="loginError" role="alert" hidden></div>
+        <button class="btn btn-primary" type="submit">Sign in</button>
+      </form>
+    </div>
+
+    <div data-view="dashboard" hidden>
+      {% include "admin-bar.njk" %}
+      <div class="notice" id="calendarNotice" hidden style="margin-bottom:1.25rem">
+        <span>⚠</span>
+        <span>Google Calendar is not connected: invites can’t be sent yet.</span>
+      </div>
+      <div class="panel-head">
+        <h2>Your polls</h2>
+        <a class="btn btn-primary btn-sm" href="/admin/new/">+ New poll</a>
+      </div>
+      <div id="pollList"></div>
+    </div>
+  </div>
+</section>
+
+<script src="/assets/js/meet/common.js" defer></script>
+<script src="/assets/js/meet/admin-common.js" defer></script>
+<script src="/assets/js/meet/admin.js" defer></script>
+{% endblock %}

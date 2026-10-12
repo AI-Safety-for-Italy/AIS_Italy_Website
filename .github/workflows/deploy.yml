@@ -38,6 +38,9 @@ jobs:
       - name: Build site
         run: npm run build
 
+      - name: Test meeting polls
+        run: npm run test:meet
+
   deploy:
     name: Deploy ${{ github.ref_name }}
     needs: checks

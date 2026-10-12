@@ -1,0 +1,42 @@
+---
+title: Meeting poll
+# The page anyone with a poll link lands on: /meet/?p=<token>. vote.js moves
+# Italian speakers to /it/meet/ with the same query, and offers a switch.
+# Which poll it shows comes from the token, read by assets/js/meet/vote.js;
+# without a valid one it shows nothing. Not indexed and not in the sitemap.
+basePath: /meet/
+pagination:
+  data: locales
+  size: 1
+  alias: locale
+permalink: '{{ locale.prefix }}{{ basePath }}'
+noindex: true
+excludeFromSitemap: true
+eleventyExcludeFromCollections: true
+meetHead: true
+seoTitle: 'Meeting poll | AI Safety for Italy'
+seoTitle_it: 'Sondaggio riunione | AI Safety for Italy'
+---
+{% extends "base.njk" %}
+{% block content %}
+<section class="page-hero meet-hero">
+  <div class="container">
+    <div class="meet-hero-top">
+      <span class="eyebrow" data-en="Meeting poll" data-it="Sondaggio per la riunione">Meeting poll</span>
+      <div id="langToggle"></div>
+    </div>
+    <h1 id="pollTitle">&nbsp;</h1>
+    <div class="meet-meta" id="pollMeta"></div>
+    <p class="meet-description" id="pollDescription" hidden></p>
+  </div>
+</section>
+
+<section class="meet-main">
+  <div class="container">
+    <div id="voteView"></div>
+  </div>
+</section>
+
+<script src="/assets/js/meet/common.js" defer></script>
+<script src="/assets/js/meet/vote.js" defer></script>
+{% endblock %}
