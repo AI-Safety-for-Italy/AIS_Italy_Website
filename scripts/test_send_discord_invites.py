@@ -198,11 +198,13 @@ class Main(unittest.TestCase):
     """The loop: one bad row never stops the others, and dry runs touch nothing."""
 
     def setUp(self):
-        # main() prints '::error::' lines, which GitHub would turn into real
-        # error annotations on the run that executes these tests.
-        patcher = mock.patch('builtins.print')
-        patcher.start()
-        self.addCleanup(patcher.stop)
+        # main() prints '::error::' lines and appends to the run summary, which
+        # GitHub would show as real results on the run that executes these
+        # tests. Silence both.
+        for patcher in (mock.patch('builtins.print'),
+                        mock.patch.dict(os.environ, {'GITHUB_STEP_SUMMARY': ''})):
+            patcher.start()
+            self.addCleanup(patcher.stop)
 
     def run_main(self, rows, argv, **patches):
         sheet = mock.Mock(header=sdi.REQUIRED_COLS, rows=rows)
@@ -258,6 +260,9 @@ class Main(unittest.TestCase):
             with self.assertRaises(SystemExit):
                 sdi.main()
         tok.assert_not_called()
+
+    def test_tests_never_write_the_run_summary(self):
+        self.assertEqual(os.environ.get('GITHUB_STEP_SUMMARY'), '')
 
     def test_logs_hold_no_email_name_or_link(self):
         rows = [row()]
