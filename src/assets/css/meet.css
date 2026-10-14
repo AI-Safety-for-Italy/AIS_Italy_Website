@@ -1603,20 +1603,45 @@ dialog.meet-dialog::backdrop {
   gap: 1rem;
 }
 
+.meet-header a.brand,
 .meet-header a.brand:hover {
   color: var(--text-primary);
+  text-decoration: none;
 }
 
-.app-user-inner {
+.app-user {
+  position: relative;
+}
+
+.app-user-button {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
+  gap: 0.55rem;
+  padding: 0.25rem 0.6rem 0.25rem 0.25rem;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-full);
+  background: var(--card-bg);
+  color: var(--text-primary);
+  font: inherit;
   font-size: 0.925rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.app-user-button:hover,
+.app-user-button[aria-expanded='true'] {
+  border-color: var(--accent);
+}
+
+.app-caret {
+  font-size: 0.7rem;
+  color: var(--text-tertiary);
 }
 
 .app-avatar {
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
   object-fit: cover;
   flex: none;
@@ -1632,15 +1657,80 @@ dialog.meet-dialog::backdrop {
   font-size: 0.85rem;
 }
 
-.app-user-name {
-  font-weight: 600;
-  color: var(--text-primary);
+.app-menu-who .app-avatar {
+  width: 36px;
+  height: 36px;
 }
 
 @media (max-width: 520px) {
   .app-user-name {
     display: none;
   }
+}
+
+.app-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.5rem);
+  z-index: 50;
+  min-width: 15rem;
+  padding: 0.4rem;
+  background: var(--card-bg);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+}
+
+.app-menu-who {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.6rem 0.6rem 0.75rem;
+  margin-bottom: 0.3rem;
+  border-bottom: 1px solid var(--border-muted);
+}
+
+.app-menu-who strong {
+  display: block;
+  font-size: 0.95rem;
+}
+
+.app-menu-who small {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--text-tertiary);
+}
+
+.app-menu a,
+.app-menu button {
+  display: block;
+  width: 100%;
+  padding: 0.55rem 0.6rem;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 0.925rem;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.app-menu a:hover,
+.app-menu button:hover,
+.app-menu a:focus-visible,
+.app-menu button:focus-visible {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.app-menu button {
+  color: var(--secondary-600);
+}
+
+[data-theme='dark'] .app-menu button {
+  color: var(--secondary-400);
 }
 
 .discord-btn {
