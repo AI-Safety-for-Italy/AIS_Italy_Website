@@ -9,7 +9,6 @@ const { HttpError } = require('./http');
 const VOTE = { NO: 0, MAYBE: 1, YES: 2 };
 const MAX_SLOTS = 200;
 const MAX_RESPONSES = 300;
-const MAX_EXTRA_EMAILS = 50;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const EMAIL = /^[^\s@<>(),;:"]+@[^\s@<>(),;:"]+\.[^\s@<>(),;:"]+$/;
 
@@ -93,6 +92,19 @@ async function loadPoll(where, value) {
   return rows[0];
 }
 
+/**
+ * A poll by id, but only if `ownerId` owns it. Someone else's poll is reported
+ * as missing rather than forbidden, so ids reveal nothing about other polls.
+ */
+async function loadOwnPoll(id, ownerId) {
+  const { rows } = await db.query('select * from polls where id = $1 and owner_id = $2', [
+    uuid(id),
+    uuid(ownerId, 'owner'),
+  ]);
+  if (!rows.length) throw new HttpError(404, 'Poll not found');
+  return rows[0];
+}
+
 async function loadSlotsAndVotes(pollId) {
   const slots = (
     await db.query('select id, starts_at from poll_slots where poll_id = $1 order by starts_at', [
@@ -151,7 +163,7 @@ function slotList(slots, counts, durationMinutes) {
   }));
 }
 
-async function listPolls() {
+async function listPolls(ownerId) {
   const { rows } = await db.query(
     `select p.*,
        (select count(*)::int from poll_responses r where r.poll_id = p.id) as response_count,
@@ -159,7 +171,8 @@ async function listPolls() {
        (select min(starts_at) from poll_slots s where s.poll_id = p.id) as first_slot,
        (select max(starts_at) from poll_slots s where s.poll_id = p.id) as last_slot,
        (select starts_at from poll_slots s where s.id = p.final_slot_id) as final_start
-     from polls p order by p.created_at desc`
+     from polls p where p.owner_id = $1 order by p.created_at desc`,
+    [uuid(ownerId, 'owner')]
   );
   return rows.map((p) => ({
     ...describe(p),
@@ -171,14 +184,13 @@ async function listPolls() {
   }));
 }
 
-async function getPollAdmin(id) {
-  const poll = await loadPoll('id', uuid(id));
+/** Everything about a poll, emails included, for its owner. */
+async function getPollAdmin(id, ownerId) {
+  const poll = await loadOwnPoll(id, ownerId);
   const { slots, responses, byResponse, counts } = await loadSlotsAndVotes(poll.id);
   return {
     ...describe(poll),
     finalSlotId: poll.final_slot_id,
-    calendarEventLink: poll.calendar_event_link,
-    meetLink: poll.meet_link,
     slots: slotList(slots, counts, poll.duration_minutes),
     responses: responses.map((r) => ({
       id: r.id,
@@ -224,14 +236,15 @@ async function getPollPublic(token, editToken) {
 
 // ── Writing ─────────────────────────────────────────────────────────────────
 
-async function createPoll(body) {
+async function createPoll(body, ownerId) {
   const input = validatePollInput(body);
+  uuid(ownerId, 'owner');
   const token = newToken();
   return db.transaction(async (tx) => {
     const { rows } = await tx.query(
       `insert into polls (token, title, description, location, duration_minutes, timezone,
-                          deadline, hide_responses)
-       values ($1, $2, $3, $4, $5, $6, $7, $8) returning id`,
+                          deadline, hide_responses, owner_id)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9) returning id`,
       [
         token,
         input.title,
@@ -241,6 +254,7 @@ async function createPoll(body) {
         input.timezone,
         input.deadline,
         input.hideResponses,
+        ownerId,
       ]
     );
     const id = rows[0].id;
@@ -251,8 +265,8 @@ async function createPoll(body) {
   });
 }
 
-async function updatePoll(id, body) {
-  const poll = await loadPoll('id', uuid(id));
+async function updatePoll(id, body, ownerId) {
+  const poll = await loadOwnPoll(id, ownerId);
   const next = {
     title: 'title' in body ? text(body.title, 'Title', { max: 200, required: true }) : poll.title,
     description:
@@ -272,7 +286,7 @@ async function updatePoll(id, body) {
   if ('status' in body) {
     if (!['open', 'closed'].includes(body.status)) throw new HttpError(400, 'Invalid status');
     if (poll.status === 'scheduled') {
-      throw new HttpError(409, 'Cancel the scheduled meeting before reopening the poll');
+      throw new HttpError(409, 'Clear the chosen time before reopening the poll');
     }
     next.status = body.status;
   }
@@ -289,18 +303,21 @@ async function updatePoll(id, body) {
       next.status,
     ]
   );
-  return getPollAdmin(poll.id);
+  return getPollAdmin(poll.id, ownerId);
 }
 
-async function deletePoll(id) {
-  await db.query('delete from polls where id = $1', [uuid(id)]);
+async function deletePoll(id, ownerId) {
+  const poll = await loadOwnPoll(id, ownerId);
+  await db.query('delete from polls where id = $1', [poll.id]);
 }
 
-async function deleteResponse(pollId, responseId) {
+async function deleteResponse(pollId, responseId, ownerId) {
+  const poll = await loadOwnPoll(pollId, ownerId);
   await db.query('delete from poll_responses where id = $1 and poll_id = $2', [
     uuid(responseId, 'response'),
-    uuid(pollId),
+    poll.id,
   ]);
+  return getPollAdmin(poll.id, ownerId);
 }
 
 /**
@@ -439,72 +456,35 @@ async function checkAvailability(token, query) {
 }
 
 /**
- * Picks the final slot, creates the calendar event with the chosen people as
- * attendees (the calendar sends the invitations) and marks the poll scheduled.
+ * Marks the time the meeting will happen. Voting closes and the poll page
+ * shows it; sending the invite is up to the owner (the panel offers a
+ * calendar file and every participant's email).
  */
-async function finalizePoll(id, body, calendar) {
-  const poll = await loadPoll('id', uuid(id));
-  if (poll.status === 'scheduled') throw new HttpError(409, 'This poll is already scheduled');
-
+async function finalizePoll(id, body, ownerId) {
+  const poll = await loadOwnPoll(id, ownerId);
+  if (poll.status === 'scheduled') throw new HttpError(409, 'A time has already been chosen');
   const slotId = uuid(body.slotId, 'slot');
-  const slot = (
-    await db.query('select starts_at from poll_slots where id = $1 and poll_id = $2', [
-      slotId,
-      poll.id,
-    ])
-  ).rows[0];
-  if (!slot) throw new HttpError(400, 'That slot is not part of this poll');
-
-  const responses = (
-    await db.query('select id, name, email from poll_responses where poll_id = $1', [poll.id])
-  ).rows;
-  const chosen = Array.isArray(body.responseIds)
-    ? responses.filter((r) => body.responseIds.includes(r.id))
-    : responses;
-  const extra = Array.isArray(body.extraEmails) ? body.extraEmails : [];
-  if (extra.length > MAX_EXTRA_EMAILS) throw new HttpError(400, 'Too many extra guests');
-
-  const attendees = new Map();
-  for (const r of chosen) attendees.set(r.email.toLowerCase(), { email: r.email, name: r.name });
-  for (const e of extra) {
-    const address = email(e, 'Guest email');
-    if (!attendees.has(address)) attendees.set(address, { email: address });
-  }
-
-  const event = await calendar.createEvent({
-    summary: poll.title,
-    description: poll.description,
-    location: poll.location,
-    start: new Date(slot.starts_at),
-    end: slotEnd(slot.starts_at, poll.duration_minutes),
-    timezone: poll.timezone,
-    attendees: [...attendees.values()],
-    createMeet: Boolean(body.createMeet),
-    requestId: `${poll.id}-${Date.now()}`,
-  });
-
+  const { rows } = await db.query('select 1 from poll_slots where id = $1 and poll_id = $2', [
+    slotId,
+    poll.id,
+  ]);
+  if (!rows.length) throw new HttpError(400, 'That slot is not part of this poll');
   await db.query(
-    `update polls set status = 'scheduled', final_slot_id = $2, calendar_event_id = $3,
-       calendar_event_link = $4, meet_link = $5, updated_at = now() where id = $1`,
-    [poll.id, slotId, event.id, event.htmlLink || null, event.meetLink || null]
+    `update polls set status = 'scheduled', final_slot_id = $2, updated_at = now() where id = $1`,
+    [poll.id, slotId]
   );
-  return getPollAdmin(poll.id);
+  return getPollAdmin(poll.id, ownerId);
 }
 
-/**
- * Cancels the calendar event (attendees are notified) and closes the poll
- * again, so a different slot can be picked.
- */
-async function unschedulePoll(id, calendar) {
-  const poll = await loadPoll('id', uuid(id));
-  if (poll.status !== 'scheduled') throw new HttpError(409, 'This poll is not scheduled');
-  if (poll.calendar_event_id) await calendar.deleteEvent(poll.calendar_event_id);
+/** Clears the chosen time; the poll stays closed until it is reopened. */
+async function unschedulePoll(id, ownerId) {
+  const poll = await loadOwnPoll(id, ownerId);
+  if (poll.status !== 'scheduled') throw new HttpError(409, 'No time has been chosen');
   await db.query(
-    `update polls set status = 'closed', final_slot_id = null, calendar_event_id = null,
-       calendar_event_link = null, meet_link = null, updated_at = now() where id = $1`,
+    `update polls set status = 'closed', final_slot_id = null, updated_at = now() where id = $1`,
     [poll.id]
   );
-  return getPollAdmin(poll.id);
+  return getPollAdmin(poll.id, ownerId);
 }
 
 module.exports = {

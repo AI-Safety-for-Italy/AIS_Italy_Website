@@ -1,24 +1,24 @@
 ---
 title: New poll
-permalink: /admin/new/
+permalink: /app/polls/new/
 noindex: true
 excludeFromSitemap: true
 eleventyExcludeFromCollections: true
-adminTab: new
+appTab: new
 seoTitle: 'New poll | AI Safety for Italy'
 ---
 {% extends "base.njk" %}
 {% block content %}
 <section class="page-hero meet-hero">
   <div class="container">
-    <span class="eyebrow">Admin · Meeting polls</span>
+    <span class="eyebrow">Meeting polls</span>
     <h1>New poll</h1>
   </div>
 </section>
 
 <section class="meet-main">
   <div class="container">
-    {% include "admin-bar.njk" %}
+    {% include "app-bar.njk" %}
 
     <form id="pollForm" novalidate>
       <div class="create-layout">
@@ -88,6 +88,6 @@ seoTitle: 'New poll | AI Safety for Italy'
 </section>
 
 <script src="/assets/js/meet/common.js" defer></script>
-<script src="/assets/js/meet/admin-common.js" defer></script>
-<script src="/assets/js/meet/admin-new.js" defer></script>
+<script src="/assets/js/meet/app-common.js" defer></script>
+<script src="/assets/js/meet/poll-new.js" defer></script>
 {% endblock %}

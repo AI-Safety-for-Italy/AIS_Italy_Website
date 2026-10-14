@@ -1,0 +1,54 @@
+---
+title: Sign in
+# Sign-in for the team area. Discord is the normal way in; the admin password
+# is a fallback kept for the association's shared account.
+permalink: /app/login/
+noindex: true
+excludeFromSitemap: true
+eleventyExcludeFromCollections: true
+seoTitle: 'Sign in | AI Safety for Italy'
+---
+{% extends "base.njk" %}
+{% block content %}
+<section class="meet-main">
+  <div class="container">
+    <div class="panel login-card form-grid">
+      <div>
+        <img class="brand-mark" src="/assets/img/ais4i-logo.svg" alt="" width="44" height="44">
+        <h1 style="font-size:1.6rem;margin-bottom:.25rem">Team area</h1>
+        <p class="panel-note">For AI Safety for Italy members.</p>
+      </div>
+
+      <div class="form-error" id="loginError" role="alert" hidden></div>
+
+      <a class="btn discord-btn" id="discordLogin" href="/api/discord" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true" width="20" height="20"><path fill="currentColor" d="M20.32 4.37A19.8 19.8 0 0 0 15.4 2.85a.07.07 0 0 0-.08.04c-.21.38-.45.87-.61 1.25a18.3 18.3 0 0 0-5.49 0 12.6 12.6 0 0 0-.62-1.25.08.08 0 0 0-.08-.04 19.7 19.7 0 0 0-4.92 1.52.07.07 0 0 0-.03.03C.53 9.05-.32 13.58.1 18.06a.08.08 0 0 0 .03.05 19.9 19.9 0 0 0 5.99 3.03.08.08 0 0 0 .08-.03c.46-.63.87-1.3 1.22-2a.08.08 0 0 0-.04-.1 13.1 13.1 0 0 1-1.87-.9.08.08 0 0 1-.01-.12l.37-.29a.07.07 0 0 1 .08-.01c3.93 1.8 8.18 1.8 12.07 0a.07.07 0 0 1 .08 0l.37.3a.08.08 0 0 1 0 .12c-.6.35-1.22.65-1.88.9a.08.08 0 0 0-.04.1c.36.7.77 1.36 1.22 2a.08.08 0 0 0 .08.02 19.8 19.8 0 0 0 6-3.03.08.08 0 0 0 .03-.05c.5-5.18-.84-9.67-3.55-13.66a.06.06 0 0 0-.03-.03ZM8.02 15.33c-1.18 0-2.16-1.08-2.16-2.42 0-1.33.96-2.42 2.16-2.42 1.21 0 2.18 1.1 2.16 2.42 0 1.34-.96 2.42-2.16 2.42Zm7.97 0c-1.18 0-2.15-1.08-2.15-2.42 0-1.33.95-2.42 2.15-2.42 1.22 0 2.18 1.1 2.16 2.42 0 1.34-.94 2.42-2.16 2.42Z"/></svg>
+        Sign in with Discord
+      </a>
+
+      <form class="form-grid" id="devLogin" hidden>
+        <p class="notice" style="margin:0"><span>⚙</span><span>Local development: stands in for Discord.</span></p>
+        <div>
+          <label class="form-label" for="devName">Name</label>
+          <input class="form-input" id="devName" value="Test user" maxlength="60">
+        </div>
+        <button class="btn btn-primary" type="submit">Sign in as this user</button>
+      </form>
+
+      <details class="admin-login">
+        <summary>Admin access</summary>
+        <form class="form-grid" id="passwordLogin" novalidate>
+          <div>
+            <label class="form-label" for="password">Password</label>
+            <input class="form-input" id="password" type="password" autocomplete="current-password" required>
+          </div>
+          <button class="btn btn-outline" type="submit">Sign in</button>
+        </form>
+      </details>
+    </div>
+  </div>
+</section>
+
+<script src="/assets/js/meet/common.js" defer></script>
+<script src="/assets/js/meet/login.js" defer></script>
+{% endblock %}

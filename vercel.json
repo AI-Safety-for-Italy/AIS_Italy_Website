@@ -4,30 +4,76 @@
   "headers": [
     {
       "source": "/robots.txt",
-      "headers": [{ "key": "Content-Type", "value": "text/plain; charset=utf-8" }]
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "text/plain; charset=utf-8"
+        }
+      ]
     },
     {
       "source": "/sitemap.xml",
-      "headers": [{ "key": "Content-Type", "value": "application/xml; charset=utf-8" }]
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/xml; charset=utf-8"
+        }
+      ]
     },
     {
       "source": "/llms.txt",
-      "headers": [{ "key": "Content-Type", "value": "text/plain; charset=utf-8" }]
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "text/plain; charset=utf-8"
+        }
+      ]
     },
     {
-      "source": "/(admin|meet|it/meet)/(.*)",
+      "source": "/(app|meet|it/meet)/(.*)",
       "headers": [
-        { "key": "X-Robots-Tag", "value": "noindex, nofollow" },
-        { "key": "Referrer-Policy", "value": "no-referrer" }
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "no-referrer"
+        }
       ]
     },
     {
       "source": "/api/(.*)",
-      "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow" }]
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow"
+        }
+      ]
     }
   ],
   "devCommand": "npm start",
   "redirects": [
+    {
+      "source": "/admin",
+      "destination": "/app/polls/",
+      "permanent": true
+    },
+    {
+      "source": "/admin/",
+      "destination": "/app/polls/",
+      "permanent": true
+    },
+    {
+      "source": "/admin/new/",
+      "destination": "/app/polls/new/",
+      "permanent": true
+    },
+    {
+      "source": "/admin/poll/",
+      "destination": "/app/polls/poll/",
+      "permanent": true
+    },
     {
       "source": "/streaming",
       "destination": "https://www.youtube.com/live/YEEHur3o_wM",
@@ -50,13 +96,23 @@
     },
     {
       "source": "/:path*",
-      "has": [{ "type": "host", "value": "aisafetycommunity.it" }],
+      "has": [
+        {
+          "type": "host",
+          "value": "aisafetycommunity.it"
+        }
+      ],
       "destination": "https://www.ais4i.it/:path*",
       "permanent": true
     },
     {
       "source": "/:path*",
-      "has": [{ "type": "host", "value": "www.aisafetycommunity.it" }],
+      "has": [
+        {
+          "type": "host",
+          "value": "www.aisafetycommunity.it"
+        }
+      ],
       "destination": "https://www.ais4i.it/:path*",
       "permanent": true
     }

@@ -1,11 +1,12 @@
-{# Header for the meeting-poll pages (admin panel and /meet/): the logo only.
-   These pages are a standalone tool reached by a private link, so they carry
-   none of the site's navigation. #}
+{# Header for the meeting-poll pages (the /app/ area and /meet/): the logo,
+   plus who is signed in on /app/ pages. These pages are reached by direct
+   link, so they carry none of the site's navigation. #}
 <header class="meet-header">
-  <div class="container">
-    <span class="brand">
+  <div class="container meet-header-inner">
+    {% if appArea %}<a class="brand" href="/app/">{% else %}<span class="brand">{% endif %}
       <img src="/assets/img/ais4i-logo.svg" alt="" width="40" height="40">
       <span class="brand-name">AI Safety <span class="brand-accent">for Italy</span></span>
-    </span>
+    {% if appArea %}</a>{% else %}</span>{% endif %}
+    {% if appArea %}<div class="app-user" id="appUser" hidden></div>{% endif %}
   </div>
 </header>

@@ -1,0 +1,33 @@
+---
+title: My polls
+permalink: /app/polls/
+noindex: true
+excludeFromSitemap: true
+eleventyExcludeFromCollections: true
+appTab: polls
+seoTitle: 'Meeting polls | AI Safety for Italy'
+---
+{% extends "base.njk" %}
+{% block content %}
+<section class="page-hero meet-hero">
+  <div class="container">
+    <span class="eyebrow">Team area</span>
+    <h1>Meeting polls</h1>
+  </div>
+</section>
+
+<section class="meet-main">
+  <div class="container">
+    {% include "app-bar.njk" %}
+    <div class="panel-head">
+      <h2>My polls</h2>
+      <a class="btn btn-primary btn-sm" href="/app/polls/new/">+ New poll</a>
+    </div>
+    <div id="pollList"></div>
+  </div>
+</section>
+
+<script src="/assets/js/meet/common.js" defer></script>
+<script src="/assets/js/meet/app-common.js" defer></script>
+<script src="/assets/js/meet/polls-list.js" defer></script>
+{% endblock %}

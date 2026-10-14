@@ -1178,18 +1178,34 @@ textarea.form-input.is-short {
   align-items: start;
 }
 
+/* Side by side, the details panel stays in view while the times scroll. On a
+   phone it would cover the screen, so there it simply follows the times:
+   pick times, then say who you are, then send. */
+@media (min-width: 901px) {
+  .vote-side {
+    position: sticky;
+    top: 1.5rem;
+  }
+}
+
 @media (max-width: 900px) {
   .vote-layout {
     grid-template-columns: minmax(0, 1fr);
   }
-  .vote-layout .vote-side {
-    order: -1;
+  .vote-side .panel {
+    padding: 1.1rem;
+    gap: 0.85rem;
   }
-}
-
-.vote-side {
-  position: sticky;
-  top: 1.5rem;
+  .action-bar {
+    bottom: 0.5rem;
+    padding: 0.6rem 0.6rem 0.6rem 0.9rem;
+  }
+  .action-bar p {
+    font-size: 0.85rem;
+  }
+  .action-bar .btn {
+    padding: 0.6rem 1.1rem;
+  }
 }
 
 .vote-day + .vote-day {
@@ -1576,4 +1592,179 @@ dialog.meet-dialog::backdrop {
   .spinner {
     animation: none;
   }
+}
+
+/* ── Team area (/app/): header user, login, tools ────────────────────────── */
+
+.meet-header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.meet-header a.brand:hover {
+  color: var(--text-primary);
+}
+
+.app-user-inner {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.925rem;
+}
+
+.app-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex: none;
+}
+
+.app-avatar.is-initial {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-100);
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.app-user-name {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+@media (max-width: 520px) {
+  .app-user-name {
+    display: none;
+  }
+}
+
+.discord-btn {
+  background: #5865f2;
+  color: #fff;
+}
+
+.discord-btn:hover {
+  background: #4752c4;
+  color: #fff;
+}
+
+.admin-login summary {
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-tertiary);
+}
+
+.admin-login summary:hover {
+  color: var(--text-primary);
+}
+
+.admin-login[open] summary {
+  margin-bottom: 0.9rem;
+}
+
+.crumbs {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.925rem;
+  color: var(--text-tertiary);
+}
+
+.crumbs a {
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+
+.crumbs a:hover {
+  color: var(--accent);
+}
+
+.crumbs span:last-child {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.tool-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.tool-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.35rem;
+  background: var(--card-bg);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius);
+  color: var(--text-primary);
+  text-decoration: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+a.tool-card:hover {
+  border-color: var(--accent);
+  box-shadow: var(--card-shadow-hover);
+  color: var(--text-primary);
+  transform: translateY(-1px);
+}
+
+.tool-card.is-soon {
+  border-style: dashed;
+  background: transparent;
+  color: var(--text-tertiary);
+}
+
+.tool-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  flex: none;
+  border-radius: 12px;
+  background: var(--accent-100);
+  color: var(--accent);
+}
+
+[data-theme='dark'] .tool-icon {
+  background: rgba(47, 191, 113, 0.14);
+}
+
+.tool-icon svg {
+  width: 24px;
+  height: 24px;
+}
+
+.tool-body {
+  display: grid;
+  gap: 0.2rem;
+  flex: 1;
+}
+
+.tool-body strong {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 600;
+}
+
+.tool-body span {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.tool-card.is-soon .tool-body span {
+  color: var(--text-tertiary);
+}
+
+.tool-arrow {
+  color: var(--accent);
+  font-size: 1.2rem;
 }

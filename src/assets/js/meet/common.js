@@ -443,7 +443,70 @@
     );
   }
 
+  // ── Calendar file ───────────────────────────────────────────────────────
+
+  function icsText(value) {
+    return String(value || '')
+      .replace(/\\/g, '\\\\')
+      .replace(/;/g, '\\;')
+      .replace(/,/g, '\\,')
+      .replace(/\r?\n/g, '\\n');
+  }
+
+  function icsDate(iso) {
+    return new Date(iso)
+      .toISOString()
+      .replace(/[-:]/g, '')
+      .replace(/\.\d{3}/, '');
+  }
+
+  // Lines over 75 characters are folded onto continuation lines (RFC 5545).
+  function icsFold(line) {
+    var out = [];
+    while (line.length > 74) {
+      out.push(line.slice(0, 74));
+      line = ' ' + line.slice(74);
+    }
+    out.push(line);
+    return out.join('\r\n');
+  }
+
+  /** Downloads the chosen time as an .ics file to import into any calendar. */
+  function downloadIcs(poll, slot) {
+    var lines = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//AI Safety for Italy//Meeting polls//EN',
+      'CALSCALE:GREGORIAN',
+      'METHOD:PUBLISH',
+      'BEGIN:VEVENT',
+      'UID:' + poll.id + '@ais4i.it',
+      'DTSTAMP:' + icsDate(new Date().toISOString()),
+      'DTSTART:' + icsDate(slot.start),
+      'DTEND:' + icsDate(slot.end),
+      'SUMMARY:' + icsText(poll.title),
+      poll.description ? 'DESCRIPTION:' + icsText(poll.description) : null,
+      poll.location ? 'LOCATION:' + icsText(poll.location) : null,
+      'END:VEVENT',
+      'END:VCALENDAR',
+    ].filter(Boolean);
+    var blob = new Blob([lines.map(icsFold).join('\r\n') + '\r\n'], {
+      type: 'text/calendar;charset=utf-8',
+    });
+    var a = h('a', {
+      href: URL.createObjectURL(blob),
+      download: (poll.title.replace(/[^\w\s-]/g, '').trim() || 'meeting') + '.ics',
+    });
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () {
+      URL.revokeObjectURL(a.href);
+      a.remove();
+    }, 0);
+  }
+
   window.Meet = {
+    downloadIcs: downloadIcs,
     h: h,
     clear: clear,
     icon: icon,

@@ -68,4 +68,28 @@ create table if not exists login_attempts (
 );
 
 create index if not exists login_attempts_ip on login_attempts (ip, attempted_at);
+
+-- People who can sign in to /app/. 'discord' users are created on their first
+-- Discord login; the single 'admin' user is the shared-password login.
+create table if not exists app_users (
+  id uuid primary key default gen_random_uuid(),
+  kind text not null check (kind in ('admin', 'discord')),
+  discord_id text unique,
+  name text not null,
+  avatar_url text,
+  email text,
+  created_at timestamptz not null default now(),
+  last_login_at timestamptz
+);
+
+create unique index if not exists app_users_one_admin on app_users (kind) where kind = 'admin';
+
+insert into app_users (kind, name)
+  select 'admin', 'Admin' where not exists (select 1 from app_users where kind = 'admin');
+
+-- Every poll belongs to the user who created it. Polls from before accounts
+-- existed go to the admin.
+alter table polls add column if not exists owner_id uuid references app_users(id) on delete cascade;
+create index if not exists polls_owner on polls (owner_id, created_at);
+update polls set owner_id = (select id from app_users where kind = 'admin') where owner_id is null;
 `;

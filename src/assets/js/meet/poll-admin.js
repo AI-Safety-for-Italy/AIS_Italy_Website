@@ -1,4 +1,4 @@
-/* /admin/poll/?id=…: share link, answers, and picking the final time. */
+/* /app/polls/poll/?id=…: share link, answers, and picking the final time. */
 (function () {
   'use strict';
   var M = window.Meet;
@@ -8,25 +8,23 @@
   var id = params.get('id');
   var view = document.getElementById('pollView');
   var dialog = document.getElementById('finalizeDialog');
-  var session = null;
   var poll = null;
 
   view.appendChild(M.loading());
 
-  M.session
-    .then(function (s) {
-      session = s;
-      return M.api('GET', '/api/admin/poll?id=' + encodeURIComponent(id || ''));
+  M.me
+    .then(function () {
+      return M.api('GET', '/api/app/poll?id=' + encodeURIComponent(id || ''));
     })
     .then(function (data) {
       if (params.get('created')) {
         M.toast('Poll created');
-        history.replaceState(null, '', '/admin/poll/?id=' + encodeURIComponent(id));
+        history.replaceState(null, '', '/app/polls/poll/?id=' + encodeURIComponent(id));
       }
       show(data);
     })
     .catch(function (err) {
-      if (err.status === 401) return M.adminError(err);
+      if (err.status === 401) return M.appError(err);
       M.clear(view).appendChild(
         h(
           'div',
@@ -37,7 +35,7 @@
             err.status === 404 || err.status === 400 ? 'Poll not found' : 'Something went wrong'
           ),
           h('p', null, err.message),
-          h('a', { class: 'btn btn-outline', href: '/admin/' }, 'Back to polls')
+          h('a', { class: 'btn btn-outline', href: '/app/polls/' }, 'Back to polls')
         )
       );
     });
@@ -137,10 +135,24 @@
     );
   }
 
-  function scheduledCard() {
-    var slot = poll.slots.find(function (s) {
+  function finalSlot() {
+    return poll.slots.find(function (s) {
       return s.id === poll.finalSlotId;
     });
+  }
+
+  function emails() {
+    return poll.responses.map(function (r) {
+      return r.email;
+    });
+  }
+
+  function copyEmails() {
+    M.copy(emails().join(', '), emails().length + ' emails copied');
+  }
+
+  function scheduledCard() {
+    var slot = finalSlot();
     return h(
       'div',
       { class: 'final-card', style: 'margin-bottom:1.25rem' },
@@ -148,7 +160,7 @@
       h(
         'div',
         null,
-        h('h2', null, 'Scheduled · ' + M.fmtDay(slot.start, poll.timezone)),
+        h('h2', null, M.fmtDay(slot.start, poll.timezone)),
         h(
           'p',
           null,
@@ -157,39 +169,33 @@
             M.fmtTime(slot.end, poll.timezone) +
             ' (' +
             M.tzLabel(poll.timezone) +
-            ') · Invites sent'
+            ')'
         ),
         h(
           'div',
           { class: 'final-actions' },
-          poll.calendarEventLink
+          h(
+            'button',
+            {
+              type: 'button',
+              class: 'btn btn-ghost btn-sm',
+              onclick: function () {
+                M.downloadIcs(poll, slot);
+              },
+            },
+            'Download calendar event'
+          ),
+          poll.responses.length
             ? h(
-                'a',
-                {
-                  class: 'btn btn-ghost btn-sm',
-                  href: poll.calendarEventLink,
-                  target: '_blank',
-                  rel: 'noopener',
-                },
-                'Open in Google Calendar'
-              )
-            : null,
-          poll.meetLink
-            ? h(
-                'a',
-                {
-                  class: 'btn btn-ghost btn-sm',
-                  href: poll.meetLink,
-                  target: '_blank',
-                  rel: 'noopener',
-                },
-                'Google Meet link'
+                'button',
+                { type: 'button', class: 'btn btn-ghost btn-sm', onclick: copyEmails },
+                'Copy emails (' + poll.responses.length + ')'
               )
             : null,
           h(
             'button',
             { type: 'button', class: 'btn btn-ghost btn-sm', onclick: unschedule },
-            'Cancel meeting'
+            'Change time'
           )
         )
       )
@@ -239,7 +245,7 @@
                     openFinalize(slot);
                   },
                 },
-                'Pick'
+                'Choose'
               )
             );
           }
@@ -273,6 +279,15 @@
             },
           },
           'Reopen voting'
+        )
+      );
+    }
+    if (poll.responses.length) {
+      actions.push(
+        h(
+          'button',
+          { type: 'button', class: 'btn btn-outline btn-sm', onclick: copyEmails },
+          'Copy emails'
         )
       );
     }
@@ -310,22 +325,22 @@
   // ── Actions ────────────────────────────────────────────────────────────────
 
   function setStatus(status) {
-    M.api('PATCH', '/api/admin/poll?id=' + encodeURIComponent(id), { status: status })
+    M.api('PATCH', '/api/app/poll?id=' + encodeURIComponent(id), { status: status })
       .then(function (data) {
         show(data);
         M.toast(status === 'open' ? 'Voting reopened' : 'Voting closed');
       })
-      .catch(M.adminError);
+      .catch(M.appError);
   }
 
   function deletePoll() {
     if (!window.confirm('Delete “' + poll.title + '” and all its answers? This cannot be undone.'))
       return;
-    M.api('DELETE', '/api/admin/poll?id=' + encodeURIComponent(id))
+    M.api('DELETE', '/api/app/poll?id=' + encodeURIComponent(id))
       .then(function () {
-        window.location.href = '/admin/';
+        window.location.href = '/app/polls/';
       })
-      .catch(M.adminError);
+      .catch(M.appError);
   }
 
   function deleteResponse(r) {
@@ -336,25 +351,23 @@
     }
     M.api(
       'DELETE',
-      '/api/admin/poll?id=' + encodeURIComponent(id) + '&response=' + encodeURIComponent(r.id)
+      '/api/app/poll?id=' + encodeURIComponent(id) + '&response=' + encodeURIComponent(r.id)
     )
       .then(function (data) {
         show(data);
         M.toast(r.name + ' removed');
       })
-      .catch(M.adminError);
+      .catch(M.appError);
   }
 
   function unschedule() {
-    if (!window.confirm('Cancel this meeting? Everyone invited will be notified.')) {
-      return;
-    }
-    M.api('POST', '/api/admin/poll?id=' + encodeURIComponent(id) + '&action=unschedule', {})
+    if (!window.confirm('Clear the chosen time? You can then pick another one.')) return;
+    M.api('POST', '/api/app/poll?id=' + encodeURIComponent(id) + '&action=unschedule', {})
       .then(function (data) {
         show(data);
-        M.toast('Meeting cancelled');
+        M.toast('Time cleared');
       })
-      .catch(M.adminError);
+      .catch(M.appError);
   }
 
   // ── Finalize dialog ────────────────────────────────────────────────────────
@@ -378,72 +391,29 @@
       ' available' +
       (slot.maybe ? ', ' + slot.maybe + ' if needed' : '');
 
-    var list = M.clear(document.getElementById('inviteeList'));
-    if (!poll.responses.length) {
-      list.appendChild(
-        h('p', { class: 'panel-note', style: 'padding:.5rem 0' }, 'No answers yet.')
-      );
-    }
-    poll.responses.forEach(function (r) {
-      var v = r.votes[slot.id] || 0;
-      list.appendChild(
-        h(
-          'label',
-          null,
-          h('input', { type: 'checkbox', value: r.id, checked: true }),
-          h('span', null, r.name, ' ', h('span', { class: 'panel-note' }, r.email)),
-          h('small', null, ['can’t make it', 'if needed', 'available'][v])
-        )
-      );
-    });
-
-    document.getElementById('extraEmails').value = '';
-    document.getElementById('createMeet').checked = !poll.location;
-    var connected = session && session.calendarConnected;
-    document.getElementById('finalizeCalendarNotice').hidden = connected;
-    submit.disabled = !connected;
     dialog.showModal();
   }
 
   document.getElementById('finalizeForm').addEventListener('submit', function (e) {
     if (e.submitter && e.submitter.value === 'cancel') return;
     e.preventDefault();
-    var responseIds = Array.from(document.querySelectorAll('#inviteeList input:checked')).map(
-      function (input) {
-        return input.value;
-      }
-    );
-    var extraEmails = document
-      .getElementById('extraEmails')
-      .value.split(/[\s,;]+/)
-      .filter(Boolean);
-    if (!responseIds.length && !extraEmails.length) {
-      finalizeError.textContent = 'Choose at least one person to invite.';
-      finalizeError.hidden = false;
-      return;
-    }
     submit.disabled = true;
-    submit.textContent = 'Sending…';
-    M.api('POST', '/api/admin/poll?id=' + encodeURIComponent(id) + '&action=finalize', {
+    M.api('POST', '/api/app/poll?id=' + encodeURIComponent(id) + '&action=finalize', {
       slotId: chosenSlot.id,
-      responseIds: responseIds,
-      extraEmails: extraEmails,
-      createMeet: document.getElementById('createMeet').checked,
     })
       .then(function (data) {
         dialog.close();
         show(data);
         window.scrollTo({ top: 0, behavior: 'smooth' });
-        M.toast('Invitations sent');
+        M.toast('Time chosen');
       })
       .catch(function (err) {
-        if (err.status === 401) return M.adminError(err);
+        if (err.status === 401) return M.appError(err);
         finalizeError.textContent = err.message;
         finalizeError.hidden = false;
       })
       .then(function () {
         submit.disabled = false;
-        submit.textContent = 'Send calendar invite';
       });
   });
 })();

@@ -1,4 +1,4 @@
-/* /admin/new/: the poll form and the week calendar used to pick times.
+/* /app/polls/new/: the poll form and the week calendar used to pick times.
  *
  * Slots are kept as UTC milliseconds; the grid shows them on the wall clock of
  * the chosen time zone. Pointer interaction on the grid:
@@ -511,7 +511,7 @@
     }
     var button = document.getElementById('createBtn');
     button.disabled = true;
-    M.api('POST', '/api/admin/polls', {
+    M.api('POST', '/api/app/polls', {
       title: form.title.value,
       description: form.description.value,
       location: form.location.value,
@@ -524,11 +524,12 @@
       }),
     })
       .then(function (created) {
-        window.location.href = '/admin/poll/?id=' + encodeURIComponent(created.id) + '&created=1';
+        window.location.href =
+          '/app/polls/poll/?id=' + encodeURIComponent(created.id) + '&created=1';
       })
       .catch(function (err) {
         button.disabled = false;
-        if (err.status === 401) return M.adminError(err);
+        if (err.status === 401) return M.appError(err);
         formError.textContent = err.message;
         formError.hidden = false;
       });
@@ -539,7 +540,7 @@
     if (!drag) render();
   }, 5 * 60 * 1000);
 
-  M.session.then(function () {
+  M.me.then(function () {
     setDuration(60);
   });
 })();

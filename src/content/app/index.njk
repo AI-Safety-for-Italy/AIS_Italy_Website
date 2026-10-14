@@ -1,0 +1,50 @@
+---
+title: Tools
+# Landing page after sign-in: the tools a member can use. Add a card here for
+# each new tool.
+permalink: /app/
+noindex: true
+excludeFromSitemap: true
+eleventyExcludeFromCollections: true
+seoTitle: 'Team area | AI Safety for Italy'
+tools:
+  - title: Meeting polls
+    url: /app/polls/
+    icon: calendar
+    text: Propose times and find the one that works for everyone.
+---
+{% extends "base.njk" %}
+{% block content %}
+<section class="page-hero meet-hero">
+  <div class="container">
+    <span class="eyebrow">Team area</span>
+    <h1 id="hello">Tools</h1>
+  </div>
+</section>
+
+<section class="meet-main">
+  <div class="container">
+    <div class="tool-grid">
+      {%- for tool in tools %}
+      <a class="tool-card" href="{{ tool.url }}">
+        <span class="tool-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="16" rx="2.5"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4M8 14h3"/></svg>
+        </span>
+        <span class="tool-body">
+          <strong>{{ tool.title }}</strong>
+          <span>{{ tool.text }}</span>
+        </span>
+        <span class="tool-arrow" aria-hidden="true">→</span>
+      </a>
+      {%- endfor %}
+      <div class="tool-card is-soon" aria-hidden="true">
+        <span class="tool-body"><strong>More tools</strong><span>Coming later.</span></span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script src="/assets/js/meet/common.js" defer></script>
+<script src="/assets/js/meet/app-common.js" defer></script>
+<script src="/assets/js/meet/hub.js" defer></script>
+{% endblock %}

@@ -8,7 +8,8 @@
 // Defaults, all overridable from the environment:
 //   - database: PGlite stored in .meet-dev-db/ (DATABASE_URL to use Postgres)
 //   - admin password: "admin"
-//   - Google Calendar: a fake that only logs (set the GOOGLE_* vars for real)
+//   - Discord sign-in: a stand-in that signs in under any name (set the
+//     DISCORD_* vars to use a real Discord app)
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
@@ -22,7 +23,8 @@ process.env.SESSION_SECRET ||= 'local-development-secret-not-for-production';
 if (!process.env.ADMIN_PASSWORD_HASH) {
   process.env.ADMIN_PASSWORD_HASH = require('../server/auth').hashPassword('admin');
 }
-if (!process.env.GOOGLE_REFRESH_TOKEN) process.env.MEET_FAKE_CALENDAR ||= '1';
+// Without a Discord app to sign in with, offer a stand-in on the login page.
+if (!process.env.DISCORD_CLIENT_ID) process.env.MEET_DEV_LOGIN ||= '1';
 
 const db = require('../server/db');
 if (!process.env.DATABASE_URL) {
@@ -78,14 +80,14 @@ const server = http.createServer((req, res) => {
 
 db.ensureSchema().then(() => {
   server.listen(PORT, () => {
-    console.log(`Meeting polls running at http://localhost:${PORT}/admin/`);
+    console.log(`Team area running at http://localhost:${PORT}/app/`);
     console.log(
       process.env.DATABASE_URL ? 'Database: DATABASE_URL' : 'Database: PGlite in .meet-dev-db/'
     );
     console.log(
-      process.env.MEET_FAKE_CALENDAR === '1'
-        ? 'Calendar: fake (events are only logged here)'
-        : 'Calendar: Google'
+      process.env.MEET_DEV_LOGIN === '1'
+        ? 'Sign-in: local stand-in for Discord (any name), or password "admin"'
+        : 'Sign-in: Discord, or the admin password'
     );
   });
 });
