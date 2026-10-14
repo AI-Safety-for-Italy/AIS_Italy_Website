@@ -1594,7 +1594,7 @@ dialog.meet-dialog::backdrop {
   }
 }
 
-/* ── Team area (/app/): header user, login, tools ────────────────────────── */
+/* ── Personal area (/app/): header user, login, tools ────────────────────────── */
 
 .meet-header-inner {
   display: flex;
