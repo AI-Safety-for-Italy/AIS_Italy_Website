@@ -6,7 +6,26 @@
   var M = window.Meet;
   var h = M.h;
 
+  // The last signed-in user, so the next page can draw the header before the
+  // session check answers (see meet-head.njk and meet-header.njk).
+  var CACHE = 'ais-user';
+  function remember(user) {
+    try {
+      if (user) {
+        window.localStorage.setItem(
+          CACHE,
+          JSON.stringify({ name: user.name, avatarUrl: user.avatarUrl, kind: user.kind })
+        );
+      } else {
+        window.localStorage.removeItem(CACHE);
+      }
+    } catch (e) {
+      /* storage blocked: the header just appears a moment later */
+    }
+  }
+
   function toLogin() {
+    remember(null);
     window.location.replace(
       '/app/login/?next=' + encodeURIComponent(window.location.pathname + window.location.search)
     );
@@ -49,6 +68,7 @@
           role: 'menuitem',
           onclick: function () {
             M.api('DELETE', '/api/auth').then(function () {
+              remember(null);
               window.location.href = '/app/login/';
             });
           },
@@ -89,20 +109,19 @@
       }
     });
 
+    M.clear(slot);
     slot.appendChild(button);
     slot.appendChild(menu);
-    slot.hidden = false;
   }
 
   /** Resolves with the signed-in user ({ id, kind, name, avatarUrl }). */
   M.me = M.api('GET', '/api/auth').then(function (info) {
     if (!info.user) return toLogin();
+    remember(info.user);
     showUser(info.user);
-    if (info.user.kind === 'admin') {
-      document.querySelectorAll('[data-admin-only]').forEach(function (el) {
-        el.hidden = false;
-      });
-    }
+    // Admin-only items are shown by CSS once <html> has data-admin.
+    if (info.user.kind === 'admin') document.documentElement.setAttribute('data-admin', '');
+    else document.documentElement.removeAttribute('data-admin');
     return info.user;
   });
 

@@ -14,6 +14,7 @@ noindex: true
 excludeFromSitemap: true
 eleventyExcludeFromCollections: true
 meetHead: true
+langRedirect: true
 seoTitle: 'Meeting poll | AI Safety for Italy'
 seoTitle_it: 'Sondaggio riunione | AI Safety for Italy'
 ---
@@ -23,9 +24,14 @@ seoTitle_it: 'Sondaggio riunione | AI Safety for Italy'
   <div class="container">
     <div class="meet-hero-top">
       <span class="eyebrow" data-en="Meeting poll" data-it="Sondaggio per la riunione">Meeting poll</span>
-      <div id="langToggle"></div>
+      {# Marked for this page's language at build time, so it never changes
+         after showing; vote.js makes the buttons switch. #}
+      <div class="lang-toggle" id="langToggle" role="group" aria-label="Language / Lingua">
+        <button type="button" lang="it" title="Italiano" aria-pressed="{{ 'true' if lang == 'it' else 'false' }}">IT</button>
+        <button type="button" lang="en" title="English" aria-pressed="{{ 'true' if lang == 'en' else 'false' }}">EN</button>
+      </div>
     </div>
-    <h1 id="pollTitle">&nbsp;</h1>
+    <h1 id="pollTitle"><span class="skeleton skeleton-title" aria-hidden="true"></span></h1>
     <div class="meet-meta" id="pollMeta"></div>
     <p class="meet-description" id="pollDescription" hidden></p>
   </div>

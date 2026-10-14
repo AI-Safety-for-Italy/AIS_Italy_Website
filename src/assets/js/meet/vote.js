@@ -124,63 +124,26 @@
   var view = document.getElementById('voteView');
 
   // ── Language ──────────────────────────────────────────────────────────────
-  // One link is shared for everyone (/meet/?p=…). The page opens in the
-  // language picked last time on this browser, or else the browser's own
-  // language, by moving between /meet/ and /it/meet/ with the same query.
+  // One link is shared for everyone (/meet/?p=…). An inline script in the
+  // page's <head> (components/meet-head.njk) already moved to the language
+  // picked last time, or the browser's own, before anything was drawn; the
+  // IT/EN switch here remembers a new choice and moves between /meet/ and
+  // /it/meet/ with the same query.
   var LANG_KEY = 'meet-lang';
 
-  function urlFor(code) {
-    return (code === 'it' ? '/it' : '') + '/meet/' + window.location.search;
-  }
-
-  function choose(code) {
-    try {
-      window.localStorage.setItem(LANG_KEY, code);
-    } catch (e) {
-      /* the switch still works for this visit */
-    }
-    if (code !== lang) window.location.href = urlFor(code);
-  }
-
-  var wanted;
-  try {
-    wanted = window.localStorage.getItem(LANG_KEY);
-  } catch (e) {
-    wanted = null;
-  }
-  if (!wanted) {
-    var first = (navigator.languages && navigator.languages[0]) || navigator.language || '';
-    wanted = /^it\b/i.test(first) ? 'it' : 'en';
-  }
-  if (wanted !== lang) {
-    window.location.replace(urlFor(wanted));
-    return;
-  }
-
-  document.getElementById('langToggle').appendChild(
-    h(
-      'div',
-      { class: 'lang-toggle', role: 'group', 'aria-label': 'Language / Lingua' },
-      [
-        ['it', 'IT', 'Italiano'],
-        ['en', 'EN', 'English'],
-      ].map(function (opt) {
-        return h(
-          'button',
-          {
-            type: 'button',
-            lang: opt[0],
-            title: opt[2],
-            'aria-pressed': String(opt[0] === lang),
-            onclick: function () {
-              choose(opt[0]);
-            },
-          },
-          opt[1]
-        );
-      })
-    )
-  );
+  document.querySelectorAll('#langToggle button').forEach(function (button) {
+    button.addEventListener('click', function () {
+      var code = button.getAttribute('lang');
+      try {
+        window.localStorage.setItem(LANG_KEY, code);
+      } catch (e) {
+        /* the switch still works for this visit */
+      }
+      if (code !== lang) {
+        window.location.href = (code === 'it' ? '/it' : '') + '/meet/' + window.location.search;
+      }
+    });
+  });
 
   function stored() {
     try {

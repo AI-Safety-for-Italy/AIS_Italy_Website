@@ -1611,6 +1611,46 @@ dialog.meet-dialog::backdrop {
 
 .app-user {
   position: relative;
+  /* Keeps the header the same height before and after the profile shows. */
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+}
+
+/* Shown only to the admin: <html data-admin> (see meet-head.njk). */
+.admin-only {
+  display: none !important;
+}
+
+html[data-admin] .admin-only {
+  display: revert !important;
+}
+
+/* Placeholder for text still loading, so the layout doesn't jump. */
+.skeleton {
+  display: inline-block;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--bg-tertiary), var(--border-muted), var(--bg-tertiary));
+  background-size: 200% 100%;
+  animation: skeleton 1.2s ease-in-out infinite;
+}
+
+.skeleton-title {
+  width: min(22rem, 70%);
+  height: 0.9em;
+  vertical-align: middle;
+}
+
+@keyframes skeleton {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+  }
 }
 
 .app-user-button {

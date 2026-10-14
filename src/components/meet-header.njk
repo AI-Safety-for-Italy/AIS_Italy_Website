@@ -12,6 +12,34 @@
       <img src="/assets/img/ais4i-logo.svg" alt="" width="40" height="40">
       <span class="brand-name">AI Safety <span class="brand-accent">for Italy</span></span>
     </a>
-    {% if appArea %}<div class="app-user" id="appUser" hidden></div>{% endif %}
+    {%- if appArea %}
+    <div class="app-user" id="appUser"></div>
+    <script>
+      /* Draw last visit's profile button at once (see meet-head.njk);
+         app-common.js replaces it once the session is confirmed. */
+      (function () {
+        try {
+          var u = JSON.parse(localStorage.getItem('ais-user') || 'null');
+          if (!u || !u.name) return;
+          var b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'app-user-button';
+          var a = document.createElement(u.avatarUrl ? 'img' : 'span');
+          a.className = 'app-avatar' + (u.avatarUrl ? '' : ' is-initial');
+          if (u.avatarUrl) { a.src = u.avatarUrl; a.alt = ''; } else { a.textContent = u.name.charAt(0); }
+          var n = document.createElement('span');
+          n.className = 'app-user-name';
+          n.textContent = u.name;
+          var c = document.createElement('span');
+          c.className = 'app-caret';
+          c.textContent = '\u25be';
+          b.appendChild(a); b.appendChild(n); b.appendChild(c);
+          document.getElementById('appUser').appendChild(b);
+        } catch (e) {
+          /* nothing cached: app-common.js draws it when it can */
+        }
+      })();
+    </script>
+    {%- endif %}
   </div>
 </header>
