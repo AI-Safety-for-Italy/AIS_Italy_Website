@@ -5,7 +5,7 @@
 //   DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET  the Discord application (the one
 //                                             the invite bot belongs to works)
 //   DISCORD_GUILD_ID                          the AIS server
-//   DISCORD_ROLE_IDS                          comma-separated role ids allowed in
+//   DISCORD_ROLES_IDS                          comma-separated role ids allowed in
 //
 // All four are required; without them Discord sign-in is simply not offered.
 // The redirect URL to register on the application is
@@ -28,7 +28,7 @@ function config() {
     clientId: env.DISCORD_CLIENT_ID,
     clientSecret: env.DISCORD_CLIENT_SECRET,
     guildId: env.DISCORD_GUILD_ID,
-    roleIds: String(env.DISCORD_ROLE_IDS || '')
+    roleIds: String(env.DISCORD_ROLES_IDS || '')
       .split(',')
       .map((s) => s.trim())
       .filter(Boolean),
@@ -39,7 +39,7 @@ const REQUIRED = [
   'DISCORD_CLIENT_ID',
   'DISCORD_CLIENT_SECRET',
   'DISCORD_GUILD_ID',
-  'DISCORD_ROLE_IDS',
+  'DISCORD_ROLES_IDS',
 ];
 
 /** Names (never values) of the settings still missing, to help set it up. */

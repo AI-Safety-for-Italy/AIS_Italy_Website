@@ -459,7 +459,7 @@ function discordEnv() {
     DISCORD_CLIENT_ID: 'cid',
     DISCORD_CLIENT_SECRET: 'csecret',
     DISCORD_GUILD_ID: 'guild1',
-    DISCORD_ROLE_IDS: 'roleA, roleB',
+    DISCORD_ROLES_IDS: 'roleA, roleB',
   });
 }
 

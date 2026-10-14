@@ -41,7 +41,7 @@ the terminal instead of sent. Set `DATABASE_URL`, the `DISCORD_*` variables or
 | `DISCORD_CLIENT_ID`     | Discord Developer Portal → the AIS application → OAuth2                       |
 | `DISCORD_CLIENT_SECRET` | Same page ("Reset Secret"; the bot token is not affected)                     |
 | `DISCORD_GUILD_ID`      | Discord, Developer Mode on → right-click the server → Copy ID                 |
-| `DISCORD_ROLE_IDS`      | Roles allowed in, comma-separated (Server Settings → Roles → Copy ID)         |
+| `DISCORD_ROLES_IDS`     | Roles allowed in, comma-separated (Server Settings → Roles → Copy ID)         |
 
 On the Discord application, add a redirect for every host the site runs on:
 `https://www.ais4i.it/api/discord`, `https://ais4i-dev.vercel.app/api/discord`
@@ -49,7 +49,7 @@ and `http://localhost:8080/api/discord`.
 
 Discord sign-in asks for the member's identity, email and server membership,
 and lets in only members of `DISCORD_GUILD_ID` holding one of
-`DISCORD_ROLE_IDS`. The role is checked at each sign-in; a session lasts 7 days.
+`DISCORD_ROLES_IDS`. The role is checked at each sign-in; a session lasts 7 days.
 
 | `DISCORD_BOT_TOKEN` | The invite bot's token (already a GitHub secret): lets the site send Discord DMs |
 
