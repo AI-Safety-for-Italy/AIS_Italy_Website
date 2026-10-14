@@ -736,7 +736,7 @@ test('owners are notified the way they chose, and not at all when they opt out',
 
 test('Discord notifications go by DM, and fall back to email when the DM fails', async () => {
   const sent = await fakeMail();
-  process.env.DISCORD_BOT_TOKEN = 'bot-token';
+  process.env.DISCORD_BOT_TOKEN_AIS_TEAM_AREA = 'bot-token';
   const user = await auth.upsertDiscordUser({
     discordId: '777',
     name: 'D',
@@ -759,7 +759,7 @@ test('Discord notifications go by DM, and fall back to email when the DM fails',
   notify.setFetch(async () => reply(403, { code: 50007 }));
   assert.deepEqual(await notify.notifyOwner(id, message), ['email']);
   assert.equal(sent.at(-1).to, 'd@example.org');
-  delete process.env.DISCORD_BOT_TOKEN;
+  delete process.env.DISCORD_BOT_TOKEN_AIS_TEAM_AREA;
 });
 
 test('answering through the API notifies the owner of a new answer only', async () => {

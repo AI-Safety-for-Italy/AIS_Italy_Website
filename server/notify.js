@@ -46,13 +46,13 @@ function setFetch(fn) {
 }
 
 function discordAvailable() {
-  return Boolean(process.env.DISCORD_BOT_TOKEN);
+  return Boolean(process.env.DISCORD_BOT_TOKEN_AIS_TEAM_AREA);
 }
 
 /** Sends a direct message from the AIS bot. Fails if the user blocks DMs. */
 async function discordDm(discordId, content) {
   const headers = {
-    Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+    Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN_AIS_TEAM_AREA}`,
     'Content-Type': 'application/json',
   };
   const channel = await fetchImpl(`${DISCORD_API}/users/@me/channels`, {

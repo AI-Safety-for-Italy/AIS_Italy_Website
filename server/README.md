@@ -51,7 +51,7 @@ Discord sign-in asks for the member's identity, email and server membership,
 and lets in only members of `DISCORD_GUILD_ID` holding one of
 `DISCORD_ROLES_IDS`. The role is checked at each sign-in; a session lasts 7 days.
 
-| `DISCORD_BOT_TOKEN` | The invite bot's token (already a GitHub secret): lets the site send Discord DMs |
+| `DISCORD_BOT_TOKEN_AIS_TEAM_AREA` | The team-area application's bot token (Developer Portal → Bot), with the bot added to the AIS server: lets the site send Discord DMs |
 
 ### Email
 
