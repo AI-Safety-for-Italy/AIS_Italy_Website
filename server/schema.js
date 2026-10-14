@@ -125,4 +125,9 @@ create table if not exists poll_invites (
 );
 
 create unique index if not exists poll_invites_email on poll_invites (poll_id, lower(email));
+
+-- Who was emailed the calendar invite for the chosen time, so a change of
+-- time can send them the cancellation; and the event's revision number.
+alter table polls add column if not exists invited_to_meeting text[];
+alter table polls add column if not exists meeting_sequence integer not null default 0;
 `;

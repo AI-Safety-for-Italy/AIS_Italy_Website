@@ -1,5 +1,5 @@
 // Outgoing email (invites to invite-only polls, notifications to owners),
-// sent over SMTP with the settings the admin saves on /app/settings/.
+// sent over SMTP with the settings the admin saves on /app/polls/settings/.
 //
 // The SMTP password is kept encrypted (AES-256-GCM, key derived from
 // SESSION_SECRET), so the database alone does not reveal it. Rotating
@@ -100,12 +100,19 @@ function setTransportFactory(fn) {
 }
 
 /**
- * Sends one message: { to, subject, text, html, replyTo }.
+ * Sends one message: { to, subject, text, html, replyTo, senderName }.
+ * `senderName` (the person behind it) is shown before the mailbox's own name,
+ * e.g. "Anna Rossi · AI Safety for Italy"; the address stays the mailbox's.
  * Throws HttpError(503) when email is not set up.
  */
 async function send(message) {
   if (process.env.MEET_FAKE_MAIL === '1') {
-    console.log(`[fake mail] to ${message.to}: ${message.subject}\n${message.text}\n`);
+    const from = message.senderName ? `${message.senderName} · ` : '';
+    const reply = message.replyTo ? ` (reply to ${message.replyTo})` : '';
+    const ical = message.icalEvent ? ` [calendar ${message.icalEvent.method} attached]` : '';
+    console.log(
+      `[fake mail] from ${from}mailbox to ${message.to}${reply}${ical}: ${message.subject}\n${message.text}\n`
+    );
     return;
   }
   const s = await readSettings();
@@ -122,9 +129,14 @@ async function send(message) {
     greetingTimeout: 10_000,
   });
   await transport.sendMail({
-    from: { name: s.fromName, address: s.fromEmail },
+    from: {
+      name: message.senderName ? `${message.senderName} · ${s.fromName}` : s.fromName,
+      address: s.fromEmail,
+    },
     to: message.to,
     replyTo: message.replyTo,
+    // A calendar invitation, shown by mail apps as an event to add.
+    icalEvent: message.icalEvent,
     subject: message.subject,
     text: message.text,
     html: message.html,

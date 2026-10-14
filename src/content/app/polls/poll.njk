@@ -32,7 +32,21 @@ seoTitle: 'Poll | AI Safety for Italy'
         <h2 id="finalizeTitle"></h2>
         <p class="panel-note" id="finalizeWhen"></p>
       </div>
-      <p class="panel-note" style="margin:0">Voting closes and the poll page shows this time. You can then download the calendar event and copy everyone’s email.</p>
+      <p class="panel-note" style="margin:0">Voting closes and the poll page shows this time.</p>
+      <label class="check-row">
+        <input type="checkbox" id="sendInvite">
+        <span>Email the calendar invite<br><span class="panel-note" id="sendInviteNote">From the team mailbox, with the event attached.</span></span>
+      </label>
+      <div id="inviteFields" hidden class="form-grid">
+        <div>
+          <span class="form-label">Send it to</span>
+          <div class="invitee-list" id="inviteeList"></div>
+        </div>
+        <div>
+          <label class="form-label" for="extraEmails">Others <span class="panel-note">(optional)</span></label>
+          <textarea class="form-input is-compact is-short" id="extraEmails" placeholder="name@example.org"></textarea>
+        </div>
+      </div>
       <div class="form-error" id="finalizeError" role="alert" hidden></div>
     </div>
     <div class="dialog-foot">

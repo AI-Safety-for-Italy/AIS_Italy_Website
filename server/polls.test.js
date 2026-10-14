@@ -632,14 +632,21 @@ test('only invited guests can see and answer an invite-only poll, as their own a
   );
   assert.equal(created.invites.length, 2);
   const poll = await polls.getPollAdmin(created.id, me);
+  await auth.updateProfile(me, { notifyChannel: 'email', notifyEmail: 'owner@example.org' });
   const outcome = await notify.sendInvites({
     poll,
-    ownerName: 'Owner',
+    ownerId: me,
     invites: created.invites,
     origin: 'https://site',
   });
   assert.deepEqual(outcome, { sent: 2, failed: 0 });
   assert.equal(sent.length, 2);
+  // The invitation says who sent it, and replies go to them.
+  assert.equal(sent[0].from.name, 'Owner · AI Safety for Italy');
+  assert.equal(sent[0].from.address, 'tech@ais4i.it');
+  assert.equal(sent[0].replyTo, 'owner@example.org');
+  assert.equal(sent[0].subject, 'Owner ti invita: Board meeting');
+  assert.match(sent[0].text, /^Owner ti invita/);
   assert.ok(
     sent[0].text.includes(`https://site/meet/?p=${created.token}&i=${created.invites[0].token}`)
   );
@@ -797,4 +804,75 @@ test('only the admin can change email settings', async () => {
     res
   );
   assert.equal(res.statusCode, 403);
+});
+
+// ── Calendar invite for the chosen time ────────────────────────────────────
+
+const ics = require('./ics');
+
+test('calendar files escape text, fold long lines and name one attendee', () => {
+  const text = ics.build(
+    { id: 'p1', title: 'Riunione; direttivo, Q4', description: 'Ordine:\n' + 'è'.repeat(60) },
+    { start: '2026-10-20T08:00:00Z', end: '2026-10-20T09:00:00Z' },
+    {
+      method: 'REQUEST',
+      sequence: 2,
+      organizer: { name: 'Anna', email: 'tech@ais4i.it' },
+      attendee: { name: 'Giulia', email: 'g@example.org' },
+    }
+  );
+  assert.match(text, /^BEGIN:VCALENDAR\r\n/);
+  assert.match(text, /METHOD:REQUEST\r\n/);
+  assert.ok(text.includes('SUMMARY:Riunione\\; direttivo\\, Q4\r\n'));
+  assert.match(text, /DTSTART:20261020T080000Z/);
+  assert.match(text, /SEQUENCE:2/);
+  assert.match(text, /ORGANIZER;CN=Anna:mailto:tech@ais4i.it/);
+  assert.equal(text.match(/ATTENDEE/g).length, 1);
+  for (const line of text.split('\r\n')) assert.ok(Buffer.byteLength(line) <= 75, line);
+});
+
+test('choosing a time can email the invite, and changing it sends the cancellation', async () => {
+  const sent = await fakeMail();
+  const me = await owner();
+  const { id, token } = await polls.createPoll(basePoll(), me);
+  const slots = (await polls.getPollAdmin(id, me)).slots;
+  await polls.submitResponse(token, { name: 'Giulia', email: 'g@example.org' });
+  await polls.submitResponse(token, { name: 'Marco', email: 'm@example.org' });
+
+  const handler = require('../api/app/poll');
+  const cookie = `${auth.COOKIE}=${auth.makeSession(me)}`;
+  const call = async (method, query, body) => {
+    const res = fakeResponse();
+    await handler(
+      fakeRequest({ method, url: `/api/app/poll?id=${id}${query}`, cookie, body }),
+      res
+    );
+    return res;
+  };
+
+  const chosen = await call('POST', '&action=finalize', {
+    slotId: slots[1].id,
+    sendInvite: true,
+    emails: ['g@example.org', 'stranger@example.org'],
+    extraEmails: 'boss@example.org',
+  });
+  assert.equal(chosen.statusCode, 200);
+  assert.deepEqual(chosen.body.outcome, { sent: 2, failed: 0 });
+  assert.deepEqual(
+    sent.map((m) => m.to),
+    ['g@example.org', 'boss@example.org']
+  );
+  assert.equal(sent[0].icalEvent.method, 'REQUEST');
+  // Long lines are folded onto continuation lines; unfold before reading.
+  const unfolded = sent[0].icalEvent.content.replace(/\r\n /g, '');
+  assert.match(unfolded, /ATTENDEE;CN=Giulia.*mailto:g@example.org/);
+  assert.doesNotMatch(sent[0].icalEvent.content, /boss@example.org/);
+  assert.deepEqual(chosen.body.invitedToMeeting, ['g@example.org', 'boss@example.org']);
+
+  const changed = await call('POST', '&action=unschedule', {});
+  assert.deepEqual(changed.body.outcome, { sent: 2, failed: 0 });
+  assert.equal(sent[2].icalEvent.method, 'CANCEL');
+  assert.match(sent[2].icalEvent.content, /STATUS:CANCELLED/);
+  assert.match(sent[2].icalEvent.content, /SEQUENCE:2/);
+  assert.deepEqual(changed.body.invitedToMeeting, []);
 });

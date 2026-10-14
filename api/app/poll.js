@@ -6,19 +6,35 @@
 //   DELETE                                  -> deletes the poll
 //   DELETE &response=<response id>          -> deletes one response
 //   DELETE &invite=<invite id>              -> removes a guest (and their answer)
-//   POST   &action=finalize { slotId }      -> marks the chosen time
-//   POST   &action=unschedule               -> clears it
+//   GET    &format=ics                      -> the chosen time as a calendar file
+//   POST   &action=finalize { slotId, sendInvite?, emails?, extraEmails? }
+//                                           -> marks the chosen time, and can
+//                                              email the calendar invite
+//   POST   &action=unschedule               -> clears it (and cancels the
+//                                              emailed invite, if any)
 //   POST   &action=invite { emails }        -> invites more guests
 //   POST   &action=resend&invite=<invite id> -> emails a guest's link again
 const { route, sendJson, readJson, getQuery, origin, HttpError } = require('../../server/http');
 const { requireUser } = require('../../server/auth');
 const polls = require('../../server/polls');
 const notify = require('../../server/notify');
+const ics = require('../../server/ics');
 
 module.exports = route({
   async GET(req, res) {
     const user = await requireUser(req);
-    sendJson(res, 200, await polls.getPollAdmin(getQuery(req).id, user.id));
+    const { id, format } = getQuery(req);
+    if (format === 'ics') {
+      const { poll, slot } = await polls.getMeeting(id, user.id);
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
+      const name = poll.title.replace(/[^\w\s-]/g, '').trim() || 'meeting';
+      res.setHeader('Content-Disposition', `attachment; filename="${name}.ics"`);
+      res.setHeader('Cache-Control', 'no-store');
+      res.end(ics.build(poll, slot, { sequence: poll.meeting_sequence }));
+      return;
+    }
+    sendJson(res, 200, await polls.getPollAdmin(id, user.id));
   },
   async PATCH(req, res) {
     const user = await requireUser(req);
@@ -41,12 +57,30 @@ module.exports = route({
     const { id, action, invite } = getQuery(req);
     const body = await readJson(req);
     const send = (poll, invites) =>
-      notify.sendInvites({ poll, ownerName: user.name, invites, origin: origin(req) });
+      notify.sendInvites({ poll, ownerId: user.id, invites, origin: origin(req) });
 
     if (action === 'finalize') {
-      sendJson(res, 200, await polls.finalizePoll(id, body, user.id));
+      let result = await polls.finalizePoll(id, body, user.id);
+      if (body.sendInvite) {
+        const meeting = await polls.prepareMeetingInvite(id, user.id, body);
+        const outcome = await notify.sendMeeting({ ...meeting, ownerId: user.id });
+        result = { ...(await polls.getPollAdmin(id, user.id)), outcome };
+      }
+      sendJson(res, 200, result);
     } else if (action === 'unschedule') {
-      sendJson(res, 200, await polls.unschedulePoll(id, user.id));
+      const result = await polls.unschedulePoll(id, user.id);
+      const { cancel, ...poll } = result;
+      if (cancel) {
+        poll.outcome = await notify.sendMeeting({
+          poll,
+          slot: cancel.slot,
+          recipients: cancel.emails.map((email) => ({ email })),
+          ownerId: user.id,
+          sequence: cancel.sequence,
+          cancel: true,
+        });
+      }
+      sendJson(res, 200, poll);
     } else if (action === 'invite') {
       const added = await polls.addInvites(id, body.emails, user.id);
       const outcome = await send(added.poll, added.invites);

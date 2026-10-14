@@ -223,6 +223,7 @@ async function getPollAdmin(id, ownerId) {
       updatedAt: new Date(r.updated_at).toISOString(),
     })),
     invites: poll.invite_only ? await listInvites(poll.id) : [],
+    invitedToMeeting: poll.invited_to_meeting || [],
   };
 }
 
@@ -650,15 +651,81 @@ async function finalizePoll(id, body, ownerId) {
   return getPollAdmin(poll.id, ownerId);
 }
 
-/** Clears the chosen time; the poll stays closed until it is reopened. */
+/**
+ * Clears the chosen time; the poll stays closed until it is reopened.
+ * Returns the poll, plus `cancel` ({ emails, slot, sequence }) when the
+ * calendar invite had been emailed, so those people can be told.
+ */
 async function unschedulePoll(id, ownerId) {
   const poll = await loadOwnPoll(id, ownerId);
   if (poll.status !== 'scheduled') throw new HttpError(409, 'No time has been chosen');
-  await db.query(
-    `update polls set status = 'closed', final_slot_id = null, updated_at = now() where id = $1`,
+  const slot = await chosenSlot(poll);
+  const { rows } = await db.query(
+    `update polls set status = 'closed', final_slot_id = null, invited_to_meeting = null,
+       meeting_sequence = meeting_sequence + 1, updated_at = now()
+     where id = $1 returning meeting_sequence`,
     [poll.id]
   );
-  return getPollAdmin(poll.id, ownerId);
+  const emails = poll.invited_to_meeting || [];
+  const result = await getPollAdmin(poll.id, ownerId);
+  return emails.length
+    ? { ...result, cancel: { emails, slot, sequence: rows[0].meeting_sequence } }
+    : result;
+}
+
+/** The chosen time of a poll row as { start, end } (Dates), or null. */
+async function chosenSlot(poll) {
+  if (!poll.final_slot_id) return null;
+  const { rows } = await db.query('select starts_at from poll_slots where id = $1', [
+    poll.final_slot_id,
+  ]);
+  return rows.length
+    ? { start: rows[0].starts_at, end: slotEnd(rows[0].starts_at, poll.duration_minutes) }
+    : null;
+}
+
+/** The owner's poll with its chosen time, for building calendar files. */
+async function getMeeting(id, ownerId) {
+  const poll = await loadOwnPoll(id, ownerId);
+  const slot = await chosenSlot(poll);
+  if (!slot) throw new HttpError(409, 'No time has been chosen');
+  return { poll, slot };
+}
+
+/**
+ * Who the calendar invite goes to: chosen among the poll's participants and
+ * guests (anyone else is ignored), plus extra addresses typed by the owner.
+ * Records them, so a later change of time can cancel it, and returns
+ * { recipients: [{ email, name }], sequence }.
+ */
+async function prepareMeetingInvite(id, ownerId, { emails, extraEmails }) {
+  const { poll, slot } = await getMeeting(id, ownerId);
+  const known = new Map();
+  const { rows: people } = await db.query(
+    `select lower(email) as email, name from poll_responses where poll_id = $1
+     union all
+     select lower(email), null from poll_invites where poll_id = $1`,
+    [poll.id]
+  );
+  for (const p of people) if (!known.has(p.email) || p.name) known.set(p.email, p.name);
+
+  const recipients = new Map();
+  for (const e of Array.isArray(emails) ? emails : []) {
+    const address = String(e).trim().toLowerCase();
+    if (known.has(address)) recipients.set(address, { email: address, name: known.get(address) });
+  }
+  for (const address of inviteeList(extraEmails)) {
+    if (!recipients.has(address)) recipients.set(address, { email: address, name: null });
+  }
+  if (!recipients.size) throw new HttpError(400, 'Choose at least one person to invite');
+  if (recipients.size > MAX_RESPONSES) throw new HttpError(400, 'Too many people');
+
+  const { rows } = await db.query(
+    `update polls set invited_to_meeting = $2, meeting_sequence = meeting_sequence + 1
+     where id = $1 returning meeting_sequence`,
+    [poll.id, [...recipients.keys()]]
+  );
+  return { poll, slot, recipients: [...recipients.values()], sequence: rows[0].meeting_sequence };
 }
 
 module.exports = {
@@ -680,4 +747,6 @@ module.exports = {
   markAllAnswered,
   finalizePoll,
   unschedulePoll,
+  getMeeting,
+  prepareMeetingInvite,
 };

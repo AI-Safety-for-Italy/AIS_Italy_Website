@@ -11,7 +11,7 @@
 //   - Discord sign-in: a stand-in that signs in under any name (set the
 //     DISCORD_* vars to use a real Discord app)
 //   - email: printed in this terminal instead of sent (MEET_FAKE_MAIL=0 to
-//     use the SMTP settings saved on /app/settings/)
+//     use the SMTP settings saved on /app/polls/settings/)
 const http = require('http');
 const fs = require('fs');
 const path = require('path');

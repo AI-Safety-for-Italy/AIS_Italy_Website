@@ -22,7 +22,7 @@ module.exports = route({
       const poll = await polls.getPollAdmin(created.id, user.id);
       invites = await notify.sendInvites({
         poll,
-        ownerName: user.name,
+        ownerId: user.id,
         invites: created.invites,
         origin: origin(req),
       });

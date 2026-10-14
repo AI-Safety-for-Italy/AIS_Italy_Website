@@ -1,4 +1,4 @@
-/* /app/settings/: everyone's notification choices; the admin also sets up
+/* /app/polls/settings/: everyone's notification choices; the admin also sets up
  * the mailbox emails are sent from. */
 (function () {
   'use strict';

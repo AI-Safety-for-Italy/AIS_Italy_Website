@@ -8,6 +8,7 @@
 
 const db = require('./db');
 const mail = require('./mail');
+const ics = require('./ics');
 
 const DISCORD_API = 'https://discord.com/api/v10';
 
@@ -140,13 +141,28 @@ function inviteMessage({ poll, ownerName, link }) {
   const by = ownerName ? `${ownerName} ti invita` : 'Sei invitato/a';
   const byEn = ownerName ? `${ownerName} invites you` : 'You are invited';
   return {
-    subject: `Quando sei disponibile? ${poll.title}`,
+    subject: ownerName ? `${ownerName} ti invita: ${poll.title}` : `Invito: ${poll.title}`,
     lines: [
       `${by} a indicare quando sei disponibile per “${poll.title}”.` +
         (poll.description ? `\n\n${poll.description}` : ''),
       { label: 'Indica la tua disponibilità', link },
       `${byEn} to say when you're available for “${poll.title}”. The link above is personal: please don't forward it.`,
-    ],
+      ownerName ? `— ${ownerName}` : null,
+    ].filter(Boolean),
+  };
+}
+
+/**
+ * Who an invitation comes from: the poll owner's name (the shared admin
+ * account has none worth showing) and the address replies should reach.
+ */
+async function inviter(ownerId) {
+  const { rows } = await db.query('select * from app_users where id = $1', [ownerId]);
+  const u = rows[0];
+  if (!u) return { name: null, replyTo: undefined };
+  return {
+    name: u.kind === 'admin' ? null : u.name,
+    replyTo: u.notify_email || u.email || undefined,
   };
 }
 
@@ -154,14 +170,21 @@ function inviteMessage({ poll, ownerName, link }) {
  * Emails each invite its personal link and records the outcome on the
  * invite (sent_at, or send_error). Returns { sent, failed }.
  */
-async function sendInvites({ poll, ownerName, invites, origin }) {
+async function sendInvites({ poll, ownerId, invites, origin }) {
+  const from = await inviter(ownerId);
   let sent = 0;
   let failed = 0;
   for (const invite of invites) {
     const link = `${origin}/meet/?p=${poll.token}&i=${invite.token}`;
     try {
-      const msg = inviteMessage({ poll, ownerName, link });
-      await mail.send({ to: invite.email, subject: msg.subject, ...render(msg.lines) });
+      const msg = inviteMessage({ poll, ownerName: from.name, link });
+      await mail.send({
+        to: invite.email,
+        subject: msg.subject,
+        senderName: from.name,
+        replyTo: from.replyTo,
+        ...render(msg.lines),
+      });
       await db.query('update poll_invites set sent_at = now(), send_error = null where id = $1', [
         invite.id,
       ]);
@@ -177,7 +200,82 @@ async function sendInvites({ poll, ownerName, invites, origin }) {
   return { sent, failed };
 }
 
+// ── Calendar invite for the chosen time ────────────────────────────────────
+
+function when(slot, timezone) {
+  const day = new Intl.DateTimeFormat('it-IT', {
+    timeZone: timezone,
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  }).format(new Date(slot.start));
+  const time = (d) =>
+    new Intl.DateTimeFormat('it-IT', {
+      timeZone: timezone,
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(new Date(d));
+  return `${day}, ${time(slot.start)}–${time(slot.end)} (${timezone.replace(/_/g, ' ')})`;
+}
+
+/**
+ * Emails each recipient the calendar event (one email each, naming only
+ * them), or its cancellation when `cancel` is set. Returns { sent, failed }.
+ */
+async function sendMeeting({ poll, slot, recipients, ownerId, sequence, cancel = false }) {
+  const from = await inviter(ownerId);
+  const settings = await mail.publicSettings();
+  const organizer = {
+    name: from.name || (settings && settings.fromName) || 'AI Safety for Italy',
+    email: (settings && settings.fromEmail) || 'tech@ais4i.it',
+  };
+  const whenText = when(slot, poll.timezone);
+  const subject = cancel ? `Annullata: ${poll.title}` : `Invito: ${poll.title} · ${whenText}`;
+  const lines = cancel
+    ? [
+        `La riunione “${poll.title}” di ${whenText} è stata annullata.` +
+          ' Se viene fissato un nuovo orario riceverai un nuovo invito.',
+        `The meeting “${poll.title}” has been cancelled.`,
+      ]
+    : [
+        `${from.name ? `${from.name} ha fissato` : 'È stata fissata'} la riunione “${
+          poll.title
+        }”: ${whenText}.` +
+          (poll.location ? `\nDove: ${poll.location}` : '') +
+          '\n\nL’invito è allegato: aprilo per aggiungerlo al tuo calendario.',
+        `“${poll.title}” is scheduled for the time above. The invitation is attached: open it to add it to your calendar.`,
+        from.name ? `— ${from.name}` : null,
+      ].filter(Boolean);
+
+  let sent = 0;
+  let failed = 0;
+  for (const person of recipients) {
+    const content = ics.build(poll, slot, {
+      method: cancel ? 'CANCEL' : 'REQUEST',
+      sequence,
+      organizer,
+      attendee: person,
+    });
+    try {
+      await mail.send({
+        to: person.email,
+        subject,
+        senderName: from.name,
+        replyTo: from.replyTo,
+        icalEvent: { method: cancel ? 'CANCEL' : 'REQUEST', filename: 'invite.ics', content },
+        ...render(lines),
+      });
+      sent++;
+    } catch (err) {
+      console.error('Meeting invite to', person.email, 'failed:', err.message);
+      failed++;
+    }
+  }
+  return { sent, failed };
+}
+
 module.exports = {
+  sendMeeting,
   render,
   discordAvailable,
   setFetch,

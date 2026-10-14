@@ -56,7 +56,7 @@ and lets in only members of `DISCORD_GUILD_ID` holding one of
 ### Email
 
 Invites to invite-only polls and owner notifications are sent over SMTP from
-the mailbox the admin sets up on `/app/settings/` (signed in with the admin
+the mailbox the admin sets up on `/app/polls/settings/` (signed in with the admin
 password). For `tech@ais4i.it` on register.it the server is the one in the
 mailbox's settings (e.g. `authsmtp.securemail.pro`, port 465), the username is
 the full address. "Send a test email" checks it. The password is stored
@@ -65,9 +65,21 @@ encrypted with a key derived from `SESSION_SECRET`.
 Until email is set up, polls open to anyone with the link work as before;
 invite-only polls cannot be created.
 
+### Calendar invite for the chosen time
+
+When choosing the time, the owner can email the event to the participants
+(ticked by default), to guests who did not answer, and to other addresses. Each
+person gets their own email from the team mailbox with an iCalendar
+invitation (`METHOD:REQUEST`) naming only them, which mail apps offer to add to
+the calendar. "Change time" then sends them the cancellation (`METHOD:CANCEL`)
+for the same event. "Download calendar event" gives the same event as a file.
+
+Invitations show the poll owner's name as the sender ("Anna Rossi · AI Safety
+for Italy", from the team address) and replies go to the owner.
+
 ### Notifications
 
-Each member chooses on `/app/settings/` how to hear about new answers to their
+Each member chooses on `/app/polls/settings/` how to hear about new answers to their
 polls: email, Discord direct message, both, or off; each poll also has its own
 "Notify me" switch. A Discord DM that cannot be delivered (no bot token, or the
 member blocks DMs) falls back to email. On invite-only polls the owner is also

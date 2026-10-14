@@ -12,8 +12,13 @@
 
   view.appendChild(M.loading());
 
+  var mailReady = false;
+
   M.me
     .then(function () {
+      M.api('GET', '/api/app/settings').then(function (s) {
+        mailReady = s.mail.configured;
+      });
       return M.api('GET', '/api/app/poll?id=' + encodeURIComponent(id || ''));
     })
     .then(function (data) {
@@ -293,19 +298,21 @@
             M.fmtTime(slot.end, poll.timezone) +
             ' (' +
             M.tzLabel(poll.timezone) +
-            ')'
+            ')' +
+            (poll.invitedToMeeting.length
+              ? ' · Invite emailed to ' +
+                poll.invitedToMeeting.length +
+                (poll.invitedToMeeting.length === 1 ? ' person' : ' people')
+              : '')
         ),
         h(
           'div',
           { class: 'final-actions' },
           h(
-            'button',
+            'a',
             {
-              type: 'button',
               class: 'btn btn-ghost btn-sm',
-              onclick: function () {
-                M.downloadIcs(poll, slot);
-              },
+              href: '/api/app/poll?id=' + encodeURIComponent(poll.id) + '&format=ics',
             },
             'Download calendar event'
           ),
@@ -502,11 +509,25 @@
   }
 
   function unschedule() {
-    if (!window.confirm('Clear the chosen time? You can then pick another one.')) return;
+    var invited = poll.invitedToMeeting.length;
+    var question = invited
+      ? 'Clear the chosen time? The ' +
+        invited +
+        (invited === 1 ? ' person' : ' people') +
+        ' who got the calendar invite will be sent a cancellation.'
+      : 'Clear the chosen time? You can then pick another one.';
+    if (!window.confirm(question)) return;
     M.api('POST', '/api/app/poll?id=' + encodeURIComponent(id) + '&action=unschedule', {})
       .then(function (data) {
         show(data);
-        M.toast('Time cleared');
+        M.toast(
+          data.outcome && data.outcome.failed
+            ? 'Time cleared, but ' + data.outcome.failed + ' cancellation(s) could not be sent'
+            : data.outcome
+            ? 'Time cleared and cancellation sent'
+            : 'Time cleared',
+          Boolean(data.outcome && data.outcome.failed)
+        );
       })
       .catch(M.appError);
   }
@@ -532,21 +553,90 @@
       ' available' +
       (slot.maybe ? ', ' + slot.maybe + ' if needed' : '');
 
+    // Everyone who answered, ticked; on an invite-only poll, guests who did
+    // not answer are offered too, unticked.
+    var list = M.clear(document.getElementById('inviteeList'));
+    var answered = {};
+    poll.responses.forEach(function (r) {
+      answered[r.email.toLowerCase()] = true;
+      var v = r.votes[slot.id] || 0;
+      list.appendChild(
+        h(
+          'label',
+          null,
+          h('input', { type: 'checkbox', value: r.email, checked: true }),
+          h('span', null, r.name, ' ', h('span', { class: 'panel-note' }, r.email)),
+          h('small', null, ['can’t make it', 'if needed', 'available'][v])
+        )
+      );
+    });
+    poll.invites.forEach(function (g) {
+      if (answered[g.email.toLowerCase()]) return;
+      list.appendChild(
+        h(
+          'label',
+          null,
+          h('input', { type: 'checkbox', value: g.email }),
+          h('span', null, g.email),
+          h('small', null, 'didn’t answer')
+        )
+      );
+    });
+    if (!list.children.length) {
+      list.appendChild(
+        h('p', { class: 'panel-note', style: 'padding:.5rem 0' }, 'No answers yet.')
+      );
+    }
+    document.getElementById('extraEmails').value = '';
+    var send = document.getElementById('sendInvite');
+    send.checked = mailReady;
+    send.disabled = !mailReady;
+    document.getElementById('sendInviteNote').textContent = mailReady
+      ? 'From the team mailbox, with the event attached.'
+      : 'Needs email sending, which the admin sets up in Settings.';
+    document.getElementById('inviteFields').hidden = !send.checked;
     dialog.showModal();
   }
+
+  document.getElementById('sendInvite').addEventListener('change', function (e) {
+    document.getElementById('inviteFields').hidden = !e.target.checked;
+  });
 
   document.getElementById('finalizeForm').addEventListener('submit', function (e) {
     if (e.submitter && e.submitter.value === 'cancel') return;
     e.preventDefault();
+    var sendInvite = document.getElementById('sendInvite').checked;
+    var emails = Array.from(document.querySelectorAll('#inviteeList input:checked')).map(function (
+      input
+    ) {
+      return input.value;
+    });
+    var extraEmails = document.getElementById('extraEmails').value;
+    if (sendInvite && !emails.length && !extraEmails.trim()) {
+      finalizeError.textContent = 'Choose at least one person to send the invite to.';
+      finalizeError.hidden = false;
+      return;
+    }
     submit.disabled = true;
     M.api('POST', '/api/app/poll?id=' + encodeURIComponent(id) + '&action=finalize', {
       slotId: chosenSlot.id,
+      sendInvite: sendInvite,
+      emails: emails,
+      extraEmails: extraEmails,
     })
       .then(function (data) {
         dialog.close();
         show(data);
         window.scrollTo({ top: 0, behavior: 'smooth' });
-        M.toast('Time chosen');
+        var o = data.outcome;
+        M.toast(
+          o && o.failed
+            ? 'Time chosen, but ' + o.failed + ' invite(s) could not be sent'
+            : o
+            ? 'Time chosen and invite sent to ' + o.sent + (o.sent === 1 ? ' person' : ' people')
+            : 'Time chosen',
+          Boolean(o && o.failed)
+        );
       })
       .catch(function (err) {
         if (err.status === 401) return M.appError(err);

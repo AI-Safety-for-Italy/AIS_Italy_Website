@@ -1,6 +1,7 @@
 ---
 title: Settings
-permalink: /app/settings/
+permalink: /app/polls/settings/
+appTab: settings
 noindex: true
 excludeFromSitemap: true
 eleventyExcludeFromCollections: true
@@ -10,16 +11,18 @@ seoTitle: 'Settings | AI Safety for Italy'
 {% block content %}
 <section class="page-hero meet-hero">
   <div class="container">
-    <span class="eyebrow">Team area</span>
+    <span class="eyebrow">Meeting polls</span>
     <h1>Settings</h1>
   </div>
 </section>
 
 <section class="meet-main">
-  <div class="container settings">
+  <div class="container">
+    {% include "app-bar.njk" %}
+    <div class="settings">
     <form class="panel form-grid" id="notifyForm" novalidate>
       <div class="panel-head" style="margin:0">
-        <h2>Notifications</h2>
+        <h2>My notifications</h2>
       </div>
       <p class="panel-note" style="margin:0">When someone answers one of your polls. You can also turn this off for a single poll.</p>
       <div class="choice-group" role="radiogroup" aria-label="Notify me">
@@ -39,10 +42,10 @@ seoTitle: 'Settings | AI Safety for Italy'
 
     <form class="panel form-grid" id="smtpForm" novalidate hidden>
       <div class="panel-head" style="margin:0">
-        <h2>Email sending</h2>
+        <h2>Email sending <span class="panel-note">· for all users</span></h2>
         <span id="mailStatus"></span>
       </div>
-      <p class="panel-note" style="margin:0">The mailbox invites and notifications are sent from.</p>
+      <p class="panel-note" style="margin:0">The mailbox every invitation and notification is sent from, whoever created the poll. Only the admin sees this.</p>
       <div class="form-row">
         <div>
           <label class="form-label" for="smtpHost">SMTP server</label>
@@ -79,6 +82,7 @@ seoTitle: 'Settings | AI Safety for Italy'
         <button class="btn btn-outline btn-sm" type="button" id="testMail">Send a test email</button>
       </div>
     </form>
+    </div>
   </div>
 </section>
 
