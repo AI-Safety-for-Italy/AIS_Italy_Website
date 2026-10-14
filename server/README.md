@@ -1,6 +1,6 @@
 # Meeting polls
 
-A private, Doodle-style scheduler inside the team area (`/app/`). Members sign
+A private, Doodle-style scheduler inside the personal area (`/app/`). Members sign
 in with Discord, propose times, share a link, people mark when they're
 available, and the owner picks the time. Each member sees only their own polls.
 The owner then downloads the event as an `.ics` file and copies everyone's

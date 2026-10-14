@@ -89,7 +89,7 @@ const server = http.createServer((req, res) => {
 
 db.ensureSchema().then(() => {
   server.listen(PORT, () => {
-    console.log(`Team area running at http://localhost:${PORT}/app/`);
+    console.log(`Personal area running at http://localhost:${PORT}/app/`);
     console.log(
       process.env.MEET_DATABASE_URL || process.env.DATABASE_URL
         ? 'Database: Postgres from the environment'

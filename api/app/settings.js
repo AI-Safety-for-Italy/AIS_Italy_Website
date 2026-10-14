@@ -43,7 +43,7 @@ module.exports = route({
     try {
       await mail.send({
         to,
-        subject: 'Test email from the AI Safety for Italy team area',
+        subject: 'Test email from the AI Safety for Italy personal area',
         ...notify.render(['If you can read this, email sending works.']),
       });
     } catch (err) {
