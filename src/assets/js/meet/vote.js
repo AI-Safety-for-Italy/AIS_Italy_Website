@@ -15,6 +15,8 @@
       loading: 'Loading…',
       notFound: 'Poll not found',
       notFoundText: 'Check the link you were sent.',
+      inviteOnly: 'This poll is by invitation only',
+      inviteOnlyText: 'Open it from the personal link in your invitation email.',
       error: 'Something went wrong. Please try again.',
       yes: 'Yes',
       maybe: 'If needed',
@@ -53,7 +55,7 @@
       closesOn: 'Answer by ',
       closed: 'This poll is closed',
       scheduled: 'Meeting scheduled',
-      scheduledText: 'The invite has been sent by email.',
+      scheduledText: 'The organiser will send the calendar invite.',
       hidden: 'Answers are private.',
       nameRequired: 'Enter your name.',
       emailRequired: 'Enter a valid email.',
@@ -64,6 +66,8 @@
       loading: 'Caricamento…',
       notFound: 'Sondaggio non trovato',
       notFoundText: 'Controlla il link che hai ricevuto.',
+      inviteOnly: 'Questo sondaggio è solo su invito',
+      inviteOnlyText: 'Aprilo dal link personale nella tua email di invito.',
       error: 'Qualcosa è andato storto. Riprova.',
       yes: 'Sì',
       maybe: 'Se serve',
@@ -102,7 +106,7 @@
       closesOn: 'Rispondi entro ',
       closed: 'Il sondaggio è chiuso',
       scheduled: 'Riunione fissata',
-      scheduledText: 'L’invito è stato inviato via email.',
+      scheduledText: 'L’organizzatore invierà l’invito del calendario.',
       hidden: 'Le risposte sono private.',
       nameRequired: 'Inserisci il tuo nome.',
       emailRequired: 'Inserisci un’email valida.',
@@ -203,6 +207,8 @@
   }
 
   var editToken = params.get('e') || stored();
+  // A guest's personal link to an invite-only poll.
+  var inviteToken = params.get('i');
   var poll = null;
 
   view.appendChild(M.loading(T.loading));
@@ -211,6 +217,7 @@
   function load() {
     var url = '/api/poll?p=' + encodeURIComponent(token);
     if (editToken) url += '&e=' + encodeURIComponent(editToken);
+    if (inviteToken) url += '&i=' + encodeURIComponent(inviteToken);
     return M.api('GET', url)
       .then(function (data) {
         poll = data;
@@ -226,13 +233,21 @@
         else renderClosed();
       })
       .catch(function (err) {
-        document.getElementById('pollTitle').textContent =
-          err.status === 404 ? T.notFound : T.error;
+        var invite = err.code === 'invite_required';
+        document.getElementById('pollTitle').textContent = invite
+          ? T.inviteOnly
+          : err.status === 404
+          ? T.notFound
+          : T.error;
         M.clear(view).appendChild(
           h(
             'div',
             { class: 'empty-state' },
-            h('p', null, err.status === 404 ? T.notFoundText : err.message)
+            h(
+              'p',
+              { style: 'margin-bottom:0' },
+              invite ? T.inviteOnlyText : err.status === 404 ? T.notFoundText : err.message
+            )
           )
         );
       });
@@ -345,7 +360,9 @@
       maxlength: 254,
       autocomplete: 'email',
       required: true,
-      value: poll.mine ? poll.mine.email : '',
+      // A guest answers as the address they were invited at.
+      value: poll.invite ? poll.invite.email : poll.mine ? poll.mine.email : '',
+      readonly: Boolean(poll.invite),
     });
     var error = h('div', { class: 'form-error', role: 'alert', hidden: true });
     var nameError = h('p', { class: 'field-error', id: 'voteNameError', hidden: true });
@@ -407,6 +424,7 @@
         '&email=' +
         encodeURIComponent(email);
       if (editToken) url += '&e=' + encodeURIComponent(editToken);
+      if (inviteToken) url += '&i=' + encodeURIComponent(inviteToken);
       return M.api('GET', url).then(
         function (res) {
           if (seq !== checkSeq) return; // a newer check is on its way
@@ -646,6 +664,7 @@
         email: emailInput.value,
         votes: votes,
         editToken: editToken || undefined,
+        inviteToken: inviteToken || undefined,
       })
         .then(function (res) {
           editToken = res.editToken;
@@ -681,13 +700,15 @@
   }
 
   function renderThanks(name) {
+    // A guest's personal link already lets them change their answer.
     var link =
       window.location.origin +
       window.location.pathname +
       '?p=' +
       encodeURIComponent(token) +
-      '&e=' +
-      encodeURIComponent(editToken);
+      (inviteToken
+        ? '&i=' + encodeURIComponent(inviteToken)
+        : '&e=' + encodeURIComponent(editToken));
     var input = h('input', { class: 'form-input is-compact', readonly: true, value: link });
     M.clear(view).appendChild(
       h(

@@ -1,0 +1,77 @@
+---
+title: General settings
+# Settings that apply to every user of the meeting polls. Only the admin
+# account can see and change them; the API enforces it.
+permalink: /app/polls/settings/
+appTab: settings
+noindex: true
+excludeFromSitemap: true
+eleventyExcludeFromCollections: true
+seoTitle: 'General settings | AI Safety for Italy'
+---
+{% extends "base.njk" %}
+{% block content %}
+<section class="page-hero meet-hero">
+  <div class="container">
+    <span class="eyebrow">Meeting polls</span>
+    <h1>General settings</h1>
+  </div>
+</section>
+
+<section class="meet-main">
+  <div class="container">
+    {% include "app-bar.njk" %}
+    <div class="settings">
+      <div class="empty-state" id="adminOnly" hidden>
+        <p style="margin:0">Only the admin can change the general settings. Your own notifications are under your profile → My settings.</p>
+      </div>
+    <form class="panel form-grid" id="smtpForm" novalidate hidden>
+      <div class="panel-head" style="margin:0">
+        <h2>Email sending <span class="panel-note">· for all users</span></h2>
+        <span id="mailStatus"></span>
+      </div>
+      <p class="panel-note" style="margin:0">The mailbox every invitation and notification is sent from, whoever created the poll. Only the admin sees this.</p>
+      <div class="form-row">
+        <div>
+          <label class="form-label" for="smtpHost">SMTP server</label>
+          <input class="form-input is-compact" id="smtpHost" placeholder="authsmtp.securemail.pro">
+        </div>
+        <div>
+          <label class="form-label" for="smtpPort">Port</label>
+          <input class="form-input is-compact" id="smtpPort" type="number" value="465" min="1" max="65535">
+        </div>
+      </div>
+      <div class="form-row">
+        <div>
+          <label class="form-label" for="fromEmail">Sender address</label>
+          <input class="form-input is-compact" id="fromEmail" type="email" placeholder="tech@ais4i.it">
+        </div>
+        <div>
+          <label class="form-label" for="fromName">Sender name</label>
+          <input class="form-input is-compact" id="fromName" placeholder="AI Safety for Italy">
+        </div>
+      </div>
+      <div class="form-row">
+        <div>
+          <label class="form-label" for="smtpUser">Username <span class="panel-note">(usually the address)</span></label>
+          <input class="form-input is-compact" id="smtpUser" autocomplete="off">
+        </div>
+        <div>
+          <label class="form-label" for="smtpPassword">Password</label>
+          <input class="form-input is-compact" id="smtpPassword" type="password" autocomplete="new-password">
+        </div>
+      </div>
+      <div class="form-error" role="alert" hidden></div>
+      <div class="wk-nav">
+        <button class="btn btn-primary btn-sm" type="submit">Save</button>
+        <button class="btn btn-outline btn-sm" type="button" id="testMail">Send a test email</button>
+      </div>
+    </form>
+    </div>
+  </div>
+</section>
+
+<script src="/assets/js/meet/common.js" defer></script>
+<script src="/assets/js/meet/app-common.js" defer></script>
+<script src="/assets/js/meet/settings.js" defer></script>
+{% endblock %}

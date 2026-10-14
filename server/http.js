@@ -44,6 +44,22 @@ function parseJson(raw) {
   }
 }
 
+function redirect(res, location) {
+  res.statusCode = 302;
+  res.setHeader('Location', location);
+  res.setHeader('Cache-Control', 'no-store');
+  res.end();
+}
+
+/** The site's own origin as the visitor reached it, e.g. https://www.ais4i.it */
+function origin(req) {
+  const host = req.headers['x-forwarded-host'] || req.headers.host;
+  const proto =
+    req.headers['x-forwarded-proto'] ||
+    (process.env.MEET_INSECURE_COOKIES === '1' ? 'http' : 'https');
+  return `${String(proto).split(',')[0]}://${host}`;
+}
+
 function getQuery(req) {
   return Object.fromEntries(new URL(req.url, 'http://localhost').searchParams);
 }
@@ -99,4 +115,14 @@ function route(methods) {
   };
 }
 
-module.exports = { HttpError, sendJson, readJson, getQuery, getCookie, clientIp, route };
+module.exports = {
+  HttpError,
+  sendJson,
+  readJson,
+  redirect,
+  origin,
+  getQuery,
+  getCookie,
+  clientIp,
+  route,
+};

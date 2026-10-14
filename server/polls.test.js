@@ -24,18 +24,11 @@ const basePoll = (over = {}) => ({
   ...over,
 });
 
-function fakeCalendar() {
-  const calls = [];
-  return {
-    calls,
-    async createEvent(e) {
-      calls.push(['create', e]);
-      return { id: 'evt1', htmlLink: 'https://calendar/evt1', meetLink: 'https://meet/x' };
-    },
-    async deleteEvent(id) {
-      calls.push(['delete', id]);
-    },
-  };
+// The signed-in user the polls in these tests belong to. Idempotent, so it can
+// be called wherever an owner is needed.
+async function owner(name = 'Owner') {
+  const user = await auth.upsertDiscordUser({ discordId: `test-${name}`, name });
+  return user.id;
 }
 
 async function rejects(promise, status) {
@@ -44,31 +37,32 @@ async function rejects(promise, status) {
 
 test('a new poll is listed and its slots are sorted and de-duplicated', async () => {
   const { id, token } = await polls.createPoll(
-    basePoll({ slots: [`${DAY}14:00:00Z`, `${DAY}09:00:00Z`, `${DAY}09:00:00.000Z`] })
+    basePoll({ slots: [`${DAY}14:00:00Z`, `${DAY}09:00:00Z`, `${DAY}09:00:00.000Z`] }),
+    await owner()
   );
   assert.ok(token.length >= 20);
-  const poll = await polls.getPollAdmin(id);
+  const poll = await polls.getPollAdmin(id, await owner());
   assert.deepEqual(
     poll.slots.map((s) => s.start),
     [`${DAY}09:00:00.000Z`, `${DAY}14:00:00.000Z`]
   );
   assert.equal(poll.slots[0].end, `${DAY}10:00:00.000Z`);
-  const list = await polls.listPolls();
+  const list = await polls.listPolls(await owner());
   assert.equal(list.length, 1);
   assert.equal(list[0].slotCount, 2);
 });
 
 test('poll input is validated', async () => {
-  await rejects(polls.createPoll(basePoll({ title: '  ' })), 400);
-  await rejects(polls.createPoll(basePoll({ slots: [] })), 400);
-  await rejects(polls.createPoll(basePoll({ slots: ['not a date'] })), 400);
-  await rejects(polls.createPoll(basePoll({ durationMinutes: 0 })), 400);
-  await rejects(polls.createPoll(basePoll({ timezone: 'Mars/Olympus' })), 400);
+  await rejects(polls.createPoll(basePoll({ title: '  ' }), await owner()), 400);
+  await rejects(polls.createPoll(basePoll({ slots: [] }), await owner()), 400);
+  await rejects(polls.createPoll(basePoll({ slots: ['not a date'] }), await owner()), 400);
+  await rejects(polls.createPoll(basePoll({ durationMinutes: 0 }), await owner()), 400);
+  await rejects(polls.createPoll(basePoll({ timezone: 'Mars/Olympus' }), await owner()), 400);
 });
 
 test('answers are counted, and the public view never exposes emails', async () => {
-  const { id, token } = await polls.createPoll(basePoll());
-  const [a, b] = (await polls.getPollAdmin(id)).slots;
+  const { id, token } = await polls.createPoll(basePoll(), await owner());
+  const [a, b] = (await polls.getPollAdmin(id, await owner())).slots;
   await polls.submitResponse(token, {
     name: 'Giulia',
     email: 'Giulia@Example.org',
@@ -94,13 +88,13 @@ test('answers are counted, and the public view never exposes emails', async () =
   );
   assert.equal(pub.responses.length, 2);
 
-  const admin = await polls.getPollAdmin(id);
+  const admin = await polls.getPollAdmin(id, await owner());
   assert.equal(admin.responses[0].email, 'giulia@example.org');
   assert.equal(admin.responses[0].votes[admin.slots[2].id], 0);
 });
 
 test('hidden responses hide names and counts too', async () => {
-  const { token } = await polls.createPoll(basePoll({ hideResponses: true }));
+  const { token } = await polls.createPoll(basePoll({ hideResponses: true }), await owner());
   await polls.submitResponse(token, { name: 'Giulia', email: 'g@example.org', votes: {} });
   const pub = await polls.getPollPublic(token);
   assert.equal(pub.responses, null);
@@ -109,8 +103,8 @@ test('hidden responses hide names and counts too', async () => {
 });
 
 test('the same email cannot answer twice, but can edit with its token', async () => {
-  const { id, token } = await polls.createPoll(basePoll());
-  const [a] = (await polls.getPollAdmin(id)).slots;
+  const { id, token } = await polls.createPoll(basePoll(), await owner());
+  const [a] = (await polls.getPollAdmin(id, await owner())).slots;
   const { editToken } = await polls.submitResponse(token, {
     name: 'Giulia',
     email: 'g@example.org',
@@ -136,7 +130,7 @@ test('the same email cannot answer twice, but can edit with its token', async ()
 });
 
 test('a name already used on the poll is refused, ignoring case and spacing', async () => {
-  const { token } = await polls.createPoll(basePoll());
+  const { token } = await polls.createPoll(basePoll(), await owner());
   await polls.submitResponse(token, { name: 'Anna Rossi', email: 'anna@example.org' });
   await assert.rejects(
     polls.submitResponse(token, { name: '  anna   ROSSI ', email: 'other@example.org' }),
@@ -149,7 +143,7 @@ test('a name already used on the poll is refused, ignoring case and spacing', as
 });
 
 test('the availability check reports taken names and emails, except your own', async () => {
-  const { token } = await polls.createPoll(basePoll());
+  const { token } = await polls.createPoll(basePoll(), await owner());
   const { editToken } = await polls.submitResponse(token, {
     name: 'Anna Rossi',
     email: 'anna@example.org',
@@ -173,7 +167,7 @@ test('the availability check reports taken names and emails, except your own', a
 });
 
 test("editing cannot take another participant's name", async () => {
-  const { token } = await polls.createPoll(basePoll());
+  const { token } = await polls.createPoll(basePoll(), await owner());
   await polls.submitResponse(token, { name: 'Anna', email: 'anna@example.org' });
   const { editToken } = await polls.submitResponse(token, {
     name: 'Marco',
@@ -186,16 +180,16 @@ test("editing cannot take another participant's name", async () => {
 });
 
 test('once the admin removes an answer, that person can answer again', async () => {
-  const { id, token } = await polls.createPoll(basePoll());
+  const { id, token } = await polls.createPoll(basePoll(), await owner());
   const { editToken } = await polls.submitResponse(token, {
     name: 'Anna',
     email: 'anna@example.org',
   });
-  const [answer] = (await polls.getPollAdmin(id)).responses;
-  await polls.deleteResponse(id, answer.id);
+  const [answer] = (await polls.getPollAdmin(id, await owner())).responses;
+  await polls.deleteResponse(id, answer.id, await owner());
   assert.equal((await polls.getPollPublic(token, editToken)).mine, null);
   await polls.submitResponse(token, { name: 'Anna', email: 'anna@example.org' });
-  assert.equal((await polls.getPollAdmin(id)).responses.length, 1);
+  assert.equal((await polls.getPollAdmin(id, await owner())).responses.length, 1);
 });
 
 // Two submissions racing with the same name both pass the availability check
@@ -218,7 +212,7 @@ function blindAvailabilityCheck(pglite) {
 test('a racing duplicate is stopped by the database with the right message', async () => {
   const pglite = new PGlite();
   db.setDb(pglite);
-  const { token } = await polls.createPoll(basePoll());
+  const { token } = await polls.createPoll(basePoll(), await owner());
   await polls.submitResponse(token, { name: 'Anna', email: 'anna@example.org' });
 
   db.setDb(blindAvailabilityCheck(pglite));
@@ -237,7 +231,7 @@ test('a racing duplicate is stopped by the database with the right message', asy
 test('other unique violations are not reported as a taken name or email', async () => {
   const pglite = new PGlite();
   db.setDb(pglite);
-  const { token } = await polls.createPoll(basePoll());
+  const { token } = await polls.createPoll(basePoll(), await owner());
   const clash = Object.assign(new Error('duplicate vote'), {
     code: '23505',
     constraint: 'poll_votes_pkey',
@@ -262,12 +256,12 @@ test('the schema can be applied again to an existing database', async () => {
   const { rows } = await pglite.query(
     "select count(*)::int as n from information_schema.tables where table_name like 'poll%'"
   );
-  assert.equal(rows[0].n, 4);
+  assert.equal(rows[0].n, 5);
 });
 
 test('votes for unknown slots are ignored; odd values and bad emails are refused', async () => {
-  const { id, token } = await polls.createPoll(basePoll());
-  const [a] = (await polls.getPollAdmin(id)).slots;
+  const { id, token } = await polls.createPoll(basePoll(), await owner());
+  const [a] = (await polls.getPollAdmin(id, await owner())).slots;
   await polls.submitResponse(token, { name: 'G', email: 'g@example.org', votes: { x: 2 } });
   const { rows } = await db.query('select count(*)::int as n from poll_votes');
   assert.equal(rows[0].n, 3);
@@ -279,77 +273,58 @@ test('votes for unknown slots are ignored; odd values and bad emails are refused
 });
 
 test('closed polls and past deadlines refuse answers', async () => {
-  const { id, token } = await polls.createPoll(basePoll());
-  await polls.updatePoll(id, { status: 'closed' });
+  const { id, token } = await polls.createPoll(basePoll(), await owner());
+  await polls.updatePoll(id, { status: 'closed' }, await owner());
   await rejects(polls.submitResponse(token, { name: 'G', email: 'g@example.org' }), 409);
 
-  const late = await polls.createPoll(basePoll({ deadline: '2020-01-01T00:00:00Z' }));
+  const late = await polls.createPoll(
+    basePoll({ deadline: '2020-01-01T00:00:00Z' }),
+    await owner()
+  );
   assert.equal((await polls.getPollPublic(late.token)).open, false);
   await rejects(polls.submitResponse(late.token, { name: 'G', email: 'g@example.org' }), 409);
 });
 
-test('finalising invites the chosen people plus extra guests, once', async () => {
-  const { id, token } = await polls.createPoll(basePoll());
-  const slots = (await polls.getPollAdmin(id)).slots;
-  await polls.submitResponse(token, { name: 'Giulia', email: 'g@example.org', votes: {} });
-  await polls.submitResponse(token, { name: 'Marco', email: 'm@example.org', votes: {} });
-  const marco = (await polls.getPollAdmin(id)).responses.find((r) => r.name === 'Marco');
+test('choosing a time marks the poll scheduled and closes voting, until cleared', async () => {
+  const me = await owner();
+  const { id, token } = await polls.createPoll(basePoll(), me);
+  const slots = (await polls.getPollAdmin(id, me)).slots;
 
-  const calendar = fakeCalendar();
-  const done = await polls.finalizePoll(
-    id,
-    {
-      slotId: slots[1].id,
-      responseIds: [marco.id],
-      extraEmails: ['Boss@Example.org', 'm@example.org'],
-      createMeet: true,
-    },
-    calendar
-  );
-  const [kind, event] = calendar.calls[0];
-  assert.equal(kind, 'create');
-  assert.deepEqual(
-    event.attendees.map((a) => a.email),
-    ['m@example.org', 'boss@example.org']
-  );
-  assert.equal(event.start.toISOString(), `${DAY}10:00:00.000Z`);
-  assert.equal(event.end.toISOString(), `${DAY}11:00:00.000Z`);
-  assert.equal(event.createMeet, true);
+  const done = await polls.finalizePoll(id, { slotId: slots[1].id }, me);
   assert.equal(done.status, 'scheduled');
   assert.equal(done.finalSlotId, slots[1].id);
-  assert.equal(done.meetLink, 'https://meet/x');
-
   const pub = await polls.getPollPublic(token);
   assert.equal(pub.finalSlot.id, slots[1].id);
   assert.equal(pub.open, false);
+  await rejects(polls.submitResponse(token, { name: 'Late', email: 'l@example.org' }), 409);
 
-  await rejects(polls.finalizePoll(id, { slotId: slots[0].id }, calendar), 409);
-  await rejects(polls.updatePoll(id, { status: 'open' }), 409);
+  await rejects(polls.finalizePoll(id, { slotId: slots[0].id }, me), 409);
+  await rejects(polls.updatePoll(id, { status: 'open' }, me), 409);
 
-  const undone = await polls.unschedulePoll(id, calendar);
-  assert.deepEqual(calendar.calls[1], ['delete', 'evt1']);
-  assert.equal(undone.status, 'closed');
-  assert.equal(undone.finalSlotId, null);
+  const cleared = await polls.unschedulePoll(id, me);
+  assert.equal(cleared.status, 'closed');
+  assert.equal(cleared.finalSlotId, null);
+  await rejects(polls.unschedulePoll(id, me), 409);
 });
 
 test('finalising with a slot from another poll is refused', async () => {
-  const one = await polls.createPoll(basePoll());
-  const two = await polls.createPoll(basePoll());
-  const foreign = (await polls.getPollAdmin(two.id)).slots[0];
-  await rejects(polls.finalizePoll(one.id, { slotId: foreign.id }, fakeCalendar()), 400);
+  const one = await polls.createPoll(basePoll(), await owner());
+  const two = await polls.createPoll(basePoll(), await owner());
+  const foreign = (await polls.getPollAdmin(two.id, await owner())).slots[0];
+  await rejects(polls.finalizePoll(one.id, { slotId: foreign.id }, await owner()), 400);
 });
 
 test('deleting a poll removes its responses', async () => {
-  const { id, token } = await polls.createPoll(basePoll());
+  const { id, token } = await polls.createPoll(basePoll(), await owner());
   await polls.submitResponse(token, { name: 'G', email: 'g@example.org' });
-  await polls.deletePoll(id);
-  await rejects(polls.getPollAdmin(id), 404);
+  await polls.deletePoll(id, await owner());
+  await rejects(polls.getPollAdmin(id, await owner()), 404);
   const { rows } = await db.query('select count(*)::int as n from poll_responses');
   assert.equal(rows[0].n, 0);
 });
 
 test('malformed ids are a 400, not a database error', async () => {
-  await rejects(polls.getPollAdmin("1' or 1=1"), 400);
+  await rejects(polls.getPollAdmin("1' or 1=1", await owner()), 400);
   await rejects(polls.getPollPublic('nope'), 404);
 });
 
@@ -362,20 +337,25 @@ test('passwords are checked against their scrypt hash', () => {
   assert.ok(!auth.verifyPassword('anything', ''));
 });
 
-test('sessions expire and cannot be forged', () => {
-  const session = auth.makeSession(Date.now());
-  assert.ok(auth.isValidSession(session));
-  assert.ok(!auth.isValidSession(session, Date.now() + 8 * 24 * 3600 * 1000));
-  const [, sig] = session.split('.');
-  assert.ok(!auth.isValidSession(`${Date.now() + 1e12}.${sig}`));
-  assert.ok(!auth.isValidSession('garbage'));
+test('sessions name a user, expire, and cannot be forged', () => {
+  const session = auth.makeSession('user-1');
+  assert.equal(auth.readSession(session), 'user-1');
+  assert.equal(auth.readSession(session, Date.now() + 8 * 24 * 3600 * 1000), null);
+  const [, expires, sig] = session.split('.');
+  assert.equal(auth.readSession(`user-2.${expires}.${sig}`), null);
+  assert.equal(auth.readSession('garbage'), null);
 });
 
-function fakeRequest({ method = 'POST', body, cookie, ip = '1.2.3.4' } = {}) {
+function fakeRequest({ method = 'POST', url = '/api/auth', body, cookie, ip = '1.2.3.4' } = {}) {
   return {
     method,
-    url: '/api/admin/session',
-    headers: { 'content-type': 'application/json', cookie, 'x-forwarded-for': ip },
+    url,
+    headers: {
+      'content-type': 'application/json',
+      cookie,
+      'x-forwarded-for': ip,
+      host: 'www.example.org',
+    },
     body,
   };
 }
@@ -393,32 +373,74 @@ function fakeResponse() {
   return res;
 }
 
-test('logging in sets a cookie that signs the admin in; repeated failures are throttled', async () => {
+const cookieFrom = (res) =>
+  []
+    .concat(res.headers['set-cookie'])
+    .map((c) => c.split(';')[0])
+    .join('; ');
+
+test('the admin password signs in as the admin user; repeated failures are throttled', async () => {
   process.env.ADMIN_PASSWORD_HASH = auth.hashPassword('right password');
-  const handler = require('../api/admin/session');
+  const handler = require('../api/auth');
+  const url = '/api/auth?action=password';
 
   let res = fakeResponse();
-  await handler(fakeRequest({ body: { password: 'right password' } }), res);
+  await handler(fakeRequest({ url, body: { password: 'right password' } }), res);
   assert.equal(res.statusCode, 200);
-  const cookie = res.headers['set-cookie'].split(';')[0];
+  assert.equal(res.body.user.kind, 'admin');
   assert.ok(res.headers['set-cookie'].includes('HttpOnly'));
-  assert.ok(auth.isAdmin({ headers: { cookie } }));
+  const me = await auth.currentUser({ headers: { cookie: cookieFrom(res) } });
+  assert.equal(me.kind, 'admin');
 
   for (let i = 0; i < 10; i++) {
     res = fakeResponse();
-    await handler(fakeRequest({ body: { password: 'wrong' }, ip: '9.9.9.9' }), res);
+    await handler(fakeRequest({ url, body: { password: 'wrong' }, ip: '9.9.9.9' }), res);
     assert.equal(res.statusCode, 401);
   }
   res = fakeResponse();
-  await handler(fakeRequest({ body: { password: 'right password' }, ip: '9.9.9.9' }), res);
+  await handler(fakeRequest({ url, body: { password: 'right password' }, ip: '9.9.9.9' }), res);
   assert.equal(res.statusCode, 429);
 });
 
-test('admin endpoints refuse requests without a session', async () => {
-  const handler = require('../api/admin/polls');
-  const res = fakeResponse();
-  await handler(fakeRequest({ method: 'GET' }), res);
-  assert.equal(res.statusCode, 401);
+test('polls from before accounts existed belong to the admin', async () => {
+  const pglite = new PGlite();
+  db.setDb(pglite);
+  await db.ensureSchema();
+  await pglite.query('update polls set owner_id = null');
+  await pglite.query(
+    `insert into polls (token, title, duration_minutes) values ('old', 'Old poll', 60)`
+  );
+  db.setDb(pglite); // re-runs the schema, as a new deployment would
+  await db.ensureSchema();
+  const { rows } = await pglite.query(
+    `select u.kind from polls p join app_users u on u.id = p.owner_id where p.token = 'old'`
+  );
+  assert.equal(rows[0].kind, 'admin');
+});
+
+test('each user sees and changes only their own polls', async () => {
+  const anna = await owner('Anna');
+  const marco = await owner('Marco');
+  const { id, token } = await polls.createPoll(basePoll(), anna);
+  await polls.submitResponse(token, { name: 'G', email: 'g@example.org' });
+  const answer = (await polls.getPollAdmin(id, anna)).responses[0];
+
+  assert.equal((await polls.listPolls(anna)).length, 1);
+  assert.equal((await polls.listPolls(marco)).length, 0);
+  await rejects(polls.getPollAdmin(id, marco), 404);
+  await rejects(polls.updatePoll(id, { status: 'closed' }, marco), 404);
+  await rejects(polls.finalizePoll(id, { slotId: answer.id }, marco), 404);
+  await rejects(polls.deleteResponse(id, answer.id, marco), 404);
+  await rejects(polls.deletePoll(id, marco), 404);
+  assert.equal((await polls.getPollAdmin(id, anna)).responses.length, 1);
+});
+
+test('poll endpoints refuse requests without a session', async () => {
+  for (const file of ['../api/app/polls', '../api/app/poll']) {
+    const res = fakeResponse();
+    await require(file)(fakeRequest({ method: 'GET', url: '/x?id=1' }), res);
+    assert.equal(res.statusCode, 401);
+  }
 });
 
 test('non-JSON writes are refused', async () => {
@@ -426,4 +448,543 @@ test('non-JSON writes are refused', async () => {
   const res = fakeResponse();
   await handler({ method: 'POST', url: '/', headers: { 'content-type': 'text/plain' } }, res);
   assert.equal(res.statusCode, 415);
+});
+
+// ── Discord ────────────────────────────────────────────────────────────────
+
+const discord = require('./discord');
+
+function discordEnv() {
+  Object.assign(process.env, {
+    DISCORD_CLIENT_ID: 'cid',
+    DISCORD_CLIENT_SECRET: 'csecret',
+    DISCORD_GUILD_ID: 'guild1',
+    DISCORD_ROLES_IDS: 'roleA, roleB',
+  });
+}
+
+/** A stand-in for discord.com answering the three calls verify() makes. */
+function fakeDiscord({ member = { roles: ['roleB'], nick: 'Anna R.' }, memberStatus = 200 } = {}) {
+  const calls = [];
+  const reply = (status, body) => ({ ok: status < 300, status, json: async () => body });
+  const impl = async (url, init) => {
+    calls.push(url);
+    if (url.endsWith('/oauth2/token')) {
+      assert.equal(new URLSearchParams(init.body).get('code'), 'the-code');
+      return reply(200, { access_token: 'tok' });
+    }
+    if (url.endsWith('/users/@me')) {
+      return reply(200, {
+        id: '42',
+        username: 'anna',
+        avatar: 'abc',
+        email: 'Anna@x.org',
+        verified: true,
+      });
+    }
+    if (url.endsWith('/users/@me/guilds/guild1/member')) {
+      return reply(memberStatus, memberStatus === 200 ? member : { code: 10004 });
+    }
+    throw new Error('unexpected ' + url);
+  };
+  impl.calls = calls;
+  return impl;
+}
+
+test('Discord sign-in returns the member profile when they hold an allowed role', async () => {
+  discordEnv();
+  const profile = await discord.verify(
+    { code: 'the-code', redirectUri: 'https://x/api/discord' },
+    fakeDiscord()
+  );
+  assert.deepEqual(profile, {
+    discordId: '42',
+    name: 'Anna R.',
+    avatarUrl: 'https://cdn.discordapp.com/avatars/42/abc.png?size=64',
+    email: 'Anna@x.org',
+  });
+});
+
+test('Discord sign-in refuses non-members and members without an allowed role', async () => {
+  discordEnv();
+  const args = { code: 'the-code', redirectUri: 'https://x/api/discord' };
+  await assert.rejects(discord.verify(args, fakeDiscord({ memberStatus: 404 })), {
+    code: 'not_member',
+  });
+  await assert.rejects(discord.verify(args, fakeDiscord({ member: { roles: ['other'] } })), {
+    code: 'missing_role',
+  });
+});
+
+test('a Discord account is created once and refreshed on later logins', async () => {
+  const first = await auth.upsertDiscordUser({ discordId: '42', name: 'Anna' });
+  const again = await auth.upsertDiscordUser({ discordId: '42', name: 'Anna Rossi' });
+  assert.equal(first.id, again.id);
+  assert.equal(again.name, 'Anna Rossi');
+});
+
+test('the Discord flow sends people to Discord and checks the state on return', async () => {
+  discordEnv();
+  const handler = require('../api/discord');
+
+  const start = fakeResponse();
+  await handler(fakeRequest({ method: 'GET', url: '/api/discord?next=/app/polls/' }), start);
+  assert.equal(start.statusCode, 302);
+  const to = new URL(start.headers.location);
+  assert.equal(to.host, 'discord.com');
+  assert.equal(to.searchParams.get('redirect_uri'), 'https://www.example.org/api/discord');
+  assert.match(start.headers['set-cookie'], /SameSite=Lax/);
+  const state = to.searchParams.get('state');
+  const cookie = cookieFrom(start);
+
+  const back = async (query) => {
+    const res = fakeResponse();
+    await handler(fakeRequest({ method: 'GET', url: `/api/discord?${query}`, cookie }), res);
+    return res.headers.location;
+  };
+  assert.equal(await back('code=c&state=forged'), '/app/login/?error=expired');
+  assert.equal(await back(`error=access_denied&state=${state}`), '/app/login/?error=denied');
+});
+
+test('a successful Discord return creates the account, signs in and continues', async () => {
+  discordEnv();
+  const handler = require('../api/discord');
+  const start = fakeResponse();
+  await handler(fakeRequest({ method: 'GET', url: '/api/discord?next=/app/polls/' }), start);
+  const state = new URL(start.headers.location).searchParams.get('state');
+
+  const realFetch = global.fetch;
+  global.fetch = fakeDiscord();
+  try {
+    const res = fakeResponse();
+    await handler(
+      fakeRequest({
+        method: 'GET',
+        url: `/api/discord?code=the-code&state=${state}`,
+        cookie: cookieFrom(start),
+      }),
+      res
+    );
+    assert.equal(res.headers.location, '/app/polls/');
+    const me = await auth.currentUser({ headers: { cookie: cookieFrom(res) } });
+    assert.equal(me.name, 'Anna R.');
+    assert.equal(me.kind, 'discord');
+  } finally {
+    global.fetch = realFetch;
+  }
+});
+
+// ── Email, notifications, invite-only polls ────────────────────────────────
+
+const mail = require('./mail');
+const notify = require('./notify');
+
+/** Configures SMTP with a transport that records instead of sending. */
+async function fakeMail({ fail = false } = {}) {
+  const sent = [];
+  mail.setTransportFactory((options) => ({
+    async sendMail(message) {
+      if (fail) throw new Error('mailbox unavailable');
+      sent.push({ ...message, options });
+    },
+  }));
+  await mail.saveSettings({
+    host: 'smtp.example.org',
+    port: 465,
+    user: 'tech@ais4i.it',
+    password: 'smtp-secret',
+    fromEmail: 'tech@ais4i.it',
+  });
+  return sent;
+}
+
+test('the SMTP password is stored encrypted and never shown', async () => {
+  await fakeMail();
+  const { rows } = await db.query(`select value from app_settings where key = 'smtp'`);
+  assert.notEqual(rows[0].value.password, 'smtp-secret');
+  assert.equal(mail.decrypt(rows[0].value.password), 'smtp-secret');
+  const shown = await mail.publicSettings();
+  assert.equal(shown.password, undefined);
+  assert.equal(shown.hasPassword, true);
+
+  // Saving again without a password keeps the stored one.
+  await mail.saveSettings({ host: 'smtp2.example.org', port: 587, fromEmail: 'tech@ais4i.it' });
+  const again = (await db.query(`select value from app_settings where key = 'smtp'`)).rows[0];
+  assert.equal(mail.decrypt(again.value.password), 'smtp-secret');
+});
+
+test('invite-only polls need email to be set up', async () => {
+  await rejects(
+    polls.createPoll(basePoll({ inviteOnly: true, invitees: 'a@example.org' }), await owner()),
+    409
+  );
+});
+
+test('only invited guests can see and answer an invite-only poll, as their own address', async () => {
+  const sent = await fakeMail();
+  const me = await owner();
+  const created = await polls.createPoll(
+    basePoll({
+      inviteOnly: true,
+      invitees: 'Anna@example.org, marco@example.org; anna@example.org',
+    }),
+    me
+  );
+  assert.equal(created.invites.length, 2);
+  const poll = await polls.getPollAdmin(created.id, me);
+  await auth.updateProfile(me, { notifyChannel: 'email', notifyEmail: 'owner@example.org' });
+  const outcome = await notify.sendInvites({
+    poll,
+    ownerId: me,
+    invites: created.invites,
+    origin: 'https://site',
+  });
+  assert.deepEqual(outcome, { sent: 2, failed: 0 });
+  assert.equal(sent.length, 2);
+  // The invitation says who sent it, and replies go to them.
+  assert.equal(sent[0].from.name, 'Owner · AI Safety for Italy');
+  assert.equal(sent[0].from.address, 'tech@ais4i.it');
+  assert.equal(sent[0].replyTo, 'owner@example.org');
+  assert.equal(sent[0].subject, 'Owner ti invita: Board meeting');
+  assert.match(sent[0].text, /^Owner ti invita/);
+  assert.ok(
+    sent[0].text.includes(`https://site/meet/?p=${created.token}&i=${created.invites[0].token}`)
+  );
+
+  const anna = created.invites.find((i) => i.email === 'anna@example.org');
+  await assert.rejects(polls.getPollPublic(created.token), { status: 403 });
+  await assert.rejects(
+    polls.submitResponse(created.token, { name: 'X', email: 'x@example.org' }),
+    (err) => err.status === 403 && err.details.code === 'invite_required'
+  );
+
+  const view = await polls.getPollPublic(created.token, null, anna.token);
+  assert.equal(view.invite.email, 'anna@example.org');
+
+  const first = await polls.submitResponse(created.token, {
+    name: 'Anna',
+    email: 'someone-else@example.org',
+    inviteToken: anna.token,
+  });
+  assert.equal(first.isNew, true);
+  const again = await polls.submitResponse(created.token, {
+    name: 'Anna R.',
+    inviteToken: anna.token,
+  });
+  assert.equal(again.isNew, false);
+  const answers = (await polls.getPollAdmin(created.id, me)).responses;
+  assert.equal(answers.length, 1);
+  assert.equal(answers[0].email, 'anna@example.org');
+  assert.equal(answers[0].name, 'Anna R.');
+});
+
+test('"everyone has answered" is reported once, and again after an answer is removed', async () => {
+  await fakeMail();
+  const me = await owner();
+  const created = await polls.createPoll(
+    basePoll({ inviteOnly: true, invitees: ['a@example.org', 'b@example.org'] }),
+    me
+  );
+  const [a, b] = created.invites;
+  await polls.submitResponse(created.token, { name: 'A', inviteToken: a.token });
+  assert.equal(await polls.markAllAnswered(created.id), 0);
+  await polls.submitResponse(created.token, { name: 'B', inviteToken: b.token });
+  assert.equal(await polls.markAllAnswered(created.id), 2);
+  assert.equal(await polls.markAllAnswered(created.id), 0);
+
+  const answerB = (await polls.getPollAdmin(created.id, me)).responses.find((r) => r.name === 'B');
+  await polls.deleteResponse(created.id, answerB.id, me);
+  assert.equal(
+    (await polls.getPollAdmin(created.id, me)).invites.find((i) => i.email === 'b@example.org')
+      .answered,
+    false
+  );
+  await polls.submitResponse(created.token, { name: 'B', inviteToken: b.token });
+  assert.equal(await polls.markAllAnswered(created.id), 2);
+});
+
+test('a failed invite is recorded on the guest so it can be sent again', async () => {
+  await fakeMail();
+  const me = await owner();
+  const created = await polls.createPoll(
+    basePoll({ inviteOnly: true, invitees: 'a@example.org' }),
+    me
+  );
+  await fakeMail({ fail: true });
+  const poll = await polls.getPollAdmin(created.id, me);
+  const outcome = await notify.sendInvites({ poll, invites: created.invites, origin: 'https://s' });
+  assert.deepEqual(outcome, { sent: 0, failed: 1 });
+  const [invite] = (await polls.getPollAdmin(created.id, me)).invites;
+  assert.equal(invite.sentAt, null);
+  assert.match(invite.sendError, /mailbox unavailable/);
+});
+
+test('owners are notified the way they chose, and not at all when they opt out', async () => {
+  const sent = await fakeMail();
+  const me = await owner();
+  const { id } = await polls.createPoll(basePoll(), me);
+  const message = { subject: 'New answer', lines: ['Hello'] };
+
+  // No address yet: a stand-in Discord account without email gets nothing.
+  assert.deepEqual(await notify.notifyOwner(id, message), []);
+
+  await auth.updateProfile(me, { notifyChannel: 'email', notifyEmail: 'Owner@Example.org' });
+  assert.deepEqual(await notify.notifyOwner(id, message), ['email']);
+  assert.equal(sent.at(-1).to, 'owner@example.org');
+
+  await polls.updatePoll(id, { notify: false }, me);
+  assert.deepEqual(await notify.notifyOwner(id, message), []);
+  await polls.updatePoll(id, { notify: true }, me);
+
+  await auth.updateProfile(me, { notifyChannel: 'none', notifyEmail: 'owner@example.org' });
+  assert.deepEqual(await notify.notifyOwner(id, message), []);
+  await rejects(auth.updateProfile(me, { notifyChannel: 'pigeon' }), 400);
+});
+
+test('Discord notifications go by DM, and fall back to email when the DM fails', async () => {
+  const sent = await fakeMail();
+  process.env.DISCORD_BOT_TOKEN_AIS_TEAM_AREA = 'bot-token';
+  const user = await auth.upsertDiscordUser({
+    discordId: '777',
+    name: 'D',
+    email: 'd@example.org',
+  });
+  const { id } = await polls.createPoll(basePoll(), user.id);
+  await auth.updateProfile(user.id, { notifyChannel: 'discord' });
+  const message = { subject: 'New answer', lines: ['Hello'] };
+
+  const calls = [];
+  const reply = (status, body) => ({ ok: status < 300, status, json: async () => body });
+  notify.setFetch(async (url, init) => {
+    calls.push([url, JSON.parse(init.body)]);
+    return url.endsWith('/users/@me/channels') ? reply(200, { id: 'dm1' }) : reply(200, {});
+  });
+  assert.deepEqual(await notify.notifyOwner(id, message), ['discord']);
+  assert.deepEqual(calls[0][1], { recipient_id: '777' });
+  assert.match(calls[1][0], /channels\/dm1\/messages$/);
+
+  notify.setFetch(async () => reply(403, { code: 50007 }));
+  assert.deepEqual(await notify.notifyOwner(id, message), ['email']);
+  assert.equal(sent.at(-1).to, 'd@example.org');
+  delete process.env.DISCORD_BOT_TOKEN_AIS_TEAM_AREA;
+});
+
+test('answering through the API notifies the owner of a new answer only', async () => {
+  const sent = await fakeMail();
+  const me = await owner();
+  await auth.updateProfile(me, { notifyChannel: 'email', notifyEmail: 'owner@example.org' });
+  const { token } = await polls.createPoll(basePoll(), me);
+  const handler = require('../api/poll');
+  const post = async (body) => {
+    const res = fakeResponse();
+    await handler(fakeRequest({ url: `/api/poll?p=${token}`, body }), res);
+    return res;
+  };
+  const res = await post({ name: 'Giulia', email: 'g@example.org', votes: {} });
+  assert.equal(res.statusCode, 200);
+  assert.equal(sent.length, 1);
+  assert.match(sent[0].subject, /New answer: Board meeting/);
+  assert.match(sent[0].text, /https:\/\/www\.example\.org\/app\/polls\/poll\/\?id=/);
+
+  await post({ name: 'Giulia', email: 'g@example.org', votes: {}, editToken: res.body.editToken });
+  assert.equal(sent.length, 1);
+});
+
+test('only the admin can change email settings', async () => {
+  const handler = require('../api/app/settings');
+  const user = await auth.upsertDiscordUser({ discordId: '9', name: 'Member' });
+  const res = fakeResponse();
+  await handler(
+    fakeRequest({
+      method: 'PUT',
+      url: '/api/app/settings',
+      cookie: `${auth.COOKIE}=${auth.makeSession(user.id)}`,
+      body: { host: 'x', port: 465, fromEmail: 'a@b.it', password: 'p' },
+    }),
+    res
+  );
+  assert.equal(res.statusCode, 403);
+});
+
+// ── Calendar invite for the chosen time ────────────────────────────────────
+
+const ics = require('./ics');
+
+test('calendar files escape text, fold long lines and name one attendee', () => {
+  const text = ics.build(
+    { id: 'p1', title: 'Riunione; direttivo, Q4', description: 'Ordine:\n' + 'è'.repeat(60) },
+    { start: '2026-10-20T08:00:00Z', end: '2026-10-20T09:00:00Z' },
+    {
+      method: 'REQUEST',
+      sequence: 2,
+      organizer: { name: 'Anna', email: 'tech@ais4i.it' },
+      attendee: { name: 'Giulia', email: 'g@example.org' },
+    }
+  );
+  assert.match(text, /^BEGIN:VCALENDAR\r\n/);
+  assert.match(text, /METHOD:REQUEST\r\n/);
+  assert.ok(text.includes('SUMMARY:Riunione\\; direttivo\\, Q4\r\n'));
+  assert.match(text, /DTSTART:20261020T080000Z/);
+  assert.match(text, /SEQUENCE:2/);
+  assert.match(text, /ORGANIZER;CN=Anna:mailto:tech@ais4i.it/);
+  assert.equal(text.match(/ATTENDEE/g).length, 1);
+  for (const line of text.split('\r\n')) assert.ok(Buffer.byteLength(line) <= 75, line);
+});
+
+test('choosing a time can email the invite, and changing it sends the cancellation', async () => {
+  const sent = await fakeMail();
+  const me = await owner();
+  const { id, token } = await polls.createPoll(basePoll(), me);
+  const slots = (await polls.getPollAdmin(id, me)).slots;
+  await polls.submitResponse(token, { name: 'Giulia', email: 'g@example.org' });
+  await polls.submitResponse(token, { name: 'Marco', email: 'm@example.org' });
+
+  const handler = require('../api/app/poll');
+  const cookie = `${auth.COOKIE}=${auth.makeSession(me)}`;
+  const call = async (method, query, body) => {
+    const res = fakeResponse();
+    await handler(
+      fakeRequest({ method, url: `/api/app/poll?id=${id}${query}`, cookie, body }),
+      res
+    );
+    return res;
+  };
+
+  const chosen = await call('POST', '&action=finalize', {
+    slotId: slots[1].id,
+    sendInvite: true,
+    emails: ['g@example.org', 'stranger@example.org'],
+    extraEmails: 'boss@example.org',
+  });
+  assert.equal(chosen.statusCode, 200);
+  assert.deepEqual(chosen.body.outcome, { sent: 2, failed: 0 });
+  assert.deepEqual(
+    sent.map((m) => m.to),
+    ['g@example.org', 'boss@example.org']
+  );
+  assert.equal(sent[0].icalEvent.method, 'REQUEST');
+  // Long lines are folded onto continuation lines; unfold before reading.
+  const unfolded = sent[0].icalEvent.content.replace(/\r\n /g, '');
+  assert.match(unfolded, /ATTENDEE;CN=Giulia.*mailto:g@example.org/);
+  assert.doesNotMatch(sent[0].icalEvent.content, /boss@example.org/);
+  assert.deepEqual([...chosen.body.invitedToMeeting].sort(), ['boss@example.org', 'g@example.org']);
+
+  // Sending again later, to someone else: they join the list.
+  const again = await call('POST', '&action=send-meeting', { emails: ['m@example.org'] });
+  assert.deepEqual(again.body.outcome, { sent: 1, failed: 0 });
+  assert.equal(sent[2].to, 'm@example.org');
+  assert.match(sent[2].icalEvent.content, /SEQUENCE:2/);
+  assert.deepEqual([...again.body.invitedToMeeting].sort(), [
+    'boss@example.org',
+    'g@example.org',
+    'm@example.org',
+  ]);
+
+  const changed = await call('POST', '&action=unschedule', {});
+  assert.deepEqual(changed.body.outcome, { sent: 3, failed: 0 });
+  assert.ok(sent.slice(3).every((m) => m.icalEvent.method === 'CANCEL'));
+  assert.match(sent[3].icalEvent.content, /STATUS:CANCELLED/);
+  assert.match(sent[3].icalEvent.content, /SEQUENCE:3/);
+  assert.deepEqual(changed.body.invitedToMeeting, []);
+  const none = await call('POST', '&action=send-meeting', { emails: ['g@example.org'] });
+  assert.equal(none.statusCode, 409);
+});
+
+test('a batch of emails goes over one connection, and stops when the login is refused', async () => {
+  await fakeMail();
+  let connections = 0;
+  let closed = 0;
+  const attempts = [];
+  const transportWith = (failWith) => () => {
+    connections++;
+    return {
+      async sendMail(m) {
+        attempts.push(m.to);
+        if (failWith) throw Object.assign(new Error('535 auth failed'), { code: failWith });
+      },
+      close() {
+        closed++;
+      },
+    };
+  };
+  const messages = ['a', 'b', 'c'].map((x) => ({
+    to: `${x}@example.org`,
+    subject: 's',
+    text: 't',
+  }));
+
+  mail.setTransportFactory(transportWith(null));
+  const ok = await mail.sendBatch(messages, { pauseMs: 0 });
+  assert.deepEqual(ok, [{ ok: true }, { ok: true }, { ok: true }]);
+  assert.equal(connections, 1);
+  assert.equal(closed, 1);
+
+  attempts.length = 0;
+  mail.setTransportFactory(transportWith('EAUTH'));
+  const refused = await mail.sendBatch(messages, { pauseMs: 0 });
+  assert.equal(attempts.length, 1);
+  assert.ok(refused.every((r) => !r.ok && /auth failed/.test(r.error)));
+});
+
+// ── Upgrading the live database ────────────────────────────────────────────
+
+test('upgrading a database from main keeps every poll and answer, owned by the admin', async () => {
+  const pglite = new PGlite();
+  await pglite.exec(require('./fixtures/schema-v1'));
+  // A poll as the live site has it today: slots, an answer, a chosen time.
+  const {
+    rows: [old],
+  } = await pglite.query(
+    `insert into polls (token, title, description, location, duration_minutes, status)
+     values ('live-token', 'Riunione di ottobre', 'Ordine del giorno', 'Roma', 60, 'scheduled')
+     returning id`
+  );
+  const {
+    rows: [slot],
+  } = await pglite.query(
+    `insert into poll_slots (poll_id, starts_at) values ($1, '2026-10-20T08:00:00Z') returning id`,
+    [old.id]
+  );
+  await pglite.query('update polls set final_slot_id = $2 where id = $1', [old.id, slot.id]);
+  const {
+    rows: [answer],
+  } = await pglite.query(
+    `insert into poll_responses (poll_id, name, email, edit_token)
+     values ($1, 'Giulia', 'g@example.org', 'edit-1') returning id`,
+    [old.id]
+  );
+  await pglite.query('insert into poll_votes (response_id, slot_id, value) values ($1, $2, 2)', [
+    answer.id,
+    slot.id,
+  ]);
+
+  db.setDb(pglite);
+  await db.ensureSchema();
+
+  const admin = (await pglite.query(`select id from app_users where kind = 'admin'`)).rows[0];
+  const [listed] = await polls.listPolls(admin.id);
+  assert.equal(listed.title, 'Riunione di ottobre');
+  assert.equal(listed.status, 'scheduled');
+  assert.equal(listed.responseCount, 1);
+
+  const full = await polls.getPollAdmin(old.id, admin.id);
+  assert.equal(full.finalSlotId, slot.id);
+  assert.equal(full.responses[0].email, 'g@example.org');
+  assert.equal(full.responses[0].votes[slot.id], 2);
+  assert.equal(full.inviteOnly, false);
+  assert.equal(full.notify, true);
+
+  // The public link and the participant's edit link keep working.
+  const pub = await polls.getPollPublic('live-token', 'edit-1');
+  assert.equal(pub.mine.name, 'Giulia');
+  assert.equal(pub.finalSlot.id, slot.id);
+
+  // And applying the schema again changes nothing.
+  db.setDb(pglite);
+  await db.ensureSchema();
+  assert.equal((await polls.listPolls(admin.id)).length, 1);
+  assert.equal(
+    (await pglite.query(`select count(*)::int as n from app_users where kind = 'admin'`)).rows[0].n,
+    1
+  );
 });

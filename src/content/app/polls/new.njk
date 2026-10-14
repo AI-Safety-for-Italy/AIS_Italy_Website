@@ -1,24 +1,24 @@
 ---
 title: New poll
-permalink: /admin/new/
+permalink: /app/polls/new/
 noindex: true
 excludeFromSitemap: true
 eleventyExcludeFromCollections: true
-adminTab: new
+appTab: new
 seoTitle: 'New poll | AI Safety for Italy'
 ---
 {% extends "base.njk" %}
 {% block content %}
 <section class="page-hero meet-hero">
   <div class="container">
-    <span class="eyebrow">Admin · Meeting polls</span>
+    <span class="eyebrow">Meeting polls</span>
     <h1>New poll</h1>
   </div>
 </section>
 
 <section class="meet-main">
   <div class="container">
-    {% include "admin-bar.njk" %}
+    {% include "app-bar.njk" %}
 
     <form id="pollForm" novalidate>
       <div class="create-layout">
@@ -56,9 +56,26 @@ seoTitle: 'New poll | AI Safety for Italy'
             <label class="form-label" for="deadline">Voting deadline <span class="panel-note">(optional)</span></label>
             <input class="form-input is-compact" id="deadline" name="deadline" type="datetime-local">
           </div>
+          <div>
+            <span class="form-label" id="audienceLabel">Who can answer</span>
+            <div class="choice-group" role="radiogroup" aria-labelledby="audienceLabel">
+              <label class="choice"><input type="radio" name="audience" value="link" checked><span>Anyone with the link</span></label>
+              <label class="choice"><input type="radio" name="audience" value="invite"><span>Only people I invite</span></label>
+            </div>
+            <p class="form-note" id="inviteNote" hidden style="margin-top:.4rem">Needs email sending, which the admin sets up in Settings.</p>
+          </div>
+          <div id="inviteesRow" hidden>
+            <label class="form-label" for="invitees">Guests’ emails</label>
+            <textarea class="form-input is-compact is-short" id="invitees" placeholder="anna@example.org, marco@example.org"></textarea>
+            <p class="form-note" style="margin-top:.4rem">Each gets a personal link by email.</p>
+          </div>
           <label class="check-row">
             <input type="checkbox" id="hideResponses" name="hideResponses">
             <span>Hide answers from participants</span>
+          </label>
+          <label class="check-row">
+            <input type="checkbox" id="notify" name="notify" checked>
+            <span>Notify me about new answers</span>
           </label>
         </div>
 
@@ -88,6 +105,6 @@ seoTitle: 'New poll | AI Safety for Italy'
 </section>
 
 <script src="/assets/js/meet/common.js" defer></script>
-<script src="/assets/js/meet/admin-common.js" defer></script>
-<script src="/assets/js/meet/admin-new.js" defer></script>
+<script src="/assets/js/meet/app-common.js" defer></script>
+<script src="/assets/js/meet/poll-new.js" defer></script>
 {% endblock %}

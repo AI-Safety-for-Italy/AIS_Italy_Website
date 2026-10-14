@@ -1,4 +1,4 @@
-/* /admin/new/: the poll form and the week calendar used to pick times.
+/* /app/polls/new/: the poll form and the week calendar used to pick times.
  *
  * Slots are kept as UTC milliseconds; the grid shows them on the wall clock of
  * the chosen time zone. Pointer interaction on the grid:
@@ -502,6 +502,8 @@
       ? 'Give the poll a title.'
       : !state.slots.size
       ? 'Add at least one time on the calendar.'
+      : inviteOnly() && !document.getElementById('invitees').value.trim()
+      ? 'Add the emails of the people to invite.'
       : null;
     if (problem) {
       formError.textContent = problem;
@@ -511,7 +513,7 @@
     }
     var button = document.getElementById('createBtn');
     button.disabled = true;
-    M.api('POST', '/api/admin/polls', {
+    M.api('POST', '/api/app/polls', {
       title: form.title.value,
       description: form.description.value,
       location: form.location.value,
@@ -519,16 +521,25 @@
       timezone: state.tz,
       deadline: form.deadline.value ? new Date(form.deadline.value).toISOString() : null,
       hideResponses: form.hideResponses.checked,
+      notify: form.notify.checked,
+      inviteOnly: inviteOnly(),
+      invitees: inviteOnly() ? document.getElementById('invitees').value : undefined,
       slots: Array.from(state.slots).map(function (ms) {
         return new Date(ms).toISOString();
       }),
     })
       .then(function (created) {
-        window.location.href = '/admin/poll/?id=' + encodeURIComponent(created.id) + '&created=1';
+        window.location.href =
+          '/app/polls/poll/?id=' +
+          encodeURIComponent(created.id) +
+          '&created=1' +
+          (inviteOnly()
+            ? '&sent=' + created.invites.sent + '&failed=' + created.invites.failed
+            : '');
       })
       .catch(function (err) {
         button.disabled = false;
-        if (err.status === 401) return M.adminError(err);
+        if (err.status === 401) return M.appError(err);
         formError.textContent = err.message;
         formError.hidden = false;
       });
@@ -539,7 +550,24 @@
     if (!drag) render();
   }, 5 * 60 * 1000);
 
-  M.session.then(function () {
+  // ── Who can answer ─────────────────────────────────────────────────────────
+
+  function inviteOnly() {
+    return form.querySelector('input[name=audience]:checked').value === 'invite';
+  }
+
+  form.querySelectorAll('input[name=audience]').forEach(function (radio) {
+    radio.addEventListener('change', function () {
+      document.getElementById('inviteesRow').hidden = !inviteOnly();
+    });
+  });
+
+  M.me.then(function () {
     setDuration(60);
+    return M.api('GET', '/api/app/settings').then(function (settings) {
+      if (settings.mail.configured) return;
+      form.querySelector('input[value=invite]').disabled = true;
+      document.getElementById('inviteNote').hidden = false;
+    });
   });
 })();
