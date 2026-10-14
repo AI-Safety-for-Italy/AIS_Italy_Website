@@ -1,4 +1,4 @@
-last_updated: '2026-10-07'
+last_updated: '2026-10-14'
 members:
 - id: 1
   name: Angelo Leone
@@ -530,3 +530,9 @@ members:
   areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
     ecc.), Alignment (RLHF, scalable oversight, value alignment), Rischi catastrofici
     / esistenziali
+- id: 68
+  name: Francesco Ortu
+  profile: https://francescortu.github.io/
+  location: Trieste, Italy
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.), Alignment (RLHF, scalable oversight, value alignment)
