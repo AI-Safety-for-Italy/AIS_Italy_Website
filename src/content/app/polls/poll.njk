@@ -28,12 +28,12 @@ seoTitle: 'Poll | AI Safety for Italy'
   <form method="dialog" id="finalizeForm">
     <div class="dialog-body form-grid">
       <div>
-        <span class="label-mono">Choose this time</span>
+        <span class="label-mono" id="finalizeLabel">Choose this time</span>
         <h2 id="finalizeTitle"></h2>
         <p class="panel-note" id="finalizeWhen"></p>
       </div>
-      <p class="panel-note" style="margin:0">Voting closes and the poll page shows this time.</p>
-      <label class="check-row">
+      <p class="panel-note" style="margin:0" id="finalizeIntro">Voting closes and the poll page shows this time.</p>
+      <label class="check-row" id="sendInviteRow">
         <input type="checkbox" id="sendInvite">
         <span>Email the calendar invite<br><span class="panel-note" id="sendInviteNote">From the team mailbox, with the event attached.</span></span>
       </label>
@@ -52,6 +52,32 @@ seoTitle: 'Poll | AI Safety for Italy'
     <div class="dialog-foot">
       <button class="btn btn-outline btn-sm" value="cancel" formnovalidate>Cancel</button>
       <button class="btn btn-primary btn-sm" type="submit" id="finalizeSubmit" value="send">Choose this time</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog class="meet-dialog" id="editDialog" aria-labelledby="editTitle">
+  <form method="dialog" id="editForm">
+    <div class="dialog-body form-grid">
+      <h2 id="editTitle">Edit details</h2>
+      <div>
+        <label class="form-label" for="editPollTitle">Title</label>
+        <input class="form-input is-compact" id="editPollTitle" maxlength="200" required>
+      </div>
+      <div>
+        <label class="form-label" for="editLocation">Location <span class="panel-note">(address or video-call link)</span></label>
+        <input class="form-input is-compact" id="editLocation" maxlength="500">
+      </div>
+      <div>
+        <label class="form-label" for="editDescription">Description</label>
+        <textarea class="form-input is-compact" id="editDescription" maxlength="5000"></textarea>
+      </div>
+      <p class="notice" id="editInvitedNote" hidden style="margin:0"><span>ℹ</span><span>People who already got the calendar invite will see the change only when you email it again.</span></p>
+      <div class="form-error" id="editError" role="alert" hidden></div>
+    </div>
+    <div class="dialog-foot">
+      <button class="btn btn-outline btn-sm" value="cancel" formnovalidate>Cancel</button>
+      <button class="btn btn-primary btn-sm" type="submit" value="save">Save</button>
     </div>
   </form>
 </dialog>

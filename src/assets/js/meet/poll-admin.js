@@ -14,6 +14,34 @@
 
   var mailReady = false;
 
+  /**
+   * Disables `button` and shows `label` on it while `promise` runs, so slow
+   * actions (sending emails) are visibly in progress and cannot be repeated.
+   */
+  function busy(button, label, promise) {
+    var before = button ? button.textContent : '';
+    if (button) {
+      button.disabled = true;
+      button.textContent = label;
+    }
+    return promise.then(
+      function (value) {
+        if (button) {
+          button.disabled = false;
+          button.textContent = before;
+        }
+        return value;
+      },
+      function (err) {
+        if (button) {
+          button.disabled = false;
+          button.textContent = before;
+        }
+        throw err;
+      }
+    );
+  }
+
   M.me
     .then(function () {
       M.api('GET', '/api/app/settings').then(function (s) {
@@ -79,7 +107,8 @@
               M.icon('hourglass'),
               'Voting closes ' + M.fmtDateTime(poll.deadline, poll.timezone)
             )
-          : null
+          : null,
+        h('button', { type: 'button', class: 'link-button', onclick: openEdit }, 'Edit details')
       )
     );
 
@@ -186,12 +215,13 @@
                     {
                       type: 'button',
                       class: 'link-button',
-                      onclick: function () {
+                      onclick: function (e) {
                         guestAction(
                           'POST',
                           '&action=resend&invite=' + g.id,
                           {},
-                          'Invite sent again'
+                          'Invite sent again',
+                          e.currentTarget
                         );
                       },
                     },
@@ -230,9 +260,15 @@
               {
                 type: 'button',
                 class: 'btn btn-outline btn-sm',
-                onclick: function () {
+                onclick: function (e) {
                   if (!input.value.trim()) return input.focus();
-                  guestAction('POST', '&action=invite', { emails: input.value }, null);
+                  guestAction(
+                    'POST',
+                    '&action=invite',
+                    { emails: input.value },
+                    null,
+                    e.currentTarget
+                  );
                 },
               },
               'Invite'
@@ -241,8 +277,12 @@
     );
   }
 
-  function guestAction(method, query, body, done) {
-    M.api(method, '/api/app/poll?id=' + encodeURIComponent(id) + query, body)
+  function guestAction(method, query, body, done, button) {
+    busy(
+      button,
+      'Sending…',
+      M.api(method, '/api/app/poll?id=' + encodeURIComponent(id) + query, body)
+    )
       .then(function (data) {
         show(data);
         var outcome = data.outcome;
@@ -325,7 +365,24 @@
             : null,
           h(
             'button',
-            { type: 'button', class: 'btn btn-ghost btn-sm', onclick: unschedule },
+            {
+              type: 'button',
+              class: 'btn btn-ghost btn-sm',
+              onclick: function () {
+                openFinalize(slot, true);
+              },
+            },
+            poll.invitedToMeeting.length ? 'Email the invite again' : 'Email the invite'
+          ),
+          h(
+            'button',
+            {
+              type: 'button',
+              class: 'btn btn-ghost btn-sm',
+              onclick: function (e) {
+                unschedule(e.currentTarget);
+              },
+            },
             'Change time'
           )
         )
@@ -508,7 +565,7 @@
       .catch(M.appError);
   }
 
-  function unschedule() {
+  function unschedule(button) {
     var invited = poll.invitedToMeeting.length;
     var question = invited
       ? 'Clear the chosen time? The ' +
@@ -517,7 +574,11 @@
         ' who got the calendar invite will be sent a cancellation.'
       : 'Clear the chosen time? You can then pick another one.';
     if (!window.confirm(question)) return;
-    M.api('POST', '/api/app/poll?id=' + encodeURIComponent(id) + '&action=unschedule', {})
+    busy(
+      button,
+      invited ? 'Sending cancellations…' : 'Clearing…',
+      M.api('POST', '/api/app/poll?id=' + encodeURIComponent(id) + '&action=unschedule', {})
+    )
       .then(function (data) {
         show(data);
         M.toast(
@@ -535,12 +596,24 @@
   // ── Finalize dialog ────────────────────────────────────────────────────────
 
   var chosenSlot = null;
+  var sendOnly = false;
   var finalizeError = document.getElementById('finalizeError');
   var submit = document.getElementById('finalizeSubmit');
 
-  function openFinalize(slot) {
+  /**
+   * The dialog both for choosing a time (with the option of emailing the
+   * invite) and, with `onlySend`, for emailing it later or again.
+   */
+  function openFinalize(slot, onlySend) {
     chosenSlot = slot;
+    sendOnly = Boolean(onlySend);
     finalizeError.hidden = true;
+    document.getElementById('finalizeLabel').textContent = sendOnly
+      ? 'Email the calendar invite'
+      : 'Choose this time';
+    document.getElementById('finalizeIntro').hidden = sendOnly;
+    document.getElementById('sendInviteRow').hidden = sendOnly;
+    submit.textContent = sendOnly ? 'Send invite' : 'Choose this time';
     document.getElementById('finalizeTitle').textContent = M.fmtDay(slot.start, poll.timezone);
     document.getElementById('finalizeWhen').textContent =
       M.fmtTime(slot.start, poll.timezone) +
@@ -555,18 +628,40 @@
 
     // Everyone who answered, ticked; on an invite-only poll, guests who did
     // not answer are offered too, unticked.
+    // Sending again: people who already have it start unticked, unless
+    // everyone has it already (then it is a plain resend to all).
+    var already = {};
+    poll.invitedToMeeting.forEach(function (e) {
+      already[e] = true;
+    });
+    var everyoneHasIt =
+      poll.responses.length > 0 &&
+      poll.responses.every(function (r) {
+        return already[r.email.toLowerCase()];
+      });
     var list = M.clear(document.getElementById('inviteeList'));
     var answered = {};
     poll.responses.forEach(function (r) {
-      answered[r.email.toLowerCase()] = true;
+      var email = r.email.toLowerCase();
+      answered[email] = true;
       var v = r.votes[slot.id] || 0;
       list.appendChild(
         h(
           'label',
           null,
-          h('input', { type: 'checkbox', value: r.email, checked: true }),
+          h('input', {
+            type: 'checkbox',
+            value: r.email,
+            checked: !sendOnly || everyoneHasIt || !already[email],
+          }),
           h('span', null, r.name, ' ', h('span', { class: 'panel-note' }, r.email)),
-          h('small', null, ['can’t make it', 'if needed', 'available'][v])
+          h(
+            'small',
+            null,
+            sendOnly && already[email]
+              ? 'already sent'
+              : ['can’t make it', 'if needed', 'available'][v]
+          )
         )
       );
     });
@@ -589,12 +684,17 @@
     }
     document.getElementById('extraEmails').value = '';
     var send = document.getElementById('sendInvite');
-    send.checked = mailReady;
+    send.checked = mailReady || sendOnly;
     send.disabled = !mailReady;
     document.getElementById('sendInviteNote').textContent = mailReady
       ? 'From the team mailbox, with the event attached.'
-      : 'Needs email sending, which the admin sets up in Settings.';
+      : 'Needs email sending, which the admin sets up in General settings.';
     document.getElementById('inviteFields').hidden = !send.checked;
+    if (sendOnly && !mailReady) {
+      finalizeError.textContent = 'Email sending isn’t set up yet (admin → General settings).';
+      finalizeError.hidden = false;
+    }
+    submit.disabled = sendOnly && !mailReady;
     dialog.showModal();
   }
 
@@ -605,7 +705,7 @@
   document.getElementById('finalizeForm').addEventListener('submit', function (e) {
     if (e.submitter && e.submitter.value === 'cancel') return;
     e.preventDefault();
-    var sendInvite = document.getElementById('sendInvite').checked;
+    var sendInvite = sendOnly || document.getElementById('sendInvite').checked;
     var emails = Array.from(document.querySelectorAll('#inviteeList input:checked')).map(function (
       input
     ) {
@@ -617,23 +717,34 @@
       finalizeError.hidden = false;
       return;
     }
+    var label = submit.textContent;
     submit.disabled = true;
-    M.api('POST', '/api/app/poll?id=' + encodeURIComponent(id) + '&action=finalize', {
-      slotId: chosenSlot.id,
-      sendInvite: sendInvite,
-      emails: emails,
-      extraEmails: extraEmails,
-    })
+    if (sendInvite) submit.textContent = 'Sending…';
+    var request = sendOnly
+      ? M.api('POST', '/api/app/poll?id=' + encodeURIComponent(id) + '&action=send-meeting', {
+          emails: emails,
+          extraEmails: extraEmails,
+        })
+      : M.api('POST', '/api/app/poll?id=' + encodeURIComponent(id) + '&action=finalize', {
+          slotId: chosenSlot.id,
+          sendInvite: sendInvite,
+          emails: emails,
+          extraEmails: extraEmails,
+        });
+    request
       .then(function (data) {
         dialog.close();
         show(data);
         window.scrollTo({ top: 0, behavior: 'smooth' });
         var o = data.outcome;
+        var people = o ? o.sent + (o.sent === 1 ? ' person' : ' people') : '';
         M.toast(
           o && o.failed
-            ? 'Time chosen, but ' + o.failed + ' invite(s) could not be sent'
+            ? o.failed + ' invite(s) could not be sent'
+            : sendOnly
+            ? 'Invite sent to ' + people
             : o
-            ? 'Time chosen and invite sent to ' + o.sent + (o.sent === 1 ? ' person' : ' people')
+            ? 'Time chosen and invite sent to ' + people
             : 'Time chosen',
           Boolean(o && o.failed)
         );
@@ -645,6 +756,46 @@
       })
       .then(function () {
         submit.disabled = false;
+        submit.textContent = label;
+      });
+  });
+
+  // ── Edit details ───────────────────────────────────────────────────────────
+
+  var editDialog = document.getElementById('editDialog');
+  var editError = document.getElementById('editError');
+
+  function openEdit() {
+    document.getElementById('editPollTitle').value = poll.title;
+    document.getElementById('editLocation').value = poll.location || '';
+    document.getElementById('editDescription').value = poll.description || '';
+    document.getElementById('editInvitedNote').hidden = !poll.invitedToMeeting.length;
+    editError.hidden = true;
+    editDialog.showModal();
+  }
+
+  document.getElementById('editForm').addEventListener('submit', function (e) {
+    if (e.submitter && e.submitter.value === 'cancel') return;
+    e.preventDefault();
+    var button = e.submitter;
+    busy(
+      button,
+      'Saving…',
+      M.api('PATCH', '/api/app/poll?id=' + encodeURIComponent(id), {
+        title: document.getElementById('editPollTitle').value,
+        location: document.getElementById('editLocation').value,
+        description: document.getElementById('editDescription').value,
+      })
+    )
+      .then(function (data) {
+        editDialog.close();
+        show(data);
+        M.toast('Saved');
+      })
+      .catch(function (err) {
+        if (err.status === 401) return M.appError(err);
+        editError.textContent = err.message;
+        editError.hidden = false;
       });
   });
 })();

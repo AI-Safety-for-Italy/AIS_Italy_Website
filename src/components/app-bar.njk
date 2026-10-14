@@ -1,5 +1,6 @@
 {# Navigation inside the meeting-poll tool. `appTab` (front matter) marks the
-   current page. #}
+   current page. The general settings tab is shown to the admin only
+   (app-common.js reveals [data-admin-only]). #}
 <div class="admin-bar">
   <nav class="crumbs" aria-label="Breadcrumb">
     <a href="/app/">Tools</a>
@@ -9,6 +10,6 @@
   <nav class="admin-tabs" aria-label="Meeting polls">
     <a href="/app/polls/"{% if appTab == "polls" %} aria-current="page"{% endif %}>My polls</a>
     <a href="/app/polls/new/"{% if appTab == "new" %} aria-current="page"{% endif %}>New poll</a>
-    <a href="/app/polls/settings/"{% if appTab == "settings" %} aria-current="page"{% endif %}>Settings</a>
+    <a href="/app/polls/settings/" data-admin-only hidden{% if appTab == "settings" %} aria-current="page"{% endif %}>General settings</a>
   </nav>
 </div>

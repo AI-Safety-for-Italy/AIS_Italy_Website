@@ -55,11 +55,6 @@
   "devCommand": "npm start",
   "redirects": [
     {
-      "source": "/app/settings/",
-      "destination": "/app/polls/settings/",
-      "permanent": true
-    },
-    {
       "source": "/admin",
       "destination": "/app/polls/",
       "permanent": true

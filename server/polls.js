@@ -721,7 +721,11 @@ async function prepareMeetingInvite(id, ownerId, { emails, extraEmails }) {
   if (recipients.size > MAX_RESPONSES) throw new HttpError(400, 'Too many people');
 
   const { rows } = await db.query(
-    `update polls set invited_to_meeting = $2, meeting_sequence = meeting_sequence + 1
+    // Added to whoever already got it, so a later change of time cancels it
+    // for everyone.
+    `update polls set meeting_sequence = meeting_sequence + 1,
+       invited_to_meeting = array(
+         select distinct unnest(coalesce(invited_to_meeting, '{}'::text[]) || $2::text[]))
      where id = $1 returning meeting_sequence`,
     [poll.id, [...recipients.keys()]]
   );

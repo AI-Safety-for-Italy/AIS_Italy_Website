@@ -10,6 +10,9 @@
 //   POST   &action=finalize { slotId, sendInvite?, emails?, extraEmails? }
 //                                           -> marks the chosen time, and can
 //                                              email the calendar invite
+//   POST   &action=send-meeting { emails?, extraEmails? }
+//                                           -> emails the calendar invite for
+//                                              the chosen time (again)
 //   POST   &action=unschedule               -> clears it (and cancels the
 //                                              emailed invite, if any)
 //   POST   &action=invite { emails }        -> invites more guests
@@ -67,6 +70,10 @@ module.exports = route({
         result = { ...(await polls.getPollAdmin(id, user.id)), outcome };
       }
       sendJson(res, 200, result);
+    } else if (action === 'send-meeting') {
+      const meeting = await polls.prepareMeetingInvite(id, user.id, body);
+      const outcome = await notify.sendMeeting({ ...meeting, ownerId: user.id });
+      sendJson(res, 200, { ...(await polls.getPollAdmin(id, user.id)), outcome });
     } else if (action === 'unschedule') {
       const result = await polls.unschedulePoll(id, user.id);
       const { cancel, ...poll } = result;

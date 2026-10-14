@@ -1,0 +1,47 @@
+---
+title: My settings
+permalink: /app/settings/
+noindex: true
+excludeFromSitemap: true
+eleventyExcludeFromCollections: true
+seoTitle: 'My settings | AI Safety for Italy'
+---
+{% extends "base.njk" %}
+{% block content %}
+<section class="page-hero meet-hero">
+  <div class="container">
+    <span class="eyebrow">Team area</span>
+    <h1>My settings</h1>
+  </div>
+</section>
+
+<section class="meet-main">
+  <div class="container">
+    <div class="settings">
+    <form class="panel form-grid" id="notifyForm" novalidate>
+      <div class="panel-head" style="margin:0">
+        <h2>My notifications</h2>
+      </div>
+      <p class="panel-note" style="margin:0">When someone answers one of your polls. You can also turn this off for a single poll.</p>
+      <div class="choice-group" role="radiogroup" aria-label="Notify me">
+        <label class="choice"><input type="radio" name="channel" value="email"><span>Email</span></label>
+        <label class="choice"><input type="radio" name="channel" value="discord"><span>Discord message</span></label>
+        <label class="choice"><input type="radio" name="channel" value="both"><span>Both</span></label>
+        <label class="choice"><input type="radio" name="channel" value="none"><span>Off</span></label>
+      </div>
+      <p class="panel-note" id="discordNote" hidden style="margin:0"></p>
+      <div id="notifyEmailRow">
+        <label class="form-label" for="notifyEmail">Email</label>
+        <input class="form-input is-compact" id="notifyEmail" type="email" autocomplete="email">
+      </div>
+      <div class="form-error" role="alert" hidden></div>
+      <div><button class="btn btn-primary btn-sm" type="submit">Save</button></div>
+    </form>
+    </div>
+  </div>
+</section>
+
+<script src="/assets/js/meet/common.js" defer></script>
+<script src="/assets/js/meet/app-common.js" defer></script>
+<script src="/assets/js/meet/settings.js" defer></script>
+{% endblock %}

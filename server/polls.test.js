@@ -867,12 +867,124 @@ test('choosing a time can email the invite, and changing it sends the cancellati
   const unfolded = sent[0].icalEvent.content.replace(/\r\n /g, '');
   assert.match(unfolded, /ATTENDEE;CN=Giulia.*mailto:g@example.org/);
   assert.doesNotMatch(sent[0].icalEvent.content, /boss@example.org/);
-  assert.deepEqual(chosen.body.invitedToMeeting, ['g@example.org', 'boss@example.org']);
+  assert.deepEqual([...chosen.body.invitedToMeeting].sort(), ['boss@example.org', 'g@example.org']);
+
+  // Sending again later, to someone else: they join the list.
+  const again = await call('POST', '&action=send-meeting', { emails: ['m@example.org'] });
+  assert.deepEqual(again.body.outcome, { sent: 1, failed: 0 });
+  assert.equal(sent[2].to, 'm@example.org');
+  assert.match(sent[2].icalEvent.content, /SEQUENCE:2/);
+  assert.deepEqual([...again.body.invitedToMeeting].sort(), [
+    'boss@example.org',
+    'g@example.org',
+    'm@example.org',
+  ]);
 
   const changed = await call('POST', '&action=unschedule', {});
-  assert.deepEqual(changed.body.outcome, { sent: 2, failed: 0 });
-  assert.equal(sent[2].icalEvent.method, 'CANCEL');
-  assert.match(sent[2].icalEvent.content, /STATUS:CANCELLED/);
-  assert.match(sent[2].icalEvent.content, /SEQUENCE:2/);
+  assert.deepEqual(changed.body.outcome, { sent: 3, failed: 0 });
+  assert.ok(sent.slice(3).every((m) => m.icalEvent.method === 'CANCEL'));
+  assert.match(sent[3].icalEvent.content, /STATUS:CANCELLED/);
+  assert.match(sent[3].icalEvent.content, /SEQUENCE:3/);
   assert.deepEqual(changed.body.invitedToMeeting, []);
+  const none = await call('POST', '&action=send-meeting', { emails: ['g@example.org'] });
+  assert.equal(none.statusCode, 409);
+});
+
+test('a batch of emails goes over one connection, and stops when the login is refused', async () => {
+  await fakeMail();
+  let connections = 0;
+  let closed = 0;
+  const attempts = [];
+  const transportWith = (failWith) => () => {
+    connections++;
+    return {
+      async sendMail(m) {
+        attempts.push(m.to);
+        if (failWith) throw Object.assign(new Error('535 auth failed'), { code: failWith });
+      },
+      close() {
+        closed++;
+      },
+    };
+  };
+  const messages = ['a', 'b', 'c'].map((x) => ({
+    to: `${x}@example.org`,
+    subject: 's',
+    text: 't',
+  }));
+
+  mail.setTransportFactory(transportWith(null));
+  const ok = await mail.sendBatch(messages, { pauseMs: 0 });
+  assert.deepEqual(ok, [{ ok: true }, { ok: true }, { ok: true }]);
+  assert.equal(connections, 1);
+  assert.equal(closed, 1);
+
+  attempts.length = 0;
+  mail.setTransportFactory(transportWith('EAUTH'));
+  const refused = await mail.sendBatch(messages, { pauseMs: 0 });
+  assert.equal(attempts.length, 1);
+  assert.ok(refused.every((r) => !r.ok && /auth failed/.test(r.error)));
+});
+
+// ── Upgrading the live database ────────────────────────────────────────────
+
+test('upgrading a database from main keeps every poll and answer, owned by the admin', async () => {
+  const pglite = new PGlite();
+  await pglite.exec(require('./fixtures/schema-v1'));
+  // A poll as the live site has it today: slots, an answer, a chosen time.
+  const {
+    rows: [old],
+  } = await pglite.query(
+    `insert into polls (token, title, description, location, duration_minutes, status)
+     values ('live-token', 'Riunione di ottobre', 'Ordine del giorno', 'Roma', 60, 'scheduled')
+     returning id`
+  );
+  const {
+    rows: [slot],
+  } = await pglite.query(
+    `insert into poll_slots (poll_id, starts_at) values ($1, '2026-10-20T08:00:00Z') returning id`,
+    [old.id]
+  );
+  await pglite.query('update polls set final_slot_id = $2 where id = $1', [old.id, slot.id]);
+  const {
+    rows: [answer],
+  } = await pglite.query(
+    `insert into poll_responses (poll_id, name, email, edit_token)
+     values ($1, 'Giulia', 'g@example.org', 'edit-1') returning id`,
+    [old.id]
+  );
+  await pglite.query('insert into poll_votes (response_id, slot_id, value) values ($1, $2, 2)', [
+    answer.id,
+    slot.id,
+  ]);
+
+  db.setDb(pglite);
+  await db.ensureSchema();
+
+  const admin = (await pglite.query(`select id from app_users where kind = 'admin'`)).rows[0];
+  const [listed] = await polls.listPolls(admin.id);
+  assert.equal(listed.title, 'Riunione di ottobre');
+  assert.equal(listed.status, 'scheduled');
+  assert.equal(listed.responseCount, 1);
+
+  const full = await polls.getPollAdmin(old.id, admin.id);
+  assert.equal(full.finalSlotId, slot.id);
+  assert.equal(full.responses[0].email, 'g@example.org');
+  assert.equal(full.responses[0].votes[slot.id], 2);
+  assert.equal(full.inviteOnly, false);
+  assert.equal(full.notify, true);
+
+  // The public link and the participant's edit link keep working.
+  const pub = await polls.getPollPublic('live-token', 'edit-1');
+  assert.equal(pub.mine.name, 'Giulia');
+  assert.equal(pub.finalSlot.id, slot.id);
+
+  // And applying the schema again changes nothing.
+  db.setDb(pglite);
+  await db.ensureSchema();
+  assert.equal((await polls.listPolls(admin.id)).length, 1);
+  assert.equal(
+    (await pglite.query(`select count(*)::int as n from app_users where kind = 'admin'`)).rows[0].n,
+    1
+  );
 });

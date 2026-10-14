@@ -6,16 +6,18 @@ available, and the owner picks the time. Each member sees only their own polls.
 The owner then downloads the event as an `.ics` file and copies everyone's
 email to send the invite from their own calendar.
 
-| Where                                            | What                                                                 |
-| ------------------------------------------------ | -------------------------------------------------------------------- |
-| `/app/login/`                                    | Sign-in: Discord, or the shared admin password                       |
-| `/app/`                                          | Tools available after sign-in (meeting polls for now)                |
-| `/app/polls/`                                    | The member's own polls (not linked anywhere, not indexed)            |
-| `/meet/?p=…`, `/it/meet/?p=…`                    | The voting page people get the link to                               |
-| `api/`                                           | Vercel Functions: `auth`, `discord`, `app/polls`, `app/poll`, `poll` |
-| `server/`                                        | Shared server code: database, auth, Discord, polls                   |
-| `src/content/app/`, `src/content/meet.njk`       | Page shells                                                          |
-| `src/assets/js/meet/`, `src/assets/css/meet.css` | Client scripts and styles                                            |
+| Where                                            | What                                                                                 |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------ |
+| `/app/login/`                                    | Sign-in: Discord, or the shared admin password                                       |
+| `/app/`                                          | Tools available after sign-in (meeting polls for now)                                |
+| `/app/polls/`                                    | The member's own polls (not linked anywhere, not indexed)                            |
+| `/app/settings/`                                 | My settings: the member's own notifications (profile menu)                           |
+| `/app/polls/settings/`                           | General settings: the sending mailbox (admin only)                                   |
+| `/meet/?p=…`, `/it/meet/?p=…`                    | The voting page people get the link to                                               |
+| `api/`                                           | Vercel Functions: `auth`, `discord`, `app/polls`, `app/poll`, `app/settings`, `poll` |
+| `server/`                                        | Shared server code: database, auth, Discord, polls, mail, calendar files             |
+| `src/content/app/`, `src/content/meet.njk`       | Page shells                                                                          |
+| `src/assets/js/meet/`, `src/assets/css/meet.css` | Client scripts and styles                                                            |
 
 ## Run it locally
 
@@ -56,8 +58,8 @@ and lets in only members of `DISCORD_GUILD_ID` holding one of
 ### Email
 
 Invites to invite-only polls and owner notifications are sent over SMTP from
-the mailbox the admin sets up on `/app/polls/settings/` (signed in with the admin
-password). For `tech@ais4i.it` on register.it the server is the one in the
+the mailbox the admin sets up on `/app/polls/settings/` (General settings,
+signed in with the admin password). For `tech@ais4i.it` on register.it the server is the one in the
 mailbox's settings (e.g. `authsmtp.securemail.pro`, port 465), the username is
 the full address. "Send a test email" checks it. The password is stored
 encrypted with a key derived from `SESSION_SECRET`.
@@ -79,7 +81,7 @@ for Italy", from the team address) and replies go to the owner.
 
 ### Notifications
 
-Each member chooses on `/app/polls/settings/` how to hear about new answers to their
+Each member chooses on `/app/settings/` (profile menu → My settings) how to hear about new answers to their
 polls: email, Discord direct message, both, or off; each poll also has its own
 "Notify me" switch. A Discord DM that cannot be delivered (no bot token, or the
 member blocks DMs) falls back to email. On invite-only polls the owner is also

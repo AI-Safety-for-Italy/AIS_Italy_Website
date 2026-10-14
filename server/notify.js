@@ -172,32 +172,43 @@ async function inviter(ownerId) {
  */
 async function sendInvites({ poll, ownerId, invites, origin }) {
   const from = await inviter(ownerId);
-  let sent = 0;
-  let failed = 0;
-  for (const invite of invites) {
+  const messages = invites.map((invite) => {
     const link = `${origin}/meet/?p=${poll.token}&i=${invite.token}`;
-    try {
-      const msg = inviteMessage({ poll, ownerName: from.name, link });
-      await mail.send({
-        to: invite.email,
-        subject: msg.subject,
-        senderName: from.name,
-        replyTo: from.replyTo,
-        ...render(msg.lines),
-      });
+    const msg = inviteMessage({ poll, ownerName: from.name, link });
+    return {
+      to: invite.email,
+      subject: msg.subject,
+      senderName: from.name,
+      replyTo: from.replyTo,
+      ...render(msg.lines),
+    };
+  });
+  const results = await batch(messages);
+  let sent = 0;
+  for (let k = 0; k < invites.length; k++) {
+    if (results[k].ok) {
       await db.query('update poll_invites set sent_at = now(), send_error = null where id = $1', [
-        invite.id,
+        invites[k].id,
       ]);
       sent++;
-    } catch (err) {
+    } else {
       await db.query('update poll_invites set send_error = $2 where id = $1', [
-        invite.id,
-        String(err.message).slice(0, 300),
+        invites[k].id,
+        String(results[k].error).slice(0, 300),
       ]);
-      failed++;
     }
   }
-  return { sent, failed };
+  return { sent, failed: invites.length - sent };
+}
+
+/** sendBatch, but a mailbox that is not set up fails every message instead. */
+async function batch(messages) {
+  if (!messages.length) return [];
+  try {
+    return await mail.sendBatch(messages);
+  } catch (err) {
+    return messages.map(() => ({ ok: false, error: err.message }));
+  }
 }
 
 // ── Calendar invite for the chosen time ────────────────────────────────────
@@ -247,31 +258,23 @@ async function sendMeeting({ poll, slot, recipients, ownerId, sequence, cancel =
         from.name ? `— ${from.name}` : null,
       ].filter(Boolean);
 
-  let sent = 0;
-  let failed = 0;
-  for (const person of recipients) {
-    const content = ics.build(poll, slot, {
-      method: cancel ? 'CANCEL' : 'REQUEST',
-      sequence,
-      organizer,
-      attendee: person,
-    });
-    try {
-      await mail.send({
-        to: person.email,
-        subject,
-        senderName: from.name,
-        replyTo: from.replyTo,
-        icalEvent: { method: cancel ? 'CANCEL' : 'REQUEST', filename: 'invite.ics', content },
-        ...render(lines),
-      });
-      sent++;
-    } catch (err) {
-      console.error('Meeting invite to', person.email, 'failed:', err.message);
-      failed++;
-    }
-  }
-  return { sent, failed };
+  const method = cancel ? 'CANCEL' : 'REQUEST';
+  const results = await batch(
+    recipients.map((person) => ({
+      to: person.email,
+      subject,
+      senderName: from.name,
+      replyTo: from.replyTo,
+      icalEvent: {
+        method,
+        filename: 'invite.ics',
+        content: ics.build(poll, slot, { method, sequence, organizer, attendee: person }),
+      },
+      ...render(lines),
+    }))
+  );
+  const sent = results.filter((r) => r.ok).length;
+  return { sent, failed: results.length - sent };
 }
 
 module.exports = {

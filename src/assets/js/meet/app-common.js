@@ -38,7 +38,10 @@
         )
       ),
       h('a', { href: '/app/', role: 'menuitem' }, 'Tools'),
-      h('a', { href: '/app/polls/settings/', role: 'menuitem' }, 'Settings'),
+      h('a', { href: '/app/settings/', role: 'menuitem' }, 'My settings'),
+      user.kind === 'admin'
+        ? h('a', { href: '/app/polls/settings/', role: 'menuitem' }, 'General settings')
+        : null,
       h(
         'button',
         {
@@ -95,6 +98,11 @@
   M.me = M.api('GET', '/api/auth').then(function (info) {
     if (!info.user) return toLogin();
     showUser(info.user);
+    if (info.user.kind === 'admin') {
+      document.querySelectorAll('[data-admin-only]').forEach(function (el) {
+        el.hidden = false;
+      });
+    }
     return info.user;
   });
 

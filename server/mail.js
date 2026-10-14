@@ -99,25 +99,41 @@ function setTransportFactory(fn) {
   createTransport = fn;
 }
 
+// A pause between messages of a batch, so a burst of invitations does not
+// trip the provider's sending limits.
+const BATCH_PAUSE_MS = Number(process.env.MEET_MAIL_PAUSE_MS || 400);
+
+// Failures that will not get better for the next message of the batch.
+const FATAL = new Set(['EAUTH', 'ECONNECTION', 'ETIMEDOUT', 'ESOCKET', 'EDNS']);
+
+function logFake(message) {
+  const from = message.senderName ? `${message.senderName} · ` : '';
+  const reply = message.replyTo ? ` (reply to ${message.replyTo})` : '';
+  const ical = message.icalEvent ? ` [calendar ${message.icalEvent.method} attached]` : '';
+  console.log(
+    `[fake mail] from ${from}mailbox to ${message.to}${reply}${ical}: ${message.subject}\n${message.text}\n`
+  );
+}
+
 /**
- * Sends one message: { to, subject, text, html, replyTo, senderName }.
- * `senderName` (the person behind it) is shown before the mailbox's own name,
- * e.g. "Anna Rossi · AI Safety for Italy"; the address stays the mailbox's.
- * Throws HttpError(503) when email is not set up.
+ * Sends a batch of messages over a single SMTP connection, one after the
+ * other with a short pause. Each message is { to, subject, text, html,
+ * replyTo, senderName, icalEvent }; `senderName` (the person behind it) is
+ * shown before the mailbox's own name, e.g. "Anna Rossi · AI Safety for
+ * Italy", while the address stays the mailbox's.
+ *
+ * Returns one result per message: { ok: true } or { ok: false, error }. If
+ * the server refuses the login or cannot be reached, the rest of the batch is
+ * not attempted. Throws HttpError(503) when email is not set up.
  */
-async function send(message) {
+async function sendBatch(messages, { pauseMs = BATCH_PAUSE_MS } = {}) {
   if (process.env.MEET_FAKE_MAIL === '1') {
-    const from = message.senderName ? `${message.senderName} · ` : '';
-    const reply = message.replyTo ? ` (reply to ${message.replyTo})` : '';
-    const ical = message.icalEvent ? ` [calendar ${message.icalEvent.method} attached]` : '';
-    console.log(
-      `[fake mail] from ${from}mailbox to ${message.to}${reply}${ical}: ${message.subject}\n${message.text}\n`
-    );
-    return;
+    messages.forEach(logFake);
+    return messages.map(() => ({ ok: true }));
   }
   const s = await readSettings();
   if (!s || !s.host || !s.password) {
-    throw new HttpError(503, 'Email sending is not set up yet (admin → Settings)');
+    throw new HttpError(503, 'Email sending is not set up yet (admin → General settings)');
   }
   const transport = createTransport({
     host: s.host,
@@ -125,22 +141,56 @@ async function send(message) {
     // 465 speaks TLS from the start; other ports upgrade with STARTTLS.
     secure: s.port === 465,
     auth: { user: s.user || s.fromEmail, pass: decrypt(s.password) },
+    // One connection, reused for every message of the batch.
+    pool: true,
+    maxConnections: 1,
+    maxMessages: Infinity,
     connectionTimeout: 10_000,
     greetingTimeout: 10_000,
+    socketTimeout: 20_000,
   });
-  await transport.sendMail({
-    from: {
-      name: message.senderName ? `${message.senderName} · ${s.fromName}` : s.fromName,
-      address: s.fromEmail,
-    },
-    to: message.to,
-    replyTo: message.replyTo,
-    // A calendar invitation, shown by mail apps as an event to add.
-    icalEvent: message.icalEvent,
-    subject: message.subject,
-    text: message.text,
-    html: message.html,
-  });
+
+  const results = [];
+  let fatal = null;
+  try {
+    for (let i = 0; i < messages.length; i++) {
+      const message = messages[i];
+      if (fatal) {
+        results.push({ ok: false, error: fatal });
+        continue;
+      }
+      if (i > 0 && pauseMs) await new Promise((resolve) => setTimeout(resolve, pauseMs));
+      try {
+        await transport.sendMail({
+          from: {
+            name: message.senderName ? `${message.senderName} · ${s.fromName}` : s.fromName,
+            address: s.fromEmail,
+          },
+          to: message.to,
+          replyTo: message.replyTo,
+          // A calendar invitation, shown by mail apps as an event to add.
+          icalEvent: message.icalEvent,
+          subject: message.subject,
+          text: message.text,
+          html: message.html,
+        });
+        results.push({ ok: true });
+      } catch (err) {
+        console.error('Sending to', message.to, 'failed:', err.code || '', err.message);
+        if (FATAL.has(err.code)) fatal = err.message;
+        results.push({ ok: false, error: err.message });
+      }
+    }
+  } finally {
+    if (typeof transport.close === 'function') transport.close();
+  }
+  return results;
+}
+
+/** Sends one message (see sendBatch); throws if it could not be sent. */
+async function send(message) {
+  const [result] = await sendBatch([message]);
+  if (!result.ok) throw new Error(result.error);
 }
 
 module.exports = {
@@ -148,6 +198,7 @@ module.exports = {
   saveSettings,
   isConfigured,
   send,
+  sendBatch,
   setTransportFactory,
   encrypt,
   decrypt,

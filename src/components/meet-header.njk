@@ -1,9 +1,14 @@
 {# Header for the meeting-poll pages (the /app/ area and /meet/): the logo,
-   which leads back to the site's homepage, and on /app/ pages the signed-in
-   member's profile menu. Otherwise none of the site's navigation. #}
+   and on /app/ pages the signed-in member's profile menu. Inside the app the
+   logo leads to the app's own home; on the public voting page, to the site's
+   homepage. Otherwise none of the site's navigation. #}
 <header class="meet-header">
   <div class="container meet-header-inner">
+    {%- if appArea %}
+    <a class="brand" href="/app/" aria-label="AI Safety for Italy: team area">
+    {%- else %}
     <a class="brand" href="/" aria-label="AI Safety for Italy: homepage">
+    {%- endif %}
       <img src="/assets/img/ais4i-logo.svg" alt="" width="40" height="40">
       <span class="brand-name">AI Safety <span class="brand-accent">for Italy</span></span>
     </a>

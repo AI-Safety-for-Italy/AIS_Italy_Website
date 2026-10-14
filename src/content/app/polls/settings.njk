@@ -1,18 +1,20 @@
 ---
-title: Settings
+title: General settings
+# Settings that apply to every user of the meeting polls. Only the admin
+# account can see and change them; the API enforces it.
 permalink: /app/polls/settings/
 appTab: settings
 noindex: true
 excludeFromSitemap: true
 eleventyExcludeFromCollections: true
-seoTitle: 'Settings | AI Safety for Italy'
+seoTitle: 'General settings | AI Safety for Italy'
 ---
 {% extends "base.njk" %}
 {% block content %}
 <section class="page-hero meet-hero">
   <div class="container">
     <span class="eyebrow">Meeting polls</span>
-    <h1>Settings</h1>
+    <h1>General settings</h1>
   </div>
 </section>
 
@@ -20,26 +22,9 @@ seoTitle: 'Settings | AI Safety for Italy'
   <div class="container">
     {% include "app-bar.njk" %}
     <div class="settings">
-    <form class="panel form-grid" id="notifyForm" novalidate>
-      <div class="panel-head" style="margin:0">
-        <h2>My notifications</h2>
+      <div class="empty-state" id="adminOnly" hidden>
+        <p style="margin:0">Only the admin can change the general settings. Your own notifications are under your profile → My settings.</p>
       </div>
-      <p class="panel-note" style="margin:0">When someone answers one of your polls. You can also turn this off for a single poll.</p>
-      <div class="choice-group" role="radiogroup" aria-label="Notify me">
-        <label class="choice"><input type="radio" name="channel" value="email"><span>Email</span></label>
-        <label class="choice"><input type="radio" name="channel" value="discord"><span>Discord message</span></label>
-        <label class="choice"><input type="radio" name="channel" value="both"><span>Both</span></label>
-        <label class="choice"><input type="radio" name="channel" value="none"><span>Off</span></label>
-      </div>
-      <p class="panel-note" id="discordNote" hidden style="margin:0"></p>
-      <div id="notifyEmailRow">
-        <label class="form-label" for="notifyEmail">Email</label>
-        <input class="form-input is-compact" id="notifyEmail" type="email" autocomplete="email">
-      </div>
-      <div class="form-error" role="alert" hidden></div>
-      <div><button class="btn btn-primary btn-sm" type="submit">Save</button></div>
-    </form>
-
     <form class="panel form-grid" id="smtpForm" novalidate hidden>
       <div class="panel-head" style="margin:0">
         <h2>Email sending <span class="panel-note">· for all users</span></h2>

@@ -1,5 +1,7 @@
-/* /app/polls/settings/: everyone's notification choices; the admin also sets up
- * the mailbox emails are sent from. */
+/* Both settings pages:
+ *   /app/settings/        a member's own notification choices;
+ *   /app/polls/settings/  general settings (the sending mailbox), admin only.
+ * Each page carries only its own form. */
 (function () {
   'use strict';
   var M = window.Meet;
@@ -59,76 +61,85 @@
     })
     .then(function (d) {
       data = d;
-      var p = d.profile;
-      notifyForm.querySelector('input[value="' + p.notifyChannel + '"]').checked = true;
-      var email = document.getElementById('notifyEmail');
-      email.value = p.notifyEmail || '';
-      email.placeholder = p.discordEmail || 'name@example.org';
-      refreshNotify();
-      if (d.mail.smtp !== undefined) {
-        smtpForm.hidden = false;
-        fillSmtp(d.mail.smtp);
+      if (notifyForm) {
+        var p = d.profile;
+        notifyForm.querySelector('input[value="' + p.notifyChannel + '"]').checked = true;
+        var email = document.getElementById('notifyEmail');
+        email.value = p.notifyEmail || '';
+        email.placeholder = p.discordEmail || 'name@example.org';
+        refreshNotify();
+      }
+      if (smtpForm) {
+        if (d.mail.smtp !== undefined) {
+          smtpForm.hidden = false;
+          fillSmtp(d.mail.smtp);
+        } else {
+          document.getElementById('adminOnly').hidden = false;
+        }
       }
     })
     .catch(M.appError);
 
-  notifyForm.addEventListener('change', refreshNotify);
+  if (notifyForm) notifyForm.addEventListener('change', refreshNotify);
 
-  notifyForm.addEventListener('submit', function (e) {
-    e.preventDefault();
-    errorBox(notifyForm);
-    M.api('PATCH', '/api/app/settings', {
-      notifyChannel: channel(),
-      notifyEmail: document.getElementById('notifyEmail').value,
-    })
-      .then(function (res) {
-        data.profile = res.profile;
-        M.toast('Saved');
+  if (notifyForm)
+    notifyForm.addEventListener('submit', function (e) {
+      e.preventDefault();
+      errorBox(notifyForm);
+      M.api('PATCH', '/api/app/settings', {
+        notifyChannel: channel(),
+        notifyEmail: document.getElementById('notifyEmail').value,
       })
-      .catch(function (err) {
-        if (err.status === 401) return M.appError(err);
-        errorBox(notifyForm, err.message);
-      });
-  });
+        .then(function (res) {
+          data.profile = res.profile;
+          M.toast('Saved');
+        })
+        .catch(function (err) {
+          if (err.status === 401) return M.appError(err);
+          errorBox(notifyForm, err.message);
+        });
+    });
 
-  smtpForm.addEventListener('submit', function (e) {
-    e.preventDefault();
-    errorBox(smtpForm);
-    M.api('PUT', '/api/app/settings', {
-      host: document.getElementById('smtpHost').value,
-      port: Number(document.getElementById('smtpPort').value),
-      fromEmail: document.getElementById('fromEmail').value,
-      fromName: document.getElementById('fromName').value,
-      user: document.getElementById('smtpUser').value,
-      password: document.getElementById('smtpPassword').value,
-    })
-      .then(function (res) {
-        data.mail.configured = Boolean(res.smtp && res.smtp.hasPassword);
-        fillSmtp(res.smtp);
-        M.toast('Saved');
+  if (smtpForm)
+    smtpForm.addEventListener('submit', function (e) {
+      e.preventDefault();
+      errorBox(smtpForm);
+      M.api('PUT', '/api/app/settings', {
+        host: document.getElementById('smtpHost').value,
+        port: Number(document.getElementById('smtpPort').value),
+        fromEmail: document.getElementById('fromEmail').value,
+        fromName: document.getElementById('fromName').value,
+        user: document.getElementById('smtpUser').value,
+        password: document.getElementById('smtpPassword').value,
       })
-      .catch(function (err) {
-        if (err.status === 401) return M.appError(err);
-        errorBox(smtpForm, err.message);
-      });
-  });
+        .then(function (res) {
+          data.mail.configured = Boolean(res.smtp && res.smtp.hasPassword);
+          fillSmtp(res.smtp);
+          M.toast('Saved');
+        })
+        .catch(function (err) {
+          if (err.status === 401) return M.appError(err);
+          errorBox(smtpForm, err.message);
+        });
+    });
 
-  document.getElementById('testMail').addEventListener('click', function () {
-    var to = window.prompt('Send a test email to:', document.getElementById('fromEmail').value);
-    if (!to) return;
-    errorBox(smtpForm);
-    var button = this;
-    button.disabled = true;
-    M.api('POST', '/api/app/settings?action=test', { to: to })
-      .then(function () {
-        M.toast('Test email sent to ' + to);
-      })
-      .catch(function (err) {
-        if (err.status === 401) return M.appError(err);
-        errorBox(smtpForm, err.message);
-      })
-      .then(function () {
-        button.disabled = false;
-      });
-  });
+  if (smtpForm)
+    document.getElementById('testMail').addEventListener('click', function () {
+      var to = window.prompt('Send a test email to:', document.getElementById('fromEmail').value);
+      if (!to) return;
+      errorBox(smtpForm);
+      var button = this;
+      button.disabled = true;
+      M.api('POST', '/api/app/settings?action=test', { to: to })
+        .then(function () {
+          M.toast('Test email sent to ' + to);
+        })
+        .catch(function (err) {
+          if (err.status === 401) return M.appError(err);
+          errorBox(smtpForm, err.message);
+        })
+        .then(function () {
+          button.disabled = false;
+        });
+    });
 })();
