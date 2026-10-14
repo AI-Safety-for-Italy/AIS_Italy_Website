@@ -138,7 +138,40 @@ async function upsertDiscordUser({ discordId, name, avatarUrl, email }) {
   return publicUser(rows[0]);
 }
 
+const CHANNELS = ['email', 'discord', 'both', 'none'];
+const EMAIL = /^[^\s@<>(),;:"]+@[^\s@<>(),;:"]+\.[^\s@<>(),;:"]+$/;
+
+/** A user's notification preferences, for their settings page. */
+async function getProfile(userId) {
+  const { rows } = await db.query('select * from app_users where id = $1', [userId]);
+  const u = rows[0];
+  return {
+    ...publicUser(u),
+    discordLinked: Boolean(u.discord_id),
+    discordEmail: u.email,
+    notifyChannel: u.notify_channel,
+    notifyEmail: u.notify_email,
+  };
+}
+
+async function updateProfile(userId, body) {
+  const channel = body.notifyChannel;
+  if (!CHANNELS.includes(channel)) throw new HttpError(400, 'Invalid notification choice');
+  const address = String(body.notifyEmail || '')
+    .trim()
+    .toLowerCase();
+  if (address && !EMAIL.test(address)) throw new HttpError(400, 'Enter a valid email');
+  await db.query('update app_users set notify_channel = $2, notify_email = $3 where id = $1', [
+    userId,
+    channel,
+    address || null,
+  ]);
+  return getProfile(userId);
+}
+
 module.exports = {
+  getProfile,
+  updateProfile,
   COOKIE,
   hashPassword,
   verifyPassword,

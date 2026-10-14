@@ -4,11 +4,13 @@
 
 const crypto = require('crypto');
 const db = require('./db');
+const mail = require('./mail');
 const { HttpError } = require('./http');
 
 const VOTE = { NO: 0, MAYBE: 1, YES: 2 };
 const MAX_SLOTS = 200;
 const MAX_RESPONSES = 300;
+const MAX_INVITES = 50;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const EMAIL = /^[^\s@<>(),;:"]+@[^\s@<>(),;:"]+\.[^\s@<>(),;:"]+$/;
 
@@ -72,8 +74,27 @@ function validatePollInput(body) {
     timezone: timezone(body.timezone),
     deadline: body.deadline ? instant(body.deadline, 'Deadline') : null,
     hideResponses: Boolean(body.hideResponses),
+    notify: body.notify === undefined ? true : Boolean(body.notify),
+    inviteOnly: Boolean(body.inviteOnly),
+    invitees: body.inviteOnly ? inviteeList(body.invitees, { required: true }) : [],
     slots: starts,
   };
+}
+
+/** Distinct, valid, lower-cased emails from an array or a pasted list. */
+function inviteeList(value, { required = false } = {}) {
+  const raw = Array.isArray(value) ? value : String(value || '').split(/[\s,;]+/);
+  const list = [
+    ...new Set(
+      raw
+        .map((e) => String(e).trim())
+        .filter(Boolean)
+        .map((e) => email(e))
+    ),
+  ];
+  if (required && !list.length) throw new HttpError(400, 'Add the emails of the people to invite');
+  if (list.length > MAX_INVITES) throw new HttpError(400, `At most ${MAX_INVITES} guests per poll`);
+  return list;
 }
 
 // ── Reading ─────────────────────────────────────────────────────────────────
@@ -148,6 +169,8 @@ function describe(poll) {
     timezone: poll.timezone,
     deadline: poll.deadline ? new Date(poll.deadline).toISOString() : null,
     hideResponses: poll.hide_responses,
+    inviteOnly: poll.invite_only,
+    notify: poll.notify,
     status: poll.status,
     open: isOpen(poll),
     createdAt: new Date(poll.created_at).toISOString(),
@@ -199,17 +222,53 @@ async function getPollAdmin(id, ownerId) {
       votes: byResponse.get(r.id),
       updatedAt: new Date(r.updated_at).toISOString(),
     })),
+    invites: poll.invite_only ? await listInvites(poll.id) : [],
   };
 }
+
+async function listInvites(pollId) {
+  const { rows } = await db.query(
+    `select id, email, response_id, sent_at, send_error from poll_invites
+     where poll_id = $1 order by created_at, email`,
+    [pollId]
+  );
+  return rows.map((i) => ({
+    id: i.id,
+    email: i.email,
+    answered: Boolean(i.response_id),
+    sentAt: i.sent_at && new Date(i.sent_at).toISOString(),
+    sendError: i.send_error,
+  }));
+}
+
+/** The invite a personal link stands for, or null. */
+async function findInvite(conn, pollId, inviteToken, lock = false) {
+  if (!inviteToken) return null;
+  const { rows } = await conn.query(
+    `select * from poll_invites where poll_id = $1 and token = $2${lock ? ' for update' : ''}`,
+    [pollId, String(inviteToken)]
+  );
+  return rows[0] || null;
+}
+
+const INVITE_REQUIRED = () =>
+  new HttpError(403, 'This poll is by invitation only', { code: 'invite_required' });
 
 /**
  * What anyone holding the poll link sees. Never includes email addresses,
  * except the caller's own when they come back with their edit token.
  */
-async function getPollPublic(token, editToken) {
+async function getPollPublic(token, editToken, inviteToken) {
   const poll = await loadPoll('token', text(token, 'Poll', { max: 64, required: true }));
+  // An invite-only poll shows nothing at all without a guest's personal link.
+  const invite = poll.invite_only ? await findInvite(db, poll.id, inviteToken) : null;
+  if (poll.invite_only && !invite) throw INVITE_REQUIRED();
   const { slots, responses, byResponse, counts } = await loadSlotsAndVotes(poll.id);
-  const mine = editToken ? responses.find((r) => r.edit_token === editToken) : null;
+  const mine = invite
+    ? responses.find((r) => r.id === invite.response_id)
+    : editToken
+    ? responses.find((r) => r.edit_token === editToken)
+    : null;
   const finalSlot = slots.find((s) => s.id === poll.final_slot_id);
   // The internal id and the token are left out: the visitor already has the
   // link, and nothing on the public page needs the id.
@@ -231,6 +290,7 @@ async function getPollPublic(token, editToken) {
         }
       : null,
     mine: mine ? { name: mine.name, email: mine.email, votes: byResponse.get(mine.id) } : null,
+    invite: invite ? { email: invite.email } : null,
   };
 }
 
@@ -239,12 +299,15 @@ async function getPollPublic(token, editToken) {
 async function createPoll(body, ownerId) {
   const input = validatePollInput(body);
   uuid(ownerId, 'owner');
+  if (input.inviteOnly && !(await mail.isConfigured())) {
+    throw new HttpError(409, 'Invites go out by email, which the admin has not set up yet');
+  }
   const token = newToken();
   return db.transaction(async (tx) => {
     const { rows } = await tx.query(
       `insert into polls (token, title, description, location, duration_minutes, timezone,
-                          deadline, hide_responses, owner_id)
-       values ($1, $2, $3, $4, $5, $6, $7, $8, $9) returning id`,
+                          deadline, hide_responses, owner_id, notify, invite_only)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) returning id`,
       [
         token,
         input.title,
@@ -255,14 +318,31 @@ async function createPoll(body, ownerId) {
         input.deadline,
         input.hideResponses,
         ownerId,
+        input.notify,
+        input.inviteOnly,
       ]
     );
     const id = rows[0].id;
     for (const start of input.slots) {
       await tx.query('insert into poll_slots (poll_id, starts_at) values ($1, $2)', [id, start]);
     }
-    return { id, token };
+    const invites = await insertInvites(tx, id, input.invitees);
+    return { id, token, invites };
   });
+}
+
+/** Adds guests (skipping any already invited); returns the new invites. */
+async function insertInvites(conn, pollId, emails) {
+  const added = [];
+  for (const address of emails) {
+    const { rows } = await conn.query(
+      `insert into poll_invites (poll_id, email, token) values ($1, $2, $3)
+       on conflict do nothing returning *`,
+      [pollId, address, newToken()]
+    );
+    if (rows.length) added.push(rows[0]);
+  }
+  return added;
 }
 
 async function updatePoll(id, body, ownerId) {
@@ -281,6 +361,7 @@ async function updatePoll(id, body, ownerId) {
           : null
         : poll.deadline,
     hideResponses: 'hideResponses' in body ? Boolean(body.hideResponses) : poll.hide_responses,
+    notify: 'notify' in body ? Boolean(body.notify) : poll.notify,
     status: poll.status,
   };
   if ('status' in body) {
@@ -292,7 +373,7 @@ async function updatePoll(id, body, ownerId) {
   }
   await db.query(
     `update polls set title = $2, description = $3, location = $4, deadline = $5,
-       hide_responses = $6, status = $7, updated_at = now() where id = $1`,
+       hide_responses = $6, status = $7, notify = $8, updated_at = now() where id = $1`,
     [
       poll.id,
       next.title,
@@ -301,6 +382,7 @@ async function updatePoll(id, body, ownerId) {
       next.deadline,
       next.hideResponses,
       next.status,
+      next.notify,
     ]
   );
   return getPollAdmin(poll.id, ownerId);
@@ -317,7 +399,67 @@ async function deleteResponse(pollId, responseId, ownerId) {
     uuid(responseId, 'response'),
     poll.id,
   ]);
+  // A guest whose answer is removed can answer again, so "everyone has
+  // answered" may become true again later.
+  await db.query('update polls set all_answered_at = null where id = $1', [poll.id]);
   return getPollAdmin(poll.id, ownerId);
+}
+
+/** Invites more guests to an invite-only poll; returns the new invites. */
+async function addInvites(pollId, emails, ownerId) {
+  const poll = await loadOwnPoll(pollId, ownerId);
+  if (!poll.invite_only) throw new HttpError(400, 'This poll is open to anyone with the link');
+  const list = inviteeList(emails, { required: true });
+  const { rows } = await db.query(
+    'select count(*)::int as n from poll_invites where poll_id = $1',
+    [poll.id]
+  );
+  if (rows[0].n + list.length > MAX_INVITES) {
+    throw new HttpError(400, `At most ${MAX_INVITES} guests per poll`);
+  }
+  const added = await insertInvites(db, poll.id, list);
+  if (added.length) {
+    await db.query('update polls set all_answered_at = null where id = $1', [poll.id]);
+  }
+  return { poll, invites: added };
+}
+
+/** One guest's invite, to send it again. */
+async function getInvite(pollId, inviteId, ownerId) {
+  const poll = await loadOwnPoll(pollId, ownerId);
+  const { rows } = await db.query('select * from poll_invites where id = $1 and poll_id = $2', [
+    uuid(inviteId, 'invite'),
+    poll.id,
+  ]);
+  if (!rows.length) throw new HttpError(404, 'Invite not found');
+  return { poll, invite: rows[0] };
+}
+
+/** Removes a guest, and their answer if they gave one. */
+async function removeInvite(pollId, inviteId, ownerId) {
+  const { poll, invite } = await getInvite(pollId, inviteId, ownerId);
+  await db.query('delete from poll_invites where id = $1', [invite.id]);
+  if (invite.response_id) {
+    await db.query('delete from poll_responses where id = $1', [invite.response_id]);
+  }
+  return getPollAdmin(poll.id, ownerId);
+}
+
+/**
+ * True exactly once per completion: when every guest of an invite-only poll
+ * has answered and nobody was told yet. The update is atomic, so two answers
+ * arriving together cannot both report it.
+ */
+async function markAllAnswered(pollId) {
+  const { rows } = await db.query(
+    `update polls set all_answered_at = now()
+     where id = $1 and invite_only and all_answered_at is null
+       and exists (select 1 from poll_invites where poll_id = $1)
+       and not exists (select 1 from poll_invites where poll_id = $1 and response_id is null)
+     returning (select count(*)::int from poll_invites where poll_id = $1) as n`,
+    [pollId]
+  );
+  return rows.length ? rows[0].n : 0;
 }
 
 /**
@@ -329,7 +471,11 @@ async function submitResponse(token, body) {
   if (!isOpen(poll)) throw new HttpError(409, 'This poll is closed');
 
   const name = cleanName(body.name);
-  const address = email(body.email);
+  // A guest of an invite-only poll answers as the address they were invited
+  // at, whatever the form says.
+  const invite = poll.invite_only ? await findInvite(db, poll.id, body.inviteToken) : null;
+  if (poll.invite_only && !invite) throw INVITE_REQUIRED();
+  const address = invite ? invite.email.toLowerCase() : email(body.email);
   const votes = body.votes && typeof body.votes === 'object' ? body.votes : {};
 
   const slotIds = new Set(
@@ -347,7 +493,22 @@ async function submitResponse(token, body) {
   return db
     .transaction(async (tx) => {
       let response;
-      if (body.editToken) {
+      let isNew = false;
+      const lockedInvite = invite && (await findInvite(tx, poll.id, invite.token, true));
+      if (lockedInvite && lockedInvite.response_id) {
+        // A guest changing their answer.
+        const { rows } = await tx.query(
+          'select id, edit_token from poll_responses where id = $1 for update',
+          [lockedInvite.response_id]
+        );
+        response = rows[0];
+        await assertAvailable(tx, poll.id, name, address, response.id);
+        await tx.query(
+          'update poll_responses set name = $2, email = $3, updated_at = now() where id = $1',
+          [response.id, name, address]
+        );
+        await tx.query('delete from poll_votes where response_id = $1', [response.id]);
+      } else if (!invite && body.editToken) {
         const { rows } = await tx.query(
           // Locked until this transaction ends, so two saves of the same answer
           // (e.g. from two tabs) run one after the other: the last one wins.
@@ -378,6 +539,13 @@ async function submitResponse(token, body) {
           [poll.id, name, address, newToken()]
         );
         response = rows[0];
+        isNew = true;
+        if (invite) {
+          await tx.query('update poll_invites set response_id = $2 where id = $1', [
+            invite.id,
+            response.id,
+          ]);
+        }
       }
       for (const [slotId, v] of values) {
         await tx.query('insert into poll_votes (response_id, slot_id, value) values ($1, $2, $3)', [
@@ -386,7 +554,9 @@ async function submitResponse(token, body) {
           v,
         ]);
       }
-      return { editToken: response.edit_token };
+      const yes = values.filter(([, v]) => v === VOTE.YES).length;
+      const maybe = values.filter(([, v]) => v === VOTE.MAYBE).length;
+      return { editToken: response.edit_token, isNew, poll, name, yes, maybe };
     })
     .catch((err) => {
       // Two people submitting the same name or email at the same moment both
@@ -442,7 +612,11 @@ async function assertAvailable(conn, pollId, name, address, exceptId) {
 async function checkAvailability(token, query) {
   const poll = await loadPoll('token', text(token, 'Poll', { max: 64, required: true }));
   let exceptId = null;
-  if (query.e) {
+  const invite = poll.invite_only ? await findInvite(db, poll.id, query.i) : null;
+  if (poll.invite_only && !invite) throw INVITE_REQUIRED();
+  if (invite) {
+    exceptId = invite.response_id;
+  } else if (query.e) {
     const { rows } = await db.query(
       'select id from poll_responses where poll_id = $1 and edit_token = $2',
       [poll.id, String(query.e)]
@@ -500,6 +674,10 @@ module.exports = {
   deleteResponse,
   submitResponse,
   checkAvailability,
+  addInvites,
+  getInvite,
+  removeInvite,
+  markAllAnswered,
   finalizePoll,
   unschedulePoll,
 };

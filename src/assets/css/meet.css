@@ -1764,7 +1764,137 @@ a.tool-card:hover {
   color: var(--text-tertiary);
 }
 
-.tool-arrow {
+/* ── Settings ────────────────────────────────────────────────────────────── */
+
+.settings {
+  max-width: 760px;
+}
+
+.choice-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.choice {
+  position: relative;
+  cursor: pointer;
+}
+
+.choice input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.choice span {
+  display: inline-block;
+  padding: 0.5rem 0.95rem;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-full);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  font-size: 0.925rem;
+  font-weight: 600;
+  transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+
+.choice:hover span {
+  border-color: var(--accent);
   color: var(--accent);
-  font-size: 1.2rem;
+}
+
+.choice input:checked + span {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+[data-theme='dark'] .choice input:checked + span {
+  background: var(--accent-600);
+  color: #062015;
+}
+
+.choice input:focus-visible + span {
+  box-shadow: var(--ring);
+}
+
+.choice input:disabled + span {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+a.link-button {
+  text-decoration: none;
+}
+
+/* ── Guests of an invite-only poll ───────────────────────────────────────── */
+
+.guest-list {
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+}
+
+.guest-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0.9rem;
+  border-top: 1px solid var(--border-muted);
+  font-size: 0.925rem;
+}
+
+.guest-list li:first-child {
+  border-top: 0;
+}
+
+.guest-email {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.guest-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+@media (max-width: 560px) {
+  .guest-list li {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .guest-actions {
+    grid-column: 1 / -1;
+    justify-content: flex-end;
+  }
+}
+
+.guest-add {
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+}
+
+.guest-add textarea {
+  flex: 1;
+  min-height: 44px;
+}
+
+.notify-toggle {
+  align-items: center;
+  font-size: 0.875rem;
+  margin-right: 0.25rem;
+}
+
+.notify-toggle input {
+  margin-top: 0;
+}
+
+.form-input[readonly] {
+  color: var(--text-secondary);
+  cursor: default;
 }

@@ -92,4 +92,37 @@ insert into app_users (kind, name)
 alter table polls add column if not exists owner_id uuid references app_users(id) on delete cascade;
 create index if not exists polls_owner on polls (owner_id, created_at);
 update polls set owner_id = (select id from app_users where kind = 'admin') where owner_id is null;
+
+-- Site-wide settings edited from the admin's Settings page, e.g. 'smtp'.
+create table if not exists app_settings (
+  key text primary key,
+  value jsonb not null,
+  updated_at timestamptz not null default now()
+);
+
+-- How each user wants to hear about their polls.
+alter table app_users add column if not exists notify_channel text not null default 'email'
+  check (notify_channel in ('email', 'discord', 'both', 'none'));
+alter table app_users add column if not exists notify_email text;
+
+-- Per poll: tell the owner about new answers (on by default), and whether
+-- only invited people may answer.
+alter table polls add column if not exists notify boolean not null default true;
+alter table polls add column if not exists invite_only boolean not null default false;
+alter table polls add column if not exists all_answered_at timestamptz;
+
+-- Guests of an invite-only poll. Each gets a personal link carrying the token;
+-- their answer is linked here once given.
+create table if not exists poll_invites (
+  id uuid primary key default gen_random_uuid(),
+  poll_id uuid not null references polls(id) on delete cascade,
+  email text not null,
+  token text not null unique,
+  response_id uuid references poll_responses(id) on delete set null,
+  sent_at timestamptz,
+  send_error text,
+  created_at timestamptz not null default now()
+);
+
+create unique index if not exists poll_invites_email on poll_invites (poll_id, lower(email));
 `;

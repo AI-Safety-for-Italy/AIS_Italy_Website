@@ -56,9 +56,26 @@ seoTitle: 'New poll | AI Safety for Italy'
             <label class="form-label" for="deadline">Voting deadline <span class="panel-note">(optional)</span></label>
             <input class="form-input is-compact" id="deadline" name="deadline" type="datetime-local">
           </div>
+          <div>
+            <span class="form-label" id="audienceLabel">Who can answer</span>
+            <div class="choice-group" role="radiogroup" aria-labelledby="audienceLabel">
+              <label class="choice"><input type="radio" name="audience" value="link" checked><span>Anyone with the link</span></label>
+              <label class="choice"><input type="radio" name="audience" value="invite"><span>Only people I invite</span></label>
+            </div>
+            <p class="form-note" id="inviteNote" hidden style="margin-top:.4rem">Needs email sending, which the admin sets up in Settings.</p>
+          </div>
+          <div id="inviteesRow" hidden>
+            <label class="form-label" for="invitees">Guests’ emails</label>
+            <textarea class="form-input is-compact is-short" id="invitees" placeholder="anna@example.org, marco@example.org"></textarea>
+            <p class="form-note" style="margin-top:.4rem">Each gets a personal link by email.</p>
+          </div>
           <label class="check-row">
             <input type="checkbox" id="hideResponses" name="hideResponses">
             <span>Hide answers from participants</span>
+          </label>
+          <label class="check-row">
+            <input type="checkbox" id="notify" name="notify" checked>
+            <span>Notify me about new answers</span>
           </label>
         </div>
 

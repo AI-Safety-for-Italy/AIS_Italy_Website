@@ -116,5 +116,13 @@
       "destination": "https://www.ais4i.it/:path*",
       "permanent": true
     }
-  ]
+  ],
+  "functions": {
+    "api/app/*.js": {
+      "maxDuration": 60
+    },
+    "api/poll.js": {
+      "maxDuration": 30
+    }
+  }
 }

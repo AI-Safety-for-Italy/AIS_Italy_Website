@@ -256,7 +256,7 @@ test('the schema can be applied again to an existing database', async () => {
   const { rows } = await pglite.query(
     "select count(*)::int as n from information_schema.tables where table_name like 'poll%'"
   );
-  assert.equal(rows[0].n, 4);
+  assert.equal(rows[0].n, 5);
 });
 
 test('votes for unknown slots are ignored; odd values and bad emails are refused', async () => {
@@ -572,4 +572,229 @@ test('a successful Discord return creates the account, signs in and continues', 
   } finally {
     global.fetch = realFetch;
   }
+});
+
+// ── Email, notifications, invite-only polls ────────────────────────────────
+
+const mail = require('./mail');
+const notify = require('./notify');
+
+/** Configures SMTP with a transport that records instead of sending. */
+async function fakeMail({ fail = false } = {}) {
+  const sent = [];
+  mail.setTransportFactory((options) => ({
+    async sendMail(message) {
+      if (fail) throw new Error('mailbox unavailable');
+      sent.push({ ...message, options });
+    },
+  }));
+  await mail.saveSettings({
+    host: 'smtp.example.org',
+    port: 465,
+    user: 'tech@ais4i.it',
+    password: 'smtp-secret',
+    fromEmail: 'tech@ais4i.it',
+  });
+  return sent;
+}
+
+test('the SMTP password is stored encrypted and never shown', async () => {
+  await fakeMail();
+  const { rows } = await db.query(`select value from app_settings where key = 'smtp'`);
+  assert.notEqual(rows[0].value.password, 'smtp-secret');
+  assert.equal(mail.decrypt(rows[0].value.password), 'smtp-secret');
+  const shown = await mail.publicSettings();
+  assert.equal(shown.password, undefined);
+  assert.equal(shown.hasPassword, true);
+
+  // Saving again without a password keeps the stored one.
+  await mail.saveSettings({ host: 'smtp2.example.org', port: 587, fromEmail: 'tech@ais4i.it' });
+  const again = (await db.query(`select value from app_settings where key = 'smtp'`)).rows[0];
+  assert.equal(mail.decrypt(again.value.password), 'smtp-secret');
+});
+
+test('invite-only polls need email to be set up', async () => {
+  await rejects(
+    polls.createPoll(basePoll({ inviteOnly: true, invitees: 'a@example.org' }), await owner()),
+    409
+  );
+});
+
+test('only invited guests can see and answer an invite-only poll, as their own address', async () => {
+  const sent = await fakeMail();
+  const me = await owner();
+  const created = await polls.createPoll(
+    basePoll({
+      inviteOnly: true,
+      invitees: 'Anna@example.org, marco@example.org; anna@example.org',
+    }),
+    me
+  );
+  assert.equal(created.invites.length, 2);
+  const poll = await polls.getPollAdmin(created.id, me);
+  const outcome = await notify.sendInvites({
+    poll,
+    ownerName: 'Owner',
+    invites: created.invites,
+    origin: 'https://site',
+  });
+  assert.deepEqual(outcome, { sent: 2, failed: 0 });
+  assert.equal(sent.length, 2);
+  assert.ok(
+    sent[0].text.includes(`https://site/meet/?p=${created.token}&i=${created.invites[0].token}`)
+  );
+
+  const anna = created.invites.find((i) => i.email === 'anna@example.org');
+  await assert.rejects(polls.getPollPublic(created.token), { status: 403 });
+  await assert.rejects(
+    polls.submitResponse(created.token, { name: 'X', email: 'x@example.org' }),
+    (err) => err.status === 403 && err.details.code === 'invite_required'
+  );
+
+  const view = await polls.getPollPublic(created.token, null, anna.token);
+  assert.equal(view.invite.email, 'anna@example.org');
+
+  const first = await polls.submitResponse(created.token, {
+    name: 'Anna',
+    email: 'someone-else@example.org',
+    inviteToken: anna.token,
+  });
+  assert.equal(first.isNew, true);
+  const again = await polls.submitResponse(created.token, {
+    name: 'Anna R.',
+    inviteToken: anna.token,
+  });
+  assert.equal(again.isNew, false);
+  const answers = (await polls.getPollAdmin(created.id, me)).responses;
+  assert.equal(answers.length, 1);
+  assert.equal(answers[0].email, 'anna@example.org');
+  assert.equal(answers[0].name, 'Anna R.');
+});
+
+test('"everyone has answered" is reported once, and again after an answer is removed', async () => {
+  await fakeMail();
+  const me = await owner();
+  const created = await polls.createPoll(
+    basePoll({ inviteOnly: true, invitees: ['a@example.org', 'b@example.org'] }),
+    me
+  );
+  const [a, b] = created.invites;
+  await polls.submitResponse(created.token, { name: 'A', inviteToken: a.token });
+  assert.equal(await polls.markAllAnswered(created.id), 0);
+  await polls.submitResponse(created.token, { name: 'B', inviteToken: b.token });
+  assert.equal(await polls.markAllAnswered(created.id), 2);
+  assert.equal(await polls.markAllAnswered(created.id), 0);
+
+  const answerB = (await polls.getPollAdmin(created.id, me)).responses.find((r) => r.name === 'B');
+  await polls.deleteResponse(created.id, answerB.id, me);
+  assert.equal(
+    (await polls.getPollAdmin(created.id, me)).invites.find((i) => i.email === 'b@example.org')
+      .answered,
+    false
+  );
+  await polls.submitResponse(created.token, { name: 'B', inviteToken: b.token });
+  assert.equal(await polls.markAllAnswered(created.id), 2);
+});
+
+test('a failed invite is recorded on the guest so it can be sent again', async () => {
+  await fakeMail();
+  const me = await owner();
+  const created = await polls.createPoll(
+    basePoll({ inviteOnly: true, invitees: 'a@example.org' }),
+    me
+  );
+  await fakeMail({ fail: true });
+  const poll = await polls.getPollAdmin(created.id, me);
+  const outcome = await notify.sendInvites({ poll, invites: created.invites, origin: 'https://s' });
+  assert.deepEqual(outcome, { sent: 0, failed: 1 });
+  const [invite] = (await polls.getPollAdmin(created.id, me)).invites;
+  assert.equal(invite.sentAt, null);
+  assert.match(invite.sendError, /mailbox unavailable/);
+});
+
+test('owners are notified the way they chose, and not at all when they opt out', async () => {
+  const sent = await fakeMail();
+  const me = await owner();
+  const { id } = await polls.createPoll(basePoll(), me);
+  const message = { subject: 'New answer', lines: ['Hello'] };
+
+  // No address yet: a stand-in Discord account without email gets nothing.
+  assert.deepEqual(await notify.notifyOwner(id, message), []);
+
+  await auth.updateProfile(me, { notifyChannel: 'email', notifyEmail: 'Owner@Example.org' });
+  assert.deepEqual(await notify.notifyOwner(id, message), ['email']);
+  assert.equal(sent.at(-1).to, 'owner@example.org');
+
+  await polls.updatePoll(id, { notify: false }, me);
+  assert.deepEqual(await notify.notifyOwner(id, message), []);
+  await polls.updatePoll(id, { notify: true }, me);
+
+  await auth.updateProfile(me, { notifyChannel: 'none', notifyEmail: 'owner@example.org' });
+  assert.deepEqual(await notify.notifyOwner(id, message), []);
+  await rejects(auth.updateProfile(me, { notifyChannel: 'pigeon' }), 400);
+});
+
+test('Discord notifications go by DM, and fall back to email when the DM fails', async () => {
+  const sent = await fakeMail();
+  process.env.DISCORD_BOT_TOKEN = 'bot-token';
+  const user = await auth.upsertDiscordUser({
+    discordId: '777',
+    name: 'D',
+    email: 'd@example.org',
+  });
+  const { id } = await polls.createPoll(basePoll(), user.id);
+  await auth.updateProfile(user.id, { notifyChannel: 'discord' });
+  const message = { subject: 'New answer', lines: ['Hello'] };
+
+  const calls = [];
+  const reply = (status, body) => ({ ok: status < 300, status, json: async () => body });
+  notify.setFetch(async (url, init) => {
+    calls.push([url, JSON.parse(init.body)]);
+    return url.endsWith('/users/@me/channels') ? reply(200, { id: 'dm1' }) : reply(200, {});
+  });
+  assert.deepEqual(await notify.notifyOwner(id, message), ['discord']);
+  assert.deepEqual(calls[0][1], { recipient_id: '777' });
+  assert.match(calls[1][0], /channels\/dm1\/messages$/);
+
+  notify.setFetch(async () => reply(403, { code: 50007 }));
+  assert.deepEqual(await notify.notifyOwner(id, message), ['email']);
+  assert.equal(sent.at(-1).to, 'd@example.org');
+  delete process.env.DISCORD_BOT_TOKEN;
+});
+
+test('answering through the API notifies the owner of a new answer only', async () => {
+  const sent = await fakeMail();
+  const me = await owner();
+  await auth.updateProfile(me, { notifyChannel: 'email', notifyEmail: 'owner@example.org' });
+  const { token } = await polls.createPoll(basePoll(), me);
+  const handler = require('../api/poll');
+  const post = async (body) => {
+    const res = fakeResponse();
+    await handler(fakeRequest({ url: `/api/poll?p=${token}`, body }), res);
+    return res;
+  };
+  const res = await post({ name: 'Giulia', email: 'g@example.org', votes: {} });
+  assert.equal(res.statusCode, 200);
+  assert.equal(sent.length, 1);
+  assert.match(sent[0].subject, /New answer: Board meeting/);
+  assert.match(sent[0].text, /https:\/\/www\.example\.org\/app\/polls\/poll\/\?id=/);
+
+  await post({ name: 'Giulia', email: 'g@example.org', votes: {}, editToken: res.body.editToken });
+  assert.equal(sent.length, 1);
+});
+
+test('only the admin can change email settings', async () => {
+  const handler = require('../api/app/settings');
+  const user = await auth.upsertDiscordUser({ discordId: '9', name: 'Member' });
+  const res = fakeResponse();
+  await handler(
+    fakeRequest({
+      method: 'PUT',
+      url: '/api/app/settings',
+      cookie: `${auth.COOKIE}=${auth.makeSession(user.id)}`,
+      body: { host: 'x', port: 465, fromEmail: 'a@b.it', password: 'p' },
+    }),
+    res
+  );
+  assert.equal(res.statusCode, 403);
 });

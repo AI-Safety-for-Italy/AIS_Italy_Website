@@ -1,0 +1,88 @@
+---
+title: Settings
+permalink: /app/settings/
+noindex: true
+excludeFromSitemap: true
+eleventyExcludeFromCollections: true
+seoTitle: 'Settings | AI Safety for Italy'
+---
+{% extends "base.njk" %}
+{% block content %}
+<section class="page-hero meet-hero">
+  <div class="container">
+    <span class="eyebrow">Team area</span>
+    <h1>Settings</h1>
+  </div>
+</section>
+
+<section class="meet-main">
+  <div class="container settings">
+    <form class="panel form-grid" id="notifyForm" novalidate>
+      <div class="panel-head" style="margin:0">
+        <h2>Notifications</h2>
+      </div>
+      <p class="panel-note" style="margin:0">When someone answers one of your polls. You can also turn this off for a single poll.</p>
+      <div class="choice-group" role="radiogroup" aria-label="Notify me">
+        <label class="choice"><input type="radio" name="channel" value="email"><span>Email</span></label>
+        <label class="choice"><input type="radio" name="channel" value="discord"><span>Discord message</span></label>
+        <label class="choice"><input type="radio" name="channel" value="both"><span>Both</span></label>
+        <label class="choice"><input type="radio" name="channel" value="none"><span>Off</span></label>
+      </div>
+      <p class="panel-note" id="discordNote" hidden style="margin:0"></p>
+      <div id="notifyEmailRow">
+        <label class="form-label" for="notifyEmail">Email</label>
+        <input class="form-input is-compact" id="notifyEmail" type="email" autocomplete="email">
+      </div>
+      <div class="form-error" role="alert" hidden></div>
+      <div><button class="btn btn-primary btn-sm" type="submit">Save</button></div>
+    </form>
+
+    <form class="panel form-grid" id="smtpForm" novalidate hidden>
+      <div class="panel-head" style="margin:0">
+        <h2>Email sending</h2>
+        <span id="mailStatus"></span>
+      </div>
+      <p class="panel-note" style="margin:0">The mailbox invites and notifications are sent from.</p>
+      <div class="form-row">
+        <div>
+          <label class="form-label" for="smtpHost">SMTP server</label>
+          <input class="form-input is-compact" id="smtpHost" placeholder="authsmtp.securemail.pro">
+        </div>
+        <div>
+          <label class="form-label" for="smtpPort">Port</label>
+          <input class="form-input is-compact" id="smtpPort" type="number" value="465" min="1" max="65535">
+        </div>
+      </div>
+      <div class="form-row">
+        <div>
+          <label class="form-label" for="fromEmail">Sender address</label>
+          <input class="form-input is-compact" id="fromEmail" type="email" placeholder="tech@ais4i.it">
+        </div>
+        <div>
+          <label class="form-label" for="fromName">Sender name</label>
+          <input class="form-input is-compact" id="fromName" placeholder="AI Safety for Italy">
+        </div>
+      </div>
+      <div class="form-row">
+        <div>
+          <label class="form-label" for="smtpUser">Username <span class="panel-note">(usually the address)</span></label>
+          <input class="form-input is-compact" id="smtpUser" autocomplete="off">
+        </div>
+        <div>
+          <label class="form-label" for="smtpPassword">Password</label>
+          <input class="form-input is-compact" id="smtpPassword" type="password" autocomplete="new-password">
+        </div>
+      </div>
+      <div class="form-error" role="alert" hidden></div>
+      <div class="wk-nav">
+        <button class="btn btn-primary btn-sm" type="submit">Save</button>
+        <button class="btn btn-outline btn-sm" type="button" id="testMail">Send a test email</button>
+      </div>
+    </form>
+  </div>
+</section>
+
+<script src="/assets/js/meet/common.js" defer></script>
+<script src="/assets/js/meet/app-common.js" defer></script>
+<script src="/assets/js/meet/settings.js" defer></script>
+{% endblock %}

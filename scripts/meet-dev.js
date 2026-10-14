@@ -10,11 +10,18 @@
 //   - admin password: "admin"
 //   - Discord sign-in: a stand-in that signs in under any name (set the
 //     DISCORD_* vars to use a real Discord app)
+//   - email: printed in this terminal instead of sent (MEET_FAKE_MAIL=0 to
+//     use the SMTP settings saved on /app/settings/)
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.join(__dirname, '..');
+
+// Local credentials (e.g. a real Discord app to sign in with) can go in
+// .env.local, which git ignores. Values already in the environment win.
+if (fs.existsSync(path.join(ROOT, '.env.local')))
+  process.loadEnvFile(path.join(ROOT, '.env.local'));
 const SITE = path.join(ROOT, '_site');
 const PORT = Number(process.env.PORT) || 8080;
 
@@ -25,6 +32,8 @@ if (!process.env.ADMIN_PASSWORD_HASH) {
 }
 // Without a Discord app to sign in with, offer a stand-in on the login page.
 if (!process.env.DISCORD_CLIENT_ID) process.env.MEET_DEV_LOGIN ||= '1';
+// Emails are printed here instead of sent, unless MEET_FAKE_MAIL=0.
+process.env.MEET_FAKE_MAIL ||= '1';
 
 const db = require('../server/db');
 if (!process.env.DATABASE_URL) {

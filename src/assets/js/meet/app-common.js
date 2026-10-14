@@ -28,6 +28,7 @@
               user.name.charAt(0)
             ),
         h('span', { class: 'app-user-name' }, user.name),
+        h('a', { class: 'link-button', href: '/app/settings/' }, 'Settings'),
         h(
           'button',
           {

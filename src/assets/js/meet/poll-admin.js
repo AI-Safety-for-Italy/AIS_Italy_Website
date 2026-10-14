@@ -18,7 +18,15 @@
     })
     .then(function (data) {
       if (params.get('created')) {
-        M.toast('Poll created');
+        var failed = Number(params.get('failed') || 0);
+        M.toast(
+          failed
+            ? 'Poll created, but ' + failed + ' invite(s) could not be sent'
+            : params.get('sent')
+            ? 'Poll created and ' + params.get('sent') + ' invites sent'
+            : 'Poll created',
+          Boolean(failed)
+        );
         history.replaceState(null, '', '/app/polls/poll/?id=' + encodeURIComponent(id));
       }
       show(data);
@@ -72,7 +80,8 @@
 
     M.clear(view);
     if (poll.status === 'scheduled') view.appendChild(scheduledCard());
-    else view.appendChild(sharePanel());
+    if (poll.inviteOnly) view.appendChild(guestsPanel());
+    else if (poll.status !== 'scheduled') view.appendChild(sharePanel());
     view.appendChild(resultsPanel());
     if (poll.description) {
       view.appendChild(
@@ -124,6 +133,121 @@
         'Open'
       )
     );
+  }
+
+  // ── Guests (invite-only polls) ─────────────────────────────────────────────
+
+  function guestStatus(g) {
+    if (g.answered) return h('span', { class: 'badge badge-open' }, 'Answered');
+    if (!g.sentAt) {
+      return h('span', { class: 'badge badge-scheduled', title: g.sendError || '' }, 'Not sent');
+    }
+    return h('span', { class: 'badge badge-closed' }, 'Waiting');
+  }
+
+  function guestsPanel() {
+    var answered = poll.invites.filter(function (g) {
+      return g.answered;
+    }).length;
+    var input = h('textarea', {
+      class: 'form-input is-compact is-short',
+      placeholder: 'More emails, separated by commas',
+      'aria-label': 'Invite more people',
+    });
+    return h(
+      'div',
+      { class: 'panel' },
+      h(
+        'div',
+        { class: 'panel-head' },
+        h('h2', null, 'Guests (' + answered + '/' + poll.invites.length + ' answered)')
+      ),
+      h(
+        'ul',
+        { class: 'guest-list' },
+        poll.invites.map(function (g) {
+          return h(
+            'li',
+            null,
+            h('span', { class: 'guest-email' }, g.email),
+            guestStatus(g),
+            h(
+              'span',
+              { class: 'guest-actions' },
+              g.answered
+                ? null
+                : h(
+                    'button',
+                    {
+                      type: 'button',
+                      class: 'link-button',
+                      onclick: function () {
+                        guestAction(
+                          'POST',
+                          '&action=resend&invite=' + g.id,
+                          {},
+                          'Invite sent again'
+                        );
+                      },
+                    },
+                    g.sentAt ? 'Resend' : 'Send'
+                  ),
+              h(
+                'button',
+                {
+                  type: 'button',
+                  class: 'remove-btn',
+                  onclick: function () {
+                    if (
+                      !window.confirm(
+                        'Remove ' + g.email + (g.answered ? ' and their answer?' : '?')
+                      )
+                    ) {
+                      return;
+                    }
+                    guestAction('DELETE', '&invite=' + g.id, null, g.email + ' removed');
+                  },
+                },
+                'Remove'
+              )
+            )
+          );
+        })
+      ),
+      poll.status === 'scheduled'
+        ? null
+        : h(
+            'div',
+            { class: 'guest-add' },
+            input,
+            h(
+              'button',
+              {
+                type: 'button',
+                class: 'btn btn-outline btn-sm',
+                onclick: function () {
+                  if (!input.value.trim()) return input.focus();
+                  guestAction('POST', '&action=invite', { emails: input.value }, null);
+                },
+              },
+              'Invite'
+            )
+          )
+    );
+  }
+
+  function guestAction(method, query, body, done) {
+    M.api(method, '/api/app/poll?id=' + encodeURIComponent(id) + query, body)
+      .then(function (data) {
+        show(data);
+        var outcome = data.outcome;
+        if (outcome && outcome.failed)
+          M.toast(outcome.failed + ' invite(s) could not be sent', true);
+        else if (outcome)
+          M.toast(outcome.sent === 1 ? 'Invite sent' : outcome.sent + ' invites sent');
+        else if (done) M.toast(done);
+      })
+      .catch(M.appError);
   }
 
   function sharePanel() {
@@ -282,6 +406,23 @@
         )
       );
     }
+    var notifyToggle = h('input', {
+      type: 'checkbox',
+      checked: poll.notify,
+      onchange: function (e) {
+        M.api('PATCH', '/api/app/poll?id=' + encodeURIComponent(id), { notify: e.target.checked })
+          .then(function (data) {
+            poll = data;
+            M.toast(
+              data.notify ? 'You’ll be notified of new answers' : 'Notifications off for this poll'
+            );
+          })
+          .catch(M.appError);
+      },
+    });
+    actions.unshift(
+      h('label', { class: 'check-row notify-toggle' }, notifyToggle, h('span', null, 'Notify me'))
+    );
     if (poll.responses.length) {
       actions.push(
         h(
