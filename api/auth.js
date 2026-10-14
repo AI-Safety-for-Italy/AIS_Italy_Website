@@ -14,6 +14,8 @@ module.exports = route({
     sendJson(res, 200, {
       user: await auth.currentUser(req),
       discord: discord.isConfigured(),
+      // Setting names only, so a half-done setup says what it still needs.
+      discordMissing: discord.isConfigured() ? undefined : discord.missingSettings(),
       devLogin: process.env.MEET_DEV_LOGIN === '1',
     });
   },

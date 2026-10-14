@@ -35,9 +35,20 @@ function config() {
   };
 }
 
+const REQUIRED = [
+  'DISCORD_CLIENT_ID',
+  'DISCORD_CLIENT_SECRET',
+  'DISCORD_GUILD_ID',
+  'DISCORD_ROLE_IDS',
+];
+
+/** Names (never values) of the settings still missing, to help set it up. */
+function missingSettings() {
+  return REQUIRED.filter((name) => !String(process.env[name] || '').trim());
+}
+
 function isConfigured() {
-  const c = config();
-  return Boolean(c.clientId && c.clientSecret && c.guildId && c.roleIds.length);
+  return missingSettings().length === 0 && config().roleIds.length > 0;
 }
 
 function authorizeUrl({ state, redirectUri }) {
@@ -124,4 +135,4 @@ async function verify({ code, redirectUri }, fetchImpl = fetch) {
   };
 }
 
-module.exports = { LoginError, isConfigured, authorizeUrl, verify };
+module.exports = { LoginError, isConfigured, missingSettings, authorizeUrl, verify };
