@@ -32,15 +32,16 @@ the terminal instead of sent. Set `DATABASE_URL`, the `DISCORD_*` variables or
 
 ## Production settings (Vercel → Settings → Environment Variables)
 
-| Variable                | How to get it                                                         |
-| ----------------------- | --------------------------------------------------------------------- |
-| `DATABASE_URL`          | Set automatically when Neon is added from Vercel → Storage            |
-| `ADMIN_PASSWORD_HASH`   | `node scripts/meet-hash-password.js` (the shared admin account)       |
-| `SESSION_SECRET`        | `openssl rand -base64 48` (changing it signs everyone out)            |
-| `DISCORD_CLIENT_ID`     | Discord Developer Portal → the AIS application → OAuth2               |
-| `DISCORD_CLIENT_SECRET` | Same page ("Reset Secret"; the bot token is not affected)             |
-| `DISCORD_GUILD_ID`      | Discord, Developer Mode on → right-click the server → Copy ID         |
-| `DISCORD_ROLE_IDS`      | Roles allowed in, comma-separated (Server Settings → Roles → Copy ID) |
+| Variable                | How to get it                                                                 |
+| ----------------------- | ----------------------------------------------------------------------------- |
+| `DATABASE_URL`          | Set automatically when Neon is added from Vercel → Storage                    |
+| `MEET_DATABASE_URL`     | **Preview only**: a Neon branch for `dev`, so tests never touch the live data |
+| `ADMIN_PASSWORD_HASH`   | `node scripts/meet-hash-password.js` (the shared admin account)               |
+| `SESSION_SECRET`        | `openssl rand -base64 48` (changing it signs everyone out)                    |
+| `DISCORD_CLIENT_ID`     | Discord Developer Portal → the AIS application → OAuth2                       |
+| `DISCORD_CLIENT_SECRET` | Same page ("Reset Secret"; the bot token is not affected)                     |
+| `DISCORD_GUILD_ID`      | Discord, Developer Mode on → right-click the server → Copy ID                 |
+| `DISCORD_ROLE_IDS`      | Roles allowed in, comma-separated (Server Settings → Roles → Copy ID)         |
 
 On the Discord application, add a redirect for every host the site runs on:
 `https://www.ais4i.it/api/discord`, `https://ais4i-dev.vercel.app/api/discord`

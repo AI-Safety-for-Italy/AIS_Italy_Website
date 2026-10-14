@@ -36,7 +36,7 @@ if (!process.env.DISCORD_CLIENT_ID) process.env.MEET_DEV_LOGIN ||= '1';
 process.env.MEET_FAKE_MAIL ||= '1';
 
 const db = require('../server/db');
-if (!process.env.DATABASE_URL) {
+if (!process.env.MEET_DATABASE_URL && !process.env.DATABASE_URL) {
   const { PGlite } = require('@electric-sql/pglite');
   db.setDb(new PGlite(path.join(ROOT, '.meet-dev-db')));
 }
@@ -91,7 +91,9 @@ db.ensureSchema().then(() => {
   server.listen(PORT, () => {
     console.log(`Team area running at http://localhost:${PORT}/app/`);
     console.log(
-      process.env.DATABASE_URL ? 'Database: DATABASE_URL' : 'Database: PGlite in .meet-dev-db/'
+      process.env.MEET_DATABASE_URL || process.env.DATABASE_URL
+        ? 'Database: Postgres from the environment'
+        : 'Database: PGlite in .meet-dev-db/'
     );
     console.log(
       process.env.MEET_DEV_LOGIN === '1'

@@ -20,7 +20,10 @@ function setDb(instance) {
 
 function getDb() {
   if (db) return db;
-  const url = process.env.DATABASE_URL;
+  // MEET_DATABASE_URL wins when set: it points the preview deployments (dev)
+  // at their own Neon branch, while the integration's DATABASE_URL stays the
+  // production database.
+  const url = process.env.MEET_DATABASE_URL || process.env.DATABASE_URL;
   if (!url) throw new Error('DATABASE_URL is not set');
   const { Pool } = require('pg');
   // A serverless instance handles one request at a time, so a couple of
