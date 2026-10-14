@@ -9,6 +9,7 @@
 const db = require('./db');
 const mail = require('./mail');
 const ics = require('./ics');
+const recurrence = require('./recurrence');
 
 const DISCORD_API = 'https://discord.com/api/v10';
 
@@ -213,7 +214,12 @@ async function batch(messages) {
 
 // ── Calendar invite for the chosen time ────────────────────────────────────
 
-function when(slot, timezone) {
+/**
+ * The meeting's time in Italian, e.g. "martedì 27 ottobre, 09:00–10:00 (Europe/Rome)"
+ * or, for a series, "ogni martedì, 09:00–10:00 (Europe/Rome), a partire da
+ * martedì 27 ottobre".
+ */
+function when(slot, timezone, rec) {
   const day = new Intl.DateTimeFormat('it-IT', {
     timeZone: timezone,
     weekday: 'long',
@@ -226,7 +232,12 @@ function when(slot, timezone) {
       hour: '2-digit',
       minute: '2-digit',
     }).format(new Date(d));
-  return `${day}, ${time(slot.start)}–${time(slot.end)} (${timezone.replace(/_/g, ' ')})`;
+  const hours = `${time(slot.start)}–${time(slot.end)} (${timezone.replace(/_/g, ' ')})`;
+  if (rec) {
+    const series = recurrence.describeIt(rec, slot.start, timezone);
+    return `${series}, ${hours}, a partire da ${day}${recurrence.describeEndIt(rec)}`;
+  }
+  return `${day}, ${hours}`;
 }
 
 /**
@@ -240,18 +251,23 @@ async function sendMeeting({ poll, slot, recipients, ownerId, sequence, cancel =
     name: from.name || (settings && settings.fromName) || 'AI Safety for Italy',
     email: (settings && settings.fromEmail) || 'tech@ais4i.it',
   };
-  const whenText = when(slot, poll.timezone);
+  const rec = poll.recurrence || null;
+  const whenText = when(slot, poll.timezone, rec);
   const subject = cancel ? `Annullata: ${poll.title}` : `Invito: ${poll.title} · ${whenText}`;
   const lines = cancel
     ? [
-        `La riunione “${poll.title}” di ${whenText} è stata annullata.` +
+        (rec
+          ? `Tutte le riunioni della serie “${poll.title}” (${whenText}) sono state annullate.`
+          : `La riunione “${poll.title}” di ${whenText} è stata annullata.`) +
           ' Se viene fissato un nuovo orario riceverai un nuovo invito.',
-        `The meeting “${poll.title}” has been cancelled.`,
+        rec
+          ? `The “${poll.title}” meeting series has been cancelled.`
+          : `The meeting “${poll.title}” has been cancelled.`,
       ]
     : [
-        `${from.name ? `${from.name} ha fissato` : 'È stata fissata'} la riunione “${
-          poll.title
-        }”: ${whenText}.` +
+        `${from.name ? `${from.name} ha fissato` : 'È stata fissata'} ${
+          rec ? 'la serie di riunioni' : 'la riunione'
+        } “${poll.title}”: ${whenText}.` +
           (poll.location ? `\nDove: ${poll.location}` : '') +
           '\n\nL’invito è allegato: aprilo per aggiungerlo al tuo calendario.',
         `“${poll.title}” is scheduled for the time above. The invitation is attached: open it to add it to your calendar.`,

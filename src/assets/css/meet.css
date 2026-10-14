@@ -2028,3 +2028,32 @@ a.link-button {
   color: var(--text-secondary);
   cursor: default;
 }
+
+/* ── Recurring meetings ──────────────────────────────────────────────────── */
+
+.recurrence-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.recurrence-row .form-input {
+  width: auto;
+}
+
+.recurrence-row input[type='number'] {
+  width: 4.5rem;
+}
+
+.meet-meta .repeat {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+[data-theme='dark'] .meet-meta .repeat {
+  color: var(--accent-400);
+}

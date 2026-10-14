@@ -79,6 +79,17 @@ for the same event. "Download calendar event" gives the same event as a file.
 Invitations show the poll owner's name as the sender ("Anna Rossi · AI Safety
 for Italy", from the team address) and replies go to the owner.
 
+### Recurring meetings
+
+A poll can say its meeting repeats: every week, every 2 weeks, every month, or
+every N weeks or months, with no end, until a date, or a number of times.
+People vote for the first meeting. Once the time is chosen the series follows
+it: the same weekday (weekly), or the same weekday of the month, e.g. "the 2nd
+Tuesday" or "the last Thursday" (monthly). The calendar invitation and the
+downloadable file carry an RRULE with the times in the poll's time zone and a
+VTIMEZONE, so the meeting stays at the same local time across daylight-saving
+changes; "Change time" cancels the whole series. See `server/recurrence.js`.
+
 ### Notifications
 
 Each member chooses on `/app/settings/` (profile menu → My settings) how to hear about new answers to their

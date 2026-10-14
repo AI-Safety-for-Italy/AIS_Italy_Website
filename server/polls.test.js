@@ -988,3 +988,126 @@ test('upgrading a database from main keeps every poll and answer, owned by the a
     1
   );
 });
+
+// ── Recurring meetings ─────────────────────────────────────────────────────
+
+const recurrence = require('./recurrence');
+// Tuesday 27 October 2026, 09:00 in Rome (UTC+1, after the October change).
+const TUE = new Date('2026-10-27T08:00:00Z');
+
+test('recurrences are validated', () => {
+  assert.equal(recurrence.validate(null), null);
+  assert.equal(recurrence.validate({ freq: 'none' }), null);
+  assert.deepEqual(recurrence.validate({ freq: 'weekly' }), {
+    freq: 'weekly',
+    interval: 1,
+    until: null,
+    count: null,
+  });
+  assert.throws(() => recurrence.validate({ freq: 'daily' }), { status: 400 });
+  assert.throws(() => recurrence.validate({ freq: 'weekly', interval: 0 }), { status: 400 });
+  assert.throws(() => recurrence.validate({ freq: 'weekly', count: 1 }), { status: 400 });
+  assert.throws(() => recurrence.validate({ freq: 'weekly', until: '15/12/2026' }), {
+    status: 400,
+  });
+});
+
+test('the repeat rule follows the chosen weekday, in the meeting time zone', () => {
+  const rule = (r, start = TUE) => recurrence.rrule(recurrence.validate(r), start, 'Europe/Rome');
+  assert.equal(rule({ freq: 'weekly' }), 'FREQ=WEEKLY;BYDAY=TU');
+  assert.equal(
+    rule({ freq: 'weekly', interval: 2, count: 10 }),
+    'FREQ=WEEKLY;INTERVAL=2;BYDAY=TU;COUNT=10'
+  );
+  // The 27th is the 4th Tuesday; the 29th, a 5th Thursday, becomes "the last".
+  assert.equal(rule({ freq: 'monthly' }), 'FREQ=MONTHLY;BYDAY=4TU');
+  assert.equal(
+    rule({ freq: 'monthly' }, new Date('2026-10-29T08:00:00Z')),
+    'FREQ=MONTHLY;BYDAY=-1TH'
+  );
+  // Until the end of the 15th, Rome time (UTC+1 in December).
+  assert.equal(
+    rule({ freq: 'weekly', until: '2026-12-15' }),
+    'FREQ=WEEKLY;BYDAY=TU;UNTIL=20261215T225959Z'
+  );
+  // Late evening in Rome is already the next day in UTC: the weekday is Rome's.
+  assert.equal(rule({ freq: 'weekly' }, new Date('2026-10-27T23:30:00Z')), 'FREQ=WEEKLY;BYDAY=WE');
+});
+
+test('the time zone block lists the daylight-saving changes', () => {
+  const rome = recurrence.vtimezone('Europe/Rome', TUE).join('\n');
+  assert.match(rome, /TZID:Europe\/Rome/);
+  assert.match(
+    rome,
+    /BEGIN:DAYLIGHT\nDTSTART:20260329T020000\nTZOFFSETFROM:\+0100\nTZOFFSETTO:\+0200/
+  );
+  assert.match(
+    rome,
+    /BEGIN:STANDARD\nDTSTART:20261025T030000\nTZOFFSETFROM:\+0200\nTZOFFSETTO:\+0100/
+  );
+  assert.match(rome, /RDATE:20270328T020000,/);
+  const utc = recurrence.vtimezone('UTC', TUE).join('\n');
+  assert.match(utc, /TZOFFSETFROM:\+0000\nTZOFFSETTO:\+0000/);
+});
+
+test('a recurring meeting is described in Italian for the emails', () => {
+  const it = (r, start = TUE) => {
+    const rec = recurrence.validate(r);
+    return recurrence.describeIt(rec, start, 'Europe/Rome') + recurrence.describeEndIt(rec);
+  };
+  assert.equal(it({ freq: 'weekly' }), 'ogni martedì');
+  assert.equal(
+    it({ freq: 'weekly', interval: 2, count: 6 }),
+    'ogni 2 settimane, il martedì, per 6 volte'
+  );
+  assert.equal(it({ freq: 'monthly' }), 'il quarto martedì di ogni mese');
+  assert.equal(
+    it({ freq: 'monthly', interval: 3, until: '2027-06-30' }, new Date('2026-10-29T08:00:00Z')),
+    "l'ultimo giovedì, ogni 3 mesi, fino al 30 giugno 2027"
+  );
+});
+
+test('a recurring poll keeps its rule and sends a recurring invitation', async () => {
+  const sent = await fakeMail();
+  const me = await owner();
+  const { id, token } = await polls.createPoll(
+    basePoll({ slots: ['2026-10-27T08:00:00Z'], recurrence: { freq: 'weekly', count: 8 } }),
+    me
+  );
+  assert.deepEqual((await polls.getPollPublic(token)).recurrence, {
+    freq: 'weekly',
+    interval: 1,
+    until: null,
+    count: 8,
+  });
+  await polls.submitResponse(token, { name: 'Giulia', email: 'g@example.org' });
+  const [slot] = (await polls.getPollAdmin(id, me)).slots;
+
+  const handler = require('../api/app/poll');
+  const cookie = `${auth.COOKIE}=${auth.makeSession(me)}`;
+  const res = fakeResponse();
+  await handler(
+    fakeRequest({
+      method: 'POST',
+      url: `/api/app/poll?id=${id}&action=finalize`,
+      cookie,
+      body: { slotId: slot.id, sendInvite: true, emails: ['g@example.org'] },
+    }),
+    res
+  );
+  assert.equal(res.statusCode, 200);
+  const ical = sent[0].icalEvent.content.replace(/\r\n /g, '');
+  assert.match(ical, /BEGIN:VTIMEZONE[\s\S]*BEGIN:VEVENT/);
+  assert.match(ical, /DTSTART;TZID=Europe\/Rome:20261027T090000/);
+  assert.match(ical, /DTEND;TZID=Europe\/Rome:20261027T100000/);
+  assert.match(ical, /RRULE:FREQ=WEEKLY;BYDAY=TU;COUNT=8/);
+  assert.equal(
+    sent[0].subject,
+    'Invito: Board meeting · ogni martedì, 09:00–10:00 (Europe/Rome), a partire da martedì 27 ottobre, per 8 volte'
+  );
+  assert.match(sent[0].text, /la serie di riunioni/);
+
+  // Switching it off through an edit makes later invitations one-off.
+  const off = await polls.updatePoll(id, { recurrence: null }, me);
+  assert.equal(off.recurrence, null);
+});

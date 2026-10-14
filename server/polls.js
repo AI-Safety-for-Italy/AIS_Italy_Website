@@ -5,6 +5,7 @@
 const crypto = require('crypto');
 const db = require('./db');
 const mail = require('./mail');
+const recurrence = require('./recurrence');
 const { HttpError } = require('./http');
 
 const VOTE = { NO: 0, MAYBE: 1, YES: 2 };
@@ -75,6 +76,7 @@ function validatePollInput(body) {
     deadline: body.deadline ? instant(body.deadline, 'Deadline') : null,
     hideResponses: Boolean(body.hideResponses),
     notify: body.notify === undefined ? true : Boolean(body.notify),
+    recurrence: recurrence.validate(body.recurrence),
     inviteOnly: Boolean(body.inviteOnly),
     invitees: body.inviteOnly ? inviteeList(body.invitees, { required: true }) : [],
     slots: starts,
@@ -171,6 +173,7 @@ function describe(poll) {
     hideResponses: poll.hide_responses,
     inviteOnly: poll.invite_only,
     notify: poll.notify,
+    recurrence: poll.recurrence || null,
     status: poll.status,
     open: isOpen(poll),
     createdAt: new Date(poll.created_at).toISOString(),
@@ -307,8 +310,8 @@ async function createPoll(body, ownerId) {
   return db.transaction(async (tx) => {
     const { rows } = await tx.query(
       `insert into polls (token, title, description, location, duration_minutes, timezone,
-                          deadline, hide_responses, owner_id, notify, invite_only)
-       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) returning id`,
+                          deadline, hide_responses, owner_id, notify, invite_only, recurrence)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) returning id`,
       [
         token,
         input.title,
@@ -321,6 +324,7 @@ async function createPoll(body, ownerId) {
         ownerId,
         input.notify,
         input.inviteOnly,
+        input.recurrence && JSON.stringify(input.recurrence),
       ]
     );
     const id = rows[0].id;
@@ -363,6 +367,7 @@ async function updatePoll(id, body, ownerId) {
         : poll.deadline,
     hideResponses: 'hideResponses' in body ? Boolean(body.hideResponses) : poll.hide_responses,
     notify: 'notify' in body ? Boolean(body.notify) : poll.notify,
+    recurrence: 'recurrence' in body ? recurrence.validate(body.recurrence) : poll.recurrence,
     status: poll.status,
   };
   if ('status' in body) {
@@ -374,7 +379,8 @@ async function updatePoll(id, body, ownerId) {
   }
   await db.query(
     `update polls set title = $2, description = $3, location = $4, deadline = $5,
-       hide_responses = $6, status = $7, notify = $8, updated_at = now() where id = $1`,
+       hide_responses = $6, status = $7, notify = $8, recurrence = $9, updated_at = now()
+     where id = $1`,
     [
       poll.id,
       next.title,
@@ -384,6 +390,7 @@ async function updatePoll(id, body, ownerId) {
       next.hideResponses,
       next.status,
       next.notify,
+      next.recurrence ? JSON.stringify(next.recurrence) : null,
     ]
   );
   return getPollAdmin(poll.id, ownerId);

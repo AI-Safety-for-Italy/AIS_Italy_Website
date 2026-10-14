@@ -55,6 +55,7 @@
       closesOn: 'Answer by ',
       closed: 'This poll is closed',
       scheduled: 'Meeting scheduled',
+      startsOn: 'Starting ',
       scheduledText: 'The organiser will send the calendar invite.',
       hidden: 'Answers are private.',
       nameRequired: 'Enter your name.',
@@ -106,6 +107,7 @@
       closesOn: 'Rispondi entro ',
       closed: 'Il sondaggio è chiuso',
       scheduled: 'Riunione fissata',
+      startsOn: 'A partire da ',
       scheduledText: 'L’organizzatore invierà l’invito del calendario.',
       hidden: 'Le risposte sono private.',
       nameRequired: 'Inserisci il tuo nome.',
@@ -224,6 +226,14 @@
         'div',
         { style: 'display:contents' },
         h('span', null, M.icon('clock'), M.fmtDuration(poll.durationMinutes)),
+        poll.recurrence
+          ? h(
+              'span',
+              { class: 'repeat' },
+              M.icon('repeat'),
+              M.recurrenceText(poll.recurrence, poll.finalSlot ? poll.finalSlot.start : null, tz)
+            )
+          : null,
         poll.location ? h('span', null, M.icon('pin'), M.linkify(poll.location)) : null,
         h('span', null, M.icon('users'), T.people(poll.responseCount)),
         poll.deadline && poll.open
@@ -262,8 +272,15 @@
             h(
               'h2',
               null,
-              M.fmtDay(s.start, tz) + ', ' + M.fmtTime(s.start, tz) + '–' + M.fmtTime(s.end, tz)
+              (poll.recurrence
+                ? M.recurrenceText(poll.recurrence, s.start, tz)
+                : M.fmtDay(s.start, tz)) +
+                ', ' +
+                M.fmtTime(s.start, tz) +
+                '–' +
+                M.fmtTime(s.end, tz)
             ),
+            poll.recurrence ? h('p', null, T.startsOn + M.fmtDay(s.start, tz)) : null,
             h('p', null, T.scheduledText)
           )
         )
