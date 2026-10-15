@@ -52,8 +52,9 @@ const teamData = [
     role: 'Operations',
     role_it: 'Gestione operativa',
     photo: '/assets/img/team/bernardo-manfriani.jpg',
-    bio: 'Bernardo looks after the day-to-day operations of AI Safety for Italy. He is based in Florence.',
-    bio_it: 'Bernardo si occupa della gestione operativa di AI Safety for Italy. Vive a Firenze.',
+    bio: 'Bernardo coordinates operations and activities at AI Safety for Italy. He studied Computer Science and Artificial Intelligence at the University of Florence. Working as a developer and entrepreneur in applied AI, he complements his technical background with a keen interest in science communication, governance, and tech policy.',
+    bio_it:
+      "Bernardo coordina le operations e le attività di AI Safety for Italy. Ha studiato Informatica e Intelligenza Artificiale all’Università degli studi di Firenze. Lavora come sviluppatore e imprenditore nell'AI applicata, affiancando alle competenze tecniche l'interesse per la divulgazione scientifica, la governance e le policy tecnologiche.",
     areas: ['General Operations & Coordination'],
     interests: [],
     links: [{ label: 'LinkedIn', url: 'https://www.linkedin.com/in/bernardomanfriani/' }],
@@ -217,23 +218,6 @@ const teamData = [
     areas: ['Mentorship', 'Governance and Funding'],
     interests: ['Mechanistic interpretability', 'Technical AI Safety'],
     links: [{ label: 'LinkedIn', url: 'https://www.linkedin.com/in/lorebasile/' }],
-  },
-  {
-    // Bio and links to be completed.
-    name: 'Francesco Rossetti',
-    tier: 'leadership',
-    board_order: 7,
-    board_role: 'Governance & fundraising',
-    board_role_it: 'Governance e fundraising',
-    groups: ['governance'],
-    role: 'Governance & fundraising',
-    role_it: 'Governance e fundraising',
-    photo: '/assets/img/team/francesco-rossetti.jpg',
-    bio: 'Francesco works on the governance and fundraising of AI Safety for Italy.',
-    bio_it: 'Francesco si occupa della governance e del fundraising di AI Safety for Italy.',
-    areas: ['Governance & Finance'],
-    interests: [],
-    links: [],
   },
   {
     // Full bio to be completed.
