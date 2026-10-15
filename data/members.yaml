@@ -1,4 +1,4 @@
-last_updated: '2026-10-14'
+last_updated: '2026-10-15'
 members:
 - id: 1
   name: Angelo Leone
@@ -536,3 +536,229 @@ members:
   location: Trieste, Italy
   areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
     ecc.), Alignment (RLHF, scalable oversight, value alignment)
+- id: 69
+  name: Feifei Zeng
+  profile: https://www.linkedin.com/in/feifeizeng/
+  location: Roma, Italia
+  areas: AI governance e policy, Etica dell'AI e impatto sociale, Sicurezza informatica
+    per modelli di frontiera
+- id: 70
+  name: Martina Dalla Maria
+  location: Cerro Maggiore (MI), Italia
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.), Evaluation (capability evaluations, dangerous capability evals, benchmarking),
+    Alignment (RLHF, scalable oversight, value alignment), Etica dell'AI e impatto
+    sociale, Rischi catastrofici / esistenziali
+- id: 71
+  name: amirreza jolani
+  profile: https://www.linkedin.com/in/amirjm/?isSelfProfile=true
+  location: milan, italy
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.), Robustness e adversarial ML
+- id: 72
+  name: Leonardo Sartori
+  profile: https://github.com/leonardosartori-web, https://linkedin.com/in/leonardo-sartori-web
+  location: Ponte di Piave, Italia
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.), Evaluation (capability evaluations, dangerous capability evals, benchmarking),
+    Alignment (RLHF, scalable oversight, value alignment), Robustness e adversarial
+    ML, Sicurezza informatica per modelli di frontiera, Rischi catastrofici / esistenziali
+- id: 73
+  name: Mario Licciardi
+  profile: https://www.linkedin.com/in/mario-licciardi-12743590
+  location: Parma, Italia
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.), Evaluation (capability evaluations, dangerous capability evals, benchmarking),
+    Alignment (RLHF, scalable oversight, value alignment), Robustness e adversarial
+    ML, AI governance e policy, Etica dell'AI e impatto sociale, Sicurezza informatica
+    per modelli di frontiera, Rischi catastrofici / esistenziali
+  groups:
+  - technical
+  - events
+  - seminars
+  - education
+- id: 74
+  name: Alexander Paolo Zeisberg Militerni
+  profile: https://www.linkedin.com/in/alexander-paolo-zeisberg-militerni-07a88a48/,
+    https://github.com/blacklotus1985
+  location: Roma, Italia
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.), Evaluation (capability evaluations, dangerous capability evals, benchmarking),
+    Alignment (RLHF, scalable oversight, value alignment), AI governance e policy,
+    Etica dell'AI e impatto sociale, Rischi catastrofici / esistenziali
+- id: 75
+  name: Jonathan Dannevig
+  profile: https://www.linkedin.com/in/jonathan-dannevig/
+  location: Roma, Italia
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.), Evaluation (capability evaluations, dangerous capability evals, benchmarking),
+    Alignment (RLHF, scalable oversight, value alignment), Robustness e adversarial
+    ML, AI governance e policy, Etica dell'AI e impatto sociale, Sicurezza informatica
+    per modelli di frontiera, Rischi catastrofici / esistenziali
+- id: 76
+  name: Andrea Sodomaco
+  profile: https://www.linkedin.com/in/andrea-sodomaco/
+  location: Trieste, Italia
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.), AI governance e policy, Sicurezza informatica per modelli di frontiera
+- id: 77
+  name: Magdalena Gladysz
+  profile: www.linkedin.com/in/magdalena-gladysz/
+  location: Roma, Italia
+  areas: Evaluation (capability evaluations, dangerous capability evals, benchmarking),
+    AI governance e policy, Etica dell'AI e impatto sociale, Rischi catastrofici /
+    esistenziali
+- id: 78
+  name: martin ranieri
+  profile: linkedin.com/in/martin-ranieri
+  location: mi, ita
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.), Alignment (RLHF, scalable oversight, value alignment), Robustness e adversarial
+    ML
+- id: 79
+  name: Alessandro Veneri
+  profile: https://www.linkedin.com/in/alessandroveneri, https://alessandro-veneri.github.io/
+  location: Venezia, Italia
+  areas: AI governance e policy
+- id: 80
+  name: Junaid Qadir
+  profile: https://junaid-q.github.io/
+  location: Örebro, Sweden
+  areas: Robustness e adversarial ML, Sicurezza informatica per modelli di frontiera
+  groups:
+  - mentorship
+  - governance
+  - communication
+  - technical
+  - community
+  - events
+  - seminars
+  - education
+- id: 81
+  name: David Wiygul
+  profile: https://www.linkedin.com/in/davidwiygul/, https://scholar.google.com/citations?user=xseAbN4AAAAJ&hl=en,
+    https://github.com/langlerangle
+  location: Trento, Italia
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.)
+- id: 82
+  name: Fatmir Bylyshi
+  profile: https://www.linkedin.com/in/fatmir-bylyshi
+  location: Milano, Italia
+  areas: Evaluation (capability evaluations, dangerous capability evals, benchmarking),
+    Robustness e adversarial ML, Sicurezza informatica per modelli di frontiera
+  groups:
+  - mentorship
+  - community
+- id: 83
+  name: Gianluca Barmina
+  profile: https://www.linkedin.com/in/gianluca-barmina/
+  location: Odense, Danimarca
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.), Evaluation (capability evaluations, dangerous capability evals, benchmarking),
+    Alignment (RLHF, scalable oversight, value alignment)
+- id: 84
+  name: Valerio Siniscalco
+  profile: https://www.linkedin.com/in/vsiniscalco/, https://codeberg.org/siniscalco,
+    https://siniscalco.me/
+  location: Copenhagen, Danimarca
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.), Evaluation (capability evaluations, dangerous capability evals, benchmarking),
+    Alignment (RLHF, scalable oversight, value alignment), Robustness e adversarial
+    ML
+- id: 85
+  name: andrea turchet
+  profile: andreaturchet.github.io
+  location: klagenfurt, austria
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.), Alignment (RLHF, scalable oversight, value alignment), Etica dell'AI e
+    impatto sociale
+  groups:
+  - technical
+- id: 86
+  name: Antonia Calvi
+  profile: https://www.linkedin.com/in/antonia-calvi-1a762412b/?isSelfProfile=true
+  location: Londra, Inghilterra
+  areas: Alignment (RLHF, scalable oversight, value alignment), Robustness e adversarial
+    ML, AI governance e policy, Sicurezza informatica per modelli di frontiera
+  groups:
+  - seminars
+- id: 87
+  name: Pier Luigi Dovesi
+  profile: https://dovesi.dev/
+  location: Stockholm / Bologna, Sweden / Italy
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.), Alignment (RLHF, scalable oversight, value alignment), Robustness e adversarial
+    ML, AI governance e policy, Etica dell'AI e impatto sociale
+- id: 88
+  name: Francesco Pinzauti
+  profile: https://www.linkedin.com/in/pinzauti/
+  location: Ginevra, Svizzera
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.), Evaluation (capability evaluations, dangerous capability evals, benchmarking),
+    Alignment (RLHF, scalable oversight, value alignment), Sicurezza informatica per
+    modelli di frontiera
+- id: 89
+  name: Antonio Tamburello Tamburello
+  profile: https://antonio-tamburello.vercel.app/
+  location: Provincia di Firenze, Italia
+  areas: Robustness e adversarial ML, AI governance e policy, Etica dell'AI e impatto
+    sociale, Sicurezza informatica per modelli di frontiera, Rischi catastrofici /
+    esistenziali
+- id: 90
+  name: Luca Pedersoli Pedersoli
+  profile: https://www.linkedin.com/in/luca-pedersoli/
+  location: Milano, Italia
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.), Evaluation (capability evaluations, dangerous capability evals, benchmarking),
+    Alignment (RLHF, scalable oversight, value alignment), Robustness e adversarial
+    ML, AI governance e policy, Etica dell'AI e impatto sociale, Sicurezza informatica
+    per modelli di frontiera, Rischi catastrofici / esistenziali
+  groups:
+  - mentorship
+  - governance
+  - communication
+  - technical
+  - community
+  - events
+  - seminars
+  - education
+- id: 91
+  name: Thomas Verardo
+  profile: https://www.linkedin.com/in/thomas-verardo-b0955b206/
+  location: Trieste, Italia
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.), Evaluation (capability evaluations, dangerous capability evals, benchmarking),
+    Robustness e adversarial ML, AI governance e policy
+- id: 92
+  name: Matteo Giordano
+  profile: https://www.linkedin.com/in/giordanomatteo, https://www.matteogiordano.im/,
+    https://github.com/zTehRyaN
+  location: Milano, Italia
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.), Alignment (RLHF, scalable oversight, value alignment), Robustness e adversarial
+    ML, Sicurezza informatica per modelli di frontiera
+- id: 93
+  name: Sergio Picascia
+  location: Milano, Italia
+  areas: Evaluation (capability evaluations, dangerous capability evals, benchmarking)
+- id: 94
+  name: Mattia Di Luca
+  profile: www.linkedin.com/in/mattia-diluca, https://github.com/mattia-dilu, https://mattia-dilu.github.io/mattiadiluca/
+  location: Genova, Italia
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.), Alignment (RLHF, scalable oversight, value alignment), Robustness e adversarial
+    ML
+- id: 95
+  name: Burcu Sayin Günel
+  profile: https://www.linkedin.com/in/burcu-sayin/
+  location: Trento, Italia
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.), Evaluation (capability evaluations, dangerous capability evals, benchmarking),
+    Alignment (RLHF, scalable oversight, value alignment), Robustness e adversarial
+    ML, AI governance e policy, Etica dell'AI e impatto sociale, Sicurezza informatica
+    per modelli di frontiera, Rischi catastrofici / esistenziali
+  groups:
+  - mentorship
+  - events
+  - seminars
