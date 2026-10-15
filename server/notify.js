@@ -9,6 +9,7 @@
 const db = require('./db');
 const mail = require('./mail');
 const ics = require('./ics');
+const recurrence = require('./recurrence');
 
 const DISCORD_API = 'https://discord.com/api/v10';
 
@@ -19,9 +20,18 @@ function escapeHtml(s) {
   );
 }
 
-/** A plain-text body and a matching simple HTML one. `lines` may hold a { link }. */
-function render(lines) {
-  const text = lines.map((l) => (typeof l === 'string' ? l : `${l.label}: ${l.link}`)).join('\n\n');
+// Closes the automatic invitations: nobody reads replies to them.
+const NO_REPLY =
+  'Email inviata automaticamente: per favore non rispondere. · Automatic email, please do not reply.';
+
+/**
+ * A plain-text body and a matching simple HTML one. `lines` may hold a
+ * { link }; `noReply` adds the note asking not to reply.
+ */
+function render(lines, { noReply = false } = {}) {
+  const text =
+    lines.map((l) => (typeof l === 'string' ? l : `${l.label}: ${l.link}`)).join('\n\n') +
+    (noReply ? `\n\n${NO_REPLY}` : '');
   const html =
     '<div style="font-family:system-ui,sans-serif;font-size:15px;line-height:1.55;color:#0f1a14;max-width:560px">' +
     lines
@@ -35,7 +45,9 @@ function render(lines) {
             )}</a></p>`
       )
       .join('') +
-    '<p style="color:#7c8a81;font-size:13px">AI Safety for Italy</p></div>';
+    '<p style="color:#7c8a81;font-size:13px">AI Safety for Italy' +
+    (noReply ? `<br>${escapeHtml(NO_REPLY)}` : '') +
+    '</p></div>';
   return { text, html };
 }
 
@@ -154,16 +166,12 @@ function inviteMessage({ poll, ownerName, link }) {
 
 /**
  * Who an invitation comes from: the poll owner's name (the shared admin
- * account has none worth showing) and the address replies should reach.
+ * account has none worth showing).
  */
 async function inviter(ownerId) {
   const { rows } = await db.query('select * from app_users where id = $1', [ownerId]);
   const u = rows[0];
-  if (!u) return { name: null, replyTo: undefined };
-  return {
-    name: u.kind === 'admin' ? null : u.name,
-    replyTo: u.notify_email || u.email || undefined,
-  };
+  return { name: u && u.kind !== 'admin' ? u.name : null };
 }
 
 /**
@@ -179,8 +187,7 @@ async function sendInvites({ poll, ownerId, invites, origin }) {
       to: invite.email,
       subject: msg.subject,
       senderName: from.name,
-      replyTo: from.replyTo,
-      ...render(msg.lines),
+      ...render(msg.lines, { noReply: true }),
     };
   });
   const results = await batch(messages);
@@ -213,7 +220,12 @@ async function batch(messages) {
 
 // ── Calendar invite for the chosen time ────────────────────────────────────
 
-function when(slot, timezone) {
+/**
+ * The meeting's time in Italian, e.g. "martedì 27 ottobre, 09:00–10:00 (Europe/Rome)"
+ * or, for a series, "ogni martedì, 09:00–10:00 (Europe/Rome), a partire da
+ * martedì 27 ottobre".
+ */
+function when(slot, timezone, rec) {
   const day = new Intl.DateTimeFormat('it-IT', {
     timeZone: timezone,
     weekday: 'long',
@@ -226,7 +238,12 @@ function when(slot, timezone) {
       hour: '2-digit',
       minute: '2-digit',
     }).format(new Date(d));
-  return `${day}, ${time(slot.start)}–${time(slot.end)} (${timezone.replace(/_/g, ' ')})`;
+  const hours = `${time(slot.start)}–${time(slot.end)} (${timezone.replace(/_/g, ' ')})`;
+  if (rec) {
+    const series = recurrence.describeIt(rec, slot.start, timezone);
+    return `${series}, ${hours}, a partire da ${day}${recurrence.describeEndIt(rec)}`;
+  }
+  return `${day}, ${hours}`;
 }
 
 /**
@@ -240,18 +257,23 @@ async function sendMeeting({ poll, slot, recipients, ownerId, sequence, cancel =
     name: from.name || (settings && settings.fromName) || 'AI Safety for Italy',
     email: (settings && settings.fromEmail) || 'tech@ais4i.it',
   };
-  const whenText = when(slot, poll.timezone);
+  const rec = poll.recurrence || null;
+  const whenText = when(slot, poll.timezone, rec);
   const subject = cancel ? `Annullata: ${poll.title}` : `Invito: ${poll.title} · ${whenText}`;
   const lines = cancel
     ? [
-        `La riunione “${poll.title}” di ${whenText} è stata annullata.` +
+        (rec
+          ? `Tutte le riunioni della serie “${poll.title}” (${whenText}) sono state annullate.`
+          : `La riunione “${poll.title}” di ${whenText} è stata annullata.`) +
           ' Se viene fissato un nuovo orario riceverai un nuovo invito.',
-        `The meeting “${poll.title}” has been cancelled.`,
+        rec
+          ? `The “${poll.title}” meeting series has been cancelled.`
+          : `The meeting “${poll.title}” has been cancelled.`,
       ]
     : [
-        `${from.name ? `${from.name} ha fissato` : 'È stata fissata'} la riunione “${
-          poll.title
-        }”: ${whenText}.` +
+        `${from.name ? `${from.name} ha fissato` : 'È stata fissata'} ${
+          rec ? 'la serie di riunioni' : 'la riunione'
+        } “${poll.title}”: ${whenText}.` +
           (poll.location ? `\nDove: ${poll.location}` : '') +
           '\n\nL’invito è allegato: aprilo per aggiungerlo al tuo calendario.',
         `“${poll.title}” is scheduled for the time above. The invitation is attached: open it to add it to your calendar.`,
@@ -264,13 +286,12 @@ async function sendMeeting({ poll, slot, recipients, ownerId, sequence, cancel =
       to: person.email,
       subject,
       senderName: from.name,
-      replyTo: from.replyTo,
       icalEvent: {
         method,
         filename: 'invite.ics',
         content: ics.build(poll, slot, { method, sequence, organizer, attendee: person }),
       },
-      ...render(lines),
+      ...render(lines, { noReply: true }),
     }))
   );
   const sent = results.filter((r) => r.ok).length;

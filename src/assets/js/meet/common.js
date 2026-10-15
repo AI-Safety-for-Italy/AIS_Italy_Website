@@ -47,6 +47,8 @@
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>',
     users:
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M21.5 20a6.5 6.5 0 0 0-4-6"/></svg>',
+    repeat:
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2l4 4-4 4"/><path d="M3 11V9a3 3 0 0 1 3-3h15"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a3 3 0 0 1-3 3H3"/></svg>',
     hourglass:
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12M6 21h12M7 3c0 5 10 5 10 9s-10 4-10 9M17 3c0 5-10 5-10 9s10 4 10 9"/></svg>',
     check:
@@ -443,7 +445,122 @@
     );
   }
 
+  // ── Recurring meetings ────────────────────────────────────────────────────
+
+  var ORDINALS = {
+    en: { 1: '1st', 2: '2nd', 3: '3rd', 4: '4th', '-1': 'last' },
+    it: { 1: 'primo', 2: 'secondo', 3: 'terzo', 4: 'quarto', '-1': 'ultimo' },
+  };
+
+  /**
+   * A recurrence in words, in the page's language: "Every week on Tuesday",
+   * "Il secondo martedì di ogni mese"… Without `start` (no time chosen yet)
+   * only the rhythm: "Every 2 weeks".
+   */
+  function recurrenceText(rec, start, tz) {
+    if (!rec) return '';
+    var it = document.documentElement.lang === 'it';
+    var n = rec.interval || 1;
+    var day = start ? fmt(start, tz, { weekday: 'long' }) : '';
+    var text;
+    if (rec.freq === 'weekly') {
+      if (it) {
+        text = n === 1 ? (day ? 'Ogni ' + day : 'Ogni settimana') : 'Ogni ' + n + ' settimane';
+        if (day && n > 1) text += ', il ' + day;
+      } else {
+        text = (n === 1 ? 'Every week' : 'Every ' + n + ' weeks') + (day ? ' on ' + day : '');
+      }
+    } else {
+      var which = '';
+      if (day) {
+        var d = Number(utcToZoned(start, tz).date.slice(8));
+        var k = Math.ceil(d / 7) === 5 ? -1 : Math.ceil(d / 7);
+        which = it
+          ? (k === -1 ? 'L’' : 'Il ') + ORDINALS.it[k] + ' ' + day
+          : 'the ' + ORDINALS.en[k] + ' ' + day;
+      }
+      if (it) {
+        text = which
+          ? which + (n === 1 ? ' di ogni mese' : ', ogni ' + n + ' mesi')
+          : n === 1
+          ? 'Ogni mese'
+          : 'Ogni ' + n + ' mesi';
+      } else {
+        text = (n === 1 ? 'Every month' : 'Every ' + n + ' months') + (which ? ' on ' + which : '');
+      }
+    }
+    if (rec.until) {
+      var end = fmt(rec.until + 'T12:00:00Z', 'UTC', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      });
+      text += it ? ', fino al ' + end : ', until ' + end;
+    } else if (rec.count) {
+      text += it ? ', per ' + rec.count + ' volte' : ', ' + rec.count + ' times';
+    }
+    return text;
+  }
+
+  /**
+   * The fields of components/recurrence-fields.njk with id prefix `prefix`:
+   * { get() -> recurrence or null, set(recurrence) }.
+   */
+  function recurrenceFields(prefix) {
+    var el = function (name) {
+      return document.getElementById(prefix + name);
+    };
+    var root = el('Recurrence');
+    var part = function (name) {
+      return root.querySelector('[data-part="' + name + '"]');
+    };
+    function refresh() {
+      var repeat = el('Repeat').value;
+      part('custom').hidden = repeat !== 'custom';
+      part('end').hidden = repeat === 'none';
+      var monthly =
+        repeat === 'monthly-1' || (repeat === 'custom' && el('Unit').value === 'monthly');
+      part('note').hidden = !monthly;
+      el('Until').hidden = el('End').value !== 'until';
+      el('Count').hidden = el('End').value !== 'count';
+    }
+    ['Repeat', 'Unit', 'End'].forEach(function (name) {
+      el(name).addEventListener('change', refresh);
+    });
+    refresh();
+    return {
+      get: function () {
+        var repeat = el('Repeat').value;
+        if (repeat === 'none') return null;
+        var rec =
+          repeat === 'custom'
+            ? { freq: el('Unit').value, interval: Number(el('Interval').value) }
+            : { freq: repeat.split('-')[0], interval: Number(repeat.split('-')[1]) };
+        if (el('End').value === 'until') rec.until = el('Until').value || null;
+        if (el('End').value === 'count') rec.count = Number(el('Count').value);
+        return rec;
+      },
+      set: function (rec) {
+        var preset = rec && rec.freq + '-' + rec.interval;
+        if (!rec) el('Repeat').value = 'none';
+        else if (['weekly-1', 'weekly-2', 'monthly-1'].indexOf(preset) !== -1) {
+          el('Repeat').value = preset;
+        } else {
+          el('Repeat').value = 'custom';
+          el('Interval').value = rec.interval;
+          el('Unit').value = rec.freq;
+        }
+        el('End').value = rec && rec.until ? 'until' : rec && rec.count ? 'count' : 'never';
+        if (rec && rec.until) el('Until').value = rec.until;
+        if (rec && rec.count) el('Count').value = rec.count;
+        refresh();
+      },
+    };
+  }
+
   window.Meet = {
+    recurrenceText: recurrenceText,
+    recurrenceFields: recurrenceFields,
     h: h,
     clear: clear,
     icon: icon,

@@ -1,0 +1,32 @@
+{# Fields for a recurring meeting. Set `rp` to an id prefix before including
+   it ("new", "edit"); assets/js/meet/common.js (Meet.recurrenceFields) reads
+   and fills them. #}
+<div class="recurrence" id="{{ rp }}Recurrence">
+  <label class="form-label" for="{{ rp }}Repeat">Repeats</label>
+  <select class="form-input is-compact" id="{{ rp }}Repeat">
+    <option value="none">Doesn’t repeat</option>
+    <option value="weekly-1">Every week</option>
+    <option value="weekly-2">Every 2 weeks</option>
+    <option value="monthly-1">Every month</option>
+    <option value="custom">Custom…</option>
+  </select>
+  <div class="recurrence-row" data-part="custom" hidden>
+    <span>Every</span>
+    <input class="form-input is-compact" id="{{ rp }}Interval" type="number" min="1" max="12" value="3" aria-label="Repeat every">
+    <select class="form-input is-compact" id="{{ rp }}Unit" aria-label="Unit">
+      <option value="weekly">weeks</option>
+      <option value="monthly">months</option>
+    </select>
+  </div>
+  <div class="recurrence-row" data-part="end" hidden>
+    <span>Ends</span>
+    <select class="form-input is-compact" id="{{ rp }}End" aria-label="Ends">
+      <option value="never">never</option>
+      <option value="until">on a date</option>
+      <option value="count">after a number of meetings</option>
+    </select>
+    <input class="form-input is-compact" id="{{ rp }}Until" type="date" aria-label="Last day" hidden>
+    <input class="form-input is-compact" id="{{ rp }}Count" type="number" min="2" max="200" value="10" aria-label="Number of meetings" hidden>
+  </div>
+  <p class="form-note" data-part="note" hidden style="margin-top:.4rem">Monthly meetings fall on the same weekday of the month as the chosen time, e.g. the 2nd Tuesday.</p>
+</div>

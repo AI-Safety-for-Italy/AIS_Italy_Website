@@ -48,6 +48,7 @@ seoTitle: 'New poll | AI Safety for Italy'
               </label>
             </div>
           </div>
+          {% set rp = "new" %}{% include "recurrence-fields.njk" %}
           <div>
             <label class="form-label" for="timezone">Time zone</label>
             <select class="form-input is-compact" id="timezone" name="timezone"></select>

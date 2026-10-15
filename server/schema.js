@@ -130,4 +130,8 @@ create unique index if not exists poll_invites_email on poll_invites (poll_id, l
 -- time can send them the cancellation; and the event's revision number.
 alter table polls add column if not exists invited_to_meeting text[];
 alter table polls add column if not exists meeting_sequence integer not null default 0;
+
+-- A recurring meeting: { freq, interval, until, count } (see recurrence.js),
+-- or null for a one-off.
+alter table polls add column if not exists recurrence jsonb;
 `;

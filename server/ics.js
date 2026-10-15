@@ -4,6 +4,10 @@
 //
 // The event's UID is fixed per poll, so a later invitation or cancellation
 // replaces the one already in people's calendars; SEQUENCE orders them.
+// A recurring meeting (see recurrence.js) is written in the poll's time zone
+// with an RRULE, so the whole series lands in the calendar.
+
+const recurrence = require('./recurrence');
 
 function escapeText(value) {
   return String(value || '')
@@ -41,7 +45,8 @@ function fold(line) {
 }
 
 /**
- * poll: { id, title, description, location }; slot: { start, end }.
+ * poll: { id, title, description, location, timezone, recurrence };
+ * slot: { start, end }.
  * Options: method ('PUBLISH' | 'REQUEST' | 'CANCEL'), sequence, link,
  * organizer { name, email }, attendee { name, email } (one per email, so
  * nobody sees the others' addresses).
@@ -49,18 +54,27 @@ function fold(line) {
 function build(poll, slot, options = {}) {
   const method = options.method || 'PUBLISH';
   const description = [poll.description, options.link].filter(Boolean).join('\n\n');
+  const rec = poll.recurrence;
+  const tz = poll.timezone || 'UTC';
+  const times = rec
+    ? [
+        `DTSTART;TZID=${tz}:${recurrence.localStamp(slot.start, tz)}`,
+        `DTEND;TZID=${tz}:${recurrence.localStamp(slot.end, tz)}`,
+        `RRULE:${recurrence.rrule(rec, slot.start, tz)}`,
+      ]
+    : [`DTSTART:${stamp(slot.start)}`, `DTEND:${stamp(slot.end)}`];
   const lines = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
     'PRODID:-//AI Safety for Italy//Meeting polls//EN',
     'CALSCALE:GREGORIAN',
     `METHOD:${method}`,
+    ...(rec ? recurrence.vtimezone(tz, slot.start) : []),
     'BEGIN:VEVENT',
     `UID:${poll.id}@ais4i.it`,
     `SEQUENCE:${options.sequence || 0}`,
     `DTSTAMP:${stamp(new Date())}`,
-    `DTSTART:${stamp(slot.start)}`,
-    `DTEND:${stamp(slot.end)}`,
+    ...times,
     `SUMMARY:${escapeText(poll.title)}`,
     description ? `DESCRIPTION:${escapeText(description)}` : null,
     poll.location ? `LOCATION:${escapeText(poll.location)}` : null,

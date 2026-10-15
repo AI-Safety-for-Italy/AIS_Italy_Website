@@ -1,0 +1,91 @@
+---
+title: Seminars
+basePath: /seminars/
+pagination:
+  data: locales
+  size: 1
+  alias: locale
+  # Without this only the first locale reaches collections.all,
+  # and the sitemap would list the English pages only.
+  addAllPagesToCollections: true
+permalink: '{{ locale.prefix }}{{ basePath }}'
+# No dedicated social card yet (scripts/og-images.js); reuse the initiatives one.
+ogImageName: initiatives
+seoTitle: 'Seminars | AI Safety for Italy'
+seoTitle_it: 'Seminari | AI Safety for Italy'
+seoDescription: 'Seminars on AI safety, ethics and governance from AI Safety for Italy, open to everyone. Registration on Luma.'
+seoDescription_it: "Seminari su sicurezza, etica e governance dell'IA di AI Safety for Italy, aperti a tutti. Iscrizioni su Luma."
+---
+{% extends "base.njk" %}
+{% from "initiative-card.njk" import initiativeCard with context %}
+{% block content %}
+{# Content in data/events.yaml: `seminars_intro`, and the entries with
+   category "seminar" in `upcoming_events` and `past_events`. #}
+{% set intro = events.seminars_intro %}
+{% set seminars = events.upcoming_events | where("category", "seminar") %}
+{% set pastSeminars = events.past_events | where("category", "seminar") %}
+
+<!-- Page hero -->
+<section class="page-hero">
+    <div class="container">
+        <span class="eyebrow" data-en="{{ translations.en.nav.events }}" data-it="{{ translations.it.nav.events }}">{{ translations.en.nav.events }}</span>
+        <h1 data-en="{{ intro.title }}" data-it="{{ intro.title_it }}">{{ intro.title }}</h1>
+        <p class="lede" data-en="{{ intro.description }}" data-it="{{ intro.description_it }}">{{ intro.description }}</p>
+        {% if intro.luma_calendar_link %}
+        <p style="margin-top: 1.75rem; margin-bottom: 0;">
+            <a href="{{ intro.luma_calendar_link }}" target="_blank" rel="noopener noreferrer" class="btn btn-primary"
+               data-en="{{ intro.luma_calendar_text }}" data-it="{{ intro.luma_calendar_text_it }}">{{ intro.luma_calendar_text }}</a>
+        </p>
+        {% endif %}
+    </div>
+</section>
+
+<!-- Scheduled seminars -->
+<section class="section" id="upcoming">
+    <div class="container">
+        <div class="section-head reveal">
+            <h2 data-en="Upcoming seminars" data-it="Prossimi seminari">Upcoming seminars</h2>
+        </div>
+        <div class="seminars-layout">
+            <div class="grid grid-cols-1 gap-6 seminars-layout__main">
+                {% for event in seminars %}{{ initiativeCard(event) }}{% else %}
+                <p class="reveal" style="color: var(--text-secondary);" data-en="{{ intro.empty_text }}" data-it="{{ intro.empty_text_it }}">{{ intro.empty_text }}</p>
+                {% endfor %}
+            </div>
+            {% set calendarEvents = seminars.concat(pastSeminars) %}
+            {% if calendarEvents | byDay | length %}
+            <div class="seminars-layout__aside">
+                {% include "seminar-calendar.njk" %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</section>
+
+{% if pastSeminars | length %}
+<!-- Past seminars -->
+<section class="section section-alt" id="past">
+    <div class="container">
+        <div class="section-head reveal">
+            <h2 data-en="Past seminars" data-it="Seminari passati">Past seminars</h2>
+        </div>
+        <div class="grid grid-cols-1 gap-6" style="max-width: 48rem;">
+            {% for event in pastSeminars %}{{ initiativeCard(event) }}{% endfor %}
+        </div>
+    </div>
+</section>
+{% endif %}
+
+<!-- CTA Section -->
+<section class="section{% if not pastSeminars | length %} section-alt{% endif %}">
+    <div class="container">
+        <div class="cta-band reveal">
+            <h2 data-en="{{ events.cta.title }}" data-it="{{ events.cta.title_it }}">{{ events.cta.title }}</h2>
+            <p data-en="{{ events.cta.description }}" data-it="{{ events.cta.description_it }}">{{ events.cta.description }}</p>
+            <a href="{{ site.forms.mailingList }}" class="btn"
+               target="_blank" rel="noopener noreferrer"
+               data-en="{{ events.cta.button_text }}" data-it="{{ events.cta.button_text_it }}">{{ events.cta.button_text }}</a>
+        </div>
+    </div>
+</section>
+{% endblock %}

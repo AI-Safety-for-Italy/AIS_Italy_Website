@@ -1,48 +1,44 @@
-# News items for the scrolling carousel
-# Add new items at the top (newest first)
+# "What's new" on the home page: the latest initiatives of AI Safety for Italy.
+# Add new items at the top (newest first); only the first three are shown.
+#
+#   type         mentorship | seminar | event (sets the chip on the card)
+#   date         optional, YYYY-MM-DD
+#   details_url  optional internal page: the whole card links to it
+#   link_url     optional button at the bottom; external links open a new tab
 
 items:
-  - id: 4
-    date: "2026-09-23"
-    emoji: "🥂"
-    title_en: "First AI Safety for Italy Meetup"
-    title_it: "Primo meetup di AI Safety for Italy"
-    description_en: "Monday 5 October, 18:00–20:30, Cascina Cuccagna (Milan). An introduction to AI safety open to everyone, the community's new projects, then aperitivo and networking. Registration on Luma is required to attend in person; talks also livestreamed."
-    description_it: "Lunedì 5 ottobre, 18:00–20:30, Cascina Cuccagna (Milano). Un'introduzione all'AI safety aperta a tutti, i nuovi progetti della community e poi aperitivo e networking. Per venire in presenza è necessaria l'iscrizione su Luma; talk anche in streaming."
-    details_url: "/initiatives/#meetup-milano-2026"
-    link_url: "https://luma.com/jcx4jd7z"
+  - id: 6
+    type: "seminar"
+    date: "2026-10-15"
+    title_en: "Seminar series: first talk on 15 October"
+    title_it: "Ciclo di seminari: primo talk il 15 ottobre"
+    description_en: "Every other Thursday at 18:30. We start online with Enrico Bottazzi on steering a model's behaviour through mechanistic interpretability, then watermarking in AI-generated text (29 October) and geometric approaches to interpretability (12 November)."
+    description_it: "Un giovedì ogni due alle 18:30. Si parte online con Enrico Bottazzi, su come guidare il comportamento di un modello con la mechanistic interpretability; poi il watermarking nei testi generati dall'IA (29 ottobre) e gli approcci geometrici all'interpretabilità (12 novembre)."
+    details_url: "/seminars/"
+    link_url: "https://luma.com/k1yogh3v"
     link_text_en: "Register on Luma"
     link_text_it: "Iscriviti su Luma"
 
-  - id: 1
-    date: "2026-05-01"
-    emoji: "🌐"
-    title_en: "AISafety.com Newsletter"
-    title_it: "Newsletter AISafety.com"
-    description_en: "Find your place in the AI safety ecosystem: curated lists of events, communities, courses, and more focused on preventing human extinction from AI."
-    description_it: "Trova il tuo posto nell'ecosistema dell'AI safety: liste curate di eventi, community, corsi e molto altro per prevenire i rischi dell'IA."
-    link_url: "https://www.aisafety.com/"
-    link_text_en: "Subscribe to the newsletter"
-    link_text_it: "Iscriviti alla newsletter"
+  - id: 5
+    type: "mentorship"
+    title_en: "Mentorship program: open call"
+    title_it: "Programma di mentorship: call aperta"
+    description_en: "First edition from 15 December 2026 to 15 March 2027. Mentor applications close 20 October; mentee applications open 1 November."
+    description_it: "Prima edizione dal 15 dicembre 2026 al 15 marzo 2027. Candidature mentor entro il 20 ottobre; candidature mentee dal 1 novembre."
+    details_url: "/mentorship/"
+    link_url: "/mentorship/#timeline"
+    link_text_en: "Key dates"
+    link_text_it: "Date principali"
 
-  - id: 2
-    date: "2026-04-15"
-    emoji: "🎓"
-    title_en: "AI Safety Fundamentals Course"
-    title_it: "Corso di Fondamenti di AI Safety"
-    description_en: "BlueDot Impact's AI Safety Fundamentals course is open for applications. Learn about alignment, governance, and careers in AI safety."
-    description_it: "Il corso AI Safety Fundamentals di BlueDot Impact è aperto alle candidature. Scopri allineamento, governance e carriere nell'AI safety."
-    link_url: "https://aisafetyfundamentals.com/"
-    link_text_en: "Apply now"
-    link_text_it: "Candidati ora"
-
-  - id: 3
-    date: "2026-03-20"
-    emoji: "🤝"
-    title_en: "Join Our Community"
-    title_it: "Unisciti alla Community"
-    description_en: "AI Safety for Italy is growing! Fill in our interest form to join the community and get involved in our working groups."
-    description_it: "AI Safety for Italy sta crescendo! Compila il modulo di interesse per unirti alla community e partecipare ai gruppi di lavoro."
-    link_url: "https://docs.google.com/forms/d/e/1FAIpQLSf3qM-b4ClJ4tzO2HljEAXDyElkaEOnNS2HCKILYB81zFpIYQ/viewform?usp=header"
-    link_text_en: "Fill in the form"
-    link_text_it: "Compila il modulo"
+  - id: 4
+    type: "event"
+    date: "2026-10-05"
+    title_en: "First AI Safety for Italy Meetup"
+    title_it: "Primo meetup di AI Safety for Italy"
+    description_en: "Our first in-person meetup, at Cascina Cuccagna in Milan: an introduction to AI safety, the community's new projects, then aperitivo and networking."
+    description_it: "Il nostro primo meetup in presenza, alla Cascina Cuccagna di Milano: un'introduzione all'AI safety, i nuovi progetti della community e poi aperitivo e networking."
+    details_url: "/events/#meetup-milano-2026"
+    # /streaming is a placeholder page until the recording is published.
+    link_url: "/streaming/"
+    link_text_en: "Recording coming soon"
+    link_text_it: "Registrazione in arrivo"

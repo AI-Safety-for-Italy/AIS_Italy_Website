@@ -1,5 +1,46 @@
-{# <head> extras for the meeting-poll pages (admin panel and /meet/), included
-   by base.njk when a page sets `meetHead`. no-referrer keeps the private
-   poll token in the URL from leaking to any site a description links to. #}
+{# <head> extras for the meeting-poll pages (the /app/ area and /meet/),
+   included by base.njk when a page sets `meetHead`. no-referrer keeps the
+   private poll token in the URL from leaking to any site a description
+   links to.
+
+   The inline scripts run before the first paint, so nothing visibly changes
+   after the page appears: they must stay inline and small. #}
 <meta name="referrer" content="no-referrer" />
 <link rel="stylesheet" href="/assets/css/meet.css" />
+{%- if langRedirect %}
+<script>
+  /* Voting page: one link for everyone. Move to the language chosen last time
+     on this browser, or else the browser's own, before anything is drawn
+     (vote.js offers the switch). */
+  (function () {
+    try {
+      var wanted = localStorage.getItem('meet-lang');
+      if (!wanted) {
+        var first = (navigator.languages && navigator.languages[0]) || navigator.language || '';
+        wanted = /^it\b/i.test(first) ? 'it' : 'en';
+      }
+      if (wanted !== '{{ lang }}') {
+        document.documentElement.style.visibility = 'hidden';
+        location.replace((wanted === 'it' ? '/it' : '') + '/meet/' + location.search);
+      }
+    } catch (e) {
+      /* stay on this language */
+    }
+  })();
+</script>
+{%- endif %}
+{%- if appArea %}
+<script>
+  /* Personal area: who was signed in on this browser last time, so the header
+     and admin-only items show at once. app-common.js checks the session and
+     corrects or clears this. */
+  (function () {
+    try {
+      var u = JSON.parse(localStorage.getItem('ais-user') || 'null');
+      if (u && u.kind === 'admin') document.documentElement.setAttribute('data-admin', '');
+    } catch (e) {
+      /* nothing cached */
+    }
+  })();
+</script>
+{%- endif %}

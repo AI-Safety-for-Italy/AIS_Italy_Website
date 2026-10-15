@@ -19,6 +19,15 @@ tools:
   <div class="container">
     <span class="eyebrow">Personal area</span>
     <h1 id="hello">Tools</h1>
+    <script>
+      /* Greet last visit's user at once; hub.js confirms it. */
+      (function () {
+        try {
+          var u = JSON.parse(localStorage.getItem('ais-user') || 'null');
+          if (u && u.name) document.getElementById('hello').textContent = 'Ciao, ' + u.name.split(' ')[0];
+        } catch (e) {}
+      })();
+    </script>
   </div>
 </section>
 

@@ -264,6 +264,46 @@ module.exports = function(eleventyConfig) {
     (list || []).filter(m => Array.isArray(m.groups) && m.groups.includes(id))
   );
 
+  /**
+   * Month grids for the seminar calendar: every month from the first to the
+   * last entry with a `day` ('YYYY-MM-DD'), weeks starting on Monday. Each cell
+   * is null (padding) or { day, iso, events }.
+   * @param {object[]} list - Entries of data/events.yaml
+   * @param {string} lang - Locale code, for the month names
+   * @returns {object[]} [{ key: 'YYYY-MM', label, weeks: [[cell x7]] }]
+   */
+  eleventyConfig.addFilter("calendarMonths", (list, lang) => {
+    const dated = (list || []).filter(e => e && e.day).sort((a, b) => (a.day < b.day ? -1 : 1));
+    if (!dated.length) return [];
+    const pad = n => String(n).padStart(2, "0");
+    const [y0, m0] = dated[0].day.split("-").map(Number);
+    const [y1, m1] = dated[dated.length - 1].day.split("-").map(Number);
+    const months = [];
+    for (let y = y0, m = m0; y < y1 || (y === y1 && m <= m1); m === 12 ? (y++, m = 1) : m++) {
+      const key = y + "-" + pad(m);
+      const label = new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString(lang === "it" ? "it-IT" : "en-GB", {
+        month: "long", year: "numeric", timeZone: "UTC",
+      });
+      const lead = (new Date(Date.UTC(y, m - 1, 1)).getUTCDay() + 6) % 7;
+      const length = new Date(Date.UTC(y, m, 0)).getUTCDate();
+      const cells = Array(lead).fill(null);
+      for (let d = 1; d <= length; d++) {
+        const iso = key + "-" + pad(d);
+        cells.push({ day: d, iso, events: dated.filter(e => e.day === iso) });
+      }
+      while (cells.length % 7) cells.push(null);
+      const weeks = [];
+      for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
+      months.push({ key, label: label.charAt(0).toUpperCase() + label.slice(1), weeks });
+    }
+    return months;
+  });
+
+  // Entries sorted by their `day` ('YYYY-MM-DD'), earliest first.
+  eleventyConfig.addFilter("byDay", list =>
+    (list || []).filter(e => e && e.day).sort((a, b) => (a.day < b.day ? -1 : 1))
+  );
+
   eleventyConfig.addFilter("pluckFlat", (list, key) => {
     return (list || []).reduce((acc, item) => acc.concat((item && item[key]) || []), []);
   });

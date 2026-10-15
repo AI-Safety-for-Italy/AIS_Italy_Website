@@ -9,69 +9,30 @@ pagination:
   # and the sitemap would list the English pages only.
   addAllPagesToCollections: true
 permalink: '{{ locale.prefix }}{{ basePath }}'
-seoTitle: 'Initiatives: Mentorship & Meetups | AI Safety for Italy'
-seoTitle_it: 'Iniziative: mentorship e incontri | AI Safety for Italy'
-seoDescription: 'Mentorship programs, talks and meetups from AI Safety for Italy, Italy''s grassroots AI safety community.'
-seoDescription_it: "Programmi di mentorship, talk e incontri di AI Safety for Italy, la community italiana dedicata alla sicurezza dell'IA."
+seoTitle: 'Initiatives: Mentorship, Seminars & Events | AI Safety for Italy'
+seoTitle_it: 'Iniziative: mentorship, seminari ed eventi | AI Safety for Italy'
+seoDescription: 'Mentorship program, seminars and events from AI Safety for Italy, Italy''s grassroots AI safety community.'
+seoDescription_it: "Programma di mentorship, seminari ed eventi di AI Safety for Italy, la community italiana dedicata alla sicurezza dell'IA."
 ---
 {% extends "base.njk" %}
 {% block content %}
-{% macro initiativeCard(event) %}
-<div class="card program-card reveal"{% if event.anchor %} id="{{ event.anchor }}"{% endif %}>
-    <span class="chip{% if event.status == 'Upcoming' %} red{% elif event.status == 'Past' %} muted{% endif %}" data-en="{{ event.status }}" data-it="{{ event.status_it }}">{{ event.status }}</span>
-    <h3 data-en="{{ event.title }}" data-it="{{ event.title_it }}">{{ event.title }}</h3>
-    <div class="flex items-center gap-2 mb-4" style="font-size: 0.95rem; font-weight: 600; color: var(--text-secondary);">
-        <svg class="ds-icon" style="width:1.05rem;height:1.05rem;color:var(--accent);" aria-hidden="true"><use href="#icon-calendar"></use></svg>
-        <span data-en="{{ event.date }}" data-it="{{ event.date_it }}">{{ event.date }}</span>
-    </div>
-    {# Rendered per language (not via data-en/data-it) so the description may carry markup:
-       inline <strong> in a plain one, or its own <p> and <ul> blocks. #}
-    {% set description = event.description_it if lang == "it" and event.description_it else event.description %}
-    {% if "<p>" in description %}
-    <div class="program-description">{{ description | safe }}</div>
-    {% else %}
-    <p>{{ description | safe }}</p>
-    {% endif %}
-    {% if event.format_info %}
-    <ul class="program-meta">
-        {% for info in event.format_info %}
-        <li>
-            <strong><span data-en="{{ info.label }}" data-it="{{ info.label_it }}">{{ info.label }}</span></strong>
-            <span data-en="{{ info.value }}" data-it="{{ info.value_it }}">{{ info.value }}</span>
-        </li>
-        {% endfor %}
-    </ul>
-    {% endif %}
-    {% if event.agenda %}
-    <div class="program-agenda-box">
-        <h4 class="program-agenda-title" data-en="Agenda" data-it="Programma">Agenda</h4>
-        <ul class="program-meta program-agenda">
-            {% for slot in event.agenda %}
-            <li>
-                <strong>{{ slot.time }}</strong>
-                <span data-en="{{ slot.title }}" data-it="{{ slot.title_it }}">{{ slot.title }}</span>
-            </li>
-            {% endfor %}
-        </ul>
-    </div>
-    {% endif %}
-    {% if (event.register_link and event.register_text) or event.stream_text %}
-    <p class="flex flex-wrap gap-3" style="margin-top: 1.5rem; margin-bottom: 0;">
-        {% if event.register_link and event.register_text %}
-        <a href="{{ event.register_link }}" target="{{ event.register_target }}" class="btn btn-outline"
-           data-en="{{ event.register_text }}" data-it="{{ event.register_text_it }}">{{ event.register_text }}</a>
-        {% endif %}
-        {% if event.stream_link %}
-        <a href="{{ event.stream_link }}" target="_blank" rel="noopener noreferrer" class="btn btn-outline"
-           data-en="{{ event.stream_text }}" data-it="{{ event.stream_text_it }}">{{ event.stream_text }}</a>
-        {% elif event.stream_text %}
-        <span class="btn btn-outline is-pending" aria-disabled="true"
-              data-en="{{ event.stream_text }}" data-it="{{ event.stream_text_it }}">{{ event.stream_text }}</span>
-        {% endif %}
-    </p>
-    {% endif %}
-</div>
-{% endmacro %}
+{# Seminars and events used to be sections of this page. Links to their old
+   anchors (e.g. /initiatives/#meetup-milano-2026, shared on Luma and social
+   media) are sent on to the subpage that now holds them. #}
+<script>
+  (function () {
+    var moved = {
+      '#mentorship': '/mentorship/',
+      '#mentorship-program': '/mentorship/',
+      '#seminars': '/seminars/',
+      '#events': '/events/',
+      '#past-events': '/events/#past-events',
+      '#meetup-milano-2026': '/events/#meetup-milano-2026'
+    };
+    var to = moved[location.hash];
+    if (to) location.replace('{{ locale.prefix }}' + to);
+  })();
+</script>
 
 <!-- Page hero -->
 <section class="page-hero">
@@ -81,52 +42,23 @@ seoDescription_it: "Programmi di mentorship, talk e incontri di AI Safety for It
     </div>
 </section>
 
-<!-- Mentorship -->
-<section class="section" id="mentorship">
+<!-- The three subpages -->
+<section class="section">
     <div class="container">
-        <div class="section-head reveal">
-            <h2 data-en="Research mentorship program" data-it="Programma di mentorship di ricerca">Research mentorship program</h2>
-        </div>
-        <div class="grid grid-cols-1 gap-6" style="max-width: 48rem;">
-            {% for event in events.upcoming_events %}{% if event.category == "mentorship" %}{{ initiativeCard(event) }}{% endif %}{% endfor %}
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {% for section in events.sections %}
+            <article class="card news-card is-linked reveal">
+                <h2 style="font-size: 1.5rem;"><a class="news-card-link" href="{{ section.link }}" data-en="{{ section.title }}" data-it="{{ section.title_it }}">{{ section.title }}</a></h2>
+                <p data-en="{{ section.description }}" data-it="{{ section.description_it }}">{{ section.description }}</p>
+                <span class="news-link" data-en="{{ section.link_text }}" data-it="{{ section.link_text_it }}">{{ section.link_text }}</span>
+            </article>
+            {% endfor %}
         </div>
     </div>
 </section>
-
-{# Talks and meetups show only while one is coming up; once it has taken
-   place, its entry moves to `past_events` in events.yaml. The sections after
-   the mentorship one alternate their background. #}
-{% set seminars = events.upcoming_events | where("category", "seminar") %}
-{% if seminars | length %}
-<!-- Seminars -->
-<section class="section section-alt" id="seminars">
-    <div class="container">
-        <div class="section-head reveal">
-            <h2 data-en="Talks &amp; meetups" data-it="Talk e incontri">Talks &amp; meetups</h2>
-        </div>
-        <div class="grid grid-cols-1 gap-6" style="max-width: 48rem;">
-            {% for event in seminars %}{{ initiativeCard(event) }}{% endfor %}
-        </div>
-    </div>
-</section>
-{% endif %}
-
-{% if events.past_events and events.past_events | length %}
-<!-- Past events -->
-<section class="section{% if not seminars | length %} section-alt{% endif %}" id="past-events">
-    <div class="container">
-        <div class="section-head reveal">
-            <h2 data-en="{{ events.section_past_title }}" data-it="{{ events.section_past_title_it }}">{{ events.section_past_title }}</h2>
-        </div>
-        <div class="grid grid-cols-1 gap-6" style="max-width: 48rem;">
-            {% for event in events.past_events %}{{ initiativeCard(event) }}{% endfor %}
-        </div>
-    </div>
-</section>
-{% endif %}
 
 <!-- CTA Section -->
-<section class="section">
+<section class="section section-alt">
     <div class="container">
         <div class="cta-band reveal">
             <h2 data-en="{{ events.cta.title }}" data-it="{{ events.cta.title_it }}">{{ events.cta.title }}</h2>

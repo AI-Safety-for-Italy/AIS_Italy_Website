@@ -1,0 +1,87 @@
+{# The seminar calendar beside the cards on /seminars/: a month grid with the
+   seminar days marked, and the list of every date below it. Built from the
+   entries' `day` (YYYY-MM-DD); each day and row links to its card's anchor.
+   Expects `calendarEvents` (the seminars, past and upcoming) and `lang`.
+
+   Without JavaScript every month is shown, one under the other. main.js
+   (initSeminarCalendar) then shows one month at a time with the arrows, opens
+   on the month of the next seminar and marks today and the past dates. #}
+{% set isIt = lang == "it" %}
+{% set weekdays = ["L", "M", "M", "G", "V", "S", "D"] if isIt else ["M", "T", "W", "T", "F", "S", "S"] %}
+{% set weekdayNames = ["lunedì", "martedì", "mercoledì", "giovedì", "venerdì", "sabato", "domenica"] if isIt else ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] %}
+{% set monthsShort = ["gen", "feb", "mar", "apr", "mag", "giu", "lug", "ago", "set", "ott", "nov", "dic"] if isIt else ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] %}
+{% set events = calendarEvents | byDay %}
+{% set months = calendarEvents | calendarMonths(lang) %}
+<aside class="seminar-cal card" aria-labelledby="seminar-cal-title" data-seminar-cal>
+    <h2 class="seminar-cal__title" id="seminar-cal-title" data-en="Calendar" data-it="Calendario">Calendar</h2>
+
+    <div class="seminar-cal__months">
+        {% for month in months %}
+        <div class="cal-month" data-month="{{ month.key }}">
+            <div class="cal-month__head">
+                <button type="button" class="cal-month__nav" data-cal-prev hidden
+                        aria-label="{{ 'Mese precedente' if isIt else 'Previous month' }}">
+                    <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M12.5 4.5 7 10l5.5 5.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>
+                <h3 class="cal-month__label" aria-live="polite">{{ month.label }}</h3>
+                <button type="button" class="cal-month__nav" data-cal-next hidden
+                        aria-label="{{ 'Mese successivo' if isIt else 'Next month' }}">
+                    <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7.5 4.5 13 10l-5.5 5.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>
+            </div>
+            <table class="cal-grid">
+                <thead>
+                    <tr>{% for wd in weekdays %}<th scope="col" abbr="{{ weekdayNames[loop.index0] }}">{{ wd }}</th>{% endfor %}</tr>
+                </thead>
+                <tbody>
+                    {% for week in month.weeks %}
+                    <tr>
+                        {% for cell in week %}
+                        {% if not cell %}
+                        <td></td>
+                        {% elif cell.events | length %}
+                        {% set ev = cell.events[0] %}
+                        {% set who = ev.speaker or ("Relatore da annunciare" if isIt else "Speaker to be announced") %}
+                        <td>
+                            <a class="cal-day has-event{% if ev.tbc %} is-tbc{% endif %}" href="#{{ ev.anchor }}" data-day="{{ cell.iso }}"
+                               title="{{ who }}" aria-label="{{ cell.day }} {{ monthsShort[(cell.iso | split('-'))[1] | int - 1] }}: {{ who }}">{{ cell.day }}</a>
+                        </td>
+                        {% else %}
+                        <td><span class="cal-day" data-day="{{ cell.iso }}">{{ cell.day }}</span></td>
+                        {% endif %}
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endfor %}
+    </div>
+
+    <h3 class="seminar-cal__subtitle" data-en="All dates" data-it="Tutte le date">All dates</h3>
+    <ol class="cal-list">
+        {% for ev in events %}
+        {% set parts = ev.day | split('-') %}
+        <li>
+            <a href="#{{ ev.anchor }}" class="cal-list__item" data-day="{{ ev.day }}">
+                <span class="cal-list__date">
+                    <span class="cal-list__num">{{ parts[2] | int }}</span>
+                    <span class="cal-list__mon">{{ monthsShort[parts[1] | int - 1] }}</span>
+                </span>
+                <span class="cal-list__body">
+                    {% if ev.speaker %}
+                    <strong>{{ ev.speaker }}</strong>
+                    {% else %}
+                    <strong class="is-tbc" data-en="Speaker to be announced" data-it="Relatore da annunciare">Speaker to be announced</strong>
+                    {% endif %}
+                    {% if ev.tbc %}
+                    <span class="cal-list__title is-tbc" data-en="Title coming soon" data-it="Titolo in arrivo">Title coming soon</span>
+                    {% else %}
+                    <span class="cal-list__title" data-en="{{ ev.title }}" data-it="{{ ev.title_it }}">{{ ev.title }}</span>
+                    {% endif %}
+                </span>
+            </a>
+        </li>
+        {% endfor %}
+    </ol>
+</aside>

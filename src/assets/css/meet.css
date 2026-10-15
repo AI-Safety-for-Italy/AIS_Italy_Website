@@ -1611,6 +1611,46 @@ dialog.meet-dialog::backdrop {
 
 .app-user {
   position: relative;
+  /* Keeps the header the same height before and after the profile shows. */
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+}
+
+/* Shown only to the admin: <html data-admin> (see meet-head.njk). */
+.admin-only {
+  display: none !important;
+}
+
+html[data-admin] .admin-only {
+  display: revert !important;
+}
+
+/* Placeholder for text still loading, so the layout doesn't jump. */
+.skeleton {
+  display: inline-block;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--bg-tertiary), var(--border-muted), var(--bg-tertiary));
+  background-size: 200% 100%;
+  animation: skeleton 1.2s ease-in-out infinite;
+}
+
+.skeleton-title {
+  width: min(22rem, 70%);
+  height: 0.9em;
+  vertical-align: middle;
+}
+
+@keyframes skeleton {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+  }
 }
 
 .app-user-button {
@@ -1987,4 +2027,33 @@ a.link-button {
 .form-input[readonly] {
   color: var(--text-secondary);
   cursor: default;
+}
+
+/* ── Recurring meetings ──────────────────────────────────────────────────── */
+
+.recurrence-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.recurrence-row .form-input {
+  width: auto;
+}
+
+.recurrence-row input[type='number'] {
+  width: 4.5rem;
+}
+
+.meet-meta .repeat {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+[data-theme='dark'] .meet-meta .repeat {
+  color: var(--accent-400);
 }

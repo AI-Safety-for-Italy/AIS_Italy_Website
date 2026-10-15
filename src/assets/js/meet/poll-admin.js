@@ -98,6 +98,14 @@
         'div',
         { style: 'display:contents' },
         h('span', null, M.icon('clock'), M.fmtDuration(poll.durationMinutes)),
+        poll.recurrence
+          ? h(
+              'span',
+              { class: 'repeat' },
+              M.icon('repeat'),
+              M.recurrenceText(poll.recurrence, chosenStart(), poll.timezone)
+            )
+          : null,
         poll.location ? h('span', null, M.icon('pin'), poll.location) : null,
         h('span', null, M.icon('globe'), M.tzLabel(poll.timezone)),
         poll.deadline
@@ -329,11 +337,18 @@
       h(
         'div',
         null,
-        h('h2', null, M.fmtDay(slot.start, poll.timezone)),
+        h(
+          'h2',
+          null,
+          poll.recurrence
+            ? M.recurrenceText(poll.recurrence, slot.start, poll.timezone)
+            : M.fmtDay(slot.start, poll.timezone)
+        ),
         h(
           'p',
           null,
-          M.fmtTime(slot.start, poll.timezone) +
+          (poll.recurrence ? 'From ' + M.fmtDay(slot.start, poll.timezone) + ' · ' : '') +
+            M.fmtTime(slot.start, poll.timezone) +
             '–' +
             M.fmtTime(slot.end, poll.timezone) +
             ' (' +
@@ -765,7 +780,18 @@
   var editDialog = document.getElementById('editDialog');
   var editError = document.getElementById('editError');
 
+  var editRepeat = M.recurrenceFields('edit');
+
+  /** Start of the chosen time, if any, so a series can name its weekday. */
+  function chosenStart() {
+    var slot = poll.slots.find(function (s) {
+      return s.id === poll.finalSlotId;
+    });
+    return slot ? slot.start : null;
+  }
+
   function openEdit() {
+    editRepeat.set(poll.recurrence);
     document.getElementById('editPollTitle').value = poll.title;
     document.getElementById('editLocation').value = poll.location || '';
     document.getElementById('editDescription').value = poll.description || '';
@@ -785,6 +811,7 @@
         title: document.getElementById('editPollTitle').value,
         location: document.getElementById('editLocation').value,
         description: document.getElementById('editDescription').value,
+        recurrence: editRepeat.get(),
       })
     )
       .then(function (data) {

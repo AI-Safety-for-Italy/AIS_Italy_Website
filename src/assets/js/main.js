@@ -442,8 +442,77 @@
     else if (choice !== 'denied') banner.hidden = false;
   }
 
+  // ── Seminar calendar (components/seminar-calendar.njk) ─────────────────
+  // The page is static, so "today" is only known here: mark it, dim the
+  // seminars already held, then show one month at a time, opening on the
+  // month of the next seminar.
+  function initSeminarCalendar() {
+    var cal = document.querySelector('[data-seminar-cal]');
+    if (!cal) return;
+
+    var now = new Date();
+    var today = [
+      now.getFullYear(),
+      String(now.getMonth() + 1).padStart(2, '0'),
+      String(now.getDate()).padStart(2, '0'),
+    ].join('-');
+
+    cal.querySelectorAll('[data-day]').forEach(function (el) {
+      var day = el.getAttribute('data-day');
+      if (day === today) el.classList.add('is-today');
+      if (day < today) el.classList.add('is-past');
+    });
+
+    var items = cal.querySelectorAll('.cal-list__item');
+    var next = null;
+    for (var i = 0; i < items.length; i++) {
+      if (items[i].getAttribute('data-day') >= today) {
+        next = items[i];
+        break;
+      }
+    }
+    if (next) next.classList.add('is-next');
+
+    var months = Array.prototype.slice.call(cal.querySelectorAll('.cal-month'));
+    if (!months.length) return;
+    var target = (next ? next.getAttribute('data-day') : today).slice(0, 7);
+    var current = months.length - 1;
+    months.forEach(function (m, idx) {
+      if (m.getAttribute('data-month') === target) current = idx;
+    });
+    if (target < months[0].getAttribute('data-month')) current = 0;
+
+    function show(idx) {
+      current = Math.max(0, Math.min(months.length - 1, idx));
+      months.forEach(function (m, n) {
+        m.classList.toggle('is-current', n === current);
+        m.querySelector('[data-cal-prev]').disabled = n === 0;
+        m.querySelector('[data-cal-next]').disabled = n === months.length - 1;
+      });
+    }
+
+    months.forEach(function (m) {
+      var prev = m.querySelector('[data-cal-prev]');
+      var nextBtn = m.querySelector('[data-cal-next]');
+      prev.hidden = false;
+      nextBtn.hidden = false;
+      prev.addEventListener('click', function () {
+        show(current - 1);
+        months[current].querySelector('[data-cal-prev]').focus();
+      });
+      nextBtn.addEventListener('click', function () {
+        show(current + 1);
+        months[current].querySelector('[data-cal-next]').focus();
+      });
+    });
+
+    cal.classList.add('is-paged');
+    show(current);
+  }
+
   initMenu();
   initThemeToggle();
+  initSeminarCalendar();
   initAnnouncements();
   initScrollReveal();
   initCountUp();

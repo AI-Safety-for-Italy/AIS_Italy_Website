@@ -521,6 +521,7 @@
       timezone: state.tz,
       deadline: form.deadline.value ? new Date(form.deadline.value).toISOString() : null,
       hideResponses: form.hideResponses.checked,
+      recurrence: repeat.get(),
       notify: form.notify.checked,
       inviteOnly: inviteOnly(),
       invitees: inviteOnly() ? document.getElementById('invitees').value : undefined,
@@ -549,6 +550,8 @@
   setInterval(function () {
     if (!drag) render();
   }, 5 * 60 * 1000);
+
+  var repeat = M.recurrenceFields('new');
 
   // ── Who can answer ─────────────────────────────────────────────────────────
 

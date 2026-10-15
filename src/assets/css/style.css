@@ -743,6 +743,79 @@ a:hover {
   transform: scaleX(1);
 }
 
+/* Dropdown (Initiatives): opens on hover and on keyboard focus, no JS. The
+   menu's top padding bridges the gap under the parent so it stays open while
+   the pointer moves down to it. */
+.nav-dropdown {
+  position: relative;
+}
+
+.main-nav .nav-dropdown-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.nav-chevron {
+  width: 14px;
+  height: 14px;
+  transition: transform 0.2s var(--ease);
+}
+
+.nav-dropdown:hover .nav-chevron,
+.nav-dropdown:focus-within .nav-chevron {
+  transform: rotate(180deg);
+}
+
+.nav-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0.35rem;
+  z-index: 60;
+  min-width: 12rem;
+  padding-top: 0.5rem;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-4px);
+  transition: opacity 0.15s ease, transform 0.15s ease, visibility 0s linear 0.15s;
+}
+
+.nav-dropdown:hover .nav-dropdown-menu,
+.nav-dropdown:focus-within .nav-dropdown-menu {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.nav-dropdown-menu::before {
+  content: '';
+  position: absolute;
+  inset: 0.5rem 0 0;
+  z-index: -1;
+  background: var(--card-bg);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-lg);
+}
+
+.main-nav .nav-dropdown-menu a {
+  display: block;
+  padding: 0.6rem 1rem;
+}
+
+.main-nav .nav-dropdown-menu a:first-child {
+  margin-top: 0.35rem;
+}
+
+.main-nav .nav-dropdown-menu a:last-child {
+  margin-bottom: 0.35rem;
+}
+
+.main-nav .nav-dropdown-menu a::after {
+  display: none;
+}
+
 .header-actions {
   display: flex;
   align-items: center;
@@ -895,6 +968,18 @@ a:hover {
   }
 
   .mobile-nav a.active {
+    color: var(--accent);
+  }
+
+  /* The pages under a dropdown item, indented below it */
+  .mobile-nav a.mobile-sub {
+    padding: 0.6rem 0 0.6rem 1.25rem;
+    font-size: 1.15rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+  }
+
+  .mobile-nav a.mobile-sub.active {
     color: var(--accent);
   }
 
@@ -1943,14 +2028,14 @@ a:hover {
   gap: 2rem 1.5rem;
 }
 
-/* Home board: ten seats, two rows of five */
+/* Home team: eight people, two rows of four */
 .people-grid--board {
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
-@media (max-width: 960px) {
+@media (max-width: 760px) {
   .people-grid--board {
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -3021,6 +3106,286 @@ a:hover {
   color: var(--text-primary);
   min-width: 96px;
   flex-shrink: 0;
+}
+
+/* A seminar whose speaker or title is not announced yet */
+.program-card h3.is-tbc {
+  color: var(--text-tertiary);
+  font-style: italic;
+}
+
+/* ==========================================================================
+   Seminars: cards with the calendar beside them (components/seminar-calendar.njk)
+   ========================================================================== */
+
+.seminars-layout {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.seminars-layout__main {
+  max-width: 48rem;
+}
+
+@media (min-width: 1024px) {
+  .seminars-layout {
+    grid-template-columns: minmax(0, 48rem) 19rem;
+    gap: 2.5rem;
+    align-items: start;
+  }
+
+  .seminars-layout__aside {
+    position: sticky;
+    top: calc(var(--header-h) + 1.5rem);
+    /* On short screens the list scrolls inside instead of running off the bottom. */
+    max-height: calc(100vh - var(--header-h) - 3rem);
+    overflow-y: auto;
+    border-radius: var(--radius);
+  }
+}
+
+/* Below desktop the calendar comes first, as an overview of the dates. */
+@media (max-width: 1023px) {
+  .seminars-layout__aside {
+    order: -1;
+    max-width: 26rem;
+  }
+}
+
+.seminar-cal.card {
+  height: auto;
+  padding: 1.25rem;
+}
+
+.seminar-cal__title,
+.seminar-cal__subtitle {
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin: 0 0 0.75rem;
+}
+
+.seminar-cal__subtitle {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-default);
+}
+
+.cal-month + .cal-month {
+  margin-top: 1rem;
+}
+
+/* Once main.js runs, one month at a time. */
+.seminar-cal.is-paged .cal-month:not(.is-current) {
+  display: none;
+}
+
+.cal-month__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.cal-month__label {
+  flex: 1;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.seminar-cal.is-paged .cal-month__label {
+  text-align: center;
+}
+
+.cal-month__nav {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-default);
+  background: var(--card-bg);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.cal-month__nav[hidden] {
+  display: none;
+}
+
+.cal-month__nav svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.cal-month__nav:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.cal-month__nav:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.cal-grid {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  text-align: center;
+  font-size: 0.85rem;
+}
+
+.cal-grid th {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  padding-bottom: 0.35rem;
+}
+
+.cal-grid td {
+  padding: 2px 0;
+}
+
+.cal-day {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--radius-full);
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.cal-day.is-today {
+  box-shadow: inset 0 0 0 1.5px var(--secondary);
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+a.cal-day.has-event {
+  background: var(--accent);
+  color: var(--text-on-accent);
+  font-weight: 700;
+  text-decoration: none;
+  transition: transform 0.15s ease, background-color 0.15s ease;
+}
+
+a.cal-day.has-event:hover {
+  background: var(--accent-800);
+  transform: scale(1.08);
+}
+
+/* Date set, speaker or title still to come */
+a.cal-day.has-event.is-tbc {
+  background: var(--accent-100);
+  color: var(--accent-700);
+  box-shadow: inset 0 0 0 1px var(--accent-300);
+}
+
+a.cal-day.has-event.is-past {
+  background: var(--bg-tertiary);
+  color: var(--text-tertiary);
+  box-shadow: none;
+}
+
+a.cal-day.has-event.is-today {
+  box-shadow: 0 0 0 2px var(--card-bg), 0 0 0 3.5px var(--secondary);
+}
+
+.cal-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.15rem;
+}
+
+.cal-list__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.5rem;
+  margin: 0 -0.5rem;
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  text-decoration: none;
+  transition: background-color 0.15s ease;
+}
+
+.cal-list__item:hover {
+  background: var(--card-hover);
+}
+
+.cal-list__date {
+  flex-shrink: 0;
+  width: 2.6rem;
+  padding: 0.2rem 0;
+  border-radius: var(--radius-sm);
+  background: var(--accent-100);
+  color: var(--accent-700);
+  text-align: center;
+  line-height: 1.1;
+}
+
+.cal-list__num {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.cal-list__mon {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.cal-list__body {
+  min-width: 0;
+  font-size: 0.88rem;
+  line-height: 1.35;
+}
+
+.cal-list__body strong {
+  display: block;
+  font-weight: 600;
+}
+
+.cal-list__title {
+  display: block;
+  color: var(--text-secondary);
+}
+
+.cal-list .is-tbc {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* The next seminar stands out; past ones step back. */
+.cal-list__item.is-next .cal-list__date {
+  background: var(--accent);
+  color: var(--text-on-accent);
+}
+
+.cal-list__item.is-past {
+  opacity: 0.55;
+}
+
+.cal-list__item.is-past .cal-list__date {
+  background: var(--bg-tertiary);
+  color: var(--text-tertiary);
 }
 
 /* Inset panel: the recessed surface used by section-alt and table heads,

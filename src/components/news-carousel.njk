@@ -1,26 +1,40 @@
-<section class="section{% if newsAlt %} section-alt{% endif %}">
+{# "What's new" on the home page: the first three entries of data/news.yaml,
+   newest first. #}
+{%- set typeLabels = {
+  "mentorship": { "en": "Mentorship", "it": "Mentorship" },
+  "seminar": { "en": "Seminar", "it": "Seminario" },
+  "event": { "en": "Event", "it": "Evento" }
+} -%}
+{%- set newsItems = news.items -%}
+<section class="section{% if newsAlt %} section-alt{% endif %}" id="news">
   <div class="container">
-    <div class="section-head reveal">
-      <span class="eyebrow" data-en="{{ translations.en.news.heading }}" data-it="{{ translations.it.news.heading }}">{{ translations.en.news.heading }}</span>
-      <h2 data-en="Latest from the ecosystem" data-it="Le ultime dall'ecosistema">Latest from the ecosystem</h2>
+    <div class="rule-head reveal">
+      <h2 data-en="What's new" data-it="Novità">What's new</h2>
+      <a href="/initiatives/" class="text-link" data-en="All initiatives →" data-it="Tutte le iniziative →">All initiatives →</a>
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-      {% for item in news.items %}
+      {% for item in newsItems %}{% if loop.index <= 3 %}
+      {% set label = typeLabels[item.type] %}
       <article class="card news-card{% if item.details_url %} is-linked{% endif %} reveal">
-        <span class="news-date" data-en="{{ item.date | readableDate }}" data-it="{{ item.date | readableDateIt }}">{{ item.date | readableDate }}</span>
+        <div class="flex flex-wrap items-center gap-2" style="margin-bottom: 1rem;">
+          {% if label %}<span class="chip" style="margin-bottom: 0;" data-en="{{ label.en }}" data-it="{{ label.it }}">{{ label.en }}</span>{% endif %}
+          {% if item.date %}<span class="news-date" style="margin-bottom: 0;" data-en="{{ item.date | readableDate }}" data-it="{{ item.date | readableDateIt }}">{{ item.date | readableDate }}</span>{% endif %}
+        </div>
         {% if item.details_url %}
         <h3><a class="news-card-link" href="{{ item.details_url }}" data-en="{{ item.title_en }}" data-it="{{ item.title_it }}">{{ item.title_en }}</a></h3>
         {% else %}
         <h3 data-en="{{ item.title_en }}" data-it="{{ item.title_it }}">{{ item.title_en }}</h3>
         {% endif %}
         <p data-en="{{ item.description_en }}" data-it="{{ item.description_it }}">{{ item.description_en }}</p>
-        <a class="news-link" href="{{ item.link_url }}" target="_blank" rel="noopener noreferrer">
+        {% if item.link_url %}
+        <a class="news-link" href="{{ item.link_url }}"{% if "://" in item.link_url %} target="_blank" rel="noopener noreferrer"{% endif %}>
           <span data-en="{{ item.link_text_en }}" data-it="{{ item.link_text_it }}">{{ item.link_text_en }}</span>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
         </a>
+        {% endif %}
       </article>
-      {% endfor %}
+      {% endif %}{% endfor %}
     </div>
   </div>
 </section>
