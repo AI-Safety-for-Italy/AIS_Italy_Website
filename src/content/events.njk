@@ -1,0 +1,77 @@
+---
+title: Events
+basePath: /events/
+pagination:
+  data: locales
+  size: 1
+  alias: locale
+  # Without this only the first locale reaches collections.all,
+  # and the sitemap would list the English pages only.
+  addAllPagesToCollections: true
+permalink: '{{ locale.prefix }}{{ basePath }}'
+# No dedicated social card yet (scripts/og-images.js); reuse the initiatives one.
+ogImageName: initiatives
+seoTitle: 'Events & Meetups | AI Safety for Italy'
+seoTitle_it: 'Eventi e meetup | AI Safety for Italy'
+seoDescription: 'Meetups and in-person events of AI Safety for Italy, Italy''s grassroots AI safety community.'
+seoDescription_it: "Meetup ed eventi in presenza di AI Safety for Italy, la community italiana dedicata alla sicurezza dell'IA."
+---
+{% extends "base.njk" %}
+{% from "initiative-card.njk" import initiativeCard with context %}
+{% block content %}
+{# Content in data/events.yaml: `events_intro`, and the entries with
+   category "event" in `upcoming_events` and `past_events`. #}
+{% set intro = events.events_intro %}
+{% set upcomingEvents = events.upcoming_events | where("category", "event") %}
+{% set pastEvents = events.past_events | where("category", "event") %}
+
+<!-- Page hero -->
+<section class="page-hero">
+    <div class="container">
+        <span class="eyebrow" data-en="{{ translations.en.nav.events }}" data-it="{{ translations.it.nav.events }}">{{ translations.en.nav.events }}</span>
+        <h1 data-en="{{ intro.title }}" data-it="{{ intro.title_it }}">{{ intro.title }}</h1>
+        <p class="lede" data-en="{{ intro.description }}" data-it="{{ intro.description_it }}">{{ intro.description }}</p>
+    </div>
+</section>
+
+<!-- Upcoming events -->
+<section class="section" id="upcoming">
+    <div class="container">
+        <div class="section-head reveal">
+            <h2 data-en="Upcoming events" data-it="Prossimi eventi">Upcoming events</h2>
+        </div>
+        <div class="grid grid-cols-1 gap-6" style="max-width: 48rem;">
+            {% for event in upcomingEvents %}{{ initiativeCard(event) }}{% else %}
+            <p class="reveal" style="color: var(--text-secondary);" data-en="{{ intro.empty_text }}" data-it="{{ intro.empty_text_it }}">{{ intro.empty_text }}</p>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+
+{% if pastEvents | length %}
+<!-- Past events -->
+<section class="section section-alt" id="past-events">
+    <div class="container">
+        <div class="section-head reveal">
+            <h2 data-en="{{ events.section_past_title }}" data-it="{{ events.section_past_title_it }}">{{ events.section_past_title }}</h2>
+        </div>
+        <div class="grid grid-cols-1 gap-6" style="max-width: 48rem;">
+            {% for event in pastEvents %}{{ initiativeCard(event) }}{% endfor %}
+        </div>
+    </div>
+</section>
+{% endif %}
+
+<!-- CTA Section -->
+<section class="section{% if not pastEvents | length %} section-alt{% endif %}">
+    <div class="container">
+        <div class="cta-band reveal">
+            <h2 data-en="{{ events.cta.title }}" data-it="{{ events.cta.title_it }}">{{ events.cta.title }}</h2>
+            <p data-en="{{ events.cta.description }}" data-it="{{ events.cta.description_it }}">{{ events.cta.description }}</p>
+            <a href="{{ site.forms.mailingList }}" class="btn"
+               target="_blank" rel="noopener noreferrer"
+               data-en="{{ events.cta.button_text }}" data-it="{{ events.cta.button_text_it }}">{{ events.cta.button_text }}</a>
+        </div>
+    </div>
+</section>
+{% endblock %}

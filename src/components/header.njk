@@ -39,12 +39,16 @@
 {%- endif %}
 
 {# Primary navigation: the sections a visitor chooses between. Active state
-   compares basePath, so /it/about/ highlights About as well. Home is the
-   logo; FAQ and Contact live in the footer and the mobile menu. #}
+   compares basePath, so /it/about/ highlights About as well; an item with
+   `children` is a dropdown, active on its own page and on any child's. Home
+   is the logo; FAQ and Contact live in the footer and the mobile menu. #}
 {%- set navItems = [
   { url: "/about/", key: "about" },
-  { url: "/initiatives/", key: "events" },
-  { url: "/mentorship/", key: "mentorship" },
+  { url: "/initiatives/", key: "events", children: [
+    { url: "/mentorship/", key: "mentorship" },
+    { url: "/seminars/", key: "seminars" },
+    { url: "/events/", key: "events_list" }
+  ] },
   { url: "/community/", key: "community" },
   { url: "/resources/", key: "resources" }
 ] -%}
@@ -56,9 +60,23 @@
       <span class="brand-name">AI Safety <span class="brand-accent">for Italy</span></span>
     </a>
 
+    {# The dropdown opens on hover and on keyboard focus (CSS :focus-within), so
+       it needs no JS; the parent link still leads to the overview page. #}
     <nav class="main-nav" aria-label="{{ t.a11y.main_nav }}">
       {%- for item in navItems %}
+      {%- if item.children %}
+      {%- set inSection = item.url == basePath or (item.children | where("url", basePath) | length) %}
+      <div class="nav-dropdown">
+        <a href="{{ item.url }}" class="nav-dropdown-toggle{% if inSection %} active{% endif %}" {% if item.url == basePath %}aria-current="page"{% endif %}><span data-en="{{ translations.en.nav[item.key] }}" data-it="{{ translations.it.nav[item.key] }}">{{ translations.en.nav[item.key] }}</span><svg class="nav-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></a>
+        <div class="nav-dropdown-menu">
+          {%- for child in item.children %}
+          <a href="{{ child.url }}" {% if child.url == basePath %}class="active" aria-current="page"{% endif %} data-en="{{ translations.en.nav[child.key] }}" data-it="{{ translations.it.nav[child.key] }}">{{ translations.en.nav[child.key] }}</a>
+          {%- endfor %}
+        </div>
+      </div>
+      {%- else %}
       <a href="{{ item.url }}" {% if item.url == basePath %}class="active" aria-current="page"{% endif %} data-en="{{ translations.en.nav[item.key] }}" data-it="{{ translations.it.nav[item.key] }}">{{ translations.en.nav[item.key] }}</a>
+      {%- endif %}
       {%- endfor %}
     </nav>
 
@@ -87,6 +105,9 @@
     <nav aria-label="{{ t.a11y.mobile_nav }}" class="mobile-nav">
       {%- for item in navItems %}
       <a href="{{ item.url }}" {% if item.url == basePath %}class="active" aria-current="page"{% endif %} data-en="{{ translations.en.nav[item.key] }}" data-it="{{ translations.it.nav[item.key] }}">{{ translations.en.nav[item.key] }}</a>
+      {%- for child in item.children %}
+      <a href="{{ child.url }}" class="mobile-sub{% if child.url == basePath %} active{% endif %}" {% if child.url == basePath %}aria-current="page"{% endif %} data-en="{{ translations.en.nav[child.key] }}" data-it="{{ translations.it.nav[child.key] }}">{{ translations.en.nav[child.key] }}</a>
+      {%- endfor %}
       {%- endfor %}
     </nav>
     <div class="mobile-secondary">
