@@ -94,8 +94,8 @@ features:
     title_it: 'Formazione'
     description: 'Reading groups, seminars and a 12-week mentorship program that connects newcomers with people already working in AI safety, in Italy and abroad.'
     description_it: "Gruppi di lettura, seminari e un programma di mentorship di 12 settimane che mette in contatto chi inizia con persone che lavorano già nell'AI safety, in Italia e all'estero."
-    status: 'Mentorship program · open call'
-    status_it: 'Programma di mentorship · call aperta'
+    status: 'Mentorship open call · seminars'
+    status_it: 'Call mentorship aperta · seminari'
   - id: 2
     icon: 'users'
     title: 'Community'

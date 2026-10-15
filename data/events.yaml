@@ -3,8 +3,92 @@
 hero:
   title: 'Initiatives'
   title_it: 'Iniziative'
-  subtitle: 'Our programs and gatherings: mentorship, talks and meetups.'
-  subtitle_it: 'I nostri programmi e incontri: mentorship, talk e meetup.'
+  subtitle: 'Our programs and gatherings: mentorship, seminars and events.'
+  subtitle_it: 'I nostri programmi e incontri: mentorship, seminari ed eventi.'
+
+# Initiatives has three subpages, also listed under "Initiatives" in the menu.
+# Each entry below is sorted onto one of them by its `category`:
+#   mentorship  /mentorship/ (its content is in data/mentorship.yaml; the
+#               entry here feeds the home page hero card)
+#   seminar     /seminars/: the seminar series, registration on Luma
+#   event       /events/: meetups and other in-person events
+# An entry lives in `upcoming_events` while it is ahead and moves to
+# `past_events` once it has taken place; its page stays the same.
+
+# The cards on /initiatives/, one per subpage.
+sections:
+  - title: 'Mentorship'
+    title_it: 'Mentorship'
+    description: 'A 12-week program that connects people who want to enter AI safety with people who already work in it.'
+    description_it: "Un programma di 12 settimane che mette in contatto chi vuole entrare nell'AI safety con chi ci lavora già."
+    link: '/mentorship/'
+    link_text: 'Discover the program →'
+    link_text_it: 'Scopri il programma →'
+  - title: 'Seminars'
+    title_it: 'Seminari'
+    description: 'A series of talks on AI safety, ethics and governance, open to everyone. Registration on Luma.'
+    description_it: "Un ciclo di talk su sicurezza, etica e governance dell'IA, aperto a tutti. Iscrizioni su Luma."
+    link: '/seminars/'
+    link_text: 'See the seminars →'
+    link_text_it: 'Vedi i seminari →'
+  - title: 'Events'
+    title_it: 'Eventi'
+    description: 'Meetups and in-person gatherings of the community, in Italian cities.'
+    description_it: 'Meetup e incontri in presenza della community, nelle città italiane.'
+    link: '/events/'
+    link_text: 'See the events →'
+    link_text_it: 'Vedi gli eventi →'
+
+# The top of /events/.
+events_intro:
+  title: 'Events'
+  title_it: 'Eventi'
+  description: 'Meetups and in-person gatherings of the community.'
+  description_it: 'Meetup e incontri in presenza della community.'
+  empty_text: 'The next event will be announced here.'
+  empty_text_it: 'Il prossimo evento sarà annunciato qui.'
+
+# The top of /seminars/: the seminar series as a whole.
+seminars_intro:
+  title: 'Seminars'
+  title_it: 'Seminari'
+  # TODO: the description of the seminar series.
+  description: 'A series of talks on AI safety, ethics and governance, open to everyone.'
+  description_it: "Un ciclo di talk su sicurezza, etica e governance dell'IA, aperto a tutti."
+  # The Luma calendar that lists every seminar. Leave empty to hide the button.
+  luma_calendar_link: ''
+  luma_calendar_text: 'All seminars on Luma'
+  luma_calendar_text_it: 'Tutti i seminari su Luma'
+  # Shown in place of the cards while no seminar is scheduled.
+  empty_text: 'New seminars are on the way. Follow us on Luma or join the mailing list to hear first.'
+  empty_text_it: 'Nuovi seminari in arrivo. Seguici su Luma o iscriviti alla mailing list per saperlo per primo.'
+
+# A seminar, to copy into `upcoming_events`:
+#
+#  - id: 5
+#    anchor: 'seminar-short-name'       # link to it with /seminars/#seminar-short-name
+#    category: 'seminar'
+#    title: 'Seminar title'
+#    title_it: 'Titolo del seminario'
+#    date: 'Thursday 12 November 2026, 18:30–19:30'
+#    date_it: 'Giovedì 12 novembre 2026, 18:30–19:30'
+#    status: 'Upcoming'                 # 'Upcoming' shows the red chip
+#    status_it: 'In programma'
+#    description: 'What the talk is about.'
+#    description_it: 'Di cosa parla il talk.'
+#    format_info:
+#      - label: 'Speaker'
+#        label_it: 'Relatore'
+#        value: 'Name Surname, affiliation'
+#        value_it: 'Nome Cognome, affiliazione'
+#      - label: 'Where'
+#        label_it: 'Dove'
+#        value: 'Online'
+#        value_it: 'Online'
+#    register_text: 'Register on Luma'
+#    register_text_it: 'Iscriviti su Luma'
+#    register_link: 'https://luma.com/...'
+#    register_target: '_blank'
 
 section_upcoming_title: 'Upcoming & Recent Events'
 section_upcoming_title_it: 'Eventi Imminenti e Recenti'
@@ -83,12 +167,76 @@ upcoming_events:
     register_link: '/mentorship/'
     register_target: '_self'
 
-# Events that have taken place, newest first. Shown in the "Past events"
-# section of the Initiatives page. Each keeps its anchor so old links still land on it.
+  # Seminar series, every other Thursday at 18:30. Once a seminar has taken
+  # place, move it to `past_events` and set status to 'Past' / 'Concluso'.
+  # TODO (29 Oct, 12 Nov): add place, a short description and the Luma link
+  # (register_text / register_link / register_target: '_blank'), as in the first one.
+  - id: 5
+    # Anchor from the working title "The Direction of Refusal", kept so links stay valid.
+    anchor: 'seminar-direction-of-refusal'
+    category: 'seminar'
+    title: 'How to Steer the Behavior of a Model: The Refusal Case'
+    title_it: 'How to Steer the Behavior of a Model: The Refusal Case'
+    date: 'Thursday 15 October 2026, 18:30 (CEST)'
+    date_it: 'Giovedì 15 ottobre 2026, ore 18:30 (CEST)'
+    status: 'Upcoming'
+    status_it: 'In programma'
+    description: '<p>The first seminar of the series, on one of the most interesting topics in AI safety research: <strong>mechanistic interpretability</strong>.</p><p>When a large language model refuses a request, what actually happens inside it? Can we identify the mechanisms behind this behaviour and intervene on them directly? Through a practical example on refusal behaviour, we will see how mechanistic interpretability can help us understand how LLMs work inside, and change how they behave.</p>'
+    description_it: "<p>Il primo seminario del ciclo, su uno dei temi più interessanti della ricerca sull'AI safety: la <strong>mechanistic interpretability</strong>.</p><p>Quando un large language model rifiuta una richiesta, cosa succede realmente al suo interno? Possiamo identificare i meccanismi responsabili di questo comportamento e intervenire direttamente su di essi? Attraverso un esempio pratico legato al refusal behavior, vedremo come la mechanistic interpretability possa aiutarci a comprendere meglio il funzionamento interno degli LLM e a modificarne il comportamento.</p>"
+    format_info:
+      - label: 'Speaker'
+        label_it: 'Relatore'
+        value: 'Enrico Bottazzi, a researcher with a background in cryptography who now works on mechanistic interpretability'
+        value_it: 'Enrico Bottazzi, ricercatore con un background in crittografia che oggi si occupa di mechanistic interpretability'
+      - label: 'Where'
+        label_it: 'Dove'
+        value: 'Online, on Zoom (link sent after registration)'
+        value_it: 'Online, su Zoom (link inviato dopo la registrazione)'
+      - label: 'Who it is for'
+        label_it: 'Per chi'
+        value: 'Researchers, students, professionals and anyone curious'
+        value_it: 'Ricercatori, studenti, professionisti e chiunque sia curioso'
+    register_text: 'Register for free on Luma'
+    register_text_it: 'Registrazione gratuita su Luma'
+    register_link: 'https://luma.com/k1yogh3v'
+    register_target: '_blank'
+
+  - id: 6
+    anchor: 'seminar-watermarking'
+    category: 'seminar'
+    title: 'Watermarking in AI-Generated Text'
+    title_it: 'Watermarking in AI-Generated Text'
+    date: 'Thursday 29 October 2026, 18:30'
+    date_it: 'Giovedì 29 ottobre 2026, 18:30'
+    status: 'Upcoming'
+    status_it: 'In programma'
+    format_info:
+      - label: 'Speaker'
+        label_it: 'Relatore'
+        value: 'Carlo Martinucci'
+        value_it: 'Carlo Martinucci'
+
+  - id: 7
+    anchor: 'seminar-geometric-interpretability'
+    category: 'seminar'
+    title: 'Geometric Approaches to Interpretability'
+    title_it: 'Geometric Approaches to Interpretability'
+    date: 'Thursday 12 November 2026, 18:30'
+    date_it: 'Giovedì 12 novembre 2026, 18:30'
+    status: 'Upcoming'
+    status_it: 'In programma'
+    format_info:
+      - label: 'Speaker'
+        label_it: 'Relatrice'
+        value: 'Elisabetta Rocchetti'
+        value_it: 'Elisabetta Rocchetti'
+
+# Entries that have taken place, newest first. Each is shown under "Past" in
+# the section of its category, and keeps its anchor so old links still land on it.
 past_events:
   - id: 4
     anchor: 'meetup-milano-2026'
-    category: 'seminar'
+    category: 'event'
     title: 'AI Safety for Italy Meetup'
     title_it: 'Meetup AI Safety for Italy'
     date: 'Monday 5 October 2026, 18:00–20:30'
@@ -125,10 +273,10 @@ past_events:
       - time: '19:00–20:30'
         title: 'Networking and aperitivo'
         title_it: 'Networking e aperitivo'
-    # /streaming is a redirect in vercel.json to the YouTube page of the livestream, which now holds the recording.
-    stream_text: 'Watch the recording on YouTube'
-    stream_text_it: 'Guarda la registrazione su YouTube'
-    stream_link: '/streaming'
+    # /streaming is a placeholder page until the recording is published.
+    stream_text: 'Recording coming soon'
+    stream_text_it: 'Registrazione in arrivo'
+    stream_link: '/streaming/'
 
 recent_highlights: []
 

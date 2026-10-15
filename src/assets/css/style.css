@@ -743,6 +743,79 @@ a:hover {
   transform: scaleX(1);
 }
 
+/* Dropdown (Initiatives): opens on hover and on keyboard focus, no JS. The
+   menu's top padding bridges the gap under the parent so it stays open while
+   the pointer moves down to it. */
+.nav-dropdown {
+  position: relative;
+}
+
+.main-nav .nav-dropdown-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.nav-chevron {
+  width: 14px;
+  height: 14px;
+  transition: transform 0.2s var(--ease);
+}
+
+.nav-dropdown:hover .nav-chevron,
+.nav-dropdown:focus-within .nav-chevron {
+  transform: rotate(180deg);
+}
+
+.nav-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0.35rem;
+  z-index: 60;
+  min-width: 12rem;
+  padding-top: 0.5rem;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-4px);
+  transition: opacity 0.15s ease, transform 0.15s ease, visibility 0s linear 0.15s;
+}
+
+.nav-dropdown:hover .nav-dropdown-menu,
+.nav-dropdown:focus-within .nav-dropdown-menu {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.nav-dropdown-menu::before {
+  content: '';
+  position: absolute;
+  inset: 0.5rem 0 0;
+  z-index: -1;
+  background: var(--card-bg);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-lg);
+}
+
+.main-nav .nav-dropdown-menu a {
+  display: block;
+  padding: 0.6rem 1rem;
+}
+
+.main-nav .nav-dropdown-menu a:first-child {
+  margin-top: 0.35rem;
+}
+
+.main-nav .nav-dropdown-menu a:last-child {
+  margin-bottom: 0.35rem;
+}
+
+.main-nav .nav-dropdown-menu a::after {
+  display: none;
+}
+
 .header-actions {
   display: flex;
   align-items: center;
@@ -895,6 +968,18 @@ a:hover {
   }
 
   .mobile-nav a.active {
+    color: var(--accent);
+  }
+
+  /* The pages under a dropdown item, indented below it */
+  .mobile-nav a.mobile-sub {
+    padding: 0.6rem 0 0.6rem 1.25rem;
+    font-size: 1.15rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+  }
+
+  .mobile-nav a.mobile-sub.active {
     color: var(--accent);
   }
 
