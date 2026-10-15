@@ -5,7 +5,7 @@
 {% macro initiativeCard(event) %}
 <div class="card program-card reveal"{% if event.anchor %} id="{{ event.anchor }}"{% endif %}>
     <span class="chip{% if event.status == 'Upcoming' %} red{% elif event.status == 'Past' %} muted{% endif %}" data-en="{{ event.status }}" data-it="{{ event.status_it }}">{{ event.status }}</span>
-    <h3 data-en="{{ event.title }}" data-it="{{ event.title_it }}">{{ event.title }}</h3>
+    <h3{% if event.tbc %} class="is-tbc"{% endif %} data-en="{{ event.title }}" data-it="{{ event.title_it }}">{{ event.title }}</h3>
     <div class="flex items-center gap-2 mb-4" style="font-size: 0.95rem; font-weight: 600; color: var(--text-secondary);">
         <svg class="ds-icon" style="width:1.05rem;height:1.05rem;color:var(--accent);" aria-hidden="true"><use href="#icon-calendar"></use></svg>
         <span data-en="{{ event.date }}" data-it="{{ event.date_it }}">{{ event.date }}</span>
@@ -24,7 +24,11 @@
         {% for info in event.format_info %}
         <li>
             <strong><span data-en="{{ info.label }}" data-it="{{ info.label_it }}">{{ info.label }}</span></strong>
+            {% if info.link %}
+            <a href="{{ info.link }}" target="_blank" rel="noopener noreferrer" data-en="{{ info.value }}" data-it="{{ info.value_it }}">{{ info.value }}</a>
+            {% else %}
             <span data-en="{{ info.value }}" data-it="{{ info.value_it }}">{{ info.value }}</span>
+            {% endif %}
         </li>
         {% endfor %}
     </ul>
