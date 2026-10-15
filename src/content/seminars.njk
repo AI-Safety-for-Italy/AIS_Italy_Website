@@ -46,10 +46,18 @@ seoDescription_it: "Seminari su sicurezza, etica e governance dell'IA di AI Safe
         <div class="section-head reveal">
             <h2 data-en="Upcoming seminars" data-it="Prossimi seminari">Upcoming seminars</h2>
         </div>
-        <div class="grid grid-cols-1 gap-6" style="max-width: 48rem;">
-            {% for event in seminars %}{{ initiativeCard(event) }}{% else %}
-            <p class="reveal" style="color: var(--text-secondary);" data-en="{{ intro.empty_text }}" data-it="{{ intro.empty_text_it }}">{{ intro.empty_text }}</p>
-            {% endfor %}
+        <div class="seminars-layout">
+            <div class="grid grid-cols-1 gap-6 seminars-layout__main">
+                {% for event in seminars %}{{ initiativeCard(event) }}{% else %}
+                <p class="reveal" style="color: var(--text-secondary);" data-en="{{ intro.empty_text }}" data-it="{{ intro.empty_text_it }}">{{ intro.empty_text }}</p>
+                {% endfor %}
+            </div>
+            {% set calendarEvents = seminars.concat(pastSeminars) %}
+            {% if calendarEvents | byDay | length %}
+            <div class="seminars-layout__aside">
+                {% include "seminar-calendar.njk" %}
+            </div>
+            {% endif %}
         </div>
     </div>
 </section>

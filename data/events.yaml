@@ -68,6 +68,8 @@ seminars_intro:
 #  - id: 5
 #    anchor: 'seminar-short-name'       # link to it with /seminars/#seminar-short-name
 #    category: 'seminar'
+#    day: '2026-11-12'                  # places it on the calendar
+#    speaker: 'Name Surname'            # shown in the calendar's list of dates
 #    title: 'Seminar title'
 #    title_it: 'Titolo del seminario'
 #    date: 'Thursday 12 November 2026, 18:30–19:30'
@@ -167,14 +169,18 @@ upcoming_events:
     register_link: '/mentorship/'
     register_target: '_self'
 
-  # Seminar series, every other Thursday at 18:30. Once a seminar has taken
+  # Seminar series, on Thursdays at 18:30, online. Once a seminar has taken
   # place, move it to `past_events` and set status to 'Past' / 'Concluso'.
-  # TODO (29 Oct, 12 Nov): add place, a short description and the Luma link
-  # (register_text / register_link / register_target: '_blank'), as in the first one.
+  # `day` (YYYY-MM-DD) places it on the calendar beside the cards, and
+  # `speaker` is the name shown in the calendar's list of dates.
+  # While the speaker or the title is not known yet, set `tbc: true`: the card
+  # title is greyed out and the calendar says "coming soon".
   - id: 5
     # Anchor from the working title "The Direction of Refusal", kept so links stay valid.
     anchor: 'seminar-direction-of-refusal'
     category: 'seminar'
+    day: '2026-10-15'
+    speaker: 'Enrico Bottazzi'
     title: 'How to Steer the Behavior of a Model: The Refusal Case'
     title_it: 'How to Steer the Behavior of a Model: The Refusal Case'
     date: 'Thursday 15 October 2026, 18:30 (CEST)'
@@ -188,6 +194,7 @@ upcoming_events:
         label_it: 'Relatore'
         value: 'Enrico Bottazzi, a researcher with a background in cryptography who now works on mechanistic interpretability'
         value_it: 'Enrico Bottazzi, ricercatore con un background in crittografia che oggi si occupa di mechanistic interpretability'
+        link: 'https://www.linkedin.com/in/3nricobottazzi/'
       - label: 'Where'
         label_it: 'Dove'
         value: 'Online, on Zoom (link sent after registration)'
@@ -204,32 +211,111 @@ upcoming_events:
   - id: 6
     anchor: 'seminar-watermarking'
     category: 'seminar'
+    day: '2026-10-29'
+    speaker: 'Carlo Martinucci'
     title: 'Watermarking in AI-Generated Text'
     title_it: 'Watermarking in AI-Generated Text'
-    date: 'Thursday 29 October 2026, 18:30'
-    date_it: 'Giovedì 29 ottobre 2026, 18:30'
+    date: 'Thursday 29 October 2026, 18:30 (CET)'
+    date_it: 'Giovedì 29 ottobre 2026, ore 18:30 (CET)'
     status: 'Upcoming'
     status_it: 'In programma'
+    description: '<p>How can we tell whether a text was written by a language model? One answer is to have the model sign what it writes: a <strong>watermark</strong> hidden in its choice of words, invisible to readers but detectable by anyone who holds the key.</p><p>Starting from the paper that proposed it, we will see how the technique works and where its limits are. An entry-level talk: no background needed. For a preview, Carlo''s post on the topic (in Italian) is <a href="https://carlomartinucci.substack.com/p/il-watermark-nei-testi-scritti-dallintelligenza" target="_blank" rel="noopener noreferrer">on his Substack</a>.</p>'
+    description_it: "<p>Come si fa a capire se un testo è stato scritto da un modello linguistico? Una risposta è far firmare al modello ciò che scrive: un <strong>watermark</strong> nascosto nella scelta delle parole, invisibile a chi legge ma riconoscibile da chi possiede la chiave.</p><p>Partendo dal paper che l'ha proposto, vedremo come funziona la tecnica e quali sono i suoi limiti. Un talk introduttivo, senza prerequisiti. Per un'anteprima, c'è il post di Carlo sul tema <a href=\"https://carlomartinucci.substack.com/p/il-watermark-nei-testi-scritti-dallintelligenza\" target=\"_blank\" rel=\"noopener noreferrer\">sul suo Substack</a>.</p>"
     format_info:
       - label: 'Speaker'
         label_it: 'Relatore'
         value: 'Carlo Martinucci'
         value_it: 'Carlo Martinucci'
+        link: 'https://www.linkedin.com/in/carlomartinucci/'
+      - label: 'Where'
+        label_it: 'Dove'
+        value: 'Online, on Zoom (link sent after registration)'
+        value_it: 'Online, su Zoom (link inviato dopo la registrazione)'
+    register_text: 'Register for free on Luma'
+    register_text_it: 'Registrazione gratuita su Luma'
+    register_link: 'https://luma.com/s2vhp7r6'
+    register_target: '_blank'
 
   - id: 7
     anchor: 'seminar-geometric-interpretability'
     category: 'seminar'
+    day: '2026-11-12'
+    speaker: 'Elisabetta Rocchetti'
     title: 'Geometric Approaches to Interpretability'
     title_it: 'Geometric Approaches to Interpretability'
-    date: 'Thursday 12 November 2026, 18:30'
-    date_it: 'Giovedì 12 novembre 2026, 18:30'
+    date: 'Thursday 12 November 2026, 18:30 (CET)'
+    date_it: 'Giovedì 12 novembre 2026, ore 18:30 (CET)'
+    status: 'Upcoming'
+    status_it: 'In programma'
+    description: '<p>What do Transformer models actually perceive? Most interpretability methods assume that the input space is flat and Euclidean, but networks deform their representation spaces during training: inputs that look far apart can be the same to the model, while small changes can flip its output.</p><p>The talk presents a framework based on <strong>Riemannian geometry</strong> to find the sets of inputs a model treats as equivalent, and to move within them and across their boundaries. It then argues that the right language for understanding neural networks may be differential geometry rather than linear algebra.</p>'
+    description_it: "<p>Cosa percepiscono davvero i modelli Transformer? Molti metodi di interpretability assumono che lo spazio degli input sia piatto ed euclideo, ma durante l'addestramento le reti deformano i propri spazi di rappresentazione: input molto diversi possono essere equivalenti per il modello, mentre piccole variazioni possono cambiarne l'output.</p><p>Il talk presenta un approccio basato sulla <strong>geometria riemanniana</strong> per individuare gli insiemi di input che il modello considera equivalenti, e per muoversi al loro interno e attraverso i loro confini. Propone poi la geometria differenziale, più che l'algebra lineare, come linguaggio per capire le reti neurali.</p>"
+    format_info:
+      - label: 'Speaker'
+        label_it: 'Relatrice'
+        value: 'Elisabetta Rocchetti, Università degli Studi di Milano'
+        value_it: 'Elisabetta Rocchetti, Università degli Studi di Milano'
+        link: 'https://www.linkedin.com/in/elisabetta-rocchetti-70a953143/'
+      - label: 'Where'
+        label_it: 'Dove'
+        value: 'Online, on Zoom (link sent after registration)'
+        value_it: 'Online, su Zoom (link inviato dopo la registrazione)'
+    register_text: 'Register for free on Luma'
+    register_text_it: 'Registrazione gratuita su Luma'
+    register_link: 'https://luma.com/64euku8c'
+    register_target: '_blank'
+
+  # TODO: speaker still being confirmed. When they are, add `speaker`, the
+  # title, a description and the Luma link, and remove `tbc`.
+  - id: 8
+    anchor: 'seminar-2026-11-26'
+    category: 'seminar'
+    day: '2026-11-26'
+    tbc: true
+    title: 'Speaker to be announced'
+    title_it: 'Relatore da annunciare'
+    date: 'Thursday 26 November 2026, 18:30 (CET)'
+    date_it: 'Giovedì 26 novembre 2026, ore 18:30 (CET)'
+    status: 'Upcoming'
+    status_it: 'In programma'
+
+  # TODO (3 and 17 Dec): title, description and Luma link; then remove `tbc`.
+  - id: 9
+    anchor: 'seminar-2026-12-03'
+    category: 'seminar'
+    day: '2026-12-03'
+    tbc: true
+    speaker: 'Gabriele Sarti'
+    title: 'Title coming soon'
+    title_it: 'Titolo in arrivo'
+    date: 'Thursday 3 December 2026, 18:30 (CET)'
+    date_it: 'Giovedì 3 dicembre 2026, ore 18:30 (CET)'
     status: 'Upcoming'
     status_it: 'In programma'
     format_info:
       - label: 'Speaker'
-        label_it: 'Relatrice'
-        value: 'Elisabetta Rocchetti'
-        value_it: 'Elisabetta Rocchetti'
+        label_it: 'Relatore'
+        value: 'Gabriele Sarti, Parallax'
+        value_it: 'Gabriele Sarti, Parallax'
+        link: 'https://www.linkedin.com/in/gabrielesarti/'
+
+  - id: 10
+    anchor: 'seminar-2026-12-17'
+    category: 'seminar'
+    day: '2026-12-17'
+    tbc: true
+    speaker: 'Fabio Brau'
+    title: 'Title coming soon'
+    title_it: 'Titolo in arrivo'
+    date: 'Thursday 17 December 2026, 18:30 (CET)'
+    date_it: 'Giovedì 17 dicembre 2026, ore 18:30 (CET)'
+    status: 'Upcoming'
+    status_it: 'In programma'
+    format_info:
+      - label: 'Speaker'
+        label_it: 'Relatore'
+        value: 'Fabio Brau, Università degli Studi di Cagliari'
+        value_it: 'Fabio Brau, Università degli Studi di Cagliari'
+        link: 'https://www.linkedin.com/in/fabio-brau/'
 
 # Entries that have taken place, newest first. Each is shown under "Past" in
 # the section of its category, and keeps its anchor so old links still land on it.
