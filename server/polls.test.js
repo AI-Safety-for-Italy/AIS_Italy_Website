@@ -641,10 +641,12 @@ test('only invited guests can see and answer an invite-only poll, as their own a
   });
   assert.deepEqual(outcome, { sent: 2, failed: 0 });
   assert.equal(sent.length, 2);
-  // The invitation says who sent it, and replies go to them.
+  // The invitation says who sent it, and asks not to reply.
   assert.equal(sent[0].from.name, 'Owner · AI Safety for Italy');
   assert.equal(sent[0].from.address, 'tech@ais4i.it');
-  assert.equal(sent[0].replyTo, 'owner@example.org');
+  assert.equal(sent[0].replyTo, undefined);
+  assert.equal(sent[0].headers['Auto-Submitted'], 'auto-generated');
+  assert.match(sent[0].text, /non rispondere/);
   assert.equal(sent[0].subject, 'Owner ti invita: Board meeting');
   assert.match(sent[0].text, /^Owner ti invita/);
   assert.ok(

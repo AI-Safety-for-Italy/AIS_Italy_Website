@@ -20,9 +20,18 @@ function escapeHtml(s) {
   );
 }
 
-/** A plain-text body and a matching simple HTML one. `lines` may hold a { link }. */
-function render(lines) {
-  const text = lines.map((l) => (typeof l === 'string' ? l : `${l.label}: ${l.link}`)).join('\n\n');
+// Closes the automatic invitations: nobody reads replies to them.
+const NO_REPLY =
+  'Email inviata automaticamente: per favore non rispondere. · Automatic email, please do not reply.';
+
+/**
+ * A plain-text body and a matching simple HTML one. `lines` may hold a
+ * { link }; `noReply` adds the note asking not to reply.
+ */
+function render(lines, { noReply = false } = {}) {
+  const text =
+    lines.map((l) => (typeof l === 'string' ? l : `${l.label}: ${l.link}`)).join('\n\n') +
+    (noReply ? `\n\n${NO_REPLY}` : '');
   const html =
     '<div style="font-family:system-ui,sans-serif;font-size:15px;line-height:1.55;color:#0f1a14;max-width:560px">' +
     lines
@@ -36,7 +45,9 @@ function render(lines) {
             )}</a></p>`
       )
       .join('') +
-    '<p style="color:#7c8a81;font-size:13px">AI Safety for Italy</p></div>';
+    '<p style="color:#7c8a81;font-size:13px">AI Safety for Italy' +
+    (noReply ? `<br>${escapeHtml(NO_REPLY)}` : '') +
+    '</p></div>';
   return { text, html };
 }
 
@@ -155,16 +166,12 @@ function inviteMessage({ poll, ownerName, link }) {
 
 /**
  * Who an invitation comes from: the poll owner's name (the shared admin
- * account has none worth showing) and the address replies should reach.
+ * account has none worth showing).
  */
 async function inviter(ownerId) {
   const { rows } = await db.query('select * from app_users where id = $1', [ownerId]);
   const u = rows[0];
-  if (!u) return { name: null, replyTo: undefined };
-  return {
-    name: u.kind === 'admin' ? null : u.name,
-    replyTo: u.notify_email || u.email || undefined,
-  };
+  return { name: u && u.kind !== 'admin' ? u.name : null };
 }
 
 /**
@@ -180,8 +187,7 @@ async function sendInvites({ poll, ownerId, invites, origin }) {
       to: invite.email,
       subject: msg.subject,
       senderName: from.name,
-      replyTo: from.replyTo,
-      ...render(msg.lines),
+      ...render(msg.lines, { noReply: true }),
     };
   });
   const results = await batch(messages);
@@ -280,13 +286,12 @@ async function sendMeeting({ poll, slot, recipients, ownerId, sequence, cancel =
       to: person.email,
       subject,
       senderName: from.name,
-      replyTo: from.replyTo,
       icalEvent: {
         method,
         filename: 'invite.ics',
         content: ics.build(poll, slot, { method, sequence, organizer, attendee: person }),
       },
-      ...render(lines),
+      ...render(lines, { noReply: true }),
     }))
   );
   const sent = results.filter((r) => r.ok).length;

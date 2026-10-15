@@ -168,6 +168,9 @@ async function sendBatch(messages, { pauseMs = BATCH_PAUSE_MS } = {}) {
           },
           to: message.to,
           replyTo: message.replyTo,
+          // Every message here is sent by the app, not typed by a person:
+          // tells auto-responders not to answer (RFC 3834).
+          headers: { 'Auto-Submitted': 'auto-generated' },
           // A calendar invitation, shown by mail apps as an event to add.
           icalEvent: message.icalEvent,
           subject: message.subject,
