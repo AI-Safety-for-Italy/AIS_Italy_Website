@@ -60,6 +60,9 @@ en:
   supporters:
     heading: 'Supported by'
 
+  affiliations:
+    heading: 'Our members work at'
+
   community:
     hero_title: 'Join Our Community'
     hero_subtitle: 'Connect with researchers, practitioners, and enthusiasts passionate about AI safety.'
@@ -143,6 +146,9 @@ it:
 
   supporters:
     heading: 'Con il supporto di'
+
+  affiliations:
+    heading: 'I nostri membri lavorano in'
 
   community:
     hero_title: 'Unisciti alla Community'

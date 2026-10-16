@@ -136,3 +136,67 @@ supporters:
     logo: '/assets/img/supporters/coefficient-giving.png'
     width: 456
     height: 176
+
+# Affiliations Section
+# Logo slideshow under the "At a glance" numbers on the home page: universities
+# and organisations where our members work. Only list a place where at least
+# one member works or studies now.
+#
+# Logos live in src/assets/img/affiliations/ as one-colour artwork: black on a
+# transparent background, PNG at twice the size it is shown at. The CSS fades
+# them on the light theme and inverts them on the dark one, so the original
+# colours do not matter. `width` and `height` are the display size in px (half
+# the file's own size); pick them so each logo covers about 44 x 160 px of area,
+# between 30 and 58 px tall, so a long wordmark and a square mark look equally
+# heavy.
+#
+# Each logo is the organisation's own, taken from its website and recoloured.
+affiliations:
+  - name: 'SaferAI'
+    logo: '/assets/img/affiliations/saferai.png'
+    width: 177
+    height: 40
+  - name: 'Università degli Studi di Milano'
+    logo: '/assets/img/affiliations/unimi.png'
+    width: 102
+    height: 58
+  - name: 'Future of Life Institute'
+    logo: '/assets/img/affiliations/fli.png'
+    width: 85
+    height: 58
+  - name: 'Università degli Studi di Trieste'
+    logo: '/assets/img/affiliations/units.png'
+    width: 145
+    height: 49
+  - name: 'Apart Research'
+    logo: '/assets/img/affiliations/apart.png'
+    width: 218
+    height: 32
+  - name: 'Area Science Park'
+    logo: '/assets/img/affiliations/area-science-park.png'
+    width: 112
+    height: 58
+  - name: 'ERA Cambridge'
+    logo: '/assets/img/affiliations/era-cambridge.png'
+    width: 58
+    height: 58
+  - name: 'Università di Trento'
+    logo: '/assets/img/affiliations/unitn.png'
+    width: 151
+    height: 47
+  - name: 'CePTE'
+    logo: '/assets/img/affiliations/cepte.png'
+    width: 215
+    height: 33
+  - name: 'ELLIS Institute Tübingen'
+    logo: '/assets/img/affiliations/ellis-tuebingen.png'
+    width: 306
+    height: 30
+  - name: 'Università degli Studi di Cagliari'
+    logo: '/assets/img/affiliations/unica.png'
+    width: 210
+    height: 34
+  - name: 'Örebro University'
+    logo: '/assets/img/affiliations/orebro.png'
+    width: 80
+    height: 58

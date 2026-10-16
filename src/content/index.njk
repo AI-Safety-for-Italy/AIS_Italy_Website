@@ -94,6 +94,30 @@ seoDescription_it: "AI Safety for Italy è la community italiana che lavora per 
     </div>
 </section>
 
+<!-- Where our members work: a looping logo strip, from `affiliations` in data/home.yaml.
+     The list is rendered twice so the strip can scroll by half its width and
+     start over without a jump; the second copy is hidden from screen readers. -->
+{% if home.affiliations %}
+<section class="affiliations" aria-labelledby="affiliations-heading">
+    <div class="container">
+        <p class="mono-label affiliations-heading" id="affiliations-heading" data-en="{{ translations.en.affiliations.heading }}" data-it="{{ translations.it.affiliations.heading }}">{{ translations.en.affiliations.heading }}</p>
+        <div class="affiliations-viewport">
+            <div class="affiliations-track">
+                {% for copy in [false, true] %}
+                <ul class="affiliations-list"{% if copy %} aria-hidden="true"{% endif %}>
+                    {% for org in home.affiliations %}
+                    <li class="affiliation">
+                        <img src="{{ org.logo }}" alt="{{ '' if copy else org.name }}" width="{{ org.width }}" height="{{ org.height }}" style="--h: {{ org.height }}px" loading="lazy" decoding="async">
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</section>
+{% endif %}
+
 <!-- What's new: the latest initiatives, from data/news.yaml -->
 {% include "news-carousel.njk" %}
 

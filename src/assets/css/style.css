@@ -1349,6 +1349,112 @@ a:hover {
 }
 
 /* ==========================================================================
+   Affiliations — looping strip of the logos of where our members work
+   ========================================================================== */
+
+.affiliations {
+  padding: 2.5rem 0 2.75rem;
+}
+
+.affiliations-heading {
+  margin-bottom: 1.5rem;
+}
+
+/* Fade the strip out at both ends instead of cutting logos at the edge */
+.affiliations-viewport {
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+}
+
+.affiliations-track {
+  display: flex;
+  width: max-content;
+  animation: affiliations-scroll 60s linear infinite;
+}
+
+.affiliations-viewport:hover .affiliations-track {
+  animation-play-state: paused;
+}
+
+/* The trailing padding matches the gap, so the seam between the two copies
+   is as wide as the space between any two logos */
+.affiliations-list {
+  display: flex;
+  align-items: center;
+  gap: 3.5rem;
+  padding: 0 3.5rem 0 0;
+  margin: 0;
+  list-style: none;
+}
+
+.affiliation {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  height: 58px;
+}
+
+/* One-colour artwork: dark ink, softened to sit with the text around it */
+.affiliation img {
+  display: block;
+  height: calc(var(--h) * var(--logo-scale, 1));
+  width: auto;
+  max-width: none;
+  opacity: 0.72;
+}
+
+[data-theme='dark'] .affiliation img {
+  filter: invert(1);
+  opacity: 0.8;
+}
+
+@keyframes affiliations-scroll {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@media (max-width: 640px) {
+  .affiliations {
+    --logo-scale: 0.78;
+  }
+
+  .affiliations-list {
+    gap: 2.5rem;
+    padding-right: 2.5rem;
+  }
+
+  .affiliation {
+    height: 46px;
+  }
+}
+
+/* No motion: show every logo once, wrapped and centred */
+@media (prefers-reduced-motion: reduce) {
+  .affiliations-viewport {
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+
+  .affiliations-track {
+    animation: none;
+    width: auto;
+  }
+
+  .affiliations-list {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 1.5rem 3rem;
+    padding: 0;
+  }
+
+  .affiliations-list[aria-hidden='true'] {
+    display: none;
+  }
+}
+
+/* ==========================================================================
    Mentorship page — hero facts, timeline
    ========================================================================== */
 
