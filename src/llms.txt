@@ -11,4 +11,4 @@ Allowed crawlers include, but are not limited to:
 - meta-externalagent
 - Applebot
 
-For questions or issues, contact aisafetyitalia@gmail.com.
+For questions or issues, contact info@ais4i.it.
