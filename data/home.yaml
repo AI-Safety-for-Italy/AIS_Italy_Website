@@ -151,6 +151,9 @@ supporters:
 # between 30 and 58 px tall, so a long wordmark and a square mark look equally
 # heavy. A very bold one can go a little smaller (Imperial, EUI).
 #
+# The page shuffles the logos on every visit; the order here is only what
+# visitors without JavaScript see.
+#
 # Each logo is the organisation's own, taken from its website and recoloured.
 # Apart, SPAR and the Cambridge AI Safety Hub publish only a mark: their entry
 # is that mark with the name set beside it in their own site's font, as their

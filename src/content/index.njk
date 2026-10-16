@@ -116,6 +116,23 @@ seoDescription_it: "AI Safety for Italy è la community italiana che lavora per 
             </div>
         </div>
     </div>
+    {# A new order on every visit. Inline, right after the strip, so it runs
+       before the strip is drawn and no logo is seen changing place; both
+       copies get the same order so the loop stays seamless. #}
+    <script>
+        (function () {
+            var lists = document.currentScript.parentNode.querySelectorAll('.affiliations-list');
+            var order = Array.prototype.map.call(lists[0].children, function (li, i) { return i; });
+            for (var i = order.length - 1; i > 0; i--) {
+                var j = Math.floor(Math.random() * (i + 1));
+                var swap = order[i]; order[i] = order[j]; order[j] = swap;
+            }
+            Array.prototype.forEach.call(lists, function (list) {
+                var items = Array.prototype.slice.call(list.children);
+                order.forEach(function (k) { list.appendChild(items[k]); });
+            });
+        })();
+    </script>
 </section>
 {% endif %}
 
