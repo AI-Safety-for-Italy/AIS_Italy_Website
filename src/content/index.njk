@@ -94,6 +94,48 @@ seoDescription_it: "AI Safety for Italy è la community italiana che lavora per 
     </div>
 </section>
 
+<!-- Where our members work: a looping logo strip, from `affiliations` in data/home.yaml.
+     The list is rendered twice so the strip can scroll by half its width and
+     start over without a jump; the second copy is hidden from screen readers. -->
+{% if home.affiliations %}
+<section class="affiliations" aria-labelledby="affiliations-heading">
+    <div class="container">
+        <p class="mono-label affiliations-heading" id="affiliations-heading" data-en="{{ translations.en.affiliations.heading }}" data-it="{{ translations.it.affiliations.heading }}">{{ translations.en.affiliations.heading }}</p>
+        <div class="affiliations-viewport">
+            {# 5 s per logo keeps the speed the same however long the list gets #}
+            <div class="affiliations-track" style="--affiliations-duration: {{ (home.affiliations | length) * 5 }}s">
+                {% for copy in [false, true] %}
+                <ul class="affiliations-list"{% if copy %} aria-hidden="true"{% endif %}>
+                    {% for org in home.affiliations %}
+                    <li class="affiliation">
+                        <img src="{{ org.logo }}" alt="{{ '' if copy else org.name }}" width="{{ org.width }}" height="{{ org.height }}" style="--h: {{ org.height }}px" loading="lazy" decoding="async">
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {# A new order on every visit. Inline, right after the strip, so it runs
+       before the strip is drawn and no logo is seen changing place; both
+       copies get the same order so the loop stays seamless. #}
+    <script>
+        (function () {
+            var lists = document.currentScript.parentNode.querySelectorAll('.affiliations-list');
+            var order = Array.prototype.map.call(lists[0].children, function (li, i) { return i; });
+            for (var i = order.length - 1; i > 0; i--) {
+                var j = Math.floor(Math.random() * (i + 1));
+                var swap = order[i]; order[i] = order[j]; order[j] = swap;
+            }
+            Array.prototype.forEach.call(lists, function (list) {
+                var items = Array.prototype.slice.call(list.children);
+                order.forEach(function (k) { list.appendChild(items[k]); });
+            });
+        })();
+    </script>
+</section>
+{% endif %}
+
 <!-- What's new: the latest initiatives, from data/news.yaml -->
 {% include "news-carousel.njk" %}
 
