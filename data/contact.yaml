@@ -13,8 +13,8 @@ channels:
     emoji: '📧'
     description: 'For any questions about our organization, activities, or how to get involved.'
     description_it: 'Per qualsiasi domanda sulla nostra organizzazione, attività o come partecipare.'
-    link_text: 'aisafetyitalia@gmail.com'
-    link_text_it: 'aisafetyitalia@gmail.com'
+    link_text: 'info@ais4i.it'
+    link_text_it: 'info@ais4i.it'
 
   - id: linkedin
     title: 'LinkedIn'

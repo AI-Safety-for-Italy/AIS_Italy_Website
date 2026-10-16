@@ -4133,6 +4133,44 @@ textarea.form-input {
   margin: 0;
 }
 
+/* Long-form legal text (privacy notice): a readable column with real lists */
+.legal-text {
+  max-width: 46rem;
+}
+
+.legal-text h2 {
+  font-size: 1.4rem;
+  margin: 2.5rem 0 0.75rem;
+}
+
+.legal-text ul {
+  list-style: disc;
+  margin: 0 0 1em;
+  padding-left: 1.25rem;
+  display: grid;
+  gap: 0.5rem;
+  color: var(--text-secondary);
+}
+
+.legal-text li::marker {
+  color: var(--accent);
+}
+
+.legal-text strong {
+  color: var(--text-primary);
+}
+
+.legal-text a {
+  overflow-wrap: anywhere;
+  border-bottom: 1px solid currentColor;
+}
+
+.legal-updated {
+  margin-top: 2.5rem;
+  font-size: 0.9rem;
+  color: var(--text-tertiary);
+}
+
 .accent-text {
   color: var(--accent);
   font-weight: 600;

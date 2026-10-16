@@ -68,6 +68,6 @@ chore: maintenance tasks
 
 ## Questions?
 
-If you have any questions, feel free to open an issue or contact us at aisafetyitalia@gmail.com.
+If you have any questions, feel free to open an issue or contact us at info@ais4i.it.
 
 Thank you for contributing!

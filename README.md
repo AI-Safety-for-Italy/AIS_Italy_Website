@@ -674,7 +674,7 @@ MIT
 
 ## Support
 
-For questions or contributions, contact: aisafetyitalia@gmail.com
+For questions or contributions, contact: info@ais4i.it
 
 ## Documentation
 
