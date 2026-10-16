@@ -1,0 +1,96 @@
+---
+title: Privacy
+basePath: /privacy/
+pagination:
+  data: locales
+  size: 1
+  alias: locale
+  # Without this only the first locale reaches collections.all,
+  # and the sitemap would list the English pages only.
+  addAllPagesToCollections: true
+permalink: '{{ locale.prefix }}{{ basePath }}'
+# No dedicated social card; reuse the home one.
+ogImageName: home
+seoTitle: 'Privacy Notice | AI Safety for Italy'
+seoTitle_it: 'Informativa privacy | AI Safety for Italy'
+seoDescription: 'How AI Safety for Italy processes the personal data of mentors and mentees in its Mentorship Program, under art. 13 of the GDPR.'
+seoDescription_it: 'Come AI Safety for Italy tratta i dati personali di mentor e mentee del programma di mentorship, ai sensi dell’art. 13 del GDPR.'
+---
+{% extends "base.njk" %}
+{% block content %}
+{# The notice exists in Italian only, so both locales show the same Italian
+   text below; the English page says so in its hero. Edits to the notice go
+   here, together with the "Ultimo aggiornamento" date at the bottom. #}
+
+<!-- Page hero -->
+<section class="page-hero">
+    <div class="container">
+        <span class="eyebrow">Privacy</span>
+        <h1 data-en="Privacy notice" data-it="Informativa sul trattamento dei dati personali">Privacy notice</h1>
+        <p class="lede" data-en="AI Safety for Italy Mentorship Program" data-it="Programma di mentorship di AI Safety for Italy">AI Safety for Italy Mentorship Program</p>
+        {% if lang != "it" %}
+        <p class="lede">This notice is available in Italian only.</p>
+        {% endif %}
+    </div>
+</section>
+
+<!-- Notice -->
+<section class="section">
+    <div class="container legal-text" lang="it">
+        <p>Ai sensi dell’art. 13 del Regolamento (UE) 2016/679 (“GDPR”), questa informativa descrive come trattiamo i dati personali di chi manifesta interesse, si candida o partecipa al programma di mentorship di AI Safety for Italy, come mentor o come mentee.</p>
+
+        <h2>Titolare del trattamento</h2>
+        <p>AI Safety for Italy (associazione in fase di costituzione)<br>
+        Contatto per questioni relative alla privacy: <a href="mailto:aisafetyitalia@gmail.com">aisafetyitalia@gmail.com</a></p>
+
+        <h2>Quali dati raccogliamo</h2>
+        <ul>
+            <li>Dati identificativi e di contatto: nome, cognome, email.</li>
+            <li>Dati professionali e formativi: posizione attuale, istituzione o azienda, percorso di studi, CV, link a profili professionali (es. LinkedIn, Google Scholar, GitHub).</li>
+            <li>Informazioni fornite nella candidatura: proposte di progetto, risposte alle domande aperte, disponibilità oraria, lingua preferita, eventuali esigenze di accessibilità.</li>
+            <li>Per i mentor selezionati, se scelgono di fornirla: una fotografia da pubblicare sul sito.</li>
+            <li>Durante il programma: report, materiali prodotti e comunicazioni con il team.</li>
+        </ul>
+        <p>Ti chiediamo di non includere nel CV o nelle risposte dati non necessari alla valutazione (ad esempio fotografia, indirizzo, data di nascita) né dati relativi a salute, opinioni politiche, convinzioni religiose o altre categorie particolari di dati.</p>
+
+        <h2>Finalità e basi giuridiche</h2>
+        <ul>
+            <li><strong>Gestire le manifestazioni di interesse, valutare le candidature, selezionare i partecipanti e abbinare mentor e mentee.</strong> Base giuridica: misure precontrattuali adottate su tua richiesta (art. 6.1.b).</li>
+            <li><strong>Organizzare e gestire il programma</strong> (incontri, report, attestati, evento finale). Base giuridica: esecuzione degli accordi di partecipazione (art. 6.1.b).</li>
+            <li><strong>Pubblicare sul sito nome, breve bio e descrizione del progetto dei mentor selezionati.</strong> Base giuridica: esecuzione degli accordi di partecipazione (art. 6.1.b). La pubblicazione è condizione per partecipare come mentor.</li>
+            <li><strong>Pubblicare sul sito la fotografia dei mentor selezionati.</strong> Base giuridica: consenso (art. 6.1.a), facoltativo e revocabile. La fotografia viene richiesta solo dopo l’accettazione del progetto.</li>
+            <li><strong>Pubblicare sul sito nome e abstract del lavoro dei mentee.</strong> Base giuridica: consenso (art. 6.1.a), facoltativo e revocabile.</li>
+            <li><strong>Contattarti per le edizioni successive del programma.</strong> Base giuridica: legittimo interesse di AI Safety for Italy a coinvolgere persone che hanno già mostrato interesse (art. 6.1.f). Puoi opporti in qualsiasi momento scrivendoci.</li>
+        </ul>
+        <p>Il conferimento dei dati necessari alla candidatura è facoltativo, ma senza di essi non possiamo valutarla. Il mancato consenso alla pubblicazione della fotografia o, per i mentee, del proprio lavoro non ha alcuna conseguenza sulla partecipazione.</p>
+
+        <h2>Chi può accedere ai dati</h2>
+        <ul>
+            <li>Il team di AI Safety for Italy che si occupa della selezione e dell’organizzazione del programma.</li>
+            <li>CePTE, partner del programma, che collabora alla selezione e all’organizzazione e accede alle candidature.</li>
+            <li>I mentor dei progetti a cui ti candidi, limitatamente alla tua candidatura.</li>
+            <li>Google, come fornitore dei servizi utilizzati per raccogliere e conservare i dati (Google Forms e Google Drive).</li>
+        </ul>
+        <p>I dati non sono venduti né ceduti a terzi per finalità commerciali e non sono utilizzati per decisioni automatizzate.</p>
+
+        <h2>Trasferimento fuori dall’Unione Europea</h2>
+        <p>I servizi di Google possono comportare il trasferimento dei dati negli Stati Uniti. Google LLC aderisce all’EU-U.S. Data Privacy Framework, riconosciuto adeguato dalla Commissione Europea.</p>
+
+        <h2>Per quanto tempo conserviamo i dati</h2>
+        <ul>
+            <li>Candidature non selezionate: fino al termine dell’edizione a cui si riferiscono, poi cancellate, ad eccezione di nome ed email.</li>
+            <li>Dati dei partecipanti: fino a tre mesi dopo la conclusione dell’edizione, per la gestione di report, attestati ed evento finale, ad eccezione di nome ed email.</li>
+            <li>Nome ed email: conservati anche dopo la fine dell’edizione per contattarti per le edizioni successive, finché non ti opponi.</li>
+            <li>Dati pubblicati sul sito: nome, bio e progetto dei mentor finché il progetto resta presentato sul sito; fotografia dei mentor e lavoro dei mentee finché non revochi il consenso.</li>
+        </ul>
+
+        <h2>I tuoi diritti</h2>
+        <p>Puoi chiedere in qualsiasi momento l’accesso ai tuoi dati, la rettifica, la cancellazione, la limitazione del trattamento, la portabilità, e puoi opporti al trattamento o revocare il consenso, senza che ciò pregiudichi la liceità del trattamento svolto prima della revoca. Per esercitare i tuoi diritti scrivi a <a href="mailto:aisafetyitalia@gmail.com">aisafetyitalia@gmail.com</a>: ti risponderemo entro un mese.</p>
+        <p>Hai anche il diritto di proporre reclamo al Garante per la protezione dei dati personali (<a href="https://www.garanteprivacy.it" target="_blank" rel="noopener noreferrer">www.garanteprivacy.it</a>).</p>
+
+        <h2>Aggiornamenti</h2>
+        <p>Questa informativa può essere aggiornata. La versione in vigore è sempre quella pubblicata su questa pagina.</p>
+        <p class="legal-updated"><em>Ultimo aggiornamento: 16 ottobre 2026</em></p>
+    </div>
+</section>
+{% endblock %}
