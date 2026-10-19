@@ -1,4 +1,4 @@
-last_updated: '2026-10-15'
+last_updated: '2026-10-18'
 members:
 - id: 1
   name: Angelo Leone
@@ -762,3 +762,54 @@ members:
   - mentorship
   - events
   - seminars
+- id: 96
+  name: Nicholas Napolitano
+  profile: https://www.linkedin.com/in/nicholas---napolitano/
+  location: Roma, Italia
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.), Evaluation (capability evaluations, dangerous capability evals, benchmarking),
+    Alignment (RLHF, scalable oversight, value alignment), Robustness e adversarial
+    ML, AI governance e policy, Etica dell'AI e impatto sociale, Sicurezza informatica
+    per modelli di frontiera, Rischi catastrofici / esistenziali
+- id: 97
+  name: Conal Bembridge-Sayers
+  profile: https://www.linkedin.com/in/conal-bembridge-sayers-674224229/ , https://substack.com/@conalbembridge
+  location: London, UK
+  areas: AI governance e policy, Etica dell'AI e impatto sociale, Rischi catastrofici
+    / esistenziali
+- id: 98
+  name: Elia Torre
+  profile: https://eliatorre.com/
+  location: Zurigo, Svizzera
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.), Evaluation (capability evaluations, dangerous capability evals, benchmarking),
+    Alignment (RLHF, scalable oversight, value alignment)
+- id: 99
+  name: Davide Girardi
+  profile: https://www.linkedin.com/in/davidegirardi
+  location: Dublino, Irlanda
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.), Evaluation (capability evaluations, dangerous capability evals, benchmarking),
+    Etica dell'AI e impatto sociale, Sicurezza informatica per modelli di frontiera
+- id: 100
+  name: Giorgio Piras
+  profile: https://giorgiopiras.github.io/
+  location: Cagliari, Italia
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.), Alignment (RLHF, scalable oversight, value alignment), Robustness e adversarial
+    ML
+- id: 101
+  name: Andrea Ferrari
+  profile: https://www.linkedin.com/in/andrea-ferrari-5547431b2/?isSelfProfile=true
+  location: Milano, Italia
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.), Evaluation (capability evaluations, dangerous capability evals, benchmarking),
+    Alignment (RLHF, scalable oversight, value alignment), Robustness e adversarial
+    ML, Sicurezza informatica per modelli di frontiera
+- id: 102
+  name: Elena Capra
+  profile: https://www.linkedin.com/in/elena-capra-1938471b1/
+  location: Torino, Italia
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.), Evaluation (capability evaluations, dangerous capability evals, benchmarking),
+    AI governance e policy, Etica dell'AI e impatto sociale
