@@ -262,13 +262,13 @@ body::before {
 }
 
 /* Cursor spotlight — the same dot grid, brighter, revealed only through a mask
-   of three soft circles. JS (initDotSpotlight) lerps those circles along a
+   of three soft circles, on its own fixed element (added by initDotSpotlight)
+   so moving it restyles only that element. JS lerps those circles along a
    chain, each lagging further behind the cursor, which draws the tail. The
    opacity transition is what makes the tail fade out slowly once the pointer
    stops or leaves. Positions default off-screen so nothing shows until the
    first pointermove. */
-body::after {
-  content: '';
+.dot-spotlight {
   position: fixed;
   inset: 0;
   z-index: -1;
@@ -313,20 +313,20 @@ body::after {
   mask-composite: add;
 }
 
-body.spotlight-on::after {
+.dot-spotlight.is-on {
   opacity: 0.4;
 }
 
-[data-theme='dark'] body::after {
+[data-theme='dark'] .dot-spotlight {
   background-image: radial-gradient(circle, rgba(190, 240, 210, 0.95) 1px, transparent 1.2px);
 }
 
-[data-theme='dark'] body.spotlight-on::after {
+[data-theme='dark'] .dot-spotlight.is-on {
   opacity: 0.42;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  body.spotlight-on::after {
+  .dot-spotlight.is-on {
     opacity: 0;
   }
 }
@@ -3728,8 +3728,10 @@ textarea.form-input {
   opacity: 0;
 }
 
+/* A few rounds, then still: endless SVG animations keep the map (and its glow
+   filters) repainting for as long as the page is open. */
 .map-figure.is-visible .map-link-wave {
-  animation: link-breath 5.4s ease-in-out infinite;
+  animation: link-breath 5.4s ease-in-out 3;
   animation-delay: calc(2.2s + var(--link-index) * 0.31s);
 }
 
@@ -3798,7 +3800,7 @@ textarea.form-input {
 }
 
 .map-figure.is-visible .map-pin-halo {
-  animation: pin-halo 3s ease-out infinite;
+  animation: pin-halo 3s ease-out 4;
   animation-delay: calc(2.3s + var(--pin-index) * 0.22s);
 }
 

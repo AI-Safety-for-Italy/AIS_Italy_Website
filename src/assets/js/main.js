@@ -176,9 +176,16 @@
   // ── Cursor spotlight over the dot texture ──────────────────────────────
   // Three mask circles chase each other: the first follows the cursor, each
   // next one follows the previous with a lazier ease. That lag is the tail.
-  // body::after holds the brighter dot grid the mask reveals.
+  // .dot-spotlight holds the brighter dot grid the mask reveals. The circles'
+  // positions are set on it alone, so each frame restyles one element, not
+  // the whole page.
   function initDotSpotlight() {
     if (reduceMotion || !canHover) return;
+
+    var spot = document.createElement('div');
+    spot.className = 'dot-spotlight';
+    spot.setAttribute('aria-hidden', 'true');
+    document.body.prepend(spot);
 
     var pts = [
       { x: 0, y: 0, ease: 0.3 },
@@ -199,8 +206,8 @@
         p.x += (tx - p.x) * p.ease;
         p.y += (ty - p.y) * p.ease;
         if (Math.abs(tx - p.x) > 0.3 || Math.abs(ty - p.y) > 0.3) moving = true;
-        root.style.setProperty('--spot-x' + i, p.x.toFixed(1) + 'px');
-        root.style.setProperty('--spot-y' + i, p.y.toFixed(1) + 'px');
+        spot.style.setProperty('--spot-x' + i, p.x.toFixed(1) + 'px');
+        spot.style.setProperty('--spot-y' + i, p.y.toFixed(1) + 'px');
       });
       frame = moving ? requestAnimationFrame(step) : null;
     }
@@ -221,7 +228,7 @@
           seeded = true;
           step();
         }
-        document.body.classList.add('spotlight-on');
+        spot.classList.add('is-on');
         if (!frame) frame = requestAnimationFrame(step);
       },
       { passive: true }
@@ -229,10 +236,10 @@
 
     // Leaving the window fades the tail out via the CSS opacity transition.
     document.addEventListener('pointerleave', function () {
-      document.body.classList.remove('spotlight-on');
+      spot.classList.remove('is-on');
     });
     window.addEventListener('blur', function () {
-      document.body.classList.remove('spotlight-on');
+      spot.classList.remove('is-on');
     });
   }
 
@@ -654,14 +661,13 @@
     var target = 0;
     var dirty = true;
     var lastTime = null;
+    var lastRendered = null;
+    var heroHeight = hero.getBoundingClientRect().height;
     function step(time) {
       frame = null;
       if (dirty) {
         // Home hero starts immediately below the header: fade from the first scroll.
-        target = Math.min(
-          1,
-          Math.max(0, window.scrollY / (hero.getBoundingClientRect().height * 0.6))
-        );
+        target = Math.min(1, Math.max(0, window.scrollY / (heroHeight * 0.6)));
         dirty = false;
         if (target > 0) hideName();
       }
@@ -669,7 +675,10 @@
       progress += (target - progress) * (1 - Math.exp(-dt / 55));
       var moving = Math.abs(target - progress) > 0.0001;
       if (!moving) progress = target;
-      render(progress);
+      if (progress !== lastRendered) {
+        render(progress);
+        lastRendered = progress;
+      }
       lastTime = moving ? time : null;
       if (moving) frame = requestAnimationFrame(step);
     }
@@ -678,7 +687,10 @@
       if (frame === null) frame = requestAnimationFrame(step);
     }
     window.addEventListener('scroll', schedule, { passive: true });
-    window.addEventListener('resize', schedule);
+    window.addEventListener('resize', function () {
+      heroHeight = hero.getBoundingClientRect().height;
+      schedule();
+    });
     schedule();
   }
 
