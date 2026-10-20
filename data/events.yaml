@@ -175,39 +175,6 @@ upcoming_events:
   # `speaker` is the name shown in the calendar's list of dates.
   # While the speaker or the title is not known yet, set `tbc: true`: the card
   # title is greyed out and the calendar says "coming soon".
-  - id: 5
-    # Anchor from the working title "The Direction of Refusal", kept so links stay valid.
-    anchor: 'seminar-direction-of-refusal'
-    category: 'seminar'
-    day: '2026-10-15'
-    speaker: 'Enrico Bottazzi'
-    title: 'How to Steer the Behavior of a Model: The Refusal Case'
-    title_it: 'How to Steer the Behavior of a Model: The Refusal Case'
-    date: 'Thursday 15 October 2026, 18:30 (CEST)'
-    date_it: 'Giovedì 15 ottobre 2026, ore 18:30 (CEST)'
-    status: 'Upcoming'
-    status_it: 'In programma'
-    description: '<p>The first seminar of the series, on one of the most interesting topics in AI safety research: <strong>mechanistic interpretability</strong>.</p><p>When a large language model refuses a request, what actually happens inside it? Can we identify the mechanisms behind this behaviour and intervene on them directly? Through a practical example on refusal behaviour, we will see how mechanistic interpretability can help us understand how LLMs work inside, and change how they behave.</p>'
-    description_it: "<p>Il primo seminario del ciclo, su uno dei temi più interessanti della ricerca sull'AI safety: la <strong>mechanistic interpretability</strong>.</p><p>Quando un large language model rifiuta una richiesta, cosa succede realmente al suo interno? Possiamo identificare i meccanismi responsabili di questo comportamento e intervenire direttamente su di essi? Attraverso un esempio pratico legato al refusal behavior, vedremo come la mechanistic interpretability possa aiutarci a comprendere meglio il funzionamento interno degli LLM e a modificarne il comportamento.</p>"
-    format_info:
-      - label: 'Speaker'
-        label_it: 'Relatore'
-        value: 'Enrico Bottazzi, a researcher with a background in cryptography who now works on mechanistic interpretability'
-        value_it: 'Enrico Bottazzi, ricercatore con un background in crittografia che oggi si occupa di mechanistic interpretability'
-        link: 'https://www.linkedin.com/in/3nricobottazzi/'
-      - label: 'Where'
-        label_it: 'Dove'
-        value: 'Online, on Zoom (link sent after registration)'
-        value_it: 'Online, su Zoom (link inviato dopo la registrazione)'
-      - label: 'Who it is for'
-        label_it: 'Per chi'
-        value: 'Researchers, students, professionals and anyone curious'
-        value_it: 'Ricercatori, studenti, professionisti e chiunque sia curioso'
-    register_text: 'Register for free on Luma'
-    register_text_it: 'Registrazione gratuita su Luma'
-    register_link: 'https://luma.com/k1yogh3v'
-    register_target: '_blank'
-
   - id: 6
     anchor: 'seminar-watermarking'
     category: 'seminar'
@@ -320,6 +287,31 @@ upcoming_events:
 # Entries that have taken place, newest first. Each is shown under "Past" in
 # the section of its category, and keeps its anchor so old links still land on it.
 past_events:
+  - id: 5
+    # Anchor from the working title "The Direction of Refusal", kept so links stay valid.
+    anchor: 'seminar-direction-of-refusal'
+    category: 'seminar'
+    day: '2026-10-15'
+    speaker: 'Enrico Bottazzi'
+    title: 'How to Steer the Behavior of a Model: The Refusal Case'
+    title_it: 'How to Steer the Behavior of a Model: The Refusal Case'
+    date: 'Thursday 15 October 2026, 18:30 (CEST)'
+    date_it: 'Giovedì 15 ottobre 2026, ore 18:30 (CEST)'
+    status: 'Past'
+    status_it: 'Concluso'
+    description: '<p>The first seminar of the series, on one of the most interesting topics in AI safety research: <strong>mechanistic interpretability</strong>.</p><p>When a large language model refuses a request, what actually happens inside it? Can we identify the mechanisms behind this behaviour and intervene on them directly? Through a practical example on refusal behaviour, we saw how mechanistic interpretability can help us understand how LLMs work inside, and change how they behave.</p>'
+    description_it: "<p>Il primo seminario del ciclo, su uno dei temi più interessanti della ricerca sull'AI safety: la <strong>mechanistic interpretability</strong>.</p><p>Quando un large language model rifiuta una richiesta, cosa succede realmente al suo interno? Possiamo identificare i meccanismi responsabili di questo comportamento e intervenire direttamente su di essi? Attraverso un esempio pratico legato al refusal behavior, abbiamo visto come la mechanistic interpretability possa aiutarci a comprendere meglio il funzionamento interno degli LLM e a modificarne il comportamento.</p>"
+    format_info:
+      - label: 'Speaker'
+        label_it: 'Relatore'
+        value: 'Enrico Bottazzi, a researcher with a background in cryptography who now works on mechanistic interpretability'
+        value_it: 'Enrico Bottazzi, ricercatore con un background in crittografia che oggi si occupa di mechanistic interpretability'
+        link: 'https://www.linkedin.com/in/3nricobottazzi/'
+      - label: 'Where'
+        label_it: 'Dove'
+        value: 'Online, on Zoom'
+        value_it: 'Online, su Zoom'
+
   - id: 4
     anchor: 'meetup-milano-2026'
     category: 'event'
