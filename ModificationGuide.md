@@ -68,6 +68,17 @@ When an event is over, move its entry from `upcoming_events:` to `past_events:` 
 3. Locate the question and update `question` or `answer`
 4. Save the file
 
+#### Adding a Video or Podcast
+
+Videos and podcasts live in `data/media.yaml` and are shown on the Media page (`/media/`), under Resources in the menu.
+
+1. Open `data/media.yaml` and copy the template at the top into `items:` (newest first)
+2. For a YouTube video, set `youtube` to the id after `watch?v=` in the link, and save its thumbnail as the preview: `curl -o src/assets/img/media/<id>.jpg https://i.ytimg.com/vi/<id>/maxresdefault.jpg`
+3. If it is the recording of a seminar or event, set `event` to that entry's `anchor` in `data/events.yaml`: the video then also appears on its card, and the Media page links back to it
+4. For a podcast, use `type: 'podcast'` and `url` in place of `youtube`
+
+The YouTube player loads only when someone presses play, so the pages send nothing to YouTube until then.
+
 ## Understanding the Theme System
 
 The website uses a **CSS variable-based theme system** that provides seamless switching between light and dark modes. Every color, background, and styled element uses CSS variables that automatically change when the theme is toggled.
