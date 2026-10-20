@@ -5,30 +5,24 @@ pagination:
   data: locales
   size: 1
   alias: locale
-# The address used for event livestreams and recordings. It used to redirect
-# (vercel.json) to the YouTube livestream of the October 2026 meetup,
-# https://www.youtube.com/live/YEEHur3o_wM; until the recordings are published
-# it is this placeholder page, kept out of search results and the sitemap.
+# The address used for event livestreams and recordings, printed on material
+# from the October 2026 meetup. The recordings now live on /media/, so this
+# only forwards there, and stays out of search results and the sitemap.
 noindex: true
 excludeFromSitemap: true
 permalink: '{{ locale.prefix }}{{ basePath }}'
-ogImageName: initiatives
-seoTitle: 'Event recordings | AI Safety for Italy'
-seoTitle_it: 'Registrazioni degli eventi | AI Safety for Italy'
-seoDescription: 'Recordings of AI Safety for Italy events and seminars, coming soon.'
-seoDescription_it: 'Le registrazioni degli eventi e dei seminari di AI Safety for Italy, in arrivo.'
 ---
-{% extends "base.njk" %}
-{% block content %}
-<section class="page-hero">
-    <div class="container">
-        <span class="eyebrow" data-en="Recordings" data-it="Registrazioni">Recordings</span>
-        <h1 data-en="Recordings are on the way" data-it="Le registrazioni sono in arrivo">Recordings are on the way</h1>
-        <p class="lede" data-en="We are editing the recordings of our events and seminars, and will publish them here as soon as they are ready. Thanks for your patience!" data-it="Stiamo preparando le registrazioni dei nostri eventi e seminari: le pubblicheremo qui appena saranno pronte. Grazie per la pazienza!">We are editing the recordings of our events and seminars, and will publish them here as soon as they are ready. Thanks for your patience!</p>
-        <p style="margin-top: 2rem; display: flex; flex-wrap: wrap; gap: 0.75rem;">
-            <a href="/seminars/" class="btn btn-primary" data-en="Upcoming seminars" data-it="Prossimi seminari">Upcoming seminars</a>
-            <a href="/events/" class="btn btn-secondary" data-en="All events" data-it="Tutti gli eventi">All events</a>
-        </p>
-    </div>
-</section>
-{% endblock %}
+{%- set target = locale.prefix + "/media/" -%}
+<!doctype html>
+<html lang="{{ locale.code }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="robots" content="noindex">
+  <meta http-equiv="refresh" content="0; url={{ target }}">
+  <link rel="canonical" href="{{ target }}">
+  <title>Media | AI Safety for Italy</title>
+</head>
+<body>
+  <p><a href="{{ target }}">{{ "Vai alle registrazioni" if locale.code == "it" else "Go to the recordings" }}</a></p>
+</body>
+</html>

@@ -1,0 +1,60 @@
+# Media Page Content Data
+# Recordings of our seminars and events, and later podcasts and other media.
+# Each field has an English value and an Italian (_it) counterpart.
+#
+# An item with `event` set to the `anchor` of an entry in data/events.yaml also
+# shows its player on that entry's card on /seminars/ or /events/, so the link
+# is written once, here.
+#
+# A YouTube video, to copy into `items` (newest first):
+#
+#  - type: 'video'
+#    youtube: 'nd3l9CjsWZI'             # the id after watch?v= in the YouTube link
+#    title: 'Video title'
+#    title_it: 'Titolo del video'
+#    speaker: 'Name Surname'
+#    date: '15 October 2026'
+#    date_it: '15 ottobre 2026'
+#    event: 'seminar-direction-of-refusal'   # optional, see above
+#    description: 'One or two sentences.'
+#    description_it: 'Una o due frasi.'
+#
+# The preview image is a local copy of the YouTube thumbnail, saved as
+# src/assets/img/media/<youtube id>.jpg:
+#   curl -o src/assets/img/media/<id>.jpg https://i.ytimg.com/vi/<id>/maxresdefault.jpg
+# The player itself (youtube-nocookie.com) loads only when someone presses play.
+#
+# A podcast episode or any other link: `type: 'podcast'` and `url` (and
+# optionally `link_text` / `link_text_it`) in place of `youtube`.
+
+hero:
+  title: 'Media'
+  title_it: 'Media'
+  subtitle: 'Recordings of our seminars and events, and the other media we produce.'
+  subtitle_it: 'Le registrazioni dei nostri seminari ed eventi, e gli altri contenuti che produciamo.'
+
+# One section per type, in this order. A section with no items shows its
+# empty_text, or is hidden when empty_text is not set.
+sections:
+  - type: 'video'
+    title: 'Videos'
+    title_it: 'Video'
+    empty_text: 'The recordings of our seminars will appear here.'
+    empty_text_it: 'Qui arriveranno le registrazioni dei nostri seminari.'
+  - type: 'podcast'
+    title: 'Podcasts'
+    title_it: 'Podcast'
+    empty_text: 'Coming soon.'
+    empty_text_it: 'In arrivo.'
+
+items:
+  - type: 'video'
+    youtube: 'nd3l9CjsWZI'
+    title: 'How to Steer the Behavior of a Model: The Refusal Case'
+    title_it: 'How to Steer the Behavior of a Model: The Refusal Case'
+    speaker: 'Enrico Bottazzi'
+    date: '15 October 2026'
+    date_it: '15 ottobre 2026'
+    event: 'seminar-direction-of-refusal'
+    description: 'The first seminar of the series: how mechanistic interpretability can find the mechanism behind a model refusing a request, and change it.'
+    description_it: 'Il primo seminario del ciclo: come la mechanistic interpretability può individuare il meccanismo con cui un modello rifiuta una richiesta, e modificarlo.'
