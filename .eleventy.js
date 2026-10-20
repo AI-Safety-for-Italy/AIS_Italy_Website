@@ -353,6 +353,7 @@ module.exports = function(eleventyConfig) {
     'translations.yaml',
     'news.yaml',
     'members.yaml',
+    'media.yaml',
     'resources.yaml'
   ];
 

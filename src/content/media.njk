@@ -1,0 +1,82 @@
+---
+title: Media
+basePath: /media/
+pagination:
+  data: locales
+  size: 1
+  alias: locale
+  # Without this only the first locale reaches collections.all,
+  # and the sitemap would list the English pages only.
+  addAllPagesToCollections: true
+permalink: '{{ locale.prefix }}{{ basePath }}'
+# No dedicated social card yet (scripts/og-images.js); reuse the resources one.
+ogImageName: resources
+seoTitle: 'Media: seminar recordings and podcasts | AI Safety for Italy'
+seoTitle_it: 'Media: registrazioni dei seminari e podcast | AI Safety for Italy'
+seoDescription: 'Recordings of the AI Safety for Italy seminars and events on AI safety, ethics and governance, and our podcasts.'
+seoDescription_it: "Le registrazioni dei seminari e degli eventi di AI Safety for Italy su sicurezza, etica e governance dell'IA, e i nostri podcast."
+---
+{% extends "base.njk" %}
+{% from "video-embed.njk" import videoEmbed with context %}
+{% block content %}
+{# Content in data/media.yaml. An item linked to an event (`event`) also links
+   back to it, on /seminars/ or /events/ depending on its category. #}
+{% set allEvents = events.upcoming_events.concat(events.past_events) %}
+
+<!-- Page hero -->
+<section class="page-hero">
+    <div class="container">
+        <span class="eyebrow" data-en="{{ translations.en.nav.resources }}" data-it="{{ translations.it.nav.resources }}">{{ translations.en.nav.resources }}</span>
+        <h1 data-en="{{ media.hero.title }}" data-it="{{ media.hero.title_it }}">{{ media.hero.title }}</h1>
+        <p class="lede" data-en="{{ media.hero.subtitle }}" data-it="{{ media.hero.subtitle_it }}">{{ media.hero.subtitle }}</p>
+    </div>
+</section>
+
+{% for section in media.sections %}
+{% set items = media.items | where("type", section.type) %}
+{% if items | length or section.empty_text %}
+<section class="section{% if loop.index is even %} section-alt{% endif %}" id="{{ section.type }}">
+    <div class="container">
+        <div class="section-head reveal">
+            <h2 data-en="{{ section.title }}" data-it="{{ section.title_it }}">{{ section.title }}</h2>
+        </div>
+        {% if items | length %}
+        <div class="media-grid">
+            {% for item in items %}
+            {% set event = allEvents | where("anchor", item.event) | first if item.event %}
+            <article class="card media-card reveal">
+                {% if item.youtube %}{{ videoEmbed(item) }}{% endif %}
+                <div class="media-card__body">
+                    <h3 data-en="{{ item.title }}" data-it="{{ item.title_it }}">{{ item.title }}</h3>
+                    <p class="media-card__meta">
+                        {%- if item.speaker %}<span>{{ item.speaker }}</span>{% endif -%}
+                        {%- if item.date %}<span data-en="{{ item.date }}" data-it="{{ item.date_it }}">{{ item.date }}</span>{% endif -%}
+                    </p>
+                    {% if item.description %}
+                    <p data-en="{{ item.description }}" data-it="{{ item.description_it }}">{{ item.description }}</p>
+                    {% endif %}
+                    {% if (item.url and not item.youtube) or event %}
+                    <p class="flex flex-wrap gap-3 media-card__links">
+                        {% if item.url and not item.youtube %}
+                        <a href="{{ item.url }}" target="_blank" rel="noopener noreferrer" class="btn btn-outline"
+                           data-en="{{ item.link_text or 'Listen' }}" data-it="{{ item.link_text_it or 'Ascolta' }}">{{ item.link_text or 'Listen' }}</a>
+                        {% endif %}
+                        {% if event %}
+                        <a href="{{ '/seminars/' if event.category == 'seminar' else '/events/' }}#{{ event.anchor }}" class="media-card__event"
+                           data-en="{{ 'About the seminar →' if event.category == 'seminar' else 'About the event →' }}"
+                           data-it="{{ 'Il seminario →' if event.category == 'seminar' else "L'evento →" }}">{{ 'About the seminar →' if event.category == 'seminar' else 'About the event →' }}</a>
+                        {% endif %}
+                    </p>
+                    {% endif %}
+                </div>
+            </article>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="reveal" style="color: var(--text-secondary);" data-en="{{ section.empty_text }}" data-it="{{ section.empty_text_it }}">{{ section.empty_text }}</p>
+        {% endif %}
+    </div>
+</section>
+{% endif %}
+{% endfor %}
+{% endblock %}
