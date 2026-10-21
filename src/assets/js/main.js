@@ -694,9 +694,37 @@
     schedule();
   }
 
+  // ── Click-to-play videos (components/video-embed.njk) ─────────────────
+  // The page shows a local thumbnail linking to YouTube; only on click is it
+  // replaced by the youtube-nocookie player, so no request reaches YouTube
+  // before the visitor asks for the video.
+  function initVideoEmbeds() {
+    document.querySelectorAll('.video-embed[data-youtube]').forEach(function (box) {
+      var link = box.querySelector('.video-embed__link');
+      if (!link) return;
+      link.addEventListener('click', function (e) {
+        e.preventDefault();
+        var iframe = document.createElement('iframe');
+        iframe.src =
+          'https://www.youtube-nocookie.com/embed/' +
+          encodeURIComponent(box.dataset.youtube) +
+          '?autoplay=1&rel=0';
+        iframe.title = box.dataset.title || 'YouTube video';
+        iframe.allow =
+          'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+        iframe.referrerPolicy = 'strict-origin-when-cross-origin';
+        iframe.allowFullscreen = true;
+        box.replaceChildren(iframe);
+        box.classList.add('is-playing');
+        iframe.focus();
+      });
+    });
+  }
+
   initMenu();
   initThemeToggle();
   initSeminarCalendar();
+  initVideoEmbeds();
   initAnnouncements();
   initScrollReveal();
   initCountUp();

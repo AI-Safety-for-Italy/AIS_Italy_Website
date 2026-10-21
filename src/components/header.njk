@@ -50,7 +50,10 @@
     { url: "/events/", key: "events_list" }
   ] },
   { url: "/community/", key: "community" },
-  { url: "/resources/", key: "resources" }
+  { url: "/resources/", key: "resources", children: [
+    { url: "/resources/", key: "resources_links" },
+    { url: "/media/", key: "media" }
+  ] }
 ] -%}
 
 <header class="site-header">

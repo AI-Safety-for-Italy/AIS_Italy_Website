@@ -1,0 +1,18 @@
+{# A YouTube video from data/media.yaml as a click-to-play preview: the local
+   thumbnail and a play button, linking to YouTube. main.js swaps it for the
+   youtube-nocookie player on click, so nothing is requested from YouTube until
+   then, and without JS the link still opens the video. Import it `with
+   context` so it can read `lang`:
+     {% from "video-embed.njk" import videoEmbed with context %} #}
+{% macro videoEmbed(item) %}
+{%- set title = item.title_it if lang == "it" and item.title_it else item.title -%}
+<div class="video-embed" data-youtube="{{ item.youtube }}" data-title="{{ title }}">
+    <a class="video-embed__link" href="https://www.youtube.com/watch?v={{ item.youtube }}" target="_blank" rel="noopener noreferrer"
+       aria-label="{{ ('Guarda il video: ' if lang == 'it' else 'Play video: ') + title }}">
+        <img src="/assets/img/media/{{ item.youtube }}.jpg" alt="" width="1280" height="720" loading="lazy" decoding="async">
+        <span class="video-embed__play" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l11-6.5z"/></svg>
+        </span>
+    </a>
+</div>
+{% endmacro %}
