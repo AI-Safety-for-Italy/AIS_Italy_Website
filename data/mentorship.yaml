@@ -116,8 +116,11 @@ participants:
   note: 'You can take part alongside other programs (SPAR, BlueDot, ARENA, etc.).'
   note_it: 'È possibile partecipare in parallelo ad altri programmi (SPAR, BlueDot, ARENA, ecc.).'
 
-# "Date principali", in order. `status`: done | current | upcoming. Move
-# `current` down as the program advances.
+# "Date principali", in order. Each step has its `day` (YYYY-MM-DD), and a
+# step that lasts more than one day its last day in `until`; a step with only
+# `until` lasts until then. The page marks the steps whose days are over as
+# done and highlights the one in progress ("Now") or, between steps, the next
+# one ("Next"), by itself: nothing to move by hand (initTimeline in main.js).
 timeline_title: 'Key dates'
 timeline_title_it: 'Date principali'
 timeline_notes:
@@ -126,53 +129,54 @@ timeline_notes:
   - text: 'A spring edition is planned, indicatively from 1 April to 30 June 2027.'
     text_it: "Un'edizione primaverile è prevista indicativamente dal 1 aprile al 30 giugno 2027."
 timeline:
-  - date: 'From now'
-    date_it: 'Da ora'
+  - date: 'Until 20 October 2026'
+    date_it: 'Fino al 20 ottobre 2026'
     title: 'Expression of interest for mentors and mentees'
     title_it: 'Manifestazione di interesse per mentor e mentee'
-    status: current
+    until: '2026-10-20'
   - date: '20 October 2026'
     date_it: '20 ottobre 2026'
     title: 'Mentor applications close'
     title_it: 'Chiusura candidature mentor'
-    status: upcoming
+    day: '2026-10-20'
   - date: '31 October 2026'
     date_it: '31 ottobre 2026'
     title: 'List of mentors and projects published'
     title_it: 'Pubblicazione elenco mentor e progetti'
-    status: upcoming
+    day: '2026-10-31'
   - date: '1 November 2026'
     date_it: '1 novembre 2026'
     title: 'Mentee applications open'
     title_it: 'Apertura candidature mentee'
-    status: upcoming
+    day: '2026-11-01'
   - date: '20 November 2026'
     date_it: '20 novembre 2026'
     title: 'Mentee applications close'
     title_it: 'Chiusura candidature mentee'
-    status: upcoming
+    day: '2026-11-20'
   - date: '21 November – 3 December 2026'
     date_it: '21 novembre – 3 dicembre 2026'
     title: 'Interviews and shortlist'
     title_it: 'Colloqui e shortlist'
-    status: upcoming
+    day: '2026-11-21'
+    until: '2026-12-03'
   - date: '8 December 2026'
     date_it: '8 dicembre 2026'
     title: 'Matches published'
     title_it: 'Pubblicazione degli abbinamenti'
-    status: upcoming
+    day: '2026-12-08'
   - date: '15 December 2026'
     date_it: '15 dicembre 2026'
     title: 'Opening event'
     title_it: 'Evento di apertura'
-    status: upcoming
+    day: '2026-12-15'
   - date: '15 March 2027'
     date_it: '15 marzo 2027'
     title: 'End of the program'
     title_it: 'Fine del programma'
     description: 'With a closing event where mentees present their projects.'
     description_it: 'Con evento di chiusura in cui i mentee presentano i propri progetti.'
-    status: upcoming
+    day: '2027-03-15'
 
 # "Come si viene selezionati"
 selection:

@@ -537,9 +537,54 @@
     });
   }
 
+  // ── Mentorship key dates (content/mentorship.njk) ──────────────────────
+  // Like the calendar, the steps follow today's date: the ones over are done,
+  // the one in progress gets "Now" and, between two steps, the next one gets
+  // "Next". A step lasts from `data-day` (or from the start, if missing) to
+  // `data-until` (or to its own day).
+  function initTimeline() {
+    var list = document.querySelector('[data-timeline]');
+    if (!list) return;
+
+    var now = new Date();
+    var today = [
+      now.getFullYear(),
+      String(now.getMonth() + 1).padStart(2, '0'),
+      String(now.getDate()).padStart(2, '0'),
+    ].join('-');
+
+    var steps = list.querySelectorAll('.timeline-step');
+    var current = null;
+    var badge = 'now';
+    steps.forEach(function (step) {
+      var from = step.getAttribute('data-day') || '';
+      var to = step.getAttribute('data-until') || from;
+      var state = 'upcoming';
+      if (to && to < today) state = 'done';
+      else if (to && from <= today) state = 'current';
+      // When two steps overlap (a deadline on the last day of a phase), the
+      // later one is the news: the earlier one shows as done.
+      if (state === 'current' && current) current.classList.replace('is-current', 'is-done');
+      step.classList.remove('is-done', 'is-current', 'is-upcoming');
+      step.classList.add('is-' + state);
+      if (state === 'current') current = step;
+    });
+
+    if (!current) {
+      current = list.querySelector('.timeline-step.is-upcoming');
+      badge = 'next';
+      if (current) current.classList.replace('is-upcoming', 'is-current');
+    }
+    if (!current) return;
+    current.setAttribute('aria-current', 'step');
+    var label = current.querySelector('[data-timeline-badge="' + badge + '"]');
+    if (label) label.hidden = false;
+  }
+
   initMenu();
   initThemeToggle();
   initSeminarCalendar();
+  initTimeline();
   initVideoEmbeds();
   initAnnouncements();
   initScrollReveal();

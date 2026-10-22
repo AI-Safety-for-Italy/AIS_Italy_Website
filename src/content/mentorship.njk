@@ -137,9 +137,9 @@ seoDescription_it: "Il programma di mentorship di AI Safety for Italy mette in c
             <p data-en="{{ n.text }}" data-it="{{ n.text_it }}">{{ n.text }}</p>
             {% endfor %}
         </div>
-        <ol class="timeline">
+        <ol class="timeline" data-timeline>
             {% for step in m.timeline %}
-            <li class="timeline-step is-{{ step.status }} reveal"{% if step.status == "current" %} aria-current="step"{% endif %}>
+            <li class="timeline-step is-upcoming reveal"{% if step.day %} data-day="{{ step.day }}"{% endif %}{% if step.until %} data-until="{{ step.until }}"{% endif %}>
                 <span class="timeline-marker" aria-hidden="true"></span>
                 <div class="timeline-body">
                     <p class="timeline-date">
@@ -148,7 +148,8 @@ seoDescription_it: "Il programma di mentorship di AI Safety for Italy mette in c
                         {% else %}
                         <span data-en="To be announced" data-it="Da annunciare">To be announced</span>
                         {% endif %}
-                        {% if step.status == "current" %}<span class="timeline-now" data-en="Now" data-it="Ora">Now</span>{% endif %}
+                        <span class="timeline-now" data-timeline-badge="now" data-en="Now" data-it="Ora" hidden>Now</span>
+                        <span class="timeline-now" data-timeline-badge="next" data-en="Next" data-it="Prossima" hidden>Next</span>
                     </p>
                     <h3 data-en="{{ step.title }}" data-it="{{ step.title_it }}">{{ step.title }}</h3>
                     {% if step.description %}
