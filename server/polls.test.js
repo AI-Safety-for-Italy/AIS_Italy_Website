@@ -502,6 +502,7 @@ test('Discord sign-in returns the member profile when they hold an allowed role'
     name: 'Anna R.',
     avatarUrl: 'https://cdn.discordapp.com/avatars/42/abc.png?size=64',
     email: 'Anna@x.org',
+    roles: ['roleB'],
   });
 });
 

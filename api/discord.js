@@ -11,6 +11,7 @@ const crypto = require('crypto');
 const { route, redirect, origin, getQuery, getCookie } = require('../server/http');
 const auth = require('../server/auth');
 const discord = require('../server/discord');
+const permissions = require('../server/permissions');
 
 const STATE_COOKIE = 'ais_oauth';
 const NEXT = /^\/app\/[\w/-]*(\?[\w=&%.-]*)?$/;
@@ -44,7 +45,12 @@ module.exports = route({
     if (query.error) return fail(res, 'denied');
 
     try {
-      const profile = await discord.verify({ code: query.code, redirectUri });
+      // Roles given content permissions on the dashboard get in too.
+      const profile = await discord.verify({
+        code: query.code,
+        redirectUri,
+        allowRoles: permissions.anyContentRole,
+      });
       const user = await auth.upsertDiscordUser(profile);
       res.setHeader('Set-Cookie', [
         auth.cookieHeader(STATE_COOKIE, '', 0, 'Lax'),

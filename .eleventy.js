@@ -2,6 +2,7 @@ const yaml = require("js-yaml");
 const fs = require("fs");
 const path = require("path");
 const locales = require("./src/data/locales.js");
+const contentBuild = require("./server/content-build");
 
 const DEFAULT_LOCALE = locales[0];
 const PREFIXED_LOCALES = locales.filter(l => l.prefix);
@@ -360,14 +361,20 @@ module.exports = function(eleventyConfig) {
   // Load and expose each data file as global data
   dataFileNames.forEach(filename => {
     const dataKey = filename.replace('.yaml', '');
-    eleventyConfig.addGlobalData(dataKey, () => {
+    eleventyConfig.addGlobalData(dataKey, async () => {
       const data = loadYamlFile(rootDataDir, filename);
       if (Object.keys(data).length === 0) {
         console.warn(`Warning: ${filename} is empty or missing`);
       }
+      // Seminars and events published from the dashboard (/app/content/)
+      // join the YAML's; see server/content-build.js.
+      if (filename === 'events.yaml') return contentBuild.merge(data, await contentBuild.load());
       return data;
     });
   });
+  // The local server rewrites this on every publish, so `npm run dev:meet`
+  // shows the change at once.
+  eleventyConfig.addWatchTarget(contentBuild.SNAPSHOT);
 
   /**
    * Load all design tokens and make them globally available

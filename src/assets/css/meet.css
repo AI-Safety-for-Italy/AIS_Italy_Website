@@ -2067,3 +2067,197 @@ a.link-button {
 [data-theme='dark'] .meet-meta .repeat {
   color: var(--accent-400);
 }
+
+/* ── Content tool (/app/content/) ────────────────────────────────────────── */
+
+.content-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 440px);
+  gap: 1.25rem;
+  align-items: start;
+}
+
+/* The preview stays in view while the long form scrolls. */
+.content-side {
+  position: sticky;
+  top: 1rem;
+  display: grid;
+  gap: 1.25rem;
+}
+
+.content-side > .panel + .panel {
+  margin-top: 0;
+}
+
+@media (max-width: 960px) {
+  .content-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .content-side {
+    position: static;
+  }
+}
+
+.md-toolbar {
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: 0.3rem;
+}
+
+.md-toolbar button {
+  padding: 0.15rem 0.55rem;
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  background: var(--card-bg);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.md-toolbar button:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.md-input {
+  min-height: 9rem;
+  resize: vertical;
+}
+
+.detail-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+  gap: 0.4rem;
+  align-items: center;
+  padding: 0.6rem 0;
+  border-top: 1px solid var(--border-muted);
+}
+
+.detail-row:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+/* Label pair, text pair, then the link across, with × at the end. */
+.detail-row input[data-key='label'],
+.detail-row input[data-key='value'] {
+  grid-column: 1;
+}
+
+.detail-row input[data-key='label_it'],
+.detail-row input[data-key='value_it'] {
+  grid-column: 2;
+}
+
+.detail-row input[data-key='link'] {
+  grid-column: 1 / 3;
+}
+
+.detail-row .remove-btn {
+  grid-column: 3;
+  grid-row: 1;
+}
+
+.past-fields summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.past-fields[open] summary {
+  margin-bottom: 0.75rem;
+}
+
+.past-fields .md-field + .md-field {
+  margin-top: 1rem;
+}
+
+.content-preview .program-card {
+  margin: 0;
+  opacity: 1;
+  transform: none;
+}
+
+.content-preview-date {
+  margin: 0 0 1rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.past-preview {
+  margin-top: 1rem;
+  font-size: 0.92rem;
+}
+
+.past-preview summary {
+  cursor: pointer;
+  color: var(--text-secondary);
+}
+
+.content-group-title {
+  margin: 1.75rem 0 0.6rem;
+}
+
+.poll-item.is-tbc h3 {
+  color: var(--text-tertiary);
+  font-style: italic;
+}
+
+div.poll-item {
+  cursor: default;
+}
+
+.content-activity {
+  margin-top: 2rem;
+}
+
+.activity-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.55rem;
+  font-size: 0.9rem;
+}
+
+.activity-list li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.75rem;
+  align-items: baseline;
+}
+
+.activity-when {
+  min-width: 7.5rem;
+  color: var(--text-tertiary);
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.perm-table td {
+  text-align: center;
+}
+
+.perm-table input {
+  width: 1.1rem;
+  height: 1.1rem;
+  accent-color: var(--accent);
+}
+
+/* Stand-in Discord roles on the local login page */
+.dev-roles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.3rem 1rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.dev-roles legend {
+  grid-column: 1 / -1;
+  padding: 0;
+  margin-bottom: 0.4rem;
+}

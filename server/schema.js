@@ -134,4 +134,51 @@ alter table polls add column if not exists meeting_sequence integer not null def
 -- A recurring meeting: { freq, interval, until, count } (see recurrence.js),
 -- or null for a one-off.
 alter table polls add column if not exists recurrence jsonb;
+
+-- ── Content tool (/app/content/, server/content.js) ──────────────────────────
+
+-- The Discord role ids a member held at their last sign-in (or last check
+-- before publishing), which decide what they may publish.
+alter table app_users add column if not exists roles text[] not null default '{}';
+
+-- Which Discord role may do what with the site's content. permissions holds
+-- keys from PERMISSIONS in server/permissions.js. Edited from the dashboard.
+create table if not exists content_role_permissions (
+  role_id text primary key,
+  role_name text not null,
+  permissions text[] not null default '{}',
+  updated_at timestamptz not null default now()
+);
+
+-- Seminars and events published from the dashboard. entry is shaped like an
+-- entry of data/events.yaml, so the site's templates read both the same way;
+-- slug is its anchor on the page. Deleting only flags it, so it can be undone.
+create table if not exists content_items (
+  id uuid primary key default gen_random_uuid(),
+  type text not null check (type in ('seminar', 'event')),
+  slug text not null unique,
+  day date not null,
+  entry jsonb not null,
+  deleted boolean not null default false,
+  created_by uuid references app_users(id) on delete set null,
+  updated_by uuid references app_users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists content_items_day on content_items (day);
+
+-- Every save, delete and restore, with the entry as it was after it: the
+-- history shown in the dashboard, and what "restore this version" goes back to.
+create table if not exists content_versions (
+  id uuid primary key default gen_random_uuid(),
+  item_id uuid not null references content_items(id) on delete cascade,
+  action text not null check (action in ('create', 'update', 'delete', 'restore', 'import')),
+  entry jsonb not null,
+  user_id uuid references app_users(id) on delete set null,
+  user_name text not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists content_versions_item on content_versions (item_id, created_at);
 `;

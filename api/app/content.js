@@ -1,0 +1,97 @@
+// /api/app/content: seminars and events published from the dashboard.
+//   GET                           -> { items, permissions, activity, live }
+//   GET    ?id=…                  -> one item: { …, form, versions }
+//   POST   {fields}               -> publishes a new item  -> { id, publish }
+//   PUT    ?id=… {fields}         -> saves changes         -> { id, publish }
+//   DELETE ?id=…                  -> removes it from the site (restorable)
+//   POST   ?action=restore&id=…&version=…  -> puts back an earlier version
+//   POST   ?action=preview {fields}        -> the entry the fields make, or
+//                                             the first validation error
+//   GET    ?action=roles          -> { roles, table, keys } (manage only)
+//   PUT    ?action=roles { table }         -> saves the permissions table
+// `publish` says whether the rebuild started and the team was told
+// (server/content-publish.js). Permissions: server/permissions.js.
+const { route, sendJson, readJson, getQuery, origin, HttpError } = require('../../server/http');
+const { requireUser } = require('../../server/auth');
+const content = require('../../server/content');
+const permissions = require('../../server/permissions');
+const publish = require('../../server/content-publish');
+
+async function after(req, user, result) {
+  return publish.afterSave({ user, result, siteOrigin: origin(req) });
+}
+
+/** The list, history and preview are for people who can publish something. */
+async function requireSomePermission(user) {
+  if (!(await permissions.forUser(user)).length) {
+    throw new HttpError(403, 'Your Discord roles do not give access to the content tool');
+  }
+}
+
+module.exports = route({
+  async GET(req, res) {
+    const user = await requireUser(req);
+    const query = getQuery(req);
+    if (query.action === 'roles') {
+      await permissions.require(user, 'manage');
+      sendJson(res, 200, {
+        roles: await permissions.guildRoles(),
+        table: await permissions.listRolePermissions(),
+        keys: permissions.PERMISSIONS,
+      });
+      return;
+    }
+    await requireSomePermission(user);
+    if (query.id) {
+      sendJson(res, 200, await content.getItem(query.id, user));
+      return;
+    }
+    const list = await content.listItems(user);
+    sendJson(res, 200, {
+      ...list,
+      activity: await content.recentActivity(),
+      live: await content.isLive(),
+    });
+  },
+
+  async POST(req, res) {
+    const user = await requireUser(req);
+    const query = getQuery(req);
+    const body = await readJson(req);
+    if (query.action === 'preview') {
+      await requireSomePermission(user);
+      sendJson(res, 200, { entry: content.toEntry(body) });
+      return;
+    }
+    if (query.action === 'restore') {
+      const result = await content.restoreVersion(user, query.id, query.version);
+      sendJson(res, 200, { id: result.id, publish: await after(req, user, result) });
+      return;
+    }
+    if (query.action) throw new HttpError(400, 'Unknown action');
+    const result = await content.saveItem(user, body);
+    sendJson(res, 201, { id: result.id, publish: await after(req, user, result) });
+  },
+
+  async PUT(req, res) {
+    const user = await requireUser(req);
+    const query = getQuery(req);
+    if (query.action === 'roles') {
+      await permissions.require(user, 'manage', { fresh: true });
+      const { table } = await readJson(req);
+      sendJson(res, 200, { table: await permissions.saveRolePermissions(table) });
+      return;
+    }
+    if (!query.id) throw new HttpError(400, 'Which item?');
+    const result = await content.saveItem(user, await readJson(req), query.id);
+    sendJson(res, 200, { id: result.id, publish: await after(req, user, result) });
+  },
+
+  async DELETE(req, res) {
+    const user = await requireUser(req);
+    const { id } = getQuery(req);
+    if (!id) throw new HttpError(400, 'Which item?');
+    const result = await content.deleteItem(user, id);
+    sendJson(res, 200, { id: result.id, publish: await after(req, user, result) });
+  },
+});

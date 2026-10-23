@@ -109,6 +109,8 @@ __pycache__/
 
 # Local database for scripts/meet-dev.js
 .meet-dev-db/
+# Published content the local server hands to the build (server/content-build.js)
+_content-snapshot.json
 
 # Local credentials (e.g. the Google OAuth client for scripts/meet-google-auth.js)
 .secrets/
