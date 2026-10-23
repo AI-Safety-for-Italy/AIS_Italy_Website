@@ -801,8 +801,11 @@ textarea.form-input.is-short {
   color: #fff;
   border: 1px solid var(--accent-700);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
-  cursor: pointer;
   animation: wk-pop 0.18s var(--ease);
+  padding-right: 1.2rem;
+  /* Clicks go through to the grid, so a new slot can start inside this one
+     (overlapping slots); only the × catches them. */
+  pointer-events: none;
 }
 
 [data-theme='dark'] .wk-slot {
@@ -811,22 +814,29 @@ textarea.form-input.is-short {
   color: #062015;
 }
 
-.wk-slot:hover {
-  background: var(--accent-700);
-}
-
 .wk-slot .x {
+  pointer-events: auto;
   position: absolute;
-  top: 2px;
-  right: 4px;
-  opacity: 0;
-  font-size: 0.85rem;
+  top: 0;
+  right: 0;
+  width: 1.15rem;
+  height: 1.15rem;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.9rem;
   line-height: 1;
+  opacity: 0.75;
+  cursor: pointer;
 }
 
-.wk-slot:hover .x,
-.wk-slot:focus-visible .x {
-  opacity: 0.9;
+.wk-slot .x:hover,
+.wk-slot .x:focus-visible {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.18);
 }
 
 .wk-ghost {
