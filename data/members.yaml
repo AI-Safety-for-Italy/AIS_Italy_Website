@@ -1,4 +1,4 @@
-last_updated: '2026-10-18'
+last_updated: '2026-10-23'
 members:
 - id: 1
   name: Angelo Leone
@@ -531,31 +531,25 @@ members:
     ecc.), Alignment (RLHF, scalable oversight, value alignment), Rischi catastrofici
     / esistenziali
 - id: 68
-  name: Francesco Ortu
-  profile: https://francescortu.github.io/
-  location: Trieste, Italy
-  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
-    ecc.), Alignment (RLHF, scalable oversight, value alignment)
-- id: 69
   name: Feifei Zeng
   profile: https://www.linkedin.com/in/feifeizeng/
   location: Roma, Italia
   areas: AI governance e policy, Etica dell'AI e impatto sociale, Sicurezza informatica
     per modelli di frontiera
-- id: 70
+- id: 69
   name: Martina Dalla Maria
   location: Cerro Maggiore (MI), Italia
   areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
     ecc.), Evaluation (capability evaluations, dangerous capability evals, benchmarking),
     Alignment (RLHF, scalable oversight, value alignment), Etica dell'AI e impatto
     sociale, Rischi catastrofici / esistenziali
-- id: 71
+- id: 70
   name: amirreza jolani
   profile: https://www.linkedin.com/in/amirjm/?isSelfProfile=true
   location: milan, italy
   areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
     ecc.), Robustness e adversarial ML
-- id: 72
+- id: 71
   name: Leonardo Sartori
   profile: https://github.com/leonardosartori-web, https://linkedin.com/in/leonardo-sartori-web
   location: Ponte di Piave, Italia
@@ -563,6 +557,12 @@ members:
     ecc.), Evaluation (capability evaluations, dangerous capability evals, benchmarking),
     Alignment (RLHF, scalable oversight, value alignment), Robustness e adversarial
     ML, Sicurezza informatica per modelli di frontiera, Rischi catastrofici / esistenziali
+- id: 72
+  name: Francesco Ortu
+  profile: https://francescortu.github.io/
+  location: Trieste, Italy
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.), Alignment (RLHF, scalable oversight, value alignment)
 - id: 73
   name: Mario Licciardi
   profile: https://www.linkedin.com/in/mario-licciardi-12743590
@@ -813,3 +813,117 @@ members:
   areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
     ecc.), Evaluation (capability evaluations, dangerous capability evals, benchmarking),
     AI governance e policy, Etica dell'AI e impatto sociale
+- id: 103
+  name: Federica Granese
+  profile: https://scholar.google.com/citations?hl=en&user=P3p6x5kAAAAJ
+  location: Sophia Antipolis, Francia
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.), Evaluation (capability evaluations, dangerous capability evals, benchmarking),
+    Alignment (RLHF, scalable oversight, value alignment), Robustness e adversarial
+    ML, AI governance e policy, Etica dell'AI e impatto sociale, Sicurezza informatica
+    per modelli di frontiera, Rischi catastrofici / esistenziali
+- id: 104
+  name: Angela Barone
+  profile: https://www.linkedin.com/in/angela-b-7308001aa/
+  location: Rotterdam, Paesi Bassi
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.), Evaluation (capability evaluations, dangerous capability evals, benchmarking),
+    Alignment (RLHF, scalable oversight, value alignment), AI governance e policy,
+    Etica dell'AI e impatto sociale, Rischi catastrofici / esistenziali
+- id: 105
+  name: Stefano Infusini
+  profile: https://www.linkedin.com/in/stefano-infusini/
+  location: Genova, Italia
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.), Evaluation (capability evaluations, dangerous capability evals, benchmarking),
+    Alignment (RLHF, scalable oversight, value alignment), Etica dell'AI e impatto
+    sociale, Rischi catastrofici / esistenziali
+- id: 106
+  name: Mohamed Aziz Cherif
+  location: Parma, Italy
+  areas: Evaluation (capability evaluations, dangerous capability evals, benchmarking),
+    Robustness e adversarial ML, AI governance e policy, Etica dell'AI e impatto sociale,
+    Sicurezza informatica per modelli di frontiera
+  groups:
+  - technical
+  - community
+  - seminars
+- id: 107
+  name: Jacopo Berlusconi
+  profile: https://www.linkedin.com/in/jacopo-berlusconi/
+  location: Milano, Italia
+  areas: Alignment (RLHF, scalable oversight, value alignment), Etica dell'AI e impatto
+    sociale, Rischi catastrofici / esistenziali
+- id: 108
+  name: Fabio Frettoli
+  profile: www.linkedin.com/in/fabio-frettoli
+  location: Bolgare (Bergamo), Italia
+  areas: AI governance e policy, Rischi catastrofici / esistenziali
+  groups:
+  - governance
+  - seminars
+  - education
+- id: 109
+  name: Pierluigi Covone
+  location: Napoli, Italia
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.), Evaluation (capability evaluations, dangerous capability evals, benchmarking),
+    Alignment (RLHF, scalable oversight, value alignment)
+- id: 110
+  name: Andrea De Carlo
+  profile: https://andreadecarlo.github.io/
+  location: Trento, Italia
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.), Evaluation (capability evaluations, dangerous capability evals, benchmarking),
+    Alignment (RLHF, scalable oversight, value alignment), Etica dell'AI e impatto
+    sociale, Rischi catastrofici / esistenziali
+- id: 111
+  name: Maximo Rulli
+  profile: https://www.maximorulli.com/
+  location: Roma, Italia
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.), Alignment (RLHF, scalable oversight, value alignment)
+- id: 112
+  name: Francesco Nappo
+  location: Milano, Italia
+  areas: AI governance e policy, Etica dell'AI e impatto sociale
+- id: 113
+  name: Oscar Arroyo Vega
+  profile: https://github.com/ai-safe-earth
+  location: Bergamo, Italia
+  areas: Evaluation (capability evaluations, dangerous capability evals, benchmarking),
+    Alignment (RLHF, scalable oversight, value alignment), Etica dell'AI e impatto
+    sociale, Rischi catastrofici / esistenziali
+  groups:
+  - education
+- id: 114
+  name: Erika Lena
+  profile: https://www.linkedin.com/in/erika-lena/
+  location: Bologna, Italia
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.), Robustness e adversarial ML, Etica dell'AI e impatto sociale
+- id: 115
+  name: Filippo Mazzarotto
+  location: Padova, Italia
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.), Alignment (RLHF, scalable oversight, value alignment), AI governance e
+    policy, Etica dell'AI e impatto sociale, Rischi catastrofici / esistenziali
+- id: 116
+  name: Paulo Diego De Meneses
+  location: Fortaleza, Brazil
+  areas: Robustness e adversarial ML, AI governance e policy, Etica dell'AI e impatto
+    sociale, Sicurezza informatica per modelli di frontiera
+- id: 117
+  name: Davide Evangelista
+  profile: https://devangelista2.github.io/, https://www.linkedin.com/in/davide-evangelista-337b24250/,
+    https://www.unibo.it/sitoweb/davide.evangelista5
+  location: Bologna, Italia
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.), Robustness e adversarial ML
+- id: 118
+  name: Beatrice Pitton
+  location: Losanna, Svizzera
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.), Evaluation (capability evaluations, dangerous capability evals, benchmarking),
+    Alignment (RLHF, scalable oversight, value alignment), Robustness e adversarial
+    ML, AI governance e policy
