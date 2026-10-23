@@ -36,6 +36,18 @@
     discord.hidden = !info.discord;
     document.getElementById('devLogin').hidden = !info.devLogin;
     if (!info.discord && !info.devLogin) document.querySelector('.admin-login').open = true;
+    var roles = document.getElementById('devRoles');
+    (info.devRoles || []).forEach(function (role) {
+      roles.appendChild(
+        M.h(
+          'label',
+          { class: 'check-row' },
+          M.h('input', { type: 'checkbox', name: 'devRole', value: role.id }),
+          M.h('span', null, role.name)
+        )
+      );
+    });
+    roles.hidden = !(info.devRoles || []).length;
   });
 
   function signIn(form, action, body) {
@@ -59,6 +71,12 @@
 
   document.getElementById('devLogin').addEventListener('submit', function (e) {
     e.preventDefault();
-    signIn(e.target, 'dev', { name: document.getElementById('devName').value });
+    var roles = Array.prototype.map.call(
+      document.querySelectorAll('input[name="devRole"]:checked'),
+      function (input) {
+        return input.value;
+      }
+    );
+    signIn(e.target, 'dev', { name: document.getElementById('devName').value, roles: roles });
   });
 })();

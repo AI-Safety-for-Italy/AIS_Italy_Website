@@ -45,6 +45,16 @@ tools:
         </span>
       </a>
       {%- endfor %}
+      {# Shown by hub.js to members whose Discord roles allow publishing something. #}
+      <a class="tool-card" href="/app/content/" id="contentTool" hidden>
+        <span class="tool-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></svg>
+        </span>
+        <span class="tool-body">
+          <strong>Site content</strong>
+          <span>Publish seminars and events on the website.</span>
+        </span>
+      </a>
       <div class="tool-card is-soon" aria-hidden="true">
         <span class="tool-body"><strong>More tools</strong><span>Coming later.</span></span>
       </div>

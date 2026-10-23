@@ -1,0 +1,159 @@
+---
+title: Edit content
+# The form for one seminar or event: /app/content/edit/?type=seminar for a new
+# one, ?id=… to change one. Publishing saves it and rebuilds the site.
+permalink: /app/content/edit/
+appTab: content-new
+noindex: true
+excludeFromSitemap: true
+eleventyExcludeFromCollections: true
+seoTitle: 'Edit content | AI Safety for Italy'
+---
+{% extends "base.njk" %}
+{% block content %}
+<section class="page-hero meet-hero">
+  <div class="container">
+    <span class="eyebrow">Site content</span>
+    <h1 id="pageTitle">New seminar</h1>
+  </div>
+</section>
+
+<section class="meet-main">
+  <div class="container">
+    {% include "content-bar.njk" %}
+    <div class="notice" id="deletedNotice" hidden>
+      <strong>Removed from the site.</strong> Saving, or restoring a version below, puts it back.
+    </div>
+
+    <form id="contentForm" novalidate hidden>
+      <div class="content-layout">
+        <div class="panel form-grid">
+          <div>
+            <span class="form-label" id="typeLabel">Type</span>
+            <div class="choice-group" role="radiogroup" aria-labelledby="typeLabel" id="typeChoices">
+              <label class="choice"><input type="radio" name="type" value="seminar"><span>Seminar</span></label>
+              <label class="choice"><input type="radio" name="type" value="event"><span>Event</span></label>
+            </div>
+          </div>
+          <div class="form-row">
+            <div>
+              <label class="form-label" for="day">Day</label>
+              <input class="form-input is-compact" id="day" name="day" type="date" required>
+            </div>
+            <div>
+              <label class="form-label" for="time">Time <span class="panel-note">(Italian time)</span></label>
+              <input class="form-input is-compact" id="time" name="time" type="time" step="300">
+            </div>
+            <div>
+              <label class="form-label" for="end_time">Ends at <span class="panel-note">(optional)</span></label>
+              <input class="form-input is-compact" id="end_time" name="end_time" type="time" step="300">
+            </div>
+          </div>
+          <label class="check-row">
+            <input type="checkbox" id="tbc" name="tbc">
+            <span>Still to be confirmed <span class="panel-note">· title greyed out, “coming soon” in the calendar</span></span>
+          </label>
+          <div>
+            <label class="form-label" for="speaker">Speaker <span class="panel-note">(name shown in the calendar)</span></label>
+            <input class="form-input is-compact" id="speaker" name="speaker" maxlength="120" placeholder="e.g. Carlo Martinucci">
+          </div>
+          <div class="form-row">
+            <div>
+              <label class="form-label" for="title">Title</label>
+              <input class="form-input is-compact" id="title" name="title" maxlength="200">
+            </div>
+            <div>
+              <label class="form-label" for="title_it">Title in Italian</label>
+              <input class="form-input is-compact" id="title_it" name="title_it" maxlength="200">
+            </div>
+          </div>
+
+          <div class="md-field">
+            <label class="form-label" for="description_md">Description</label>
+            <textarea class="form-input is-compact md-input" id="description_md" name="description_md" maxlength="8000" rows="7"></textarea>
+          </div>
+          <div class="md-field">
+            <label class="form-label" for="description_md_it">Description in Italian</label>
+            <textarea class="form-input is-compact md-input" id="description_md_it" name="description_md_it" maxlength="8000" rows="7"></textarea>
+          </div>
+          <p class="form-note">**bold** · *italic* · [link text](https://…) · a line starting with “- ” makes a list · an empty line starts a new paragraph. A speaker bio can go at the end, e.g. “**About the speaker.** …”.</p>
+
+          <div>
+            <span class="form-label">Details</span>
+            <p class="form-note" style="margin:0 0 .5rem">The list under the description: speaker and affiliation, where, who it is for…</p>
+            <div id="details"></div>
+            <div class="wk-nav" style="margin-top:.5rem">
+              <button type="button" class="btn btn-outline btn-sm" data-preset="speaker">+ Speaker</button>
+              <button type="button" class="btn btn-outline btn-sm" data-preset="where">+ Where</button>
+              <button type="button" class="btn btn-outline btn-sm" data-preset="">+ Other</button>
+            </div>
+          </div>
+
+          <div>
+            <label class="form-label" for="register_link">Registration link <span class="panel-note">(optional, e.g. Luma)</span></label>
+            <input class="form-input is-compact" id="register_link" name="register_link" type="url" maxlength="500" placeholder="https://luma.com/…">
+          </div>
+          <div class="form-row" id="registerTexts">
+            <div>
+              <label class="form-label" for="register_text">Button text</label>
+              <input class="form-input is-compact" id="register_text" name="register_text" maxlength="80" placeholder="Register for free on Luma">
+            </div>
+            <div>
+              <label class="form-label" for="register_text_it">Button text in Italian</label>
+              <input class="form-input is-compact" id="register_text_it" name="register_text_it" maxlength="80" placeholder="Registrazione gratuita su Luma">
+            </div>
+          </div>
+
+          <details class="past-fields" id="pastFields">
+            <summary>Description after the event <span class="panel-note">(optional)</span></summary>
+            <p class="form-note">From the day after, the card moves to “Past” and shows this text instead, without the registration button. Write it in the past tense; left empty, the description above stays.</p>
+            <div class="md-field">
+              <label class="form-label" for="description_past_md">After the event</label>
+              <textarea class="form-input is-compact md-input" id="description_past_md" name="description_past_md" maxlength="8000" rows="5"></textarea>
+            </div>
+            <div class="md-field">
+              <label class="form-label" for="description_past_md_it">After the event, in Italian</label>
+              <textarea class="form-input is-compact md-input" id="description_past_md_it" name="description_past_md_it" maxlength="8000" rows="5"></textarea>
+            </div>
+          </details>
+        </div>
+
+        <div class="content-side">
+          <div class="panel">
+            <div class="panel-head">
+              <h2>Preview</h2>
+              <div class="lang-toggle" role="group" aria-label="Preview language">
+                <button type="button" data-lang="en" aria-pressed="true">EN</button>
+                <button type="button" data-lang="it" aria-pressed="false">IT</button>
+              </div>
+            </div>
+            <div class="content-preview" id="preview" aria-live="polite"></div>
+            <p class="form-error" id="previewError" hidden></p>
+          </div>
+          <div class="panel" id="historyPanel" hidden>
+            <div class="panel-head"><h2>History</h2></div>
+            <ul class="activity-list" id="history"></ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-error" id="formError" role="alert" hidden style="margin-top:1.25rem"></div>
+
+      <div class="action-bar">
+        <p id="saveNote">Goes online on the site in about 3 minutes.</p>
+        <div class="wk-nav">
+          <button class="btn btn-danger-outline" type="button" id="deleteBtn" hidden>Remove from the site</button>
+          <button class="btn btn-primary" type="submit" id="saveBtn">Publish</button>
+        </div>
+      </div>
+    </form>
+    <div id="formState"></div>
+  </div>
+</section>
+
+<script src="/assets/js/meet/common.js" defer></script>
+<script src="/assets/js/meet/app-common.js" defer></script>
+<script src="/assets/js/meet/markdown-lite.js" defer></script>
+<script src="/assets/js/meet/content-common.js" defer></script>
+<script src="/assets/js/meet/content-edit.js" defer></script>
+{% endblock %}
