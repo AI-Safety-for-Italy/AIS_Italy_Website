@@ -5,7 +5,9 @@
  *   - click            one slot of the chosen duration
  *   - drag vertically  the range cut into back-to-back slots
  *   - drag sideways    the same range repeated on each day crossed
- *   - click a slot     removes it
+ *   - × on a slot      removes it
+ * Slots may overlap (17:30–18:30 and 18:00–19:00): a click on an existing slot
+ * goes through to the grid, and only a second slot at the same start is refused.
  * On touch screens a drag scrolls the grid instead, so only taps add slots.
  */
 (function () {
@@ -138,15 +140,6 @@
     });
   }
 
-  function overlaps(ms) {
-    var span = state.duration * 60000;
-    var hit = false;
-    state.slots.forEach(function (other) {
-      if (Math.abs(other - ms) < span) hit = true;
-    });
-    return hit;
-  }
-
   /** Start minutes for a selected range [lo, hi), cut by the duration. */
   function startsFor(lo, hi, isClick) {
     if (isClick || hi - lo < state.duration) return [lo];
@@ -162,16 +155,16 @@
       starts.forEach(function (minutes) {
         if (minutes >= 1440) return;
         var ms = M.zonedToUtc(date, minutes, state.tz);
-        if (ms < now || overlaps(ms)) return;
+        if (ms < now || state.slots.has(ms)) return;
         state.slots.add(ms);
         added++;
       });
     });
-    if (!added) M.toast('Those times are taken or in the past');
+    if (!added) M.toast('Those times are already added or in the past');
     render();
   }
 
-  // Overlapping slots (possible after the duration grows) sit side by side.
+  // Overlapping slots sit side by side.
   function layoutLanes(list) {
     var clusters = [];
     var current = null;
@@ -289,10 +282,12 @@
 
   function slotBlock(s) {
     var width = 100 / s.lanes;
-    var block = h(
-      'button',
+    var label = M.hhmm(s.minutes) + '–' + M.hhmm(s.minutes + state.duration);
+    // The block itself lets clicks through to the grid (see .wk-slot in
+    // meet.css), so a new slot can start inside it; only the × removes it.
+    return h(
+      'div',
       {
-        type: 'button',
         class: 'wk-slot',
         style:
           'top:' +
@@ -303,19 +298,25 @@
           (s.lanes > 1
             ? 'left:calc(' + s.lane * width + '% + 2px);right:auto;width:calc(' + width + '% - 4px)'
             : ''),
-        'aria-label': 'Remove ' + M.hhmm(s.minutes),
-        onpointerdown: function (e) {
-          e.stopPropagation();
-        },
-        onclick: function () {
-          state.slots.delete(s.ms);
-          render();
-        },
       },
-      M.hhmm(s.minutes) + '–' + M.hhmm(s.minutes + state.duration),
-      h('span', { class: 'x', 'aria-hidden': 'true' }, '×')
+      label,
+      h(
+        'button',
+        {
+          type: 'button',
+          class: 'x',
+          'aria-label': 'Remove ' + label,
+          onpointerdown: function (e) {
+            e.stopPropagation();
+          },
+          onclick: function () {
+            state.slots.delete(s.ms);
+            render();
+          },
+        },
+        '×'
+      )
     );
-    return block;
   }
 
   function scrollToHour(hour) {
