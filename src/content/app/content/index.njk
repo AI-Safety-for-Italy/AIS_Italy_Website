@@ -21,10 +21,9 @@ seoTitle: 'Site content | AI Safety for Italy'
 <section class="meet-main">
   <div class="container">
     {% include "content-bar.njk" %}
-    <div class="notice" id="notLive" hidden>
-      <strong>Not switched on yet.</strong> The site still shows the seminars and events written in
-      <code>data/events.yaml</code>. What is published here goes online once the content is moved over
-      (<code>scripts/content-migrate.js</code>).
+    {# One <span>: .notice lays out its children side by side (icon + text). #}
+    <div class="notice" id="notLive" hidden style="margin-bottom:1.5rem">
+      <span><strong>Not switched on yet.</strong> What you publish here is saved, but the site still shows the seminars and events written in the code, until the content is moved over (<code>scripts/content-migrate.js</code>, see server/README.md).</span>
     </div>
     <div class="panel-head">
       <h2>Seminars &amp; events</h2>
