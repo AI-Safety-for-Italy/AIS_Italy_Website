@@ -2,9 +2,12 @@
 // (server/content.js), merged into the `events` data of data/events.yaml.
 //
 // Where they come from:
-//   - DATABASE_URL / MEET_DATABASE_URL set (the deploys: `vercel build` pulls
-//     them): the database. If it cannot be read the build fails on purpose, so
-//     the live site stays as it was instead of losing its seminars.
+//   - CONTENT_BUILD_DATABASE=1 (set it once the content is migrated): the
+//     database, at CONTENT_DATABASE_URL or else MEET_DATABASE_URL /
+//     DATABASE_URL. If it cannot be read the build fails on purpose, so the
+//     live site stays as it was instead of losing its seminars.
+//     Opt-in because the deploy's build environment (`vercel pull`) may hold a
+//     database address only the running functions can reach.
 //   - otherwise: _content-snapshot.json, which the local server
 //     (scripts/meet-dev.js) rewrites on every publish; and without it, the
 //     YAML alone. The CI checks build this way.
@@ -57,8 +60,12 @@ function writeSnapshot(data) {
 
 /** { live, entries } for this build. */
 async function load() {
-  const url = process.env.MEET_DATABASE_URL || process.env.DATABASE_URL;
-  if (!url) return fromSnapshot();
+  if (process.env.CONTENT_BUILD_DATABASE !== '1') return fromSnapshot();
+  const url =
+    process.env.CONTENT_DATABASE_URL || process.env.MEET_DATABASE_URL || process.env.DATABASE_URL;
+  if (!url) {
+    throw new Error('CONTENT_BUILD_DATABASE=1 but no database address is set for the build.');
+  }
   try {
     return await fromDatabase(url);
   } catch (err) {

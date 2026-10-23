@@ -144,7 +144,7 @@ the database and puts them in place of the YAML's seminars and events: an
 entry is upcoming until its day and past from the next (Past chip, no
 registration button, the "after the event" text if there is one). Other
 entries of the YAML (the mentorship call) and seminars or events without a
-`day` stay in the YAML. If the database cannot be read during a deploy, the
+`day` stay in the YAML. With `CONTENT_BUILD_DATABASE=1`, if the database cannot be read during a deploy, the
 build fails on purpose and the live site keeps its current content.
 
 **Permissions.** The Permissions page maps each Discord role to: Seminars,
@@ -177,6 +177,12 @@ Markdown limited to bold, italic, links and lists; everything else is escaped.
    From then on, edit seminars and events in the dashboard: changes to them in
    `data/events.yaml` no longer show. `--off` switches the site back to the
    YAML (nothing is deleted).
+4. Let the build read the database: `CONTENT_BUILD_DATABASE=1` in Vercel
+   (Preview first, then Production). Without it the build uses the YAML and
+   never connects. If the address the build gets from `vercel pull` is not
+   reachable from GitHub Actions (the first try on dev saw a host called
+   `base`), give the build its own in `CONTENT_DATABASE_URL`: the Neon
+   connection string of that environment's database.
 
 Locally, `npm run dev:meet` offers stand-ins for the Discord roles on the
 login page; `node scripts/content-migrate.js --local` (with the server

@@ -390,6 +390,26 @@ test('a deleted item leaves the site at the next build', async () => {
   assert.equal((await content.exportForBuild()).entries.length, 0);
 });
 
+test('the build reads the database only when asked to', async () => {
+  const saved = { ...process.env };
+  try {
+    // A deploy environment with an address the build cannot reach.
+    process.env.DATABASE_URL = 'postgres://user:pw@base:5432/db';
+    delete process.env.CONTENT_BUILD_DATABASE;
+    const data = await contentBuild.load();
+    assert.equal(typeof data.live, 'boolean');
+    // Asked to, an unreachable database stops the build.
+    process.env.CONTENT_BUILD_DATABASE = '1';
+    process.env.CONTENT_DATABASE_URL = 'postgres://user:pw@127.0.0.1:1/db';
+    await assert.rejects(contentBuild.load(), /The build stops/);
+  } finally {
+    for (const k of ['DATABASE_URL', 'CONTENT_BUILD_DATABASE', 'CONTENT_DATABASE_URL']) {
+      if (saved[k] === undefined) delete process.env[k];
+      else process.env[k] = saved[k];
+    }
+  }
+});
+
 // ── After publishing ─────────────────────────────────────────────────────────
 
 test('publishing starts the deploy workflow and tells the team channel', async () => {
