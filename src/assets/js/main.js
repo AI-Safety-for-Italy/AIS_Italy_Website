@@ -176,9 +176,16 @@
   // ── Cursor spotlight over the dot texture ──────────────────────────────
   // Three mask circles chase each other: the first follows the cursor, each
   // next one follows the previous with a lazier ease. That lag is the tail.
-  // body::after holds the brighter dot grid the mask reveals.
+  // .dot-spotlight holds the brighter dot grid the mask reveals. The circles'
+  // positions are set on it alone, so each frame restyles one element, not
+  // the whole page.
   function initDotSpotlight() {
     if (reduceMotion || !canHover) return;
+
+    var spot = document.createElement('div');
+    spot.className = 'dot-spotlight';
+    spot.setAttribute('aria-hidden', 'true');
+    document.body.prepend(spot);
 
     var pts = [
       { x: 0, y: 0, ease: 0.3 },
@@ -199,8 +206,8 @@
         p.x += (tx - p.x) * p.ease;
         p.y += (ty - p.y) * p.ease;
         if (Math.abs(tx - p.x) > 0.3 || Math.abs(ty - p.y) > 0.3) moving = true;
-        root.style.setProperty('--spot-x' + i, p.x.toFixed(1) + 'px');
-        root.style.setProperty('--spot-y' + i, p.y.toFixed(1) + 'px');
+        spot.style.setProperty('--spot-x' + i, p.x.toFixed(1) + 'px');
+        spot.style.setProperty('--spot-y' + i, p.y.toFixed(1) + 'px');
       });
       frame = moving ? requestAnimationFrame(step) : null;
     }
@@ -221,7 +228,7 @@
           seeded = true;
           step();
         }
-        document.body.classList.add('spotlight-on');
+        spot.classList.add('is-on');
         if (!frame) frame = requestAnimationFrame(step);
       },
       { passive: true }
@@ -229,10 +236,10 @@
 
     // Leaving the window fades the tail out via the CSS opacity transition.
     document.addEventListener('pointerleave', function () {
-      document.body.classList.remove('spotlight-on');
+      spot.classList.remove('is-on');
     });
     window.addEventListener('blur', function () {
-      document.body.classList.remove('spotlight-on');
+      spot.classList.remove('is-on');
     });
   }
 
@@ -510,6 +517,183 @@
     show(current);
   }
 
+  // ── Hero map: city names on hover/focus; regions drift apart on scroll ──
+  function initHeroMap() {
+    var map = document.querySelector('.home-hero-map');
+    if (!map) return;
+    var hero = map.closest('.home-hero');
+    var wrapper = map.parentElement;
+    var tooltip = wrapper.querySelector('.city-tooltip');
+    var cities = Array.prototype.slice.call(map.querySelectorAll('.city'));
+    var activeCity = null;
+
+    function hideName() {
+      tooltip.hidden = true;
+      activeCity = null;
+    }
+
+    function showName(city) {
+      if (!city || map.classList.contains('is-faded')) return;
+      activeCity = city;
+      tooltip.textContent = city.getAttribute('aria-label');
+      tooltip.hidden = false;
+      var dot = city.querySelector('.city-hit').getBoundingClientRect();
+      var box = wrapper.getBoundingClientRect();
+      var left = dot.left + dot.width / 2 - box.left - tooltip.offsetWidth / 2;
+      tooltip.style.left = Math.max(0, Math.min(box.width - tooltip.offsetWidth, left)) + 'px';
+      tooltip.style.top = dot.top - box.top - tooltip.offsetHeight - 6 + 'px';
+    }
+
+    cities.forEach(function (city) {
+      city.addEventListener('pointerenter', function () {
+        showName(city);
+      });
+      city.addEventListener('pointerleave', function () {
+        if (document.activeElement !== city) hideName();
+      });
+      city.addEventListener('focus', function () {
+        showName(city);
+      });
+      city.addEventListener('blur', hideName);
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') hideName();
+    });
+    window.addEventListener('resize', function () {
+      if (activeCity) showName(activeCity);
+    });
+
+    if (reduceMotion) return;
+
+    // All geometry uses one eased progress value, so pins stay on their regions
+    // and every arc remains attached to its pins throughout the drift. Regions
+    // move on the tilted plane; pins and arcs are placed in screen space above it.
+    var tilt = map.querySelector('.map-plane').transform.baseVal.consolidate().matrix;
+    var regions = Array.prototype.map.call(map.querySelectorAll('.rg'), function (el) {
+      var box = el.getBBox();
+      return {
+        el: el,
+        cx: box.x + box.width / 2,
+        cy: box.y + box.height / 2,
+        dx: Number(el.style.getPropertyValue('--dx')),
+        dy: Number(el.style.getPropertyValue('--dy')),
+        spin: ((Number(el.style.getPropertyValue('--rnd')) - 0.5) * Math.PI) / 3,
+      };
+    });
+    var points = cities.map(function (el) {
+      return {
+        x: Number(el.dataset.x),
+        y: Number(el.dataset.y),
+        h: Number(el.dataset.h),
+        region: Number(el.dataset.region),
+      };
+    });
+    var shadows = map.querySelectorAll('.map-shadows path');
+    var links = Array.prototype.map.call(map.querySelectorAll('.map-links .link'), function (el) {
+      return {
+        paths: el.querySelectorAll('path'),
+        from: Number(el.dataset.from),
+        to: Number(el.dataset.to),
+        bend: Number(el.dataset.bend),
+      };
+    });
+    var cityLayer = map.querySelector('.map-cities');
+
+    // Same as arc() in scripts/build-italy-map.py.
+    function arc(from, to, length, bend) {
+      var dx = to.x - from.x;
+      var dy = to.y - from.y;
+      var bow = Math.min(0.14, 18 / (Math.hypot(dx, dy) || 1)) * bend;
+      var lift = Math.min(26, 0.14 * length);
+      return {
+        x: (from.x + to.x) / 2 - dy * bow,
+        y: (from.y + to.y) / 2 + dx * bow - 2 * lift,
+      };
+    }
+
+    function xy(point) {
+      return point.x.toFixed(1) + ',' + point.y.toFixed(1);
+    }
+
+    function render(p) {
+      map.style.setProperty('--p', p.toFixed(4));
+      var matrices = regions.map(function (r) {
+        var a = Math.cos(r.spin * p);
+        var b = Math.sin(r.spin * p);
+        var tx = r.cx - a * r.cx + b * r.cy + r.dx * p * 120;
+        var ty = r.cy - b * r.cx - a * r.cy + r.dy * p * 120;
+        var matrix = [a, b, -b, a, tx, ty];
+        r.el.setAttribute('transform', 'matrix(' + matrix.join(' ') + ')');
+        return matrix;
+      });
+      var moved = points.map(function (point, i) {
+        var m = matrices[point.region];
+        var x = m[0] * point.x + m[2] * point.y + m[4];
+        var y = m[1] * point.x + m[3] * point.y + m[5];
+        var foot = {
+          x: tilt.a * x + tilt.c * y + tilt.e,
+          y: tilt.b * x + tilt.d * y + tilt.f,
+        };
+        cities[i].setAttribute('transform', 'translate(' + xy(foot) + ')');
+        return { plane: { x: x, y: y }, foot: foot, head: { x: foot.x, y: foot.y - point.h } };
+      });
+      links.forEach(function (link, k) {
+        var from = moved[link.from];
+        var to = moved[link.to];
+        var length = Math.hypot(to.plane.x - from.plane.x, to.plane.y - from.plane.y);
+        var c = arc(from.head, to.head, length, link.bend);
+        var d = 'M' + xy(from.head) + ' Q' + xy(c) + ' ' + xy(to.head);
+        for (var i = 0; i < link.paths.length; i++) link.paths[i].setAttribute('d', d);
+        shadows[k].setAttribute('d', 'M' + xy(from.foot) + ' L' + xy(to.foot));
+      });
+      var faded = p >= 0.6;
+      if (faded !== map.classList.contains('is-faded')) {
+        map.classList.toggle('is-faded', faded);
+        cityLayer.setAttribute('aria-hidden', faded ? 'true' : 'false');
+        cities.forEach(function (city) {
+          city.setAttribute('tabindex', faded ? '-1' : '0');
+        });
+      }
+    }
+
+    var frame = null;
+    var progress = 0;
+    var target = 0;
+    var dirty = true;
+    var lastTime = null;
+    var lastRendered = null;
+    var heroHeight = hero.getBoundingClientRect().height;
+    function step(time) {
+      frame = null;
+      if (dirty) {
+        // Home hero starts immediately below the header: fade from the first scroll.
+        target = Math.min(1, Math.max(0, window.scrollY / (heroHeight * 0.6)));
+        dirty = false;
+        if (target > 0) hideName();
+      }
+      var dt = lastTime === null ? 16 : Math.min(64, time - lastTime);
+      progress += (target - progress) * (1 - Math.exp(-dt / 55));
+      var moving = Math.abs(target - progress) > 0.0001;
+      if (!moving) progress = target;
+      if (progress !== lastRendered) {
+        render(progress);
+        lastRendered = progress;
+      }
+      lastTime = moving ? time : null;
+      if (moving) frame = requestAnimationFrame(step);
+    }
+    function schedule() {
+      dirty = true;
+      if (frame === null) frame = requestAnimationFrame(step);
+    }
+    window.addEventListener('scroll', schedule, { passive: true });
+    window.addEventListener('resize', function () {
+      heroHeight = hero.getBoundingClientRect().height;
+      schedule();
+    });
+    schedule();
+  }
+
   // ── Click-to-play videos (components/video-embed.njk) ─────────────────
   // The page shows a local thumbnail linking to YouTube; only on click is it
   // replaced by the youtube-nocookie player, so no request reaches YouTube
@@ -592,4 +776,5 @@
   initHeroGlow();
   initDotSpotlight();
   initConsent();
+  initHeroMap();
 })();

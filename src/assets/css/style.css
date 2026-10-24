@@ -262,13 +262,13 @@ body::before {
 }
 
 /* Cursor spotlight — the same dot grid, brighter, revealed only through a mask
-   of three soft circles. JS (initDotSpotlight) lerps those circles along a
+   of three soft circles, on its own fixed element (added by initDotSpotlight)
+   so moving it restyles only that element. JS lerps those circles along a
    chain, each lagging further behind the cursor, which draws the tail. The
    opacity transition is what makes the tail fade out slowly once the pointer
    stops or leaves. Positions default off-screen so nothing shows until the
    first pointermove. */
-body::after {
-  content: '';
+.dot-spotlight {
   position: fixed;
   inset: 0;
   z-index: -1;
@@ -313,20 +313,20 @@ body::after {
   mask-composite: add;
 }
 
-body.spotlight-on::after {
+.dot-spotlight.is-on {
   opacity: 0.4;
 }
 
-[data-theme='dark'] body::after {
+[data-theme='dark'] .dot-spotlight {
   background-image: radial-gradient(circle, rgba(190, 240, 210, 0.95) 1px, transparent 1.2px);
 }
 
-[data-theme='dark'] body.spotlight-on::after {
+[data-theme='dark'] .dot-spotlight.is-on {
   opacity: 0.42;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  body.spotlight-on::after {
+  .dot-spotlight.is-on {
     opacity: 0;
   }
 }
@@ -3852,8 +3852,10 @@ textarea.form-input {
   opacity: 0;
 }
 
+/* A few rounds, then still: endless SVG animations keep the map (and its glow
+   filters) repainting for as long as the page is open. */
 .map-figure.is-visible .map-link-wave {
-  animation: link-breath 5.4s ease-in-out infinite;
+  animation: link-breath 5.4s ease-in-out 3;
   animation-delay: calc(2.2s + var(--link-index) * 0.31s);
 }
 
@@ -3922,7 +3924,7 @@ textarea.form-input {
 }
 
 .map-figure.is-visible .map-pin-halo {
-  animation: pin-halo 3s ease-out infinite;
+  animation: pin-halo 3s ease-out 4;
   animation-delay: calc(2.3s + var(--pin-index) * 0.22s);
 }
 
@@ -4691,5 +4693,343 @@ pre code {
 
   .member-links a {
     overflow-wrap: anywhere;
+  }
+}
+
+/* ==========================================================================
+   Hero map: Italy's regions in a west-to-east tricolore, tilted into a slab
+   with pins and arcs above it. main.js sets --p from 0 to 1 as the hero
+   scrolls away and the regions drift apart.
+   ========================================================================== */
+
+:root {
+  --map-paper: #e8e4d6;
+  --map-ink: #1d2c23;
+  --map-arc: var(--map-ink);
+  --map-dot: #fffdf6;
+  --map-pulse: #008c45;
+  --map-side: #aaa491;
+}
+
+[data-theme='dark'] {
+  --map-paper: #bfc3b3;
+  --map-arc: #eef0e6;
+  --map-pulse: #5fd690;
+  --map-side: #4d5249;
+}
+
+.home-hero-grid {
+  align-items: center;
+}
+
+.home-hero-title em {
+  font-weight: 500;
+  color: var(--accent);
+  white-space: nowrap;
+  background: linear-gradient(90deg, #008c45 0 33%, var(--map-paper) 33% 66%, #cd212a 66%) no-repeat
+    left 92% / 100% 0.08em;
+}
+
+[data-theme='dark'] .home-hero-title em {
+  color: var(--accent-400);
+}
+
+.home-hero-map-wrap {
+  position: relative;
+  width: 100%;
+  max-width: 480px;
+  justify-self: center;
+}
+
+.home-hero-map {
+  --p: 0;
+  display: block;
+  width: 100%;
+  overflow: visible;
+}
+
+.map-side-colour {
+  flood-color: var(--map-side);
+}
+
+.rg {
+  stroke: var(--bg-primary);
+  stroke-width: 0.9;
+  stroke-linejoin: round;
+}
+
+/* Decorative tricolour: consistent tint within each geographic band. */
+.rg[data-band='g'] {
+  fill: color-mix(in oklab, #008c45 70%, var(--map-paper));
+}
+
+.rg[data-band='w'] {
+  fill: var(--map-paper);
+}
+
+.rg[data-band='r'] {
+  fill: color-mix(in oklab, #cd212a 70%, var(--map-paper));
+}
+
+/* Start fading on the first scroll; links disappear before their city pins. */
+.map-links,
+.map-shadows {
+  opacity: max(0, calc(1 - var(--p) / 0.45));
+}
+
+.map-cities {
+  opacity: max(0, calc(1 - var(--p) / 0.6));
+}
+
+.map-links path,
+.map-shadows path {
+  fill: none;
+}
+
+/* Where each arc would touch the map if it fell straight down */
+.map-shadows path {
+  stroke: var(--map-ink);
+  stroke-opacity: 0.3;
+  stroke-width: 0.7;
+  stroke-dasharray: 1.2 2.2;
+}
+
+/* A casing in the page colour keeps arcs legible over both land and sea */
+.link-case {
+  stroke: var(--bg-primary);
+  stroke-opacity: 0.75;
+  stroke-width: 2.6;
+  stroke-dasharray: 1;
+}
+
+.link-line {
+  stroke: var(--map-arc);
+  stroke-opacity: 0.8;
+  stroke-width: 0.9;
+  stroke-dasharray: 1;
+}
+
+.link-pulse {
+  stroke: var(--map-pulse);
+  stroke-linecap: round;
+  stroke-width: 2;
+  stroke-dasharray: 0.05 2;
+  stroke-dashoffset: 0.05;
+  opacity: 0;
+}
+
+.city {
+  cursor: default;
+  outline: none;
+}
+
+.city-foot {
+  fill: var(--map-ink);
+  fill-opacity: 0.3;
+}
+
+.city-stem {
+  stroke: var(--map-ink);
+  stroke-opacity: 0.75;
+  stroke-width: 0.8;
+}
+
+.city-dot {
+  fill: var(--map-dot);
+  stroke: var(--map-ink);
+  stroke-width: 1.1;
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: fill 0.15s ease;
+}
+
+.city--anchor .city-dot {
+  fill: var(--map-ink);
+  stroke: var(--map-dot);
+}
+
+.city-ring {
+  fill: none;
+  stroke: var(--map-arc);
+  stroke-width: 0.8;
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.city:hover .city-dot,
+.city:focus-visible .city-dot {
+  fill: var(--map-pulse);
+}
+
+.city-hit {
+  fill: transparent;
+}
+
+.home-hero-map.is-faded .map-cities {
+  pointer-events: none;
+}
+
+/* HTML keeps the tooltip readable even when the SVG scales down. */
+.city-tooltip {
+  position: absolute;
+  z-index: 2;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  line-height: 1.4;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 12%);
+}
+
+.city:focus-visible .city-hit {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.5;
+}
+
+/* The map rises in, then the network draws outward from Milano and Roma at a
+   steady speed: each pin drops in as a line reaches it (--t0 / --dur from
+   scripts/build-italy-map.py). Afterwards a light travels the long arcs a few
+   times, and the two anchors pulse. */
+@media (prefers-reduced-motion: no-preference) {
+  /* Same rise as the hero copy (.hero-enter), just after the title */
+  .home-hero-map {
+    animation: rise-in 0.55s var(--ease) 0.1s backwards;
+  }
+
+  .link-case,
+  .link-line {
+    animation: hero-link-draw var(--dur) linear var(--t0) backwards;
+  }
+
+  .map-shadows path {
+    animation: fade-in 0.4s ease-out calc(var(--t0) + var(--dur)) backwards;
+  }
+
+  /* A few rounds only: endless SVG animations would keep repainting the map
+     (and its slab filter) for as long as the page is open. */
+  .link-pulse {
+    animation: link-pulse var(--pulse) linear calc(var(--t0) + var(--dur) + var(--pulse-delay)) 3;
+  }
+
+  .city-pin {
+    animation: fade-in 0.25s ease-out var(--t0) backwards;
+  }
+
+  /* The dot pops in place, so the links that meet it never miss it */
+  .city-dot {
+    animation: pin-pop 0.35s cubic-bezier(0.3, 1.5, 0.5, 1) var(--t0) backwards;
+  }
+
+  .city-ring {
+    animation: anchor-ring 3s ease-out 2.2s 4;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes hero-link-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+}
+
+@keyframes link-pulse {
+  0% {
+    stroke-dashoffset: 0.05;
+    opacity: 0;
+  }
+
+  3% {
+    opacity: 1;
+  }
+
+  55% {
+    stroke-dashoffset: -1;
+    opacity: 1;
+  }
+
+  56%,
+  100% {
+    stroke-dashoffset: -1;
+    opacity: 0;
+  }
+}
+
+@keyframes pin-pop {
+  from {
+    transform: scale(0.3);
+  }
+}
+
+@keyframes anchor-ring {
+  0% {
+    opacity: 0.7;
+    transform: scale(1);
+  }
+
+  70%,
+  100% {
+    opacity: 0;
+    transform: scale(2.6);
+  }
+}
+
+/* The featured event spans the hero, under the copy and the map */
+.event-card--wide {
+  margin-top: 2.5rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.event-card--wide .event-card-actions {
+  flex-direction: column;
+  border-top: 0;
+  border-left: 1px solid var(--border-default);
+  min-width: 15rem;
+}
+
+@media (max-width: 960px) {
+  /* The map tucks in beside the logo so the event card stays near the top */
+  .home-hero-grid {
+    position: relative;
+  }
+
+  /* The copy sits over the map's edge; let taps through to the city dots */
+  .home-hero-copy {
+    position: relative;
+    z-index: 1;
+    pointer-events: none;
+  }
+
+  .home-hero-copy a {
+    pointer-events: auto;
+  }
+
+  .home-hero-map-wrap {
+    position: absolute;
+    top: -1rem;
+    right: 0;
+    width: min(46vw, 260px);
+  }
+
+  .event-card--wide {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .event-card--wide .event-card-actions {
+    flex-direction: row;
+    border-left: 0;
+    border-top: 1px solid var(--border-default);
   }
 }
