@@ -356,6 +356,12 @@ past_events:
       - time: '19:00–20:30'
         title: 'Networking and aperitivo'
         title_it: 'Networking e aperitivo'
+    # Organisations that backed the event, shown with their logo at the
+    # bottom of the card. `logo` is a square icon, drawn next to the name.
+    supported_by:
+      - name: 'BlueDot Impact'
+        url: 'https://bluedot.org/'
+        logo: '/assets/img/orgs/bluedot.png'
     # /streaming is a placeholder page until the recording is published.
     stream_text: 'Recording coming soon'
     stream_text_it: 'Registrazione in arrivo'
