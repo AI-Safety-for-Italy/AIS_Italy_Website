@@ -118,3 +118,73 @@ Reconnecting means calling the calendar from `finalizePoll()` again.
   throttled after 10 failures in 15 minutes. It signs in as a single shared
   "Admin" account, which owns the polls made before accounts existed.
 - Sessions are signed, HttpOnly, SameSite=Strict cookies valid for 7 days.
+
+# Site content (`/app/content/`)
+
+Seminars and events published straight to the site by members whose Discord
+roles allow it, without touching the code. No review: what is published goes
+online at the next build, which publishing starts (about 3 minutes).
+
+| Where                                 | What                                                                       |
+| ------------------------------------- | -------------------------------------------------------------------------- |
+| `/app/content/`                       | The list, newest first, and the latest changes                             |
+| `/app/content/edit/`                  | The form (`?type=seminar`, `?type=event`, or `?id=…`), with a live preview |
+| `/app/content/permissions/`           | Which Discord role may do what (roles with `manage`, and the admin)        |
+| `api/app/content.js`                  | The API                                                                    |
+| `server/content.js`                   | Validation, the entry each item becomes, versions, the import              |
+| `server/permissions.js`               | Permissions from Discord roles                                             |
+| `server/content-build.js`             | What the site's build gets (`.eleventy.js`, the `events` data)             |
+| `server/content-publish.js`           | After a save: start the build, tell the team channel                       |
+| `scripts/content-migrate.js`          | Moves the seminars and events of `data/events.yaml` into the database      |
+| `src/assets/js/meet/markdown-lite.js` | The small Markdown the texts are written in, shared with the browser       |
+
+**How it fits the site.** Each item is stored as an entry shaped like one of
+`data/events.yaml`, so the templates do not change. The build reads them from
+the database and puts them in place of the YAML's seminars and events: an
+entry is upcoming until its day and past from the next (Past chip, no
+registration button, the "after the event" text if there is one). Other
+entries of the YAML (the mentorship call) and seminars or events without a
+`day` stay in the YAML. With `CONTENT_BUILD_DATABASE=1`, if the database cannot be read during a deploy, the
+build fails on purpose and the live site keeps its current content.
+
+**Permissions.** The Permissions page maps each Discord role to: Seminars,
+Events, Videos & podcasts, Blog (the last two for later), Edit others' content,
+Manage permissions. A member gets what all their roles allow together. Roles
+are stored at sign-in and read again from Discord with the bot before every
+publish, so losing a role on Discord takes effect at once. Discord sign-in
+also lets in any role with a permission here, besides `DISCORD_ROLES_IDS`.
+Without "Edit others' content" a member can only change what they published.
+
+**Safety net.** Every save, removal and restore is a version: each item's page
+lists them and can put any one back. Removing only hides an item. Texts are
+Markdown limited to bold, italic, links and lists; everything else is escaped.
+
+## Switching it on
+
+1. Settings in Vercel (Production and Preview):
+   - `CONTENT_BUILD_TOKEN`: a fine-grained GitHub token for this repository
+     with only **Actions: Read and write**, to start the deploy workflow.
+   - `CONTENT_BUILD_REF`: `main` in Production, `dev` in Preview.
+   - `DISCORD_CONTENT_CHANNEL_ID`: the channel for the announcements (the bot
+     `DISCORD_BOT_TOKEN_AIS_TEAM_AREA` must be able to write there).
+2. Set the permissions: sign in as the admin, open Site content → Permissions,
+   tick what each role may do, save.
+3. Move the content, first on the preview database, then on production:
+   ```sh
+   node scripts/content-migrate.js --dry-run
+   node scripts/content-migrate.js
+   ```
+   From then on, edit seminars and events in the dashboard: changes to them in
+   `data/events.yaml` no longer show. `--off` switches the site back to the
+   YAML (nothing is deleted).
+4. Let the build read the database: `CONTENT_BUILD_DATABASE=1` in Vercel
+   (Preview first, then Production). Without it the build uses the YAML and
+   never connects. If the address the build gets from `vercel pull` is not
+   reachable from GitHub Actions (the first try on dev saw a host called
+   `base`), give the build its own in `CONTENT_DATABASE_URL`: the Neon
+   connection string of that environment's database.
+
+Locally, `npm run dev:meet` offers stand-ins for the Discord roles on the
+login page; `node scripts/content-migrate.js --local` (with the server
+stopped) imports into the local database; publishing rewrites
+`_content-snapshot.json`, which the watching build picks up.

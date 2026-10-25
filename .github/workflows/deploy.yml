@@ -6,10 +6,14 @@ name: CI
 # on a throwaway preview URL before it is ever responsible for the live domain.
 # `design-improvements` gets its own preview too, to share the redesign
 # without touching dev.
+# `workflow_dispatch` lets the content tool (/app/content/) rebuild the site
+# after a seminar or event is published: it runs this workflow on main (or dev
+# for the previews) through server/content-publish.js.
 on:
   push:
     branches: [main, dev, design-improvements]
   pull_request:
+  workflow_dispatch:
 
 jobs:
   # Named `checks` because this is what branch protection should require. Keep
@@ -44,10 +48,11 @@ jobs:
   deploy:
     name: Deploy ${{ github.ref_name }}
     needs: checks
-    # Pushes only. On a pull_request event the checked-out tree is a merge
-    # commit that exists on neither branch, so deploying it would publish
-    # something no branch actually points at.
-    if: github.event_name == 'push'
+    # Pushes and the content tool's rebuilds; never pull requests. On a
+    # pull_request event the checked-out tree is a merge commit that exists on
+    # neither branch, so deploying it would publish something no branch
+    # actually points at.
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
 
     # Keyed per ref so a dev deploy and a main deploy never cancel each other,

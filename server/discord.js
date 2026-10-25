@@ -79,10 +79,12 @@ async function getJson(fetchImpl, url, init, what) {
 
 /**
  * Turns the code Discord sent back into a checked profile:
- * { discordId, name, avatarUrl, email }. Throws LoginError when the person is
- * not in the server or lacks an allowed role.
+ * { discordId, name, avatarUrl, email, roles }. Throws LoginError when the
+ * person is not in the server or lacks an allowed role. A role is allowed when
+ * it is in DISCORD_ROLES_IDS or when `allowRoles(roles)` (optional, async)
+ * says so: the content tool lets in the roles it grants permissions to.
  */
-async function verify({ code, redirectUri }, fetchImpl = fetch) {
+async function verify({ code, redirectUri, allowRoles }, fetchImpl = fetch) {
   const c = config();
   const token = await getJson(
     fetchImpl,
@@ -116,9 +118,10 @@ async function verify({ code, redirectUri }, fetchImpl = fetch) {
     if (err.status === 404) throw new LoginError('not_member');
     throw err;
   }
-  if (!(member.roles || []).some((role) => c.roleIds.includes(role))) {
-    throw new LoginError('missing_role');
-  }
+  const roles = member.roles || [];
+  const allowed =
+    roles.some((role) => c.roleIds.includes(role)) || (allowRoles && (await allowRoles(roles)));
+  if (!allowed) throw new LoginError('missing_role');
 
   // A per-server avatar wins over the account one, like in Discord itself.
   let avatarUrl = null;
@@ -132,6 +135,7 @@ async function verify({ code, redirectUri }, fetchImpl = fetch) {
     name: member.nick || user.global_name || user.username,
     avatarUrl,
     email: user.verified ? user.email || null : null,
+    roles,
   };
 }
 

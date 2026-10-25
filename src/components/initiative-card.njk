@@ -55,6 +55,17 @@
         </ul>
     </div>
     {% endif %}
+    {% if event.supported_by %}
+    <div class="program-supporters">
+        <span class="program-agenda-title" data-en="Supported by" data-it="Con il supporto di">Supported by</span>
+        {% for org in event.supported_by %}
+        <a class="program-supporter" href="{{ org.url }}" target="_blank" rel="noopener noreferrer">
+            <img src="{{ org.logo }}" alt="" width="28" height="28" loading="lazy" decoding="async">
+            <span>{{ org.name }}</span>
+        </a>
+        {% endfor %}
+    </div>
+    {% endif %}
     {% if (event.register_link and event.register_text) or event.stream_link or (event.stream_text and not recording) %}
     <p class="flex flex-wrap gap-3" style="margin-top: 1.5rem; margin-bottom: 0;">
         {% if event.register_link and event.register_text %}

@@ -114,8 +114,16 @@
     slot.appendChild(menu);
   }
 
+  var auth = M.api('GET', '/api/auth');
+
+  /** Resolves with what the user's Discord roles allow in the content tool
+   * (keys from server/permissions.js; all of them for the admin). */
+  M.permissions = auth.then(function (info) {
+    return info.permissions || [];
+  });
+
   /** Resolves with the signed-in user ({ id, kind, name, avatarUrl }). */
-  M.me = M.api('GET', '/api/auth').then(function (info) {
+  M.me = auth.then(function (info) {
     if (!info.user) return toLogin();
     remember(info.user);
     showUser(info.user);

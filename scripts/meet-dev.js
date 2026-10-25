@@ -87,7 +87,11 @@ const server = http.createServer((req, res) => {
   serveStatic(req, res);
 });
 
-db.ensureSchema().then(() => {
+db.ensureSchema().then(async () => {
+  // The build reads published seminars and events from this file locally
+  // (server/content-build.js); publishing rewrites it.
+  const content = require('../server/content');
+  require('../server/content-build').writeSnapshot(await content.exportForBuild());
   server.listen(PORT, () => {
     console.log(`Personal area running at http://localhost:${PORT}/app/`);
     console.log(

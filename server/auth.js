@@ -122,18 +122,18 @@ async function passwordLogin(req, res, password) {
 }
 
 /**
- * Creates the account on a first Discord login, or refreshes its name, avatar
- * and email on later ones. Returns the user.
+ * Creates the account on a first Discord login, or refreshes its name, avatar,
+ * email and Discord roles on later ones. Returns the user.
  */
-async function upsertDiscordUser({ discordId, name, avatarUrl, email }) {
+async function upsertDiscordUser({ discordId, name, avatarUrl, email, roles }) {
   const { rows } = await db.query(
-    `insert into app_users (kind, discord_id, name, avatar_url, email, last_login_at)
-     values ('discord', $1, $2, $3, $4, now())
+    `insert into app_users (kind, discord_id, name, avatar_url, email, roles, last_login_at)
+     values ('discord', $1, $2, $3, $4, $5, now())
      on conflict (discord_id) do update set
        name = excluded.name, avatar_url = excluded.avatar_url,
-       email = excluded.email, last_login_at = now()
+       email = excluded.email, roles = excluded.roles, last_login_at = now()
      returning *`,
-    [discordId, name, avatarUrl || null, email || null]
+    [discordId, name, avatarUrl || null, email || null, roles || []]
   );
   return publicUser(rows[0]);
 }

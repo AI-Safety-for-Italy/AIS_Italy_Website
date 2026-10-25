@@ -3408,6 +3408,39 @@ a.cal-day.has-event.is-today {
   margin: 0 0 0.5rem;
 }
 
+/* "Supported by" row of an event card: logo and name of each organisation */
+.program-supporters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  margin-top: 1.5rem;
+}
+
+.program-supporters .program-agenda-title {
+  margin: 0;
+}
+
+.program-supporter {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-decoration: none;
+}
+
+.program-supporter:hover span {
+  text-decoration: underline;
+}
+
+.program-supporter img {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+}
+
 .program-agenda {
   margin-top: 0;
   display: block;
