@@ -29,12 +29,14 @@ async function requireRecentLogin(user, now = Date.now()) {
 
 /**
  * Returns the user's permissions when they hold `key` (one of CRM_KEYS).
- * Throws 401 for an old sign-in and 403 otherwise.
+ * Throws 401 for an old sign-in and 403 otherwise. `fresh` re-reads the
+ * Discord roles whatever their age: for every change.
  */
-async function requirePermission(user, key) {
+async function requirePermission(user, key, { fresh = false } = {}) {
   if (!CRM_KEYS.includes(key)) throw new Error(`Not a CRM permission: ${key}`);
   await requireRecentLogin(user);
   try {
+    if (fresh) return await permissions.require(user, key, { fresh: true });
     return await permissions.requireRecent(user, key);
   } catch (err) {
     if (err instanceof HttpError && err.status === 403) {
@@ -47,21 +49,30 @@ async function requirePermission(user, key) {
 /** Fields only some permissions may read: { field: permission needed }. */
 const FIELD_PERMISSION = {
   email: 'mentorship',
+  form_email: 'mentorship',
   social: 'mentorship',
   cv: 'mentorship',
   profile: 'mentorship',
   phone: 'mentorship',
 };
 
+// The list above can miss a column a form adds later. Whatever its name, a
+// value holding an email address is contact data too.
+const LOOKS_LIKE_EMAIL = /[^\s@<>()]+@[^\s@<>()]+\.[^\s@<>()]+/;
+
 /**
  * A copy of a record without the fields these permissions may not read, so
- * the API never sends them (as opposed to the page hiding them).
+ * the API never sends them (as opposed to the page hiding them). Without
+ * `mentorship`, any value containing an email address is dropped as well.
  */
 function redact(record, perms) {
+  const contacts = perms.includes('mentorship');
   const out = {};
   for (const [field, value] of Object.entries(record)) {
     const needs = FIELD_PERMISSION[field];
-    if (!needs || perms.includes(needs)) out[field] = value;
+    if (needs && !perms.includes(needs)) continue;
+    if (!contacts && LOOKS_LIKE_EMAIL.test(String(value))) continue;
+    out[field] = value;
   }
   return out;
 }

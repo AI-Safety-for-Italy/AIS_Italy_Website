@@ -220,4 +220,50 @@ create trigger crm_audit_no_change before update or delete on crm_audit
 drop trigger if exists crm_audit_no_truncate on crm_audit;
 create trigger crm_audit_no_truncate before truncate on crm_audit
   for each statement execute function crm_audit_append_only();
+
+-- The mentorship board's own records. A person is named only by their opaque
+-- key (server/crm/crypto.js); who they are lives in the sheets.
+
+-- Where each mentor or mentee is in the selection, when the team has moved
+-- them; without a row the board works it out from the sheets.
+create table if not exists crm_people_state (
+  person_key text not null,
+  kind text not null check (kind in ('mentor', 'mentee')),
+  status text not null,
+  track text check (track in ('projects', 'orientation', 'both')),
+  owner_id uuid references app_users(id) on delete set null,
+  updated_by uuid references app_users(id) on delete set null,
+  updated_at timestamptz not null default now(),
+  primary key (person_key, kind)
+);
+
+-- The team's notes, encrypted (AES-256-GCM, bound to the person key).
+create table if not exists crm_notes (
+  id uuid primary key default gen_random_uuid(),
+  person_key text not null,
+  body_encrypted text not null,
+  author_id uuid references app_users(id) on delete set null,
+  author_name text not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists crm_notes_person on crm_notes (person_key, created_at);
+
+-- Mentor and mentee pairs. Ending one keeps the row (status 'ended').
+create table if not exists crm_matches (
+  id uuid primary key default gen_random_uuid(),
+  mentor_key text not null,
+  mentee_key text not null,
+  track text not null check (track in ('projects', 'orientation')),
+  status text not null default 'active' check (status in ('active', 'ended')),
+  created_by uuid references app_users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  ended_at timestamptz
+);
+
+-- A mentee has at most one active mentor; a pair is active at most once.
+create unique index if not exists crm_matches_one_per_mentee
+  on crm_matches (mentee_key) where status = 'active';
+create unique index if not exists crm_matches_pair
+  on crm_matches (mentor_key, mentee_key) where status = 'active';
 `;

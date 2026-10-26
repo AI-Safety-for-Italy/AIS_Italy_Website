@@ -2261,3 +2261,298 @@ div.poll-item {
   padding: 0;
   margin-bottom: 0.4rem;
 }
+
+/* ── CRM: mentorship board (/app/crm/) ──────────────────────────────────── */
+
+/* The board is wide: it uses the page's full width on large screens. */
+.crm-main .container {
+  max-width: 1400px;
+}
+
+.crm-notice {
+  margin-bottom: 0.75rem;
+}
+
+.crm-notice summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.crm-notice ul {
+  margin: 0.5rem 0;
+  padding-left: 1.2rem;
+}
+
+.crm-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.crm-search {
+  flex: 1 1 220px;
+  max-width: 340px;
+}
+
+.crm-kanban {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(190px, 1fr);
+  gap: 0.75rem;
+  overflow-x: auto;
+  padding-bottom: 0.75rem;
+  align-items: start;
+}
+
+.crm-col {
+  background: var(--bg-secondary, rgba(0, 0, 0, 0.03));
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius);
+  padding: 0.6rem;
+  min-height: 8rem;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.crm-col.is-over {
+  border-color: var(--accent);
+  background: var(--accent-50, rgba(0, 140, 69, 0.06));
+}
+
+.crm-col header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 0.2rem 0.3rem 0.6rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+}
+
+.crm-count {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+}
+
+.crm-col-list {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.crm-card {
+  display: grid;
+  gap: 0.25rem;
+  width: 100%;
+  text-align: left;
+  padding: 0.65rem 0.75rem;
+  background: var(--card-bg);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm, 8px);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 0.88rem;
+  cursor: grab;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.crm-card:hover,
+.crm-card:focus-visible {
+  border-color: var(--accent);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.crm-card.is-locked {
+  cursor: pointer;
+}
+
+.crm-card strong {
+  font-size: 0.95rem;
+}
+
+.crm-card-org {
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+}
+
+.crm-card-project {
+  font-style: italic;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+}
+
+.crm-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.2rem;
+}
+
+.crm-tag {
+  display: inline-block;
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-muted);
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.crm-track-projects {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.crm-track-orientation {
+  border-color: var(--secondary-500, #c0392b);
+  color: var(--secondary-600, #a93226);
+}
+
+.crm-track-none {
+  border-style: dashed;
+}
+
+.crm-owner {
+  font-weight: 600;
+}
+
+/* The person: a panel along the right edge. */
+dialog.crm-panel {
+  margin: 0 0 0 auto;
+  width: min(560px, 100vw);
+  max-width: 100vw;
+  height: 100vh;
+  max-height: 100vh;
+  border-radius: 0;
+  overflow-y: auto;
+}
+
+.crm-person-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.crm-person-head h2 {
+  margin: 0.15rem 0 0.2rem;
+}
+
+.crm-person-head .panel-note {
+  margin: 0 0 0.3rem;
+}
+
+.crm-person-controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.75rem;
+  margin: 1.25rem 0 0.5rem;
+}
+
+.crm-owner-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-height: 2.4rem;
+}
+
+.crm-section {
+  margin-top: 1.5rem;
+}
+
+.crm-section h3 {
+  font-size: 0.95rem;
+  margin: 0 0 0.6rem;
+}
+
+.crm-notes {
+  list-style: none;
+  margin: 0 0 0.75rem;
+  padding: 0;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.crm-notes li {
+  padding: 0.6rem 0.75rem;
+  border-left: 3px solid var(--accent);
+  background: var(--bg-secondary, rgba(0, 0, 0, 0.03));
+  border-radius: 0 6px 6px 0;
+}
+
+.crm-notes p {
+  margin: 0 0 0.25rem;
+  white-space: pre-wrap;
+}
+
+.crm-notes small {
+  color: var(--text-tertiary);
+}
+
+.crm-note-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.5rem;
+}
+
+.crm-sheet {
+  border-top: 1px solid var(--border-muted);
+  padding: 0.5rem 0;
+}
+
+.crm-sheet summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.88rem;
+}
+
+.crm-sheet dl {
+  display: grid;
+  grid-template-columns: minmax(8rem, 35%) 1fr;
+  gap: 0.35rem 0.75rem;
+  margin: 0.6rem 0 0.25rem;
+  font-size: 0.86rem;
+}
+
+.crm-sheet dt {
+  color: var(--text-tertiary);
+}
+
+.crm-sheet dd {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.crm-pair-form {
+  margin-bottom: 1rem;
+}
+
+.crm-pair-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.6rem;
+  align-items: center;
+}
+
+.crm-pairs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.crm-pairs li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  align-items: center;
+  padding: 0.6rem 0;
+  border-top: 1px solid var(--border-muted);
+}
+
+.crm-pairs li:first-child {
+  border-top: 0;
+}

@@ -49,6 +49,7 @@ const DEV_ROLES = [
   'Admin',
   'Direttivo',
   'communication',
+  'mentorship',
   'blog',
   'Organizzatori',
   'seminars',

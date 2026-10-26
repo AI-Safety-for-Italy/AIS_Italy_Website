@@ -294,6 +294,17 @@ test('roles are read again from Discord when the last check is old, and a lost r
   assert.equal(calls, before);
 });
 
+test('an email in a field nobody listed is still cut for those without mentorship', () => {
+  const record = {
+    key: 'k',
+    name: 'Ada',
+    new_question: 'Scrivimi a ada@example.org',
+    form_email: 'ada@example.org',
+  };
+  assert.deepEqual(access.redact(record, ['people']), { key: 'k', name: 'Ada' });
+  assert.deepEqual(access.redact(record, ['mentorship']), record);
+});
+
 test('fields only some permissions may read are not sent to the others', async () => {
   const record = {
     key: 'k',

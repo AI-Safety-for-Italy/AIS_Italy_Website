@@ -191,11 +191,31 @@ stopped) imports into the local database; publishing rewrites
 
 # CRM board (`/app/crm/`, in progress)
 
-A private board for the mentorship programme (mentors by track, mentees,
-matches), later people and funding. **Phase 0, the foundations, is here; there
-are no pages yet.** Design and phases: the plan this branch was built from.
+A private board for the mentorship programme, later people and funding.
+Phases 0 (foundations) and 1 (the mentorship board) are here.
 
-The rules it is built on, which later phases must keep:
+**The mentorship board** (`/app/crm/`, permission `mentorship`;
+`server/crm/mentorship.js`, `api/app/crm/mentorship.js`):
+
+- **Mentors** and **Mentees**: a column per stage of the selection (mentors:
+  to contact, contacted, interested, applied, selected, matched, declined;
+  mentees: interested, contacted, applied, selected, matched, declined). Drag a
+  card to move it, filter by track, search, or show only the people you follow.
+- The three sheets are joined by person key: someone in two lists is one card.
+  Until the team moves them, the stage comes from the sheets (an application
+  means Applied; "Contattato: Sì" means Contacted…). Rows without an email
+  are listed apart: they cannot be tracked until the sheet has one.
+- A person's card: stage, track, who follows them, the team's notes
+  (encrypted), every sheet row about them (contact details only with
+  `mentorship`) and their history from the audit trail.
+- **Pairs**: a selected mentor and a selected mentee on the same track. A
+  mentee has one mentor; a mentor can go over the number of mentees they asked
+  for, with a warning. Pairing sets both to Matched; ending a pair sets them back
+  to Selected and keeps the ended pair.
+
+The foundations it stands on:
+
+The rules, which later phases must keep:
 
 - **Personal data stays in the Google Sheets the forms write to.** The board
   reads them (`server/sheets.js`, read-only scope, fixed in the code) and never

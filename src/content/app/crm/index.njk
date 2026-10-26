@@ -1,0 +1,60 @@
+---
+title: Mentorship board
+# The CRM's mentorship board. An empty shell: everything on it comes from
+# /api/app/crm/mentorship after the server has checked the `mentorship`
+# permission, so nothing personal is ever in this page's HTML.
+permalink: /app/crm/
+appTab: crm-mentorship
+noindex: true
+excludeFromSitemap: true
+eleventyExcludeFromCollections: true
+seoTitle: 'Mentorship board | AI Safety for Italy'
+---
+{% extends "base.njk" %}
+{% block content %}
+<section class="page-hero meet-hero">
+  <div class="container">
+    <span class="eyebrow">CRM</span>
+    <h1>Mentorship board</h1>
+  </div>
+</section>
+
+<section class="meet-main crm-main">
+  <div class="container">
+    <div class="admin-bar">
+      <nav class="crumbs" aria-label="Breadcrumb">
+        <a href="/app/">Tools</a>
+        <span aria-hidden="true">/</span>
+        <span>CRM</span>
+      </nav>
+      <nav class="admin-tabs" aria-label="Board" id="crmTabs">
+        <a href="#mentors" data-tab="mentors" aria-current="page">Mentors</a>
+        <a href="#mentees" data-tab="mentees">Mentees</a>
+        <a href="#pairs" data-tab="pairs">Pairs</a>
+      </nav>
+    </div>
+
+    <div id="crmNotices"></div>
+
+    <div class="crm-toolbar" id="crmToolbar" hidden>
+      <div class="chip-group" role="group" aria-label="Track" id="trackFilter">
+        <button type="button" class="chip" data-track="" aria-pressed="true">All tracks</button>
+        <button type="button" class="chip" data-track="projects" aria-pressed="false">AI safety projects</button>
+        <button type="button" class="chip" data-track="orientation" aria-pressed="false">Career orientation</button>
+      </div>
+      <input class="form-input is-compact crm-search" id="crmSearch" type="search" placeholder="Search name, affiliation, area…" aria-label="Search">
+      <label class="check-row"><input type="checkbox" id="onlyMine"><span>Only mine</span></label>
+    </div>
+
+    <div id="crmBoard"></div>
+  </div>
+</section>
+
+<dialog class="meet-dialog crm-panel" id="personPanel" aria-labelledby="personName">
+  <div class="dialog-body" id="personBody"></div>
+</dialog>
+
+<script src="/assets/js/meet/common.js" defer></script>
+<script src="/assets/js/meet/app-common.js" defer></script>
+<script src="/assets/js/meet/crm-board.js" defer></script>
+{% endblock %}
