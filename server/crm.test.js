@@ -182,11 +182,15 @@ test('deleting a user does not touch the audit trail', async () => {
 // ── Permissions: content and CRM are separate areas ──────────────────────────
 
 test('a permission opens only its own area', () => {
-  assert.deepEqual(permissions.areas(['mentorship']), { content: false, crm: true });
-  assert.deepEqual(permissions.areas(['seminar']), { content: true, crm: false });
-  assert.deepEqual(permissions.areas(['manage', 'finance']), { content: true, crm: true });
-  assert.deepEqual(permissions.areas([]), { content: false, crm: false });
-  assert.deepEqual(permissions.areas(permissions.KEYS), { content: true, crm: true });
+  assert.deepEqual(permissions.areas(['mentorship']), { content: false, crm: true, forms: false });
+  assert.deepEqual(permissions.areas(['seminar']), { content: true, crm: false, forms: false });
+  assert.deepEqual(permissions.areas(['manage', 'finance']), {
+    content: true,
+    crm: true,
+    forms: false,
+  });
+  assert.deepEqual(permissions.areas([]), { content: false, crm: false, forms: false });
+  assert.deepEqual(permissions.areas(permissions.KEYS), { content: true, crm: true, forms: true });
 });
 
 test('a CRM-only member is shut out of the content tool, and the other way round', async () => {
@@ -209,12 +213,13 @@ test('a CRM-only member is shut out of the content tool, and the other way round
   );
 
   const seenByMentor = (await call(authApi, { url: '/api/auth', user: mentor })).body;
-  assert.deepEqual(seenByMentor.areas, { content: false, crm: true });
+  assert.deepEqual(seenByMentor.areas, { content: false, crm: true, forms: false });
   const seenByWriter = (await call(authApi, { url: '/api/auth', user: writer })).body;
-  assert.deepEqual(seenByWriter.areas, { content: true, crm: false });
+  assert.deepEqual(seenByWriter.areas, { content: true, crm: false, forms: false });
   assert.deepEqual((await call(authApi, { url: '/api/auth' })).body.areas, {
     content: false,
     crm: false,
+    forms: false,
   });
 });
 
@@ -242,7 +247,10 @@ test('a CRM permission is needed, and a refusal is on the audit trail', async ()
   assert.deepEqual(denied[0].detail, { needs: 'people' });
   assert.equal(denied[0].userName, 'Nico');
   // Only CRM permissions can be asked for here.
-  await assert.rejects(access.requirePermission(mentor, 'seminar'), /Not a CRM permission/);
+  await assert.rejects(
+    access.requirePermission(mentor, 'seminar'),
+    /Not a CRM or forms permission/
+  );
   // The shared admin account has every permission.
   assert.ok((await access.requirePermission(await admin(), 'finance')).includes('finance'));
 });

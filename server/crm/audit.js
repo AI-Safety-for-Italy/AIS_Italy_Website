@@ -18,6 +18,18 @@ const ACTIONS = new Set([
   'read-sheet',
   'change-settings',
   'denied',
+  // Forms (server/forms/): subject_key is the form or response id.
+  'form-create',
+  'form-edit',
+  'form-settings',
+  'form-delete',
+  'form-view-responses',
+  'form-view-response',
+  'form-review',
+  'form-status',
+  'form-export',
+  'form-sync',
+  'form-delete-response',
 ]);
 
 /**

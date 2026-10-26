@@ -266,4 +266,73 @@ create unique index if not exists crm_matches_one_per_mentee
   on crm_matches (mentee_key) where status = 'active';
 create unique index if not exists crm_matches_pair
   on crm_matches (mentor_key, mentee_key) where status = 'active';
+
+-- ── Forms (/app/forms/, server/forms/) ──────────────────────────────────────
+
+-- A form: who owns it, whether it takes answers, and its settings. The
+-- questions are in form_versions; current_version is what the public sees.
+create table if not exists forms (
+  id uuid primary key default gen_random_uuid(),
+  slug text not null unique,
+  title text not null,
+  status text not null default 'draft' check (status in ('draft', 'open', 'closed')),
+  opens_at timestamptz,
+  closes_at timestamptz,
+  settings jsonb not null default '{}',
+  access_roles text[] not null default '{}',
+  owner_id uuid references app_users(id) on delete set null,
+  current_version integer not null default 1,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+-- The questions, per version: an answer keeps the version it was given to, so
+-- changing a form never breaks the answers it already has.
+create table if not exists form_versions (
+  form_id uuid not null references forms(id) on delete cascade,
+  version integer not null,
+  schema jsonb not null,
+  created_at timestamptz not null default now(),
+  primary key (form_id, version)
+);
+
+-- The answers, encrypted (AES-256-GCM, bound to the form and the response).
+-- respondent_key is the opaque key of the email given, when there is one.
+create table if not exists form_responses (
+  id uuid primary key default gen_random_uuid(),
+  form_id uuid not null references forms(id) on delete cascade,
+  version integer not null,
+  submitted_at timestamptz not null default now(),
+  answers_encrypted text not null,
+  respondent_key text,
+  status text not null default 'new',
+  assignee_id uuid references app_users(id) on delete set null,
+  sheet_synced_at timestamptz,
+  sheet_error text,
+  deleted_at timestamptz
+);
+
+create index if not exists form_responses_form on form_responses (form_id, submitted_at);
+create index if not exists form_responses_respondent on form_responses (form_id, respondent_key);
+
+-- Each reviewer's scores for a response, and their note (encrypted).
+create table if not exists form_reviews (
+  response_id uuid not null references form_responses(id) on delete cascade,
+  reviewer_key text not null,
+  reviewer_name text not null,
+  scores jsonb not null default '{}',
+  note_encrypted text,
+  updated_at timestamptz not null default now(),
+  primary key (response_id, reviewer_key)
+);
+
+-- Public submissions, to limit them per address. The address is kept only as
+-- an HMAC, and rows older than a day are deleted on every submission.
+create table if not exists form_submit_attempts (
+  ip_hash text not null,
+  form_id uuid not null,
+  at timestamptz not null default now()
+);
+
+create index if not exists form_submit_attempts_ip on form_submit_attempts (ip_hash, form_id, at);
 `;

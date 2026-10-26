@@ -18,6 +18,10 @@ const audit = require('./audit');
 const MAX_SESSION_AGE_MS = 24 * 60 * 60 * 1000;
 
 const CRM_KEYS = permissions.PERMISSIONS.filter((p) => p.area === 'crm').map((p) => p.key);
+// The forms (server/forms/) hold personal data too and go through this door.
+const GUARDED_KEYS = permissions.PERMISSIONS.filter((p) => ['crm', 'forms'].includes(p.area)).map(
+  (p) => p.key
+);
 
 async function requireRecentLogin(user, now = Date.now()) {
   const { rows } = await db.query('select last_login_at from app_users where id = $1', [user.id]);
@@ -33,7 +37,7 @@ async function requireRecentLogin(user, now = Date.now()) {
  * Discord roles whatever their age: for every change.
  */
 async function requirePermission(user, key, { fresh = false } = {}) {
-  if (!CRM_KEYS.includes(key)) throw new Error(`Not a CRM permission: ${key}`);
+  if (!GUARDED_KEYS.includes(key)) throw new Error(`Not a CRM or forms permission: ${key}`);
   await requireRecentLogin(user);
   try {
     if (fresh) return await permissions.require(user, key, { fresh: true });

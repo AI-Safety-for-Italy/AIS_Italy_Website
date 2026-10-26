@@ -34,13 +34,19 @@ const PERMISSIONS = [
   { key: 'people', label: 'CRM: people', area: 'crm' },
   { key: 'finance', label: 'CRM: finance', area: 'crm' },
   { key: 'crm_admin', label: 'CRM: settings', area: 'crm' },
+  { key: 'forms', label: 'Forms', area: 'forms' },
+  { key: 'forms_admin', label: 'Forms: all forms', area: 'forms' },
 ];
+const AREAS = [...new Set(PERMISSIONS.map((p) => p.area))];
 const KEYS = PERMISSIONS.map((p) => p.key);
 
-/** Which areas a set of permission keys opens: { content, crm }. */
+/** Which areas a set of permission keys opens: { content, crm, forms }. */
 function areas(perms) {
-  const has = (area) => PERMISSIONS.some((p) => p.area === area && perms.includes(p.key));
-  return { content: has('content'), crm: has('crm') };
+  const out = {};
+  AREAS.forEach((area) => {
+    out[area] = PERMISSIONS.some((p) => p.area === area && perms.includes(p.key));
+  });
+  return out;
 }
 
 // Local development (scripts/meet-dev.js) has no Discord server: these stand
@@ -146,14 +152,25 @@ async function require_(user, key, { fresh = false } = {}) {
  * password admin has no Discord roles, so there is nothing to refresh.
  */
 async function requireRecent(user, key, { maxAgeMs = 5 * 60 * 1000 } = {}) {
-  if (user.kind !== 'admin') {
-    const { rows } = await db.query('select roles_checked_at from app_users where id = $1', [
-      user.id,
-    ]);
-    const checked = rows[0] && rows[0].roles_checked_at;
-    if (!checked || Date.now() - new Date(checked).getTime() > maxAgeMs) await refreshRoles(user);
-  }
+  await refreshIfStale(user, { maxAgeMs });
   return require_(user, key);
+}
+
+/** Re-reads the Discord roles when the last read is older than `maxAgeMs`. */
+async function refreshIfStale(user, { maxAgeMs = 5 * 60 * 1000 } = {}) {
+  if (user.kind === 'admin') return;
+  const { rows } = await db.query('select roles_checked_at from app_users where id = $1', [
+    user.id,
+  ]);
+  const checked = rows[0] && rows[0].roles_checked_at;
+  if (!checked || Date.now() - new Date(checked).getTime() > maxAgeMs) await refreshRoles(user);
+}
+
+/** The Discord role ids stored for a user (none for the shared admin). */
+async function rolesOf(user) {
+  if (user.kind === 'admin') return [];
+  const { rows } = await db.query('select roles from app_users where id = $1', [user.id]);
+  return rows.length ? rows[0].roles : [];
 }
 
 /** May at least one of these roles do something with content or the CRM? */
@@ -230,6 +247,8 @@ module.exports = {
   refreshRoles,
   require: require_,
   requireRecent,
+  refreshIfStale,
+  rolesOf,
   anyContentRole,
   guildRoles,
   listRolePermissions,
