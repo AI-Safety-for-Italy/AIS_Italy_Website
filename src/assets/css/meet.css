@@ -4662,6 +4662,16 @@ textarea.fm-input:focus {
   margin-top: 0.35rem;
 }
 
+/* The status switch has no data-v: say which one is on */
+.fe-seg button[aria-pressed='true'] {
+  background: var(--accent);
+  color: var(--text-on-accent);
+}
+
+[data-theme='dark'] .fe-seg button[aria-pressed='true'] {
+  color: #062015;
+}
+
 .fe-slug {
   display: flex;
   align-items: center;
