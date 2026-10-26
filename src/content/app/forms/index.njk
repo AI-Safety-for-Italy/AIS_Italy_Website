@@ -1,0 +1,58 @@
+---
+title: Forms
+# The forms this member may manage or read (server/forms/forms.js decides).
+permalink: /app/forms/
+noindex: true
+excludeFromSitemap: true
+eleventyExcludeFromCollections: true
+seoTitle: 'Forms | AI Safety for Italy'
+---
+{% extends "base.njk" %}
+{% block content %}
+<section class="page-hero meet-hero">
+  <div class="container">
+    <span class="eyebrow">Personal area</span>
+    <h1>Forms</h1>
+  </div>
+</section>
+
+<section class="meet-main">
+  <div class="container">
+    <div class="admin-bar">
+      <nav class="crumbs" aria-label="Breadcrumb">
+        <a href="/app/">Tools</a>
+        <span aria-hidden="true">/</span>
+        <span>Forms</span>
+      </nav>
+    </div>
+    <div class="panel-head">
+      <h2>Your forms</h2>
+      <button type="button" class="btn btn-primary btn-sm" id="newForm" hidden>+ New form</button>
+    </div>
+    <div id="formList"></div>
+  </div>
+</section>
+
+<dialog class="meet-dialog" id="newDialog" aria-labelledby="newTitle">
+  <form class="dialog-body form-grid" id="newFormForm" method="dialog">
+    <h2 id="newTitle">New form</h2>
+    <div>
+      <label class="form-label" for="nfTitle">Title</label>
+      <input class="form-input is-compact" id="nfTitle" maxlength="200" required placeholder="e.g. Meetup sign-up">
+    </div>
+    <div>
+      <span class="form-label" id="nfTemplateLabel">Start from</span>
+      <div class="fe-templates" role="radiogroup" aria-labelledby="nfTemplateLabel" id="nfTemplates"></div>
+    </div>
+    <p class="form-error" id="nfError" hidden></p>
+    <div class="dialog-foot">
+      <button type="button" class="btn btn-outline" id="nfCancel">Cancel</button>
+      <button type="submit" class="btn btn-primary" id="nfCreate">Create</button>
+    </div>
+  </form>
+</dialog>
+
+<script src="/assets/js/meet/common.js" defer></script>
+<script src="/assets/js/meet/app-common.js" defer></script>
+<script src="/assets/js/meet/forms-list.js" defer></script>
+{% endblock %}

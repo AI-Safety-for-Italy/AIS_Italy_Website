@@ -21,6 +21,7 @@ const crm = require('../crm/crypto');
 const audit = require('../crm/audit');
 const schemaLib = require('./schema');
 const guard = require('./guard');
+const templates = require('./templates');
 
 const STATUSES = ['draft', 'open', 'closed'];
 const SLUG = /^[a-z0-9](?:[a-z0-9-]{1,58}[a-z0-9])$/;
@@ -162,19 +163,6 @@ function slugify(text) {
     .replace(/-+$/, '');
 }
 
-function starterSchema(title) {
-  return {
-    languages: ['it'],
-    title: { it: title },
-    description: {},
-    confirmation: { it: 'Grazie! Abbiamo ricevuto le tue risposte.' },
-    items: [
-      { id: 'name', type: 'short_text', label: { it: 'Nome e cognome' }, required: true },
-      { id: 'email', type: 'email', label: { it: 'Email' }, required: true },
-    ],
-  };
-}
-
 /** A new draft, owned by the user. `schema` may come from a template. */
 async function create(user, body) {
   await requireForms(user, { fresh: true });
@@ -183,7 +171,7 @@ async function create(user, body) {
     .trim()
     .slice(0, 200);
   if (!title) throw new HttpError(400, 'Give the form a title', { field: 'title' });
-  const schema = schemaLib.cleanSchema(b.schema || starterSchema(title));
+  const schema = schemaLib.cleanSchema(b.schema || templates.schemaFor(b.template, title));
   const base = slugify(title) || 'form';
   for (let n = 0; n < 10; n++) {
     // A short random tail: links are not guessable from the title alone.
@@ -330,6 +318,26 @@ async function remove(user, id) {
   await audit.record(user, 'form-delete', form.id, { responses: rows[0].n });
 }
 
+/** What the editor needs besides the form: templates, question kinds, roles. */
+async function meta(user) {
+  await requireForms(user);
+  let roles = [];
+  try {
+    roles = await permissions.guildRoles();
+  } catch {
+    // Without the Discord bot the roles cannot be listed; the editor says so.
+  }
+  return {
+    templates: templates.list(),
+    types: Object.entries(schemaLib.TYPES).map(([key, t]) => ({
+      key,
+      label: t.label,
+      answer: t.answer,
+    })),
+    roles,
+  };
+}
+
 // ── The public side ──────────────────────────────────────────────────────────
 
 async function bySlug(slug) {
@@ -454,4 +462,5 @@ module.exports = {
   submit,
   responses,
   requireForms,
+  meta,
 };

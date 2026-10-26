@@ -621,3 +621,28 @@ test('the private API needs a sign-in and answers per user', async () => {
     201
   );
 });
+
+test('every template is a valid form, and a form can start from one', async () => {
+  const templates = require('./forms/templates');
+  for (const { key } of templates.list()) {
+    const schema = schemaLib.cleanSchema(templates.schemaFor(key, 'Prova'));
+    assert.ok(schemaLib.answerable(schema).length > 0, key);
+  }
+  await setRoles();
+  const mara = await member('Mara', ['r-forms']);
+  const { id } = await forms.create(mara, { title: 'Da modello', template: 'mentor_call' });
+  const form = await forms.get(mara, id);
+  assert.ok(form.schema.items.some((i) => i.id === 'project_title'));
+  assert.ok(form.schema.items.some((i) => i.type === 'consent'));
+  // An unknown template falls back to the blank one.
+  const blank = await forms.get(
+    mara,
+    (
+      await forms.create(mara, { title: 'X', template: 'nope' })
+    ).id
+  );
+  assert.deepEqual(
+    blank.schema.items.map((i) => i.id),
+    ['name', 'email']
+  );
+});

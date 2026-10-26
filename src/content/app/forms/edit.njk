@@ -1,0 +1,80 @@
+---
+title: Edit form
+# The form editor: /app/forms/edit/?id=…. Questions on the left, the form in
+# the middle, the chosen question's settings on the right; a preview that
+# uses the very code of the public page.
+permalink: /app/forms/edit/
+noindex: true
+excludeFromSitemap: true
+eleventyExcludeFromCollections: true
+seoTitle: 'Edit form | AI Safety for Italy'
+---
+{% extends "base.njk" %}
+{% block content %}
+<section class="meet-main fe-main">
+  <div class="container fe-wide">
+    <div class="admin-bar">
+      <nav class="crumbs" aria-label="Breadcrumb">
+        <a href="/app/">Tools</a>
+        <span aria-hidden="true">/</span>
+        <a href="/app/forms/">Forms</a>
+        <span aria-hidden="true">/</span>
+        <span id="feCrumb">…</span>
+      </nav>
+      <nav class="admin-tabs" aria-label="Form" id="feTabs" hidden>
+        <a href="#questions" data-tab="questions" aria-current="page">Questions</a>
+        <a href="#preview" data-tab="preview">Preview</a>
+        <a href="#settings" data-tab="settings">Settings</a>
+        <a href="#share" data-tab="share">Share</a>
+      </nav>
+    </div>
+
+    <div class="fe-topbar" id="feTopbar" hidden>
+      <div class="fe-topbar-title">
+        <h1 id="feTitle"></h1>
+        <span id="feStatus"></span>
+        <span class="panel-note" id="feVersion"></span>
+      </div>
+      <div class="fe-topbar-actions">
+        <div class="lang-toggle" id="feLang" role="group" aria-label="Editing language" hidden>
+          <button type="button" lang="it" aria-pressed="true">IT</button>
+          <button type="button" lang="en" aria-pressed="false">EN</button>
+        </div>
+        <span class="panel-note" id="feDirty" hidden>Unsaved changes</span>
+        <button type="button" class="btn btn-primary btn-sm" id="feSave">Save</button>
+      </div>
+    </div>
+
+    <div id="feState"></div>
+
+    <div class="fe-layout" id="tab-questions" hidden>
+      <aside class="fe-palette" aria-label="Add a question">
+        <h2 class="label-mono">Add</h2>
+        <div id="fePalette"></div>
+      </aside>
+      <div class="fe-canvas" id="feCanvas" aria-label="The form"></div>
+      <aside class="fe-props" id="feProps" aria-label="Settings of the chosen question"></aside>
+    </div>
+
+    <div class="fe-preview" id="tab-preview" hidden>
+      <div class="lang-toggle" id="fePreviewLang" role="group" aria-label="Preview language" hidden>
+        <button type="button" lang="it" aria-pressed="true">IT</button>
+        <button type="button" lang="en" aria-pressed="false">EN</button>
+      </div>
+      <div class="fe-preview-page">
+        <div class="fe-preview-hero"><h1 id="fePreviewTitle"></h1><div id="fePreviewDesc" class="fm-md"></div></div>
+        <div id="fePreviewForm"></div>
+      </div>
+    </div>
+
+    <div id="tab-settings" hidden></div>
+    <div id="tab-share" hidden></div>
+  </div>
+</section>
+
+<script src="/assets/js/meet/common.js" defer></script>
+<script src="/assets/js/meet/app-common.js" defer></script>
+<script src="/assets/js/meet/markdown-lite.js" defer></script>
+<script src="/assets/js/meet/forms-render.js" defer></script>
+<script src="/assets/js/meet/forms-editor.js" defer></script>
+{% endblock %}

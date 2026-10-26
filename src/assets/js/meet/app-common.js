@@ -124,7 +124,7 @@
 
   /** Resolves with the tools the user's roles open: { content, crm }. */
   M.areas = auth.then(function (info) {
-    return info.areas || { content: false, crm: false };
+    return info.areas || { content: false, crm: false, forms: false };
   });
 
   /** Resolves with the signed-in user ({ id, kind, name, avatarUrl }). */

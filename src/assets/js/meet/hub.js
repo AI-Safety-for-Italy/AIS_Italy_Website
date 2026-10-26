@@ -8,5 +8,6 @@
   window.Meet.areas.then(function (areas) {
     document.getElementById('contentTool').hidden = !areas.content;
     document.getElementById('crmTool').hidden = !areas.crm;
+    document.getElementById('formsTool').hidden = !areas.forms;
   });
 })();

@@ -252,3 +252,39 @@ Which spreadsheet and tab each source reads is a setting (`crm_sources`),
 edited by `crm_admin`; the sheets are shared, as Viewer, with the service
 account one at a time. `server/crm/sources.js` maps the sheets' columns to
 fields by header text, so a form that gains a question does not break the board.
+
+# Forms (`/app/forms/`, `/form/?f=…`, in progress)
+
+Forms made and answered on the platform instead of Google Forms. **F0 (the
+engine) and F1 (the editor and the public page) are here**; answers review,
+analysis and the linked Google Sheet come next.
+
+- **The editor** (`/app/forms/`, permission `forms`, or `forms_admin` for all
+  forms): start blank or from a template modelled on the current Google
+  Forms (mentorship expression of interest, call for mentors, community
+  sign-up); add questions from the left, drag them in the middle, set the
+  chosen one on the right; texts in Italian and English; a preview drawn by
+  the public page's own code; settings (draft / open / closed, dates, link,
+  one answer per email, how long to keep answers, which Discord roles read
+  the answers) and the public link.
+- **Questions**: short and long text, email, https link, number, one or several
+  choices (with Other), drop-down, scale, date, yes/no, consent (recorded with
+  the version of its text), text blocks and pages.
+- **The public page** (`/form/?f=<slug>`, `api/form.js`, no sign-in): one page
+  per section with a progress bar, errors beside their question, a draft kept
+  in the browser, in the form's languages.
+
+Security (`server/forms/`):
+
+- Every public answer is checked on the server against the version of the form
+  it was given to (`schema.js`); unknown keys are dropped.
+- Answers are stored encrypted (AES-256-GCM, `server/crm/crypto.js`), bound to
+  their form and response; the respondent is known only by the opaque key of
+  their email. Editing a form with answers makes a new version, so old answers
+  keep their questions.
+- Anti-spam (`guard.js`): a signed token with the time the form was opened, a
+  honeypot, a minimum filling time, and at most 5 answers per address and form
+  in 10 minutes; the address is kept only as a daily HMAC, for a day.
+- Who may manage a form or read its answers is checked on every call; a form
+  you may not see answers 404. Views, changes and refusals go on the CRM's
+  append-only audit trail.

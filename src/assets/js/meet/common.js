@@ -145,6 +145,8 @@
             err.status = res.status;
             err.field = data.field;
             err.code = data.code;
+            // A form's answers: { questionId: message } (server/forms/schema.js).
+            err.errors = data.errors;
             throw err;
           }
           return data;

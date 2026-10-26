@@ -1,5 +1,6 @@
 // /api/app/forms: making forms and reading their answers (server/forms/forms.js).
 //   GET                         -> { forms }   the forms this user may manage or read
+//   GET    ?meta=1              -> { templates, types, roles } for the editor
 //   GET    ?id=…                -> one form for the editor
 //   GET    ?id=…&view=responses -> its answers, decrypted (audited)
 //   POST   { title, schema? }   -> a new draft  -> { id, slug }
@@ -22,8 +23,10 @@ async function signedIn(req) {
 module.exports = route({
   async GET(req, res) {
     const user = await signedIn(req);
-    const { id, view } = getQuery(req);
-    if (!id) {
+    const { id, view, meta } = getQuery(req);
+    if (meta) {
+      sendJson(res, 200, await forms.meta(user));
+    } else if (!id) {
       sendJson(res, 200, { forms: await forms.list(user) });
     } else if (view === 'responses') {
       sendJson(res, 200, await forms.responses(user, id));
