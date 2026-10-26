@@ -28,6 +28,8 @@
     'time',
     'end_time',
     'speaker',
+    'speaker_affiliation',
+    'speaker_link',
     'title',
     'title_it',
     'description_md',
@@ -40,7 +42,6 @@
   ];
 
   var PRESETS = {
-    speaker: { label: 'Speaker', label_it: 'Relatore' },
     where: {
       label: 'Where',
       label_it: 'Dove',
@@ -125,7 +126,7 @@
       fill({
         type: type,
         time: '18:30',
-        details: type === 'seminar' ? [PRESETS.speaker, PRESETS.where] : [PRESETS.where],
+        details: [PRESETS.where],
       });
       document.getElementById('pageTitle').textContent =
         type === 'event' ? 'New event' : 'New seminar';

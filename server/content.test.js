@@ -32,17 +32,18 @@ const seminar = (over = {}) => ({
   day: DAY,
   time: '18:30',
   speaker: 'Carlo Martinucci',
+  speaker_link: 'https://www.linkedin.com/in/carlomartinucci/',
   title: 'Watermarking AI Text',
   title_it: 'Watermarking AI Text',
   description_md: 'How **watermarks** work. See [the post](https://example.org/post).',
   description_md_it: 'Come funzionano i **watermark**.',
   details: [
     {
-      label: 'Speaker',
-      label_it: 'Relatore',
-      value: 'Carlo Martinucci',
-      value_it: 'Carlo Martinucci',
-      link: 'https://www.linkedin.com/in/carlomartinucci/',
+      label: 'Where',
+      label_it: 'Dove',
+      value: 'Online, on Zoom',
+      value_it: 'Online, su Zoom',
+      link: 'https://zoom.example/abc',
     },
   ],
   register_link: 'https://luma.com/abc',
@@ -149,8 +150,92 @@ test('the form is validated', () => {
   bad({ title_it: '' });
   bad({ description_md_it: '' });
   bad({ register_link: 'http://insecure.example' });
-  bad({ details: [{ label: 'Speaker', value: 'Carlo' }] });
+  bad({ details: [{ label: 'Where', value: 'Online' }] });
   bad({ details: [{ ...seminar().details[0], link: 'javascript:alert(1)' }] });
+});
+
+test('the Speaker field makes the speaker line of the card as well as the calendar name', () => {
+  const entry = content.toEntry(
+    seminar({
+      speaker: 'Elisabetta Rocchetti',
+      speaker_affiliation: 'Università degli Studi di Milano',
+    })
+  );
+  assert.equal(entry.speaker, 'Elisabetta Rocchetti');
+  assert.deepEqual(entry.format_info[0], {
+    label: 'Speaker',
+    label_it: 'Relatore',
+    value: 'Elisabetta Rocchetti, Università degli Studi di Milano',
+    value_it: 'Elisabetta Rocchetti, Università degli Studi di Milano',
+    link: 'https://www.linkedin.com/in/carlomartinucci/',
+  });
+  // The speaker line comes first, then the rest of the Details.
+  assert.deepEqual(
+    entry.format_info.map((r) => r.label),
+    ['Speaker', 'Where']
+  );
+  // No link, no affiliation: just the name.
+  const plain = content.toEntry(seminar({ speaker_link: '', speaker_affiliation: '' }));
+  assert.equal(plain.format_info[0].value, 'Carlo Martinucci');
+  assert.equal(plain.format_info[0].link, undefined);
+  // No speaker: no Speaker line, and no leftover one.
+  const none = content.toEntry(seminar({ speaker: '', speaker_link: '' }));
+  assert.deepEqual(
+    none.format_info.map((r) => r.label),
+    ['Where']
+  );
+  // A Speaker row sent among the Details is ignored: the field is the one source.
+  const dup = content.toEntry(
+    seminar({
+      details: [
+        { label: 'Speaker', label_it: 'Relatore', value: 'Someone else', value_it: 'Someone else' },
+      ],
+    })
+  );
+  assert.deepEqual(
+    dup.format_info.map((r) => r.value),
+    ['Carlo Martinucci']
+  );
+  // Affiliation or link without a name, or a bad link, are refused.
+  const bad = (over) =>
+    assert.throws(
+      () => content.toEntry(seminar(over)),
+      (e) => e.status === 400
+    );
+  bad({ speaker: '', speaker_affiliation: 'Parallax' });
+  bad({ speaker_link: 'http://insecure.example' });
+});
+
+test('the speaker line goes back into the form as its own fields, and the label is kept', () => {
+  const imported = {
+    category: 'seminar',
+    day: '2026-11-12',
+    speaker: 'Elisabetta Rocchetti',
+    format_info: [
+      {
+        label: 'Speaker',
+        label_it: 'Relatrice',
+        value: 'Elisabetta Rocchetti, Università degli Studi di Milano',
+        value_it: 'Elisabetta Rocchetti, Università degli Studi di Milano',
+        link: 'https://www.linkedin.com/in/elisabetta/',
+      },
+      { label: 'Where', label_it: 'Dove', value: 'Online', value_it: 'Online' },
+    ],
+  };
+  const form = content.toForm(imported);
+  assert.equal(form.speaker, 'Elisabetta Rocchetti');
+  assert.equal(form.speaker_affiliation, 'Università degli Studi di Milano');
+  assert.equal(form.speaker_link, 'https://www.linkedin.com/in/elisabetta/');
+  assert.deepEqual(
+    form.details.map((d) => d.label),
+    ['Where']
+  );
+  // Saving it again changes nothing on the card, "Relatrice" included.
+  const again = content.toEntry({ ...form, type: 'seminar', title: 'T', title_it: 'T' }, imported);
+  assert.deepEqual(again.format_info, imported.format_info);
+  // A seminar with the row only (no `speaker` of its own) still gets its name.
+  const rowOnly = { ...imported, speaker: undefined };
+  assert.equal(content.toForm(rowOnly).speaker, 'Elisabetta Rocchetti');
 });
 
 test('editing keeps the fields the form does not know about', () => {
