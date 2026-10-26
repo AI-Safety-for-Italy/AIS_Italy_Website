@@ -2,18 +2,18 @@
 // (server/content.js), merged into the `events` data of data/events.yaml.
 //
 // Where they come from:
-//   - CONTENT_BUILD_DATABASE=1 (set it once the content is migrated): the
-//     database, at CONTENT_DATABASE_URL or else MEET_DATABASE_URL /
-//     DATABASE_URL. If it cannot be read the build fails on purpose, so the
-//     live site stays as it was instead of losing its seminars.
-//     Opt-in because the deploy's build environment (`vercel pull`) may hold a
-//     database address only the running functions can reach.
+//   - CONTENT_SOURCE set (the deploy workflow sets it: www.ais4i.it for main,
+//     ais4i-dev.vercel.app for dev): that site's public /api/content, which
+//     reads the same database. No database address is needed at build time.
+//     If it answers with an error the build fails on purpose, so the live
+//     site stays as it was instead of losing its seminars; a 404 means the
+//     tool is not deployed there yet, so the YAML stays the site.
 //   - otherwise: _content-snapshot.json, which the local server
 //     (scripts/meet-dev.js) rewrites on every publish; and without it, the
 //     YAML alone. The CI checks build this way.
 //
-// Until scripts/content-migrate.js has imported the YAML entries and switched
-// the content "live", the database is ignored and the YAML is the site.
+// Until the content is switched on (the "Switch on" button on /app/content/,
+// or scripts/content-migrate.js), the YAML is the site.
 
 const fs = require('fs');
 const path = require('path');
@@ -21,29 +21,31 @@ const path = require('path');
 const SNAPSHOT = path.join(__dirname, '..', '_content-snapshot.json');
 const MANAGED = ['seminar', 'event'];
 
+let fetchImpl = (...args) => fetch(...args);
+function setFetch(fn) {
+  fetchImpl = fn;
+}
+
 function todayInItaly(now = new Date()) {
   if (process.env.EVENTS_TODAY) return process.env.EVENTS_TODAY;
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Rome' }).format(now);
 }
 
-async function fromDatabase(url) {
-  const { Client } = require('pg');
-  const client = new Client({ connectionString: url, connectionTimeoutMillis: 15_000 });
-  await client.connect();
+async function fromSite(origin) {
+  const url = `${origin.replace(/\/+$/, '')}/api/content`;
+  let res;
   try {
-    const exists = (await client.query(`select to_regclass('content_items') as t`)).rows[0].t;
-    if (!exists) return { live: false, entries: [] };
-    const setting = await client.query(`select value from app_settings where key = 'content_live'`);
-    const live = Boolean(
-      setting.rows.length && setting.rows[0].value && setting.rows[0].value.live
-    );
-    const { rows } = await client.query(
-      'select entry from content_items where not deleted order by day, created_at'
-    );
-    return { live, entries: rows.map((r) => r.entry) };
-  } finally {
-    await client.end();
+    res = await fetchImpl(url, { headers: { Accept: 'application/json' } });
+  } catch (err) {
+    throw new Error(`${url} did not answer (${err.message})`);
   }
+  if (res.status === 404) return { live: false, entries: [] };
+  if (!res.ok) throw new Error(`${url} answered ${res.status}`);
+  const data = await res.json();
+  if (!data || typeof data.live !== 'boolean' || !Array.isArray(data.entries)) {
+    throw new Error(`${url} answered something unexpected`);
+  }
+  return data;
 }
 
 function fromSnapshot() {
@@ -60,17 +62,13 @@ function writeSnapshot(data) {
 
 /** { live, entries } for this build. */
 async function load() {
-  if (process.env.CONTENT_BUILD_DATABASE !== '1') return fromSnapshot();
-  const url =
-    process.env.CONTENT_DATABASE_URL || process.env.MEET_DATABASE_URL || process.env.DATABASE_URL;
-  if (!url) {
-    throw new Error('CONTENT_BUILD_DATABASE=1 but no database address is set for the build.');
-  }
+  const origin = process.env.CONTENT_SOURCE;
+  if (!origin) return fromSnapshot();
   try {
-    return await fromDatabase(url);
+    return await fromSite(origin);
   } catch (err) {
     throw new Error(
-      `Could not read the published seminars and events from the database (${err.message}). ` +
+      `Could not read the published seminars and events (${err.message}). ` +
         'The build stops so the live site keeps its current content.'
     );
   }
@@ -128,4 +126,13 @@ function merge(events, content, today = todayInItaly()) {
   };
 }
 
-module.exports = { SNAPSHOT, load, merge, writeSnapshot, todayInItaly, asPast, stayInYaml };
+module.exports = {
+  SNAPSHOT,
+  setFetch,
+  load,
+  merge,
+  writeSnapshot,
+  todayInItaly,
+  asPast,
+  stayInYaml,
+};

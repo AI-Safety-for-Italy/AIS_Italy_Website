@@ -32,17 +32,18 @@ const seminar = (over = {}) => ({
   day: DAY,
   time: '18:30',
   speaker: 'Carlo Martinucci',
+  speaker_link: 'https://www.linkedin.com/in/carlomartinucci/',
   title: 'Watermarking AI Text',
   title_it: 'Watermarking AI Text',
   description_md: 'How **watermarks** work. See [the post](https://example.org/post).',
   description_md_it: 'Come funzionano i **watermark**.',
   details: [
     {
-      label: 'Speaker',
-      label_it: 'Relatore',
-      value: 'Carlo Martinucci',
-      value_it: 'Carlo Martinucci',
-      link: 'https://www.linkedin.com/in/carlomartinucci/',
+      label: 'Where',
+      label_it: 'Dove',
+      value: 'Online, on Zoom',
+      value_it: 'Online, su Zoom',
+      link: 'https://zoom.example/abc',
     },
   ],
   register_link: 'https://luma.com/abc',
@@ -149,8 +150,92 @@ test('the form is validated', () => {
   bad({ title_it: '' });
   bad({ description_md_it: '' });
   bad({ register_link: 'http://insecure.example' });
-  bad({ details: [{ label: 'Speaker', value: 'Carlo' }] });
+  bad({ details: [{ label: 'Where', value: 'Online' }] });
   bad({ details: [{ ...seminar().details[0], link: 'javascript:alert(1)' }] });
+});
+
+test('the Speaker field makes the speaker line of the card as well as the calendar name', () => {
+  const entry = content.toEntry(
+    seminar({
+      speaker: 'Elisabetta Rocchetti',
+      speaker_affiliation: 'Università degli Studi di Milano',
+    })
+  );
+  assert.equal(entry.speaker, 'Elisabetta Rocchetti');
+  assert.deepEqual(entry.format_info[0], {
+    label: 'Speaker',
+    label_it: 'Relatore',
+    value: 'Elisabetta Rocchetti, Università degli Studi di Milano',
+    value_it: 'Elisabetta Rocchetti, Università degli Studi di Milano',
+    link: 'https://www.linkedin.com/in/carlomartinucci/',
+  });
+  // The speaker line comes first, then the rest of the Details.
+  assert.deepEqual(
+    entry.format_info.map((r) => r.label),
+    ['Speaker', 'Where']
+  );
+  // No link, no affiliation: just the name.
+  const plain = content.toEntry(seminar({ speaker_link: '', speaker_affiliation: '' }));
+  assert.equal(plain.format_info[0].value, 'Carlo Martinucci');
+  assert.equal(plain.format_info[0].link, undefined);
+  // No speaker: no Speaker line, and no leftover one.
+  const none = content.toEntry(seminar({ speaker: '', speaker_link: '' }));
+  assert.deepEqual(
+    none.format_info.map((r) => r.label),
+    ['Where']
+  );
+  // A Speaker row sent among the Details is ignored: the field is the one source.
+  const dup = content.toEntry(
+    seminar({
+      details: [
+        { label: 'Speaker', label_it: 'Relatore', value: 'Someone else', value_it: 'Someone else' },
+      ],
+    })
+  );
+  assert.deepEqual(
+    dup.format_info.map((r) => r.value),
+    ['Carlo Martinucci']
+  );
+  // Affiliation or link without a name, or a bad link, are refused.
+  const bad = (over) =>
+    assert.throws(
+      () => content.toEntry(seminar(over)),
+      (e) => e.status === 400
+    );
+  bad({ speaker: '', speaker_affiliation: 'Parallax' });
+  bad({ speaker_link: 'http://insecure.example' });
+});
+
+test('the speaker line goes back into the form as its own fields, and the label is kept', () => {
+  const imported = {
+    category: 'seminar',
+    day: '2026-11-12',
+    speaker: 'Elisabetta Rocchetti',
+    format_info: [
+      {
+        label: 'Speaker',
+        label_it: 'Relatrice',
+        value: 'Elisabetta Rocchetti, Università degli Studi di Milano',
+        value_it: 'Elisabetta Rocchetti, Università degli Studi di Milano',
+        link: 'https://www.linkedin.com/in/elisabetta/',
+      },
+      { label: 'Where', label_it: 'Dove', value: 'Online', value_it: 'Online' },
+    ],
+  };
+  const form = content.toForm(imported);
+  assert.equal(form.speaker, 'Elisabetta Rocchetti');
+  assert.equal(form.speaker_affiliation, 'Università degli Studi di Milano');
+  assert.equal(form.speaker_link, 'https://www.linkedin.com/in/elisabetta/');
+  assert.deepEqual(
+    form.details.map((d) => d.label),
+    ['Where']
+  );
+  // Saving it again changes nothing on the card, "Relatrice" included.
+  const again = content.toEntry({ ...form, type: 'seminar', title: 'T', title_it: 'T' }, imported);
+  assert.deepEqual(again.format_info, imported.format_info);
+  // A seminar with the row only (no `speaker` of its own) still gets its name.
+  const rowOnly = { ...imported, speaker: undefined };
+  assert.equal(content.toForm(rowOnly).speaker, 'Elisabetta Rocchetti');
 });
 
 test('editing keeps the fields the form does not know about', () => {
@@ -390,24 +475,79 @@ test('a deleted item leaves the site at the next build', async () => {
   assert.equal((await content.exportForBuild()).entries.length, 0);
 });
 
-test('the build reads the database only when asked to', async () => {
-  const saved = { ...process.env };
+test('the build reads the published items from the site it deploys to', async () => {
+  const saved = process.env.CONTENT_SOURCE;
+  const answer = (status, body) => async (url) => {
+    assert.equal(url, 'https://ais4i-dev.vercel.app/api/content');
+    return { ok: status < 300, status, json: async () => body };
+  };
   try {
-    // A deploy environment with an address the build cannot reach.
-    process.env.DATABASE_URL = 'postgres://user:pw@base:5432/db';
-    delete process.env.CONTENT_BUILD_DATABASE;
-    const data = await contentBuild.load();
-    assert.equal(typeof data.live, 'boolean');
-    // Asked to, an unreachable database stops the build.
-    process.env.CONTENT_BUILD_DATABASE = '1';
-    process.env.CONTENT_DATABASE_URL = 'postgres://user:pw@127.0.0.1:1/db';
+    // Without CONTENT_SOURCE (the CI checks, a local build): no network at all.
+    delete process.env.CONTENT_SOURCE;
+    contentBuild.setFetch(() => {
+      throw new Error('no network expected');
+    });
+    assert.equal(typeof (await contentBuild.load()).live, 'boolean');
+
+    process.env.CONTENT_SOURCE = 'https://ais4i-dev.vercel.app/';
+    const entries = [{ anchor: 'seminar-x', category: 'seminar', day: '2027-01-14' }];
+    contentBuild.setFetch(answer(200, { live: true, entries }));
+    assert.deepEqual(await contentBuild.load(), { live: true, entries });
+    // Not deployed there yet: the YAML stays the site.
+    contentBuild.setFetch(answer(404, {}));
+    assert.deepEqual(await contentBuild.load(), { live: false, entries: [] });
+    // Any other failure stops the build, so the live site keeps its content.
+    contentBuild.setFetch(answer(500, {}));
     await assert.rejects(contentBuild.load(), /The build stops/);
+    contentBuild.setFetch(async () => {
+      throw new Error('getaddrinfo ENOTFOUND');
+    });
+    await assert.rejects(contentBuild.load(), /The build stops/);
+    contentBuild.setFetch(answer(200, { nope: true }));
+    await assert.rejects(contentBuild.load(), /unexpected/);
   } finally {
-    for (const k of ['DATABASE_URL', 'CONTENT_BUILD_DATABASE', 'CONTENT_DATABASE_URL']) {
-      if (saved[k] === undefined) delete process.env[k];
-      else process.env[k] = saved[k];
-    }
+    if (saved === undefined) delete process.env.CONTENT_SOURCE;
+    else process.env.CONTENT_SOURCE = saved;
   }
+});
+
+test('the public API shows nothing until switched on, and never removed items', async () => {
+  const api = require('../api/content');
+  const call = async () => {
+    const res = {
+      headers: {},
+      setHeader(k, v) {
+        this.headers[k] = v;
+      },
+      end(b) {
+        this.body = JSON.parse(b);
+      },
+    };
+    await api({ method: 'GET', headers: {}, url: '/api/content' }, res);
+    return res.body;
+  };
+  const me = await admin();
+  const { id } = await content.saveItem(me, seminar());
+  assert.deepEqual(await call(), { live: false, entries: [] });
+  await content.setLive(true);
+  assert.equal((await call()).entries.length, 1);
+  await content.deleteItem(me, id);
+  assert.deepEqual(await call(), { live: true, entries: [] });
+});
+
+test('switching on imports the real events.yaml and keeps undated entries in it', async () => {
+  const yamlEntries = content.yamlEntries();
+  assert.ok(yamlEntries.length > 0);
+  const result = await content.switchOn('Admin (switch on)');
+  const dated = yamlEntries.filter((e) => e.day);
+  assert.equal(result.imported, dated.length);
+  assert.deepEqual(
+    result.undated,
+    yamlEntries.filter((e) => !e.day).map((e) => e.title)
+  );
+  assert.equal(await content.isLive(), true);
+  // Switching on twice imports nothing new.
+  assert.equal((await content.switchOn('Admin (switch on)')).imported, 0);
 });
 
 // ── After publishing ─────────────────────────────────────────────────────────

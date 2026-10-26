@@ -31,6 +31,17 @@
 {%- endif %}
 {%- if appArea %}
 <script>
+  /* A single deploy's own URL (…-ai-safety-4-italy.vercel.app) cannot be
+     registered as a Discord sign-in redirect, so the personal area moves to
+     the fixed dev alias, where it can (see server/discord.js). */
+  (function () {
+    if (/-ai-safety-4-italy\.vercel\.app$/.test(location.hostname)) {
+      document.documentElement.style.visibility = 'hidden';
+      location.replace('https://ais4i-dev.vercel.app' + location.pathname + location.search);
+    }
+  })();
+</script>
+<script>
   /* Personal area: who was signed in on this browser last time, so the header
      and admin-only items show at once. app-common.js checks the session and
      corrects or clears this. */

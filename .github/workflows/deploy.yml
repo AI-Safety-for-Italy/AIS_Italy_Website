@@ -83,15 +83,24 @@ jobs:
       # Only `main` publishes to the production alias, which is the alias a
       # custom domain follows. Every other branch lands on a preview URL that
       # nothing points at, so running this job from dev is inert by design.
+      # content_source: the site whose /api/content the build reads the
+      # seminars and events published from the dashboard from (see
+      # server/content-build.js); empty elsewhere, so the YAML is used.
       - name: Resolve deploy target
         id: target
         run: |
           if [ "$GITHUB_REF" = "refs/heads/main" ]; then
             echo "environment=production" >> "$GITHUB_OUTPUT"
             echo "prod_flag=--prod" >> "$GITHUB_OUTPUT"
+            echo "content_source=https://www.ais4i.it" >> "$GITHUB_OUTPUT"
           else
             echo "environment=preview" >> "$GITHUB_OUTPUT"
             echo "prod_flag=" >> "$GITHUB_OUTPUT"
+            if [ "$GITHUB_REF" = "refs/heads/dev" ]; then
+              echo "content_source=https://ais4i-dev.vercel.app" >> "$GITHUB_OUTPUT"
+            else
+              echo "content_source=" >> "$GITHUB_OUTPUT"
+            fi
           fi
 
       # Writes the project settings from vercel.json and the dashboard into
@@ -104,6 +113,8 @@ jobs:
       # identical to the one this workflow produced, and lets the deploy step
       # use --prebuilt to skip a second build.
       - name: Build
+        env:
+          CONTENT_SOURCE: ${{ steps.target.outputs.content_source }}
         run: vercel build ${{ steps.target.outputs.prod_flag }} --token=${{ secrets.VERCEL_TOKEN }}
 
       - name: Deploy

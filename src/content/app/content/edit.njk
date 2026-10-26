@@ -54,8 +54,18 @@ seoTitle: 'Edit content | AI Safety for Italy'
             <span>Still to be confirmed <span class="panel-note">· title greyed out, “coming soon” in the calendar</span></span>
           </label>
           <div>
-            <label class="form-label" for="speaker">Speaker <span class="panel-note">(name shown in the calendar)</span></label>
+            <label class="form-label" for="speaker">Speaker <span class="panel-note">(name in the calendar, and the Speaker line of the card)</span></label>
             <input class="form-input is-compact" id="speaker" name="speaker" maxlength="120" placeholder="e.g. Carlo Martinucci">
+          </div>
+          <div class="form-row">
+            <div>
+              <label class="form-label" for="speaker_affiliation">Affiliation <span class="panel-note">(optional)</span></label>
+              <input class="form-input is-compact" id="speaker_affiliation" name="speaker_affiliation" maxlength="200" placeholder="e.g. Università degli Studi di Milano">
+            </div>
+            <div>
+              <label class="form-label" for="speaker_link">Profile link <span class="panel-note">(optional)</span></label>
+              <input class="form-input is-compact" id="speaker_link" name="speaker_link" type="url" maxlength="500" placeholder="https://www.linkedin.com/in/…">
+            </div>
           </div>
           <div class="form-row">
             <div>
@@ -80,10 +90,9 @@ seoTitle: 'Edit content | AI Safety for Italy'
 
           <div>
             <span class="form-label">Details</span>
-            <p class="form-note" style="margin:0 0 .5rem">The list under the description: speaker and affiliation, where, who it is for…</p>
+            <p class="form-note" style="margin:0 0 .5rem">More lines under the description, after the Speaker one: where, who it is for…</p>
             <div id="details"></div>
             <div class="wk-nav" style="margin-top:.5rem">
-              <button type="button" class="btn btn-outline btn-sm" data-preset="speaker">+ Speaker</button>
               <button type="button" class="btn btn-outline btn-sm" data-preset="where">+ Where</button>
               <button type="button" class="btn btn-outline btn-sm" data-preset="">+ Other</button>
             </div>
