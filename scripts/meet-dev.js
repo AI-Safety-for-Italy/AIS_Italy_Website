@@ -6,7 +6,9 @@
 //   npm run dev:meet        (builds and watches the site too)
 //
 // Defaults, all overridable from the environment:
-//   - database: PGlite stored in .meet-dev-db/ (DATABASE_URL to use Postgres)
+//   - database: PGlite stored in .meet-dev-db/ (MEET_DEV_DB for another
+//     folder, e.g. for a second server beside the first: two servers must
+//     never share one folder; DATABASE_URL to use Postgres)
 //   - admin password: "admin"
 //   - Discord sign-in: a stand-in that signs in under any name (set the
 //     DISCORD_* vars to use a real Discord app)
@@ -44,7 +46,7 @@ if (!process.env.GOOGLE_SERVICE_ACCOUNT_JSON) process.env.CRM_SHEETS_FAKE ||= '1
 const db = require('../server/db');
 if (!process.env.MEET_DATABASE_URL && !process.env.DATABASE_URL) {
   const { PGlite } = require('@electric-sql/pglite');
-  const local = new PGlite(path.join(ROOT, '.meet-dev-db'));
+  const local = new PGlite(process.env.MEET_DEV_DB || path.join(ROOT, '.meet-dev-db'));
   db.setDb(local);
   // Close the database cleanly on Ctrl+C: PGlite keeps it in files, and a
   // process killed in the middle of a write can leave them unreadable (the

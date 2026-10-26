@@ -11,58 +11,76 @@ seoTitle: 'Edit form | AI Safety for Italy'
 ---
 {% extends "base.njk" %}
 {% block content %}
+<div class="fe-bar" id="feTopbar" hidden>
+  <a class="fe-back" href="/app/forms/" aria-label="All forms" title="All forms">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+  </a>
+  <div class="fe-bar-title">
+    <div class="fe-bar-name">
+      <h1 id="feTitle"></h1>
+      <span id="feStatus"></span>
+    </div>
+    <span class="fe-bar-meta" id="feVersion"></span>
+  </div>
+  <nav class="fe-tabs" aria-label="Form" id="feTabs">
+    <a href="#questions" data-tab="questions" aria-current="page">Questions</a>
+    <a href="#preview" data-tab="preview">Preview</a>
+    <a href="#settings" data-tab="settings">Settings</a>
+    <a href="#share" data-tab="share">Share</a>
+  </nav>
+  <div class="fe-bar-actions">
+    <div class="lang-toggle" id="feLang" role="group" aria-label="Editing language" hidden>
+      <button type="button" lang="it" aria-pressed="true">IT</button>
+      <button type="button" lang="en" aria-pressed="false">EN</button>
+    </div>
+    <span class="fe-saved" id="feSaved">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Saved
+    </span>
+    <span class="fe-dirty" id="feDirty" hidden>Unsaved changes</span>
+    <button type="button" class="btn btn-primary btn-sm" id="feSave">Save</button>
+  </div>
+</div>
+
 <section class="meet-main fe-main">
   <div class="container fe-wide">
-    <div class="admin-bar">
-      <nav class="crumbs" aria-label="Breadcrumb">
-        <a href="/app/">Tools</a>
-        <span aria-hidden="true">/</span>
-        <a href="/app/forms/">Forms</a>
-        <span aria-hidden="true">/</span>
-        <span id="feCrumb">…</span>
-      </nav>
-      <nav class="admin-tabs" aria-label="Form" id="feTabs" hidden>
-        <a href="#questions" data-tab="questions" aria-current="page">Questions</a>
-        <a href="#preview" data-tab="preview">Preview</a>
-        <a href="#settings" data-tab="settings">Settings</a>
-        <a href="#share" data-tab="share">Share</a>
-      </nav>
-    </div>
-
-    <div class="fe-topbar" id="feTopbar" hidden>
-      <div class="fe-topbar-title">
-        <h1 id="feTitle"></h1>
-        <span id="feStatus"></span>
-        <span class="panel-note" id="feVersion"></span>
-      </div>
-      <div class="fe-topbar-actions">
-        <div class="lang-toggle" id="feLang" role="group" aria-label="Editing language" hidden>
-          <button type="button" lang="it" aria-pressed="true">IT</button>
-          <button type="button" lang="en" aria-pressed="false">EN</button>
-        </div>
-        <span class="panel-note" id="feDirty" hidden>Unsaved changes</span>
-        <button type="button" class="btn btn-primary btn-sm" id="feSave">Save</button>
-      </div>
-    </div>
+    <nav class="crumbs fe-crumbs" aria-label="Breadcrumb" id="feCrumbs">
+      <a href="/app/">Tools</a>
+      <span aria-hidden="true">/</span>
+      <a href="/app/forms/">Forms</a>
+      <span aria-hidden="true">/</span>
+      <span id="feCrumb">…</span>
+    </nav>
 
     <div id="feState"></div>
 
     <div class="fe-layout" id="tab-questions" hidden>
       <aside class="fe-palette" aria-label="Add a question">
-        <h2 class="label-mono">Add</h2>
+        <div class="fe-search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+          <input type="search" id="feSearch" placeholder="Find a type" aria-label="Find a question type" autocomplete="off">
+        </div>
         <div id="fePalette"></div>
       </aside>
-      <div class="fe-canvas" id="feCanvas" aria-label="The form"></div>
+      <div class="fe-stage">
+        <div class="fe-pagejump" id="fePages" role="navigation" aria-label="Pages of the form"></div>
+        <div class="fe-paper" id="feCanvas" aria-label="The form"></div>
+      </div>
       <aside class="fe-props" id="feProps" aria-label="Settings of the chosen question"></aside>
     </div>
 
     <div class="fe-preview" id="tab-preview" hidden>
-      <div class="lang-toggle" id="fePreviewLang" role="group" aria-label="Preview language" hidden>
-        <button type="button" lang="it" aria-pressed="true">IT</button>
-        <button type="button" lang="en" aria-pressed="false">EN</button>
+      <div class="fe-preview-bar">
+        <div class="fe-device" role="group" aria-label="Preview size" id="feDevice">
+          <button type="button" data-device="wide" aria-pressed="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>Computer
+          </button>
+          <button type="button" data-device="phone" aria-pressed="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2"/><path d="M11 18.5h2"/></svg>Phone
+          </button>
+        </div>
+        <span class="fe-preview-note">Nothing is sent from the preview.</span>
       </div>
-      <div class="fe-preview-page">
-        <div class="fe-preview-hero"><h1 id="fePreviewTitle"></h1><div id="fePreviewDesc" class="fm-md"></div></div>
+      <div class="fe-frame" id="feFrame">
         <div id="fePreviewForm"></div>
       </div>
     </div>

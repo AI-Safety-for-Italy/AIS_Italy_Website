@@ -12,25 +12,17 @@ seoTitle: 'Form | AI Safety for Italy'
 ---
 {% extends "base.njk" %}
 {% block content %}
-<section class="page-hero meet-hero fm-hero">
-  <div class="container fm-container">
-    <div class="meet-hero-top">
-      <span class="eyebrow">AI Safety for Italy</span>
-      <div class="lang-toggle" id="langToggle" role="group" aria-label="Language / Lingua" hidden>
-        <button type="button" lang="it" title="Italiano" aria-pressed="false">IT</button>
-        <button type="button" lang="en" title="English" aria-pressed="false">EN</button>
+<div class="fm-root" id="formView">
+  <div class="fm-shell">
+    <aside class="fm-aside">
+      <div class="fm-aside-inner">
+        <p class="fm-eyebrow">AI Safety for Italy</p>
+        <h1 class="fm-title"><span class="skeleton skeleton-title" aria-hidden="true"></span></h1>
       </div>
-    </div>
-    <h1 id="formTitle"><span class="skeleton skeleton-title" aria-hidden="true"></span></h1>
-    <div class="meet-description fm-description" id="formDescription" hidden></div>
+    </aside>
+    <div class="fm-body" aria-busy="true"></div>
   </div>
-</section>
-
-<section class="meet-main fm-main">
-  <div class="container fm-container">
-    <div id="formView"></div>
-  </div>
-</section>
+</div>
 
 <script src="/assets/js/meet/common.js" defer></script>
 <script src="/assets/js/meet/markdown-lite.js" defer></script>

@@ -2,13 +2,24 @@
  * The same code draws the public page (/form/) and the editor's preview, so
  * what the editor shows is what people get.
  *
- *   Meet.formRender(root, schema, {
+ *   Meet.formPage(root, schema, {      the whole page: the green panel with
+ *     lang,                             the title and the parts, the form
+ *     preview,                          beside it
+ *     closesAt,                         ISO date shown under the title
+ *     onLang(code),                     after the reader switches language
+ *     …and everything formRender takes
+ *   })
+ *
+ *   Meet.formRender(root, schema, {    the questions alone
  *     lang,                 'it' | 'en'
  *     preview,              true: no honeypot, sending only shows the end screen
  *     draftKey,             keep answers in this browser while filling in
  *     onSubmit(answers),    -> Promise of { confirmation }; a rejection with
  *                              err.errors ({ id: message }) marks the questions
+ *     onPage(index), onDone()
  *   })
+ *
+ *   Meet.formNotice(root, title, text)  the page's frame around a message
  *
  * Checks here are only to help people: the server checks everything again.
  * Labels go on the page as text; descriptions and help are markdown-lite,
@@ -50,19 +61,35 @@
       choose: 'Choose…',
       back: 'Back',
       next: 'Next',
+      nextTo: function (part) {
+        return 'Next: ' + part;
+      },
       send: 'Send',
       sending: 'Sending…',
       step: function (i, n) {
-        return 'Step ' + i + ' of ' + n;
+        return 'Part ' + i + ' of ' + n;
       },
       fix: 'Some answers need a look.',
       thanks: 'Thank you!',
       sentTitle: 'Sent',
       sent: 'Your answers have been sent.',
       previewSent: 'Preview: nothing was sent.',
+      previewNote: 'Preview: nothing is sent',
       again: 'Fill in again',
       requiredMark: 'Required',
-      draftKept: 'Your answers are kept in this browser until you send them.',
+      draftKept: 'Draft kept in this browser',
+      firstPart: 'To begin',
+      parts: 'Parts of the form',
+      current: 'now',
+      questions: function (n) {
+        return n === 1 ? '1 question' : n + ' questions';
+      },
+      privacy: 'Answers are stored encrypted and read only by the people running this form.',
+      closesOn: 'Open until ',
+      language: 'Language',
+      goBack: function (part) {
+        return 'Back to ' + part;
+      },
     },
     it: {
       required: 'Questa domanda è obbligatoria',
@@ -95,27 +122,71 @@
       choose: 'Scegli…',
       back: 'Indietro',
       next: 'Avanti',
+      nextTo: function (part) {
+        return 'Continua: ' + part;
+      },
       send: 'Invia',
       sending: 'Invio…',
       step: function (i, n) {
-        return 'Passo ' + i + ' di ' + n;
+        return 'Parte ' + i + ' di ' + n;
       },
       fix: 'Alcune risposte vanno controllate.',
       thanks: 'Grazie!',
       sentTitle: 'Inviato',
       sent: 'Le tue risposte sono state inviate.',
       previewSent: 'Anteprima: non è stato inviato nulla.',
+      previewNote: 'Anteprima: non si invia nulla',
       again: 'Compila di nuovo',
       requiredMark: 'Obbligatoria',
-      draftKept: 'Le risposte restano in questo browser finché non le invii.',
+      draftKept: 'Bozza salvata in questo browser',
+      firstPart: 'Per iniziare',
+      parts: 'Parti del modulo',
+      current: 'in corso',
+      questions: function (n) {
+        return n === 1 ? '1 domanda' : n + ' domande';
+      },
+      privacy: 'Le risposte sono conservate cifrate e lette solo da chi gestisce questo modulo.',
+      closesOn: 'Aperto fino al ',
+      language: 'Lingua',
+      goBack: function (part) {
+        return 'Torna a ' + part;
+      },
     },
   };
+
+  // Static markup only: icons drawn with strokes, no text from anywhere else.
+  var SVG = {
+    arrowRight:
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
+    arrowLeft:
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>',
+    check:
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+    alert:
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg>',
+    lock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>',
+    clock:
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+  };
+
+  function icon(name, cls) {
+    return h('span', {
+      class: 'fm-icon' + (cls ? ' ' + cls : ''),
+      'aria-hidden': 'true',
+      html: SVG[name],
+    });
+  }
+
+  var ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
+  function roman(n) {
+    return ROMAN[n - 1] || String(n);
+  }
 
   var EMAIL = /^[^\s@<>()",;:]+@[^\s@<>()",;:]+\.[^\s@<>()",;:]{2,}$/;
   var HTTPS = /^https:\/\/[^\s<>"]{3,}$/i;
 
-  function md(text) {
-    var el = h('div', { class: 'fm-md' });
+  function md(text, cls) {
+    var el = h('div', { class: 'fm-md' + (cls ? ' ' + cls : '') });
     // markdown-lite escapes everything except its own tags.
     el.innerHTML = M.md.toHtml(text || '');
     return el;
@@ -140,24 +211,52 @@
     }
   }
 
-  M.formRender = function (root, schema, opts) {
-    opts = opts || {};
-    var lang = schema.languages.indexOf(opts.lang) !== -1 ? opts.lang : schema.languages[0];
-    var S = STRINGS[lang] || STRINGS.it;
-    var t = function (value) {
+  function pickLang(schema, wanted) {
+    return schema.languages.indexOf(wanted) !== -1 ? wanted : schema.languages[0];
+  }
+
+  function texter(schema, lang) {
+    return function (value) {
       return (value && (value[lang] || value[schema.languages[0]])) || '';
     };
-    var values = opts.preview ? {} : restore(opts.draftKey);
-    var fields = {};
-    var page = 0;
+  }
 
-    // Pages: a new one at each section; the first holds what comes before.
+  // Pages: a new one at each section; the first holds what comes before.
+  function pagesOf(schema) {
     var pages = [{ section: null, items: [] }];
     schema.items.forEach(function (item) {
       if (item.type === 'section') pages.push({ section: item, items: [] });
       else pages[pages.length - 1].items.push(item);
     });
     if (!pages[0].items.length && pages.length > 1) pages.shift();
+    return pages;
+  }
+
+  function isQuestion(item) {
+    return item.type !== 'info' && item.type !== 'section';
+  }
+
+  M.formRender = function (root, schema, opts) {
+    opts = opts || {};
+    var lang = pickLang(schema, opts.lang);
+    var S = STRINGS[lang] || STRINGS.it;
+    var t = texter(schema, lang);
+    // Kept on opts so that drawing again (another language) keeps the answers.
+    var values = opts.values || (opts.preview ? {} : restore(opts.draftKey));
+    opts.values = values;
+    var fields = {};
+    var page = 0;
+    var pages = pagesOf(schema);
+
+    // Questions are numbered through the whole form; the consent box is not.
+    var numbers = {};
+    var count = 0;
+    schema.items.forEach(function (item) {
+      if (isQuestion(item) && item.type !== 'consent') {
+        count++;
+        numbers[item.id] = count < 10 ? '0' + count : String(count);
+      }
+    });
 
     var saveTimer = null;
     function changed() {
@@ -179,7 +278,10 @@
       var attrs = { class: 'fm-input', id: 'fm-' + item.id, name: item.id };
       if (tag === 'input') {
         attrs.type = { email: 'email', url: 'url', number: 'number', date: 'date' }[kind] || 'text';
-        if (kind === 'email') attrs.autocomplete = 'email';
+        if (kind === 'email') {
+          attrs.autocomplete = 'email';
+          attrs.placeholder = lang === 'it' ? 'nome@esempio.it' : 'name@example.com';
+        }
         if (kind === 'url') attrs.placeholder = 'https://';
         if (kind === 'number') {
           attrs.inputmode = 'decimal';
@@ -193,7 +295,8 @@
       if (item.maxLength) attrs.maxlength = String(item.maxLength);
       var input = h(tag, attrs);
       if (values[item.id] !== undefined) input.value = values[item.id];
-      var counter = kind === 'long_text' ? h('span', { class: 'fm-counter' }) : null;
+      var counter =
+        kind === 'long_text' && item.maxLength ? h('span', { class: 'fm-counter' }) : null;
       function count() {
         if (counter) counter.textContent = S.chars(input.value.length, item.maxLength);
       }
@@ -203,13 +306,29 @@
         count();
         changed();
       });
-      return { control: h('div', null, input, counter), focus: input };
+      return { control: h('div', { class: 'fm-text' }, input, counter), focus: input };
+    }
+
+    // Many short options read best as chips; long ones as a list.
+    function asChips(item) {
+      return (
+        item.type === 'multi' &&
+        !item.other &&
+        item.options.length >= 3 &&
+        item.options.every(function (o) {
+          return t(o.label).length <= 32;
+        })
+      );
     }
 
     function choiceField(item) {
       var multi = item.type === 'multi';
+      var chips = asChips(item);
       var current = values[item.id] || { selected: [] };
-      var group = h('div', { class: 'fm-choices', role: multi ? 'group' : 'radiogroup' });
+      var group = h('div', {
+        class: chips ? 'fm-chips' : 'fm-choices',
+        role: multi ? 'group' : 'radiogroup',
+      });
       var otherInput = null;
       var otherBox = null;
       function sync() {
@@ -231,7 +350,22 @@
           onchange: sync,
         });
         input.checked = current.selected.indexOf(o.id) !== -1;
-        group.appendChild(h('label', { class: 'fm-choice' }, input, h('span', null, t(o.label))));
+        group.appendChild(
+          chips
+            ? h(
+                'label',
+                { class: 'fm-chip' },
+                input,
+                icon('check', 'fm-chip-tick'),
+                h('span', null, t(o.label))
+              )
+            : h(
+                'label',
+                { class: 'fm-choice' },
+                input,
+                h('span', { class: 'fm-choice-text' }, t(o.label))
+              )
+        );
       });
       if (item.other) {
         otherBox = h('input', {
@@ -254,7 +388,7 @@
             'label',
             { class: 'fm-choice fm-choice-other' },
             otherBox,
-            h('span', null, S.other),
+            h('span', { class: 'fm-choice-text' }, S.other),
             otherInput
           )
         );
@@ -265,7 +399,7 @@
     function dropdownField(item) {
       var select = h(
         'select',
-        { class: 'fm-input', id: 'fm-' + item.id },
+        { class: 'fm-input fm-select', id: 'fm-' + item.id },
         h('option', { value: '' }, S.choose)
       );
       item.options.forEach(function (o) {
@@ -358,35 +492,43 @@
       else return null;
       var error = errorBox();
       var labelId = 'fm-label-' + item.id;
+      var isGroup =
+        made.control.getAttribute &&
+        (made.control.getAttribute('role') || '').indexOf('group') !== -1;
       var head = made.labelInside
         ? null
         : h(
-            'label',
-            { class: 'fm-label', id: labelId, for: 'fm-' + item.id },
-            t(item.label),
-            item.required
-              ? h(
-                  'span',
-                  { class: 'fm-required', title: S.requiredMark, 'aria-label': S.requiredMark },
-                  ' *'
-                )
-              : null
+            // A group of buttons is named by aria-labelledby, not by a <label>.
+            isGroup ? 'div' : 'label',
+            { class: 'fm-label', id: labelId, for: isGroup ? null : 'fm-' + item.id },
+            h('span', { class: 'fm-num', 'aria-hidden': 'true' }, numbers[item.id] || ''),
+            h(
+              'span',
+              { class: 'fm-label-text' },
+              t(item.label),
+              item.required
+                ? h(
+                    'span',
+                    { class: 'fm-required', title: S.requiredMark, 'aria-label': S.requiredMark },
+                    ' *'
+                  )
+                : null
+            )
           );
       var card = h(
         'div',
-        { class: 'fm-question', 'data-id': item.id },
+        { class: 'fm-question' + (made.labelInside ? ' is-consent' : ''), 'data-id': item.id },
         head,
-        item.help && !made.labelInside ? md(t(item.help)) : null,
-        made.control,
-        item.help && made.labelInside ? md(t(item.help)) : null,
-        error
+        h(
+          'div',
+          { class: 'fm-q-body' },
+          item.help && !made.labelInside ? md(t(item.help), 'fm-help') : null,
+          made.control,
+          item.help && made.labelInside ? md(t(item.help), 'fm-help') : null,
+          error
+        )
       );
-      if (
-        made.control.getAttribute &&
-        (made.control.getAttribute('role') || '').indexOf('group') !== -1
-      ) {
-        made.control.setAttribute('aria-labelledby', labelId);
-      }
+      if (isGroup) made.control.setAttribute('aria-labelledby', labelId);
       fields[item.id] = { item: item, card: card, error: error, focus: made.focus };
       return card;
     }
@@ -428,7 +570,9 @@
     function show(id, message) {
       var f = fields[id];
       if (!f) return;
-      f.error.textContent = message || '';
+      M.clear(f.error);
+      if (message) f.error.appendChild(icon('alert'));
+      f.error.appendChild(document.createTextNode(message || ''));
       f.error.hidden = !message;
       f.card.classList.toggle('has-error', Boolean(message));
     }
@@ -470,6 +614,10 @@
 
     // ── Pages ─────────────────────────────────────────────────────────────
 
+    function partName(i) {
+      return pages[i].section ? t(pages[i].section.label) : S.firstPart;
+    }
+
     var honeypot = opts.preview
       ? null
       : h('input', {
@@ -487,9 +635,24 @@
       h('div', { class: 'fm-progress-bar' }),
       h('span', { class: 'fm-progress-text' })
     );
-    var back = h('button', { type: 'button', class: 'btn btn-outline' }, S.back);
-    var next = h('button', { type: 'submit', class: 'btn btn-primary' }, S.next);
-    var nav = h('div', { class: 'fm-nav' }, back, next);
+    var back = h(
+      'button',
+      { type: 'button', class: 'fm-back' },
+      icon('arrowLeft'),
+      h('span', null, S.back)
+    );
+    var nextText = h('span');
+    var next = h(
+      'button',
+      { type: 'submit', class: 'btn btn-primary fm-next' },
+      nextText,
+      icon('arrowRight')
+    );
+    var note =
+      opts.preview || opts.draftKey
+        ? h('span', { class: 'fm-draft' }, opts.preview ? S.previewNote : S.draftKept)
+        : null;
+    var nav = h('div', { class: 'fm-nav' }, back, note, next);
     var form = h(
       'form',
       { class: 'fm-form', novalidate: true },
@@ -504,12 +667,13 @@
       var el = h(
         'section',
         { class: 'fm-page', hidden: i !== 0 },
-        p.section
+        p.section || pages.length > 1
           ? h(
               'header',
               { class: 'fm-section' },
-              h('h2', null, t(p.section.label)),
-              p.section.help ? md(t(p.section.help)) : null
+              pages.length > 1 ? h('p', { class: 'fm-part' }, S.step(i + 1, pages.length)) : null,
+              p.section ? h('h2', null, t(p.section.label)) : null,
+              p.section && p.section.help ? md(t(p.section.help), 'fm-section-help') : null
             )
           : null,
         p.items.map(build)
@@ -520,14 +684,28 @@
 
     function go(index) {
       page = Math.max(0, Math.min(pages.length - 1, index));
+      opts.page = page;
       pageEls.forEach(function (el, i) {
         el.hidden = i !== page;
       });
       back.hidden = page === 0;
-      next.textContent = page === pages.length - 1 ? S.send : S.next;
+      var last = page === pages.length - 1;
+      nextText.textContent = last
+        ? S.send
+        : pages[page + 1].section
+        ? S.nextTo(t(pages[page + 1].section.label))
+        : S.next;
+      next.classList.toggle('is-send', last);
       progress.querySelector('.fm-progress-bar').style.width =
         ((page + 1) / pages.length) * 100 + '%';
-      progress.querySelector('.fm-progress-text').textContent = S.step(page + 1, pages.length);
+      progress.querySelector('.fm-progress-text').textContent =
+        S.step(page + 1, pages.length) + ' · ' + partName(page);
+      if (opts.onPage) opts.onPage(page);
+    }
+
+    function toTop() {
+      var top = root.getBoundingClientRect().top;
+      if (top < 0) root.scrollIntoView({ behavior: 'smooth' });
     }
 
     function focusQuestion(id) {
@@ -540,7 +718,7 @@
     back.addEventListener('click', function () {
       formError.hidden = true;
       go(page - 1);
-      root.scrollIntoView({ behavior: 'smooth' });
+      toTop();
     });
 
     form.addEventListener('submit', function (e) {
@@ -553,7 +731,7 @@
       }
       if (page < pages.length - 1) {
         go(page + 1);
-        root.scrollIntoView({ behavior: 'smooth' });
+        toTop();
         return;
       }
       // The last page: check everything, then send.
@@ -571,7 +749,7 @@
         return;
       }
       next.disabled = true;
-      next.textContent = S.sending;
+      nextText.textContent = S.sending;
       Promise.resolve(opts.onSubmit(answersOut(), { website: honeypot ? honeypot.value : '' }))
         .then(function (result) {
           store(opts.draftKey, null);
@@ -579,7 +757,7 @@
         })
         .catch(function (err) {
           next.disabled = false;
-          next.textContent = S.send;
+          nextText.textContent = S.send;
           if (err && err.errors) {
             var first = null;
             Object.keys(err.errors).forEach(function (id) {
@@ -600,14 +778,15 @@
 
     function done(confirmation, isPreview) {
       M.clear(root);
+      var own = confirmation && t(confirmation);
       root.appendChild(
         h(
           'div',
-          { class: 'fm-done' },
-          h('div', { class: 'fm-done-icon', 'aria-hidden': 'true' }, '✓'),
+          { class: 'fm-done', tabindex: '-1' },
+          icon('check', 'fm-done-icon'),
           // With the form's own closing message, the heading does not repeat its thanks.
-          confirmation && t(confirmation) ? h('h2', null, S.sentTitle) : h('h2', null, S.thanks),
-          confirmation && t(confirmation) ? md(t(confirmation)) : h('p', null, S.sent),
+          h('h2', null, own ? S.sentTitle : S.thanks),
+          own ? md(own, 'fm-done-text') : h('p', { class: 'fm-done-text' }, S.sent),
           isPreview ? h('p', { class: 'fm-note' }, S.previewSent) : null,
           isPreview
             ? h(
@@ -616,7 +795,10 @@
                   type: 'button',
                   class: 'btn btn-outline',
                   onclick: function () {
-                    M.formRender(root, schema, opts);
+                    opts.values = null;
+                    opts.page = 0;
+                    if (opts.restart) opts.restart();
+                    else M.formRender(root, schema, opts);
                   },
                 },
                 S.again
@@ -624,20 +806,209 @@
             : null
         )
       );
-      root.scrollIntoView({ behavior: 'smooth' });
+      if (opts.onDone) opts.onDone();
+      toTop();
+      root.firstChild.focus({ preventScroll: true });
     }
 
     M.clear(root);
     root.appendChild(form);
-    if (opts.draftKey && !opts.preview) root.appendChild(h('p', { class: 'fm-note' }, S.draftKept));
-    go(0);
+    go(opts.page || 0);
     return {
       lang: lang,
+      pages: pages.map(function (p, i) {
+        return { label: partName(i), count: p.items.filter(isQuestion).length };
+      }),
+      goTo: function (index) {
+        // Only back: the parts ahead are reached through their checks.
+        if (index < page) {
+          formError.hidden = true;
+          go(index);
+          toTop();
+        }
+      },
       setLang: function (code) {
         opts.lang = code;
         M.formRender(root, schema, opts);
       },
     };
+  };
+
+  // ── The page around it ──────────────────────────────────────────────────
+
+  function frame(root, aside, main) {
+    M.clear(root);
+    root.classList.add('fm-root');
+    root.appendChild(
+      h(
+        'div',
+        { class: 'fm-shell' },
+        h('aside', { class: 'fm-aside' }, h('div', { class: 'fm-aside-inner' }, aside)),
+        h('div', { class: 'fm-body' }, main)
+      )
+    );
+  }
+
+  M.formPage = function (root, schema, opts) {
+    opts = opts || {};
+    var lang = pickLang(schema, opts.lang);
+    var S = STRINGS[lang] || STRINGS.it;
+    var t = texter(schema, lang);
+    var total = schema.items.filter(isQuestion).length;
+
+    var langToggle = null;
+    if (schema.languages.length > 1) {
+      langToggle = h('div', { class: 'lang-toggle', role: 'group', 'aria-label': S.language });
+      [
+        ['it', 'Italiano'],
+        ['en', 'English'],
+      ].forEach(function (pair) {
+        if (schema.languages.indexOf(pair[0]) === -1) return;
+        langToggle.appendChild(
+          h(
+            'button',
+            {
+              type: 'button',
+              lang: pair[0],
+              title: pair[1],
+              'aria-pressed': String(pair[0] === lang),
+              onclick: function () {
+                if (pair[0] === lang) return;
+                opts.lang = pair[0];
+                if (opts.onLang) opts.onLang(pair[0]);
+                M.formPage(root, schema, opts);
+              },
+            },
+            pair[0].toUpperCase()
+          )
+        );
+      });
+    }
+
+    var closes = null;
+    if (opts.closesAt) {
+      closes = h(
+        'p',
+        { class: 'fm-closes' },
+        icon('clock'),
+        h(
+          'span',
+          null,
+          S.closesOn +
+            new Date(opts.closesAt).toLocaleString(lang === 'it' ? 'it-IT' : 'en-GB', {
+              day: 'numeric',
+              month: 'long',
+              hour: '2-digit',
+              minute: '2-digit',
+            })
+        )
+      );
+    }
+
+    var steps = h('ol', { class: 'fm-steps', 'aria-label': S.parts });
+    var view = h('div', { class: 'fm-view' });
+    var intro = t(schema.description);
+    frame(
+      root,
+      [
+        h('p', { class: 'fm-eyebrow' }, opts.eyebrow || 'AI Safety for Italy'),
+        h('h1', { class: 'fm-title' }, t(schema.title)),
+        intro ? md(intro, 'fm-intro') : null,
+        h('p', { class: 'fm-meta' }, h('span', null, S.questions(total)), closes),
+        steps,
+        h('p', { class: 'fm-privacy' }, icon('lock'), h('span', null, S.privacy)),
+      ],
+      [langToggle ? h('div', { class: 'fm-topline' }, langToggle) : null, view]
+    );
+
+    var current = opts.page || 0;
+    var finished = false;
+    var form = null;
+    function drawSteps() {
+      if (!form) return;
+      M.clear(steps);
+      steps.hidden = form.pages.length < 2;
+      form.pages.forEach(function (p, i) {
+        var state = finished || i < current ? 'done' : i === current ? 'now' : 'next';
+        var label = h(
+          'span',
+          { class: 'fm-step-name' },
+          h('span', { class: 'fm-step-num' }, roman(i + 1)),
+          h('span', null, p.label)
+        );
+        var end =
+          state === 'done'
+            ? icon('check', 'fm-step-done')
+            : h(
+                'span',
+                { class: 'fm-step-end' },
+                state === 'now' ? S.current : S.questions(p.count)
+              );
+        steps.appendChild(
+          h(
+            'li',
+            { class: 'fm-step is-' + state, 'aria-current': state === 'now' ? 'step' : null },
+            state === 'done' && !finished
+              ? h(
+                  'button',
+                  {
+                    type: 'button',
+                    class: 'fm-step-row fm-step-link',
+                    'aria-label': S.goBack(p.label),
+                    onclick: function () {
+                      form.goTo(i);
+                    },
+                  },
+                  label,
+                  end
+                )
+              : h('div', { class: 'fm-step-row' }, label, end)
+          )
+        );
+      });
+    }
+
+    form = M.formRender(
+      view,
+      schema,
+      Object.assign(opts, {
+        lang: lang,
+        onPage: function (i) {
+          current = i;
+          drawSteps();
+        },
+        onDone: function () {
+          finished = true;
+          drawSteps();
+        },
+        restart: function () {
+          M.formPage(root, schema, opts);
+        },
+      })
+    );
+    drawSteps();
+    return form;
+  };
+
+  M.formNotice = function (root, title, text, lang) {
+    frame(
+      root,
+      [
+        h('p', { class: 'fm-eyebrow' }, 'AI Safety for Italy'),
+        h('h1', { class: 'fm-title' }, title),
+      ],
+      h(
+        'div',
+        { class: 'fm-notice' },
+        icon('alert', 'fm-notice-icon'),
+        h('p', null, text),
+        h(
+          'a',
+          { class: 'btn btn-outline', href: '/' },
+          lang === 'en' ? 'Go to the site' : 'Vai al sito'
+        )
+      )
+    );
   };
 
   M.formStrings = STRINGS;
