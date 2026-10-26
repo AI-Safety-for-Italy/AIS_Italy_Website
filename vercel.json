@@ -99,7 +99,8 @@
   ],
   "functions": {
     "api/app/*.js": {
-      "maxDuration": 60
+      "maxDuration": 60,
+      "includeFiles": "data/events.yaml"
     },
     "api/poll.js": {
       "maxDuration": 30

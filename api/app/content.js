@@ -9,6 +9,9 @@
 //                                             the first validation error
 //   GET    ?action=roles          -> { roles, table, keys } (manage only)
 //   PUT    ?action=roles { table }         -> saves the permissions table
+//   POST   ?action=switch-on      -> imports data/events.yaml's seminars and
+//                                    events and puts the site on them (manage)
+//   POST   ?action=switch-off     -> the site goes back to the YAML (manage)
 // `publish` says whether the rebuild started and the team was told
 // (server/content-publish.js). Permissions: server/permissions.js.
 const { route, sendJson, readJson, getQuery, origin, HttpError } = require('../../server/http');
@@ -66,6 +69,15 @@ module.exports = route({
     if (query.action === 'restore') {
       const result = await content.restoreVersion(user, query.id, query.version);
       sendJson(res, 200, { id: result.id, publish: await after(req, user, result) });
+      return;
+    }
+    if (query.action === 'switch-on' || query.action === 'switch-off') {
+      await permissions.require(user, 'manage', { fresh: true });
+      const on = query.action === 'switch-on';
+      let result = {};
+      if (on) result = await content.switchOn(`${user.name} (switch on)`);
+      else await content.setLive(false);
+      sendJson(res, 200, { ...result, live: on, build: await publish.triggerBuild() });
       return;
     }
     if (query.action) throw new HttpError(400, 'Unknown action');

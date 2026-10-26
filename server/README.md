@@ -139,13 +139,16 @@ online at the next build, which publishing starts (about 3 minutes).
 | `src/assets/js/meet/markdown-lite.js` | The small Markdown the texts are written in, shared with the browser       |
 
 **How it fits the site.** Each item is stored as an entry shaped like one of
-`data/events.yaml`, so the templates do not change. The build reads them from
-the database and puts them in place of the YAML's seminars and events: an
-entry is upcoming until its day and past from the next (Past chip, no
-registration button, the "after the event" text if there is one). Other
-entries of the YAML (the mentorship call) and seminars or events without a
-`day` stay in the YAML. With `CONTENT_BUILD_DATABASE=1`, if the database cannot be read during a deploy, the
-build fails on purpose and the live site keeps its current content.
+`data/events.yaml`, so the templates do not change. The build reads the
+published items from the public `/api/content` of the site it deploys to (the
+deploy workflow sets `CONTENT_SOURCE`: www.ais4i.it for main,
+ais4i-dev.vercel.app for dev), so it needs no database address, and puts them
+in place of the YAML's seminars and events: an entry is upcoming until its day
+and past from the next (Past chip, no registration button, the "after the
+event" text if there is one). Other entries of the YAML (the mentorship call)
+and seminars or events without a `day` stay in the YAML. If `/api/content`
+answers with an error, the build fails on purpose and the live site keeps its
+current content.
 
 **Permissions.** The Permissions page maps each Discord role to: Seminars,
 Events, Videos & podcasts, Blog (the last two for later), Edit others' content,
@@ -161,28 +164,25 @@ Markdown limited to bold, italic, links and lists; everything else is escaped.
 
 ## Switching it on
 
-1. Settings in Vercel (Production and Preview):
+Once per environment (dev first, then production):
+
+1. Settings in Vercel, for that environment (Preview for dev, Production):
    - `CONTENT_BUILD_TOKEN`: a fine-grained GitHub token for this repository
-     with only **Actions: Read and write**, to start the deploy workflow.
-   - `CONTENT_BUILD_REF`: `main` in Production, `dev` in Preview.
+     with only **Actions: Read and write**, so publishing rebuilds the site.
+   - `CONTENT_BUILD_REF`: `dev` in Preview, `main` in Production.
    - `DISCORD_CONTENT_CHANNEL_ID`: the channel for the announcements (the bot
      `DISCORD_BOT_TOKEN_AIS_TEAM_AREA` must be able to write there).
 2. Set the permissions: sign in as the admin, open Site content → Permissions,
    tick what each role may do, save.
-3. Move the content, first on the preview database, then on production:
-   ```sh
-   node scripts/content-migrate.js --dry-run
-   node scripts/content-migrate.js
-   ```
-   From then on, edit seminars and events in the dashboard: changes to them in
-   `data/events.yaml` no longer show. `--off` switches the site back to the
-   YAML (nothing is deleted).
-4. Let the build read the database: `CONTENT_BUILD_DATABASE=1` in Vercel
-   (Preview first, then Production). Without it the build uses the YAML and
-   never connects. If the address the build gets from `vercel pull` is not
-   reachable from GitHub Actions (the first try on dev saw a host called
-   `base`), give the build its own in `CONTENT_DATABASE_URL`: the Neon
-   connection string of that environment's database.
+3. On Site content, press **Switch on**: the seminars and events of
+   `data/events.yaml` are copied in, and the site is rebuilt from them. From
+   then on, edit them in the dashboard: changes to them in the YAML no longer
+   show. **Switch off**, at the bottom of the same page, sends the site back to
+   the YAML at its next update; nothing is deleted.
+
+`scripts/content-migrate.js` does the same from the command line (`--off` to
+switch off), against `DATABASE_URL` / `MEET_DATABASE_URL` or, with `--local`,
+the local database.
 
 Locally, `npm run dev:meet` offers stand-ins for the Discord roles on the
 login page; `node scripts/content-migrate.js --local` (with the server

@@ -390,24 +390,79 @@ test('a deleted item leaves the site at the next build', async () => {
   assert.equal((await content.exportForBuild()).entries.length, 0);
 });
 
-test('the build reads the database only when asked to', async () => {
-  const saved = { ...process.env };
+test('the build reads the published items from the site it deploys to', async () => {
+  const saved = process.env.CONTENT_SOURCE;
+  const answer = (status, body) => async (url) => {
+    assert.equal(url, 'https://ais4i-dev.vercel.app/api/content');
+    return { ok: status < 300, status, json: async () => body };
+  };
   try {
-    // A deploy environment with an address the build cannot reach.
-    process.env.DATABASE_URL = 'postgres://user:pw@base:5432/db';
-    delete process.env.CONTENT_BUILD_DATABASE;
-    const data = await contentBuild.load();
-    assert.equal(typeof data.live, 'boolean');
-    // Asked to, an unreachable database stops the build.
-    process.env.CONTENT_BUILD_DATABASE = '1';
-    process.env.CONTENT_DATABASE_URL = 'postgres://user:pw@127.0.0.1:1/db';
+    // Without CONTENT_SOURCE (the CI checks, a local build): no network at all.
+    delete process.env.CONTENT_SOURCE;
+    contentBuild.setFetch(() => {
+      throw new Error('no network expected');
+    });
+    assert.equal(typeof (await contentBuild.load()).live, 'boolean');
+
+    process.env.CONTENT_SOURCE = 'https://ais4i-dev.vercel.app/';
+    const entries = [{ anchor: 'seminar-x', category: 'seminar', day: '2027-01-14' }];
+    contentBuild.setFetch(answer(200, { live: true, entries }));
+    assert.deepEqual(await contentBuild.load(), { live: true, entries });
+    // Not deployed there yet: the YAML stays the site.
+    contentBuild.setFetch(answer(404, {}));
+    assert.deepEqual(await contentBuild.load(), { live: false, entries: [] });
+    // Any other failure stops the build, so the live site keeps its content.
+    contentBuild.setFetch(answer(500, {}));
     await assert.rejects(contentBuild.load(), /The build stops/);
+    contentBuild.setFetch(async () => {
+      throw new Error('getaddrinfo ENOTFOUND');
+    });
+    await assert.rejects(contentBuild.load(), /The build stops/);
+    contentBuild.setFetch(answer(200, { nope: true }));
+    await assert.rejects(contentBuild.load(), /unexpected/);
   } finally {
-    for (const k of ['DATABASE_URL', 'CONTENT_BUILD_DATABASE', 'CONTENT_DATABASE_URL']) {
-      if (saved[k] === undefined) delete process.env[k];
-      else process.env[k] = saved[k];
-    }
+    if (saved === undefined) delete process.env.CONTENT_SOURCE;
+    else process.env.CONTENT_SOURCE = saved;
   }
+});
+
+test('the public API shows nothing until switched on, and never removed items', async () => {
+  const api = require('../api/content');
+  const call = async () => {
+    const res = {
+      headers: {},
+      setHeader(k, v) {
+        this.headers[k] = v;
+      },
+      end(b) {
+        this.body = JSON.parse(b);
+      },
+    };
+    await api({ method: 'GET', headers: {}, url: '/api/content' }, res);
+    return res.body;
+  };
+  const me = await admin();
+  const { id } = await content.saveItem(me, seminar());
+  assert.deepEqual(await call(), { live: false, entries: [] });
+  await content.setLive(true);
+  assert.equal((await call()).entries.length, 1);
+  await content.deleteItem(me, id);
+  assert.deepEqual(await call(), { live: true, entries: [] });
+});
+
+test('switching on imports the real events.yaml and keeps undated entries in it', async () => {
+  const yamlEntries = content.yamlEntries();
+  assert.ok(yamlEntries.length > 0);
+  const result = await content.switchOn('Admin (switch on)');
+  const dated = yamlEntries.filter((e) => e.day);
+  assert.equal(result.imported, dated.length);
+  assert.deepEqual(
+    result.undated,
+    yamlEntries.filter((e) => !e.day).map((e) => e.title)
+  );
+  assert.equal(await content.isLive(), true);
+  // Switching on twice imports nothing new.
+  assert.equal((await content.switchOn('Admin (switch on)')).imported, 0);
 });
 
 // ── After publishing ─────────────────────────────────────────────────────────
