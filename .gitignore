@@ -108,7 +108,7 @@ __pycache__/
 .venv/
 
 # Local database for scripts/meet-dev.js
-.meet-dev-db/
+.meet-dev-db*/
 # Published content the local server hands to the build (server/content-build.js)
 _content-snapshot.json
 

@@ -44,7 +44,20 @@ if (!process.env.GOOGLE_SERVICE_ACCOUNT_JSON) process.env.CRM_SHEETS_FAKE ||= '1
 const db = require('../server/db');
 if (!process.env.MEET_DATABASE_URL && !process.env.DATABASE_URL) {
   const { PGlite } = require('@electric-sql/pglite');
-  db.setDb(new PGlite(path.join(ROOT, '.meet-dev-db')));
+  const local = new PGlite(path.join(ROOT, '.meet-dev-db'));
+  db.setDb(local);
+  // Close the database cleanly on Ctrl+C: PGlite keeps it in files, and a
+  // process killed in the middle of a write can leave them unreadable (the
+  // server then dies at start with "RuntimeError: Aborted()"; move
+  // .meet-dev-db aside and a fresh one is made).
+  let closing = false;
+  const close = () => {
+    if (closing) return;
+    closing = true;
+    local.close().finally(() => process.exit(0));
+  };
+  process.on('SIGINT', close);
+  process.on('SIGTERM', close);
 }
 
 const TYPES = {
