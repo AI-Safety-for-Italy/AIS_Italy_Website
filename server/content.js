@@ -31,6 +31,8 @@ const FORM_FIELDS = [
   'end_time',
   'tbc',
   'speaker',
+  'speaker_affiliation',
+  'speaker_link',
   'title',
   'title_it',
   'date',
@@ -138,6 +140,16 @@ function mdPair(body, key, label) {
   return { en, it };
 }
 
+/** The Speaker row of the card's list: the one the Speaker field makes. */
+function isSpeakerRow(row) {
+  return (
+    Boolean(row) &&
+    String(row.label || '')
+      .trim()
+      .toLowerCase() === 'speaker'
+  );
+}
+
 function details(list) {
   if (list === undefined || list === null) return [];
   if (!Array.isArray(list) || list.length > 12) throw fail('Invalid details', 'details');
@@ -218,6 +230,12 @@ function toEntry(body, previous = {}) {
     status_it: 'In programma',
   };
   const speaker = text(b.speaker, 120, 'speaker', 'Speaker');
+  const affiliation = text(b.speaker_affiliation, 200, 'speaker_affiliation', 'Affiliation');
+  const speakerLink = text(b.speaker_link, 500, 'speaker_link', 'Speaker link');
+  if (speakerLink && !SAFE_LINK.test(speakerLink)) {
+    throw fail('The speaker link must start with https://', 'speaker_link');
+  }
+  if ((affiliation || speakerLink) && !speaker) throw fail('Add the speaker name', 'speaker');
   if (speaker) entry.speaker = speaker;
   if (description.en) {
     entry.description_md = description.en;
@@ -231,7 +249,21 @@ function toEntry(body, previous = {}) {
     entry.description_past = md.toHtml(past.en);
     entry.description_past_it = md.toHtml(past.it);
   }
-  const info = details(b.details);
+  // The Speaker field makes the card's Speaker row (and the calendar's name),
+  // so the list the form sends holds the other rows only.
+  const info = details((Array.isArray(b.details) ? b.details : []).filter((r) => !isSpeakerRow(r)));
+  if (speaker) {
+    const previousRow = (previous.format_info || []).find(isSpeakerRow);
+    const value = affiliation ? `${speaker}, ${affiliation}` : speaker;
+    info.unshift({
+      label: 'Speaker',
+      // Kept from the entry being edited: the YAML wrote "Relatrice" for a woman.
+      label_it: (previousRow && previousRow.label_it) || 'Relatore',
+      value,
+      value_it: value,
+      ...(speakerLink ? { link: speakerLink } : {}),
+    });
+  }
   if (info.length) entry.format_info = info;
   if (registerLink) {
     entry.register_link = registerLink;
@@ -251,26 +283,37 @@ function toForm(entry) {
   // Entries imported from the YAML only have the times inside `date`.
   const timeFromDate = (e.date || '').match(/\b([01]\d|2[0-3]):[0-5]\d\b/);
   const endFromDate = (e.date || '').match(/[–-]\s*(([01]\d|2[0-3]):[0-5]\d)\b/);
+  // The card's Speaker row is made by the Speaker field, with its affiliation
+  // and link: the form shows them there, and the other rows as Details.
+  const rows = e.format_info || [];
+  const speakerRow = rows.find(isSpeakerRow);
+  const rowValue = speakerRow ? String(speakerRow.value || '') : '';
+  const speaker = e.speaker || rowValue.split(', ')[0];
+  const affiliation = rowValue.startsWith(`${speaker}, `) ? rowValue.slice(speaker.length + 2) : '';
   return {
     type: e.category,
     day: e.day,
     time: e.time || (timeFromDate ? timeFromDate[0] : ''),
     end_time: e.end_time || (endFromDate ? endFromDate[1] : ''),
     tbc: Boolean(e.tbc),
-    speaker: e.speaker || '',
+    speaker,
+    speaker_affiliation: affiliation,
+    speaker_link: speakerRow ? speakerRow.link || '' : '',
     title: e.title || '',
     title_it: e.title_it || '',
     description_md: e.description_md || md.fromHtml(e.description),
     description_md_it: e.description_md_it || md.fromHtml(e.description_it),
     description_past_md: e.description_past_md || md.fromHtml(e.description_past),
     description_past_md_it: e.description_past_md_it || md.fromHtml(e.description_past_it),
-    details: (e.format_info || []).map((r) => ({
-      label: r.label || '',
-      label_it: r.label_it || '',
-      value: r.value || '',
-      value_it: r.value_it || '',
-      link: r.link || '',
-    })),
+    details: rows
+      .filter((r) => r !== speakerRow)
+      .map((r) => ({
+        label: r.label || '',
+        label_it: r.label_it || '',
+        value: r.value || '',
+        value_it: r.value_it || '',
+        link: r.link || '',
+      })),
     register_text: e.register_text || '',
     register_text_it: e.register_text_it || '',
     register_link: e.register_link || '',
