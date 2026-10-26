@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 // Moves the seminars and events of data/events.yaml into the content tool's
 // database, then switches the site to take them from there (see
-// server/content-build.js). Run it once per database.
+// server/content-build.js). Run it once per database. The "Switch on" button
+// on /app/content/ does the same from the dashboard; this is the command-line
+// way, and the only one for the local database.
 //
 //   node scripts/content-migrate.js --dry-run   what would be imported
 //   node scripts/content-migrate.js             import, then switch the site over
@@ -15,9 +17,7 @@
 // Once the site is switched over, edits to seminars and events in
 // data/events.yaml no longer show: make them in /app/content/. Other entries
 // of the YAML (the mentorship call) are unaffected.
-const fs = require('fs');
 const path = require('path');
-const yaml = require('js-yaml');
 
 const ROOT = path.join(__dirname, '..');
 const args = new Set(process.argv.slice(2));
@@ -38,10 +38,7 @@ async function main() {
     return;
   }
 
-  const events = yaml.load(fs.readFileSync(path.join(ROOT, 'data', 'events.yaml'), 'utf8'));
-  const entries = [...(events.upcoming_events || []), ...(events.past_events || [])].filter(
-    (e) => e && content.TYPES.includes(e.category)
-  );
+  const entries = content.yamlEntries();
   console.log(`${entries.length} seminars and events in data/events.yaml:`);
   entries.forEach((e) =>
     console.log(`  ${e.day || '(no day)  '}  ${e.category.padEnd(7)}  ${e.title}`)

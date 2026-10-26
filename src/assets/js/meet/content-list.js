@@ -13,7 +13,10 @@
       return M.api('GET', '/api/app/content');
     })
     .then(function (data) {
+      var manage = data.permissions.indexOf('manage') !== -1;
       document.getElementById('notLive').hidden = data.live;
+      document.getElementById('askToSwitch').hidden = manage;
+      document.getElementById('switchOffRow').hidden = !(data.live && manage);
       M.clear(list);
       var today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Rome' }).format(new Date());
       var coming = data.items
@@ -69,6 +72,41 @@
       }
       M.appError(err);
     });
+
+  /** Switch on / off: the site takes its seminars and events from here, or
+   * goes back to the ones written in the code. Either way it is rebuilt. */
+  function switchTo(on, button) {
+    var question = on
+      ? 'Switch on? The seminars and events written in the code are copied here, and from the next ' +
+        'site update they are edited only here.'
+      : 'Switch off? The site goes back to the seminars and events written in the code at its next ' +
+        'update. Nothing published here is deleted.';
+    if (!window.confirm(question)) return;
+    button.disabled = true;
+    M.api('POST', '/api/app/content?action=' + (on ? 'switch-on' : 'switch-off'), {})
+      .then(function (r) {
+        var note = on ? 'Switched on: ' + r.imported + ' copied from the code.' : 'Switched off.';
+        if (on && r.undated && r.undated.length) {
+          note += ' Left in the code (no day): ' + r.undated.join(', ') + '.';
+        }
+        note += ' ' + M.publishNote({ build: r.build, announcement: { sent: true } });
+        M.toast(note);
+        setTimeout(function () {
+          window.location.reload();
+        }, 2500);
+      })
+      .catch(function (err) {
+        button.disabled = false;
+        M.appError(err);
+      });
+  }
+
+  document.getElementById('switchOn').addEventListener('click', function (e) {
+    switchTo(true, e.currentTarget);
+  });
+  document.getElementById('switchOff').addEventListener('click', function (e) {
+    switchTo(false, e.currentTarget);
+  });
 
   function section(title, items) {
     if (!items.length) return;

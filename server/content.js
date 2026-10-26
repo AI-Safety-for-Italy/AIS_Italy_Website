@@ -10,6 +10,9 @@
 // item's type to create and edit it, plus `others` to edit, delete or restore
 // items somebody else created (and the ones imported from the YAML).
 
+const fs = require('fs');
+const path = require('path');
+const yaml = require('js-yaml');
 const db = require('./db');
 const { HttpError } = require('./http');
 const permissions = require('./permissions');
@@ -514,6 +517,30 @@ async function importEntries(entries, userName = 'Import from events.yaml') {
   return { imported, skipped };
 }
 
+const EVENTS_YAML = path.join(__dirname, '..', 'data', 'events.yaml');
+
+/** The seminars and events of data/events.yaml (vercel.json ships the file
+ * with the functions in api/app/). */
+function yamlEntries(file = EVENTS_YAML) {
+  const events = yaml.load(fs.readFileSync(file, 'utf8')) || {};
+  return [...(events.upcoming_events || []), ...(events.past_events || [])].filter(
+    (e) => e && TYPES.includes(e.category)
+  );
+}
+
+/**
+ * The "Switch on" button and scripts/content-migrate.js: imports the YAML's
+ * seminars and events, then lets the site take them from here. Returns
+ * { imported, skipped, undated } where undated are the titles left in the
+ * YAML for lack of a `day`.
+ */
+async function switchOn(userName, file) {
+  const entries = yamlEntries(file);
+  const result = await importEntries(entries, userName);
+  await setLive(true);
+  return { ...result, undated: entries.filter((e) => !e.day).map((e) => e.title) };
+}
+
 /** Whether the site takes its seminars and events from here (after the import). */
 async function isLive() {
   const { rows } = await db.query('select value from app_settings where key = $1', [LIVE_KEY]);
@@ -551,6 +578,8 @@ module.exports = {
   deleteItem,
   restoreVersion,
   importEntries,
+  yamlEntries,
+  switchOn,
   isLive,
   setLive,
   exportForBuild,

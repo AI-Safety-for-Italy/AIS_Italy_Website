@@ -23,7 +23,12 @@ seoTitle: 'Site content | AI Safety for Italy'
     {% include "content-bar.njk" %}
     {# One <span>: .notice lays out its children side by side (icon + text). #}
     <div class="notice" id="notLive" hidden style="margin-bottom:1.5rem">
-      <span><strong>Not switched on yet.</strong> What you publish here is saved, but the site still shows the seminars and events written in the code, until the content is moved over (<code>scripts/content-migrate.js</code>, see server/README.md).</span>
+      <span>
+        <strong>Not switched on yet.</strong> What you publish here is saved, but the site still shows the seminars and events written in the code.
+        <span data-needs="manage" hidden>“Switch on” copies them here and puts the site on this list: from then on, seminars and events are edited only here.</span>
+        <span id="askToSwitch">Someone with “Manage permissions” can switch it on.</span>
+        <button type="button" class="btn btn-primary btn-sm" id="switchOn" data-needs="manage" hidden style="margin-top:.75rem;display:block">Switch on</button>
+      </span>
     </div>
     <div class="panel-head">
       <h2>Seminars &amp; events</h2>
@@ -37,6 +42,10 @@ seoTitle: 'Site content | AI Safety for Italy'
       <div class="panel-head"><h2>Recent changes</h2></div>
       <ul class="activity-list" id="activity"></ul>
     </div>
+    <p class="panel-note" id="switchOffRow" hidden style="margin-top:2rem">
+      If something goes wrong, the site can go back to the seminars and events written in the code; nothing here is deleted.
+      <button type="button" class="link-button" id="switchOff">Switch off</button>
+    </p>
   </div>
 </section>
 
