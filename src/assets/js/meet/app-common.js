@@ -122,6 +122,11 @@
     return info.permissions || [];
   });
 
+  /** Resolves with the tools the user's roles open: { content, crm }. */
+  M.areas = auth.then(function (info) {
+    return info.areas || { content: false, crm: false };
+  });
+
   /** Resolves with the signed-in user ({ id, kind, name, avatarUrl }). */
   M.me = auth.then(function (info) {
     if (!info.user) return toLogin();

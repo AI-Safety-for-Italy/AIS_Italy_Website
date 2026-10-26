@@ -24,9 +24,12 @@ async function after(req, user, result) {
   return publish.afterSave({ user, result, siteOrigin: origin(req) });
 }
 
-/** The list, history and preview are for people who can publish something. */
+/**
+ * The list, history and preview are for people who can publish something
+ * here: a permission of the CRM board gives nothing in this tool.
+ */
 async function requireSomePermission(user) {
-  if (!(await permissions.forUser(user)).length) {
+  if (!permissions.areas(await permissions.forUser(user)).content) {
     throw new HttpError(403, 'Your Discord roles do not give access to the content tool');
   }
 }

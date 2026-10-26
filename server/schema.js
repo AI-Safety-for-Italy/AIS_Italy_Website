@@ -181,4 +181,43 @@ create table if not exists content_versions (
 );
 
 create index if not exists content_versions_item on content_versions (item_id, created_at);
+
+-- ── CRM board (/app/crm/, server/crm/) ───────────────────────────────────────
+
+-- When the Discord roles above were last read from Discord: at sign-in, and
+-- again before writes and, if older than a few minutes, before reads.
+alter table app_users add column if not exists roles_checked_at timestamptz;
+
+-- Who looked at or changed which CRM record. Append-only on purpose: the
+-- triggers refuse any update, delete or truncate, so no bug or stray query
+-- can rewrite the history. No foreign key to app_users for the same reason (a
+-- cascade would be an update); user_name keeps the name as it was.
+-- subject_key is the opaque person key (see server/crm/crypto.js), never an
+-- email.
+create table if not exists crm_audit (
+  id bigserial primary key,
+  at timestamptz not null default now(),
+  user_id uuid,
+  user_name text not null,
+  action text not null,
+  subject_key text,
+  detail jsonb
+);
+
+create index if not exists crm_audit_subject on crm_audit (subject_key, at);
+create index if not exists crm_audit_user on crm_audit (user_id, at);
+
+create or replace function crm_audit_append_only() returns trigger as $$
+begin
+  raise exception 'crm_audit is append-only';
+end;
+$$ language plpgsql;
+
+drop trigger if exists crm_audit_no_change on crm_audit;
+create trigger crm_audit_no_change before update or delete on crm_audit
+  for each row execute function crm_audit_append_only();
+
+drop trigger if exists crm_audit_no_truncate on crm_audit;
+create trigger crm_audit_no_truncate before truncate on crm_audit
+  for each statement execute function crm_audit_append_only();
 `;

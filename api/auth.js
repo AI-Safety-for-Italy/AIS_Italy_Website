@@ -16,9 +16,12 @@ module.exports = route({
   async GET(req, res) {
     const user = await auth.currentUser(req);
     const devLogin = process.env.MEET_DEV_LOGIN === '1';
+    const perms = user ? await permissions.forUser(user) : [];
     sendJson(res, 200, {
       user,
-      permissions: user ? await permissions.forUser(user) : [],
+      permissions: perms,
+      // Which tools these permissions open: { content, crm }.
+      areas: permissions.areas(perms),
       discord: discord.isConfigured(),
       // Setting names only, so a half-done setup says what it still needs.
       discordMissing: discord.isConfigured() ? undefined : discord.missingSettings(),

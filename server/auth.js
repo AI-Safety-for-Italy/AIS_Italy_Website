@@ -127,11 +127,12 @@ async function passwordLogin(req, res, password) {
  */
 async function upsertDiscordUser({ discordId, name, avatarUrl, email, roles }) {
   const { rows } = await db.query(
-    `insert into app_users (kind, discord_id, name, avatar_url, email, roles, last_login_at)
-     values ('discord', $1, $2, $3, $4, $5, now())
+    `insert into app_users (kind, discord_id, name, avatar_url, email, roles, roles_checked_at, last_login_at)
+     values ('discord', $1, $2, $3, $4, $5, now(), now())
      on conflict (discord_id) do update set
        name = excluded.name, avatar_url = excluded.avatar_url,
-       email = excluded.email, roles = excluded.roles, last_login_at = now()
+       email = excluded.email, roles = excluded.roles, roles_checked_at = now(),
+       last_login_at = now()
      returning *`,
     [discordId, name, avatarUrl || null, email || null, roles || []]
   );

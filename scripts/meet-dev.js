@@ -34,6 +34,12 @@ if (!process.env.ADMIN_PASSWORD_HASH) {
 if (!process.env.DISCORD_CLIENT_ID) process.env.MEET_DEV_LOGIN ||= '1';
 // Emails are printed here instead of sent, unless MEET_FAKE_MAIL=0.
 process.env.MEET_FAKE_MAIL ||= '1';
+// CRM board: throwaway keys for the notes and person keys, and invented sheets
+// (server/crm/fixtures.js) unless a real service account key is set. Real
+// personal data never belongs in the local database.
+process.env.CRM_ENCRYPTION_KEY ||= Buffer.alloc(32, 7).toString('base64');
+process.env.CRM_KEY_SECRET ||= 'local-development-crm-secret-not-for-production';
+if (!process.env.GOOGLE_SERVICE_ACCOUNT_JSON) process.env.CRM_SHEETS_FAKE ||= '1';
 
 const db = require('../server/db');
 if (!process.env.MEET_DATABASE_URL && !process.env.DATABASE_URL) {

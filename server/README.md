@@ -188,3 +188,47 @@ Locally, `npm run dev:meet` offers stand-ins for the Discord roles on the
 login page; `node scripts/content-migrate.js --local` (with the server
 stopped) imports into the local database; publishing rewrites
 `_content-snapshot.json`, which the watching build picks up.
+
+# CRM board (`/app/crm/`, in progress)
+
+A private board for the mentorship programme (mentors by track, mentees,
+matches), later people and funding. **Phase 0, the foundations, is here; there
+are no pages yet.** Design and phases: the plan this branch was built from.
+
+The rules it is built on, which later phases must keep:
+
+- **Personal data stays in the Google Sheets the forms write to.** The board
+  reads them (`server/sheets.js`, read-only scope, fixed in the code) and never
+  copies emails, CVs or answers into the database. Reads are cached in memory
+  for two minutes, never on disk.
+- **The database holds only what is operational**, pointing at a person by an
+  opaque key (`personKey` in `server/crm/crypto.js`: an HMAC of the email, not
+  the email). Free notes are encrypted with AES-256-GCM, bound to their person.
+- **Permissions per part**, checked on the server on every request
+  (`server/crm/access.js`): `mentorship`, `people`, `finance`, `crm_admin`,
+  set on the same Permissions page as the content tool's. A CRM permission
+  opens nothing in the content tool and the other way round (`areas` in
+  `server/permissions.js`). A sign-in older than 24 hours is asked again, and
+  the Discord roles are re-read when the last read is older than five minutes.
+- **Fields only some may read** (email, CV, profile links) are removed on the
+  server by `access.redact`, not hidden by the page.
+- **An append-only audit trail** (`crm_audit`; database triggers refuse update,
+  delete and truncate) of who looked at or changed which record. Records are
+  named by person key, never by email, and never carry what a person wrote.
+- **Development and tests use invented data** (`server/crm/fixtures.js`), the
+  same columns as the real sheets. `CRM_SHEETS_FAKE=1` is refused on the live
+  site. Real answers never go in git, in the local database, or in `dev`.
+
+Environment (Vercel; `scripts/meet-dev.js` sets throwaway values locally):
+
+| Variable                      | What                                                                                      |
+| ----------------------------- | ----------------------------------------------------------------------------------------- |
+| `CRM_ENCRYPTION_KEY`          | 32 random bytes, base64 (`openssl rand -base64 32`). Without it the CRM refuses to store. |
+| `CRM_ENCRYPTION_KEY_PREVIOUS` | The old key while rotating: still opens old notes, never writes.                          |
+| `CRM_KEY_SECRET`              | At least 32 characters. Makes the person keys. **Never change it**: it orphans every key. |
+| `GOOGLE_SERVICE_ACCOUNT_JSON` | The service account key (the same secret as the members workflow), to read the sheets.    |
+
+Which spreadsheet and tab each source reads is a setting (`crm_sources`),
+edited by `crm_admin`; the sheets are shared, as Viewer, with the service
+account one at a time. `server/crm/sources.js` maps the sheets' columns to
+fields by header text, so a form that gains a question does not break the board.

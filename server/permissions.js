@@ -19,16 +19,29 @@ const { HttpError } = require('./http');
 
 const DISCORD_API = 'https://discord.com/api/v10';
 
-// The order is the order of the columns in the dashboard.
+// The order is the order of the columns in the dashboard. Two areas share the
+// table: the site's content (/app/content/) and the CRM board (/app/crm/,
+// server/crm/). Holding a permission of one area gives nothing in the other:
+// each API checks its own area (see `areas`).
 const PERMISSIONS = [
-  { key: 'seminar', label: 'Seminars' },
-  { key: 'event', label: 'Events' },
-  { key: 'media', label: 'Videos & podcasts' },
-  { key: 'blog', label: 'Blog' },
-  { key: 'others', label: "Edit others' content" },
-  { key: 'manage', label: 'Manage permissions' },
+  { key: 'seminar', label: 'Seminars', area: 'content' },
+  { key: 'event', label: 'Events', area: 'content' },
+  { key: 'media', label: 'Videos & podcasts', area: 'content' },
+  { key: 'blog', label: 'Blog', area: 'content' },
+  { key: 'others', label: "Edit others' content", area: 'content' },
+  { key: 'manage', label: 'Manage permissions', area: 'content' },
+  { key: 'mentorship', label: 'CRM: mentorship', area: 'crm' },
+  { key: 'people', label: 'CRM: people', area: 'crm' },
+  { key: 'finance', label: 'CRM: finance', area: 'crm' },
+  { key: 'crm_admin', label: 'CRM: settings', area: 'crm' },
 ];
 const KEYS = PERMISSIONS.map((p) => p.key);
+
+/** Which areas a set of permission keys opens: { content, crm }. */
+function areas(perms) {
+  const has = (area) => PERMISSIONS.some((p) => p.area === area && perms.includes(p.key));
+  return { content: has('content'), crm: has('crm') };
+}
 
 // Local development (scripts/meet-dev.js) has no Discord server: these stand
 // in for the AIS roles, and the stand-in login lets you pick some.
@@ -101,9 +114,11 @@ async function refreshRoles(user) {
   }
   // 404: no longer in the server, so no roles at all.
   if (res.status === 404) {
-    await db.query(`update app_users set roles = '{}' where id = $1`, [user.id]);
+    await db.query(`update app_users set roles = '{}', roles_checked_at = now() where id = $1`, [
+      user.id,
+    ]);
   } else if (res.ok) {
-    await db.query('update app_users set roles = $2 where id = $1', [
+    await db.query('update app_users set roles = $2, roles_checked_at = now() where id = $1', [
       user.id,
       res.body.roles || [],
     ]);
@@ -123,7 +138,24 @@ async function require_(user, key, { fresh = false } = {}) {
   return perms;
 }
 
-/** May at least one of these roles do something with content? */
+/**
+ * Like require(), but re-reads the Discord roles only when the last check is
+ * older than `maxAgeMs` (default 5 minutes): for reads, which are frequent,
+ * where `fresh` on every call would hit Discord's rate limits. The shared-
+ * password admin has no Discord roles, so there is nothing to refresh.
+ */
+async function requireRecent(user, key, { maxAgeMs = 5 * 60 * 1000 } = {}) {
+  if (user.kind !== 'admin') {
+    const { rows } = await db.query('select roles_checked_at from app_users where id = $1', [
+      user.id,
+    ]);
+    const checked = rows[0] && rows[0].roles_checked_at;
+    if (!checked || Date.now() - new Date(checked).getTime() > maxAgeMs) await refreshRoles(user);
+  }
+  return require_(user, key);
+}
+
+/** May at least one of these roles do something with content or the CRM? */
 async function anyContentRole(roleIds) {
   return (await forRoles(roleIds)).length > 0;
 }
@@ -189,12 +221,14 @@ async function saveRolePermissions(list) {
 module.exports = {
   PERMISSIONS,
   KEYS,
+  areas,
   DEV_ROLES,
   setFetch,
   forRoles,
   forUser,
   refreshRoles,
   require: require_,
+  requireRecent,
   anyContentRole,
   guildRoles,
   listRolePermissions,

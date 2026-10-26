@@ -5,7 +5,7 @@
   window.Meet.me.then(function (user) {
     document.getElementById('hello').textContent = 'Ciao, ' + user.name.split(' ')[0];
   });
-  window.Meet.permissions.then(function (perms) {
-    document.getElementById('contentTool').hidden = !perms.length;
+  window.Meet.areas.then(function (areas) {
+    document.getElementById('contentTool').hidden = !areas.content;
   });
 })();
