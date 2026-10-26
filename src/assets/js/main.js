@@ -537,6 +537,191 @@
     });
   }
 
+  // ── Mentors and projects (components/mentor-explorer.njk) ──────────────
+  // Search, one track and any number of areas narrow the cards down; an area
+  // chip that would show no mentor with the other filters as they are is
+  // dimmed. With no filter only the first `data-preview` cards show, behind a
+  // "Show all" button. The filters live in the query string and an open
+  // profile in the hash, so both can be linked to.
+  function initMentorExplorer() {
+    var box = document.querySelector('[data-mentor-explorer]');
+    if (!box) return;
+
+    var it = root.lang === 'it';
+    var cards = Array.prototype.slice.call(box.querySelectorAll('[data-mentor]'));
+    var segments = box.querySelectorAll('[data-mentor-track]');
+    var chips = box.querySelectorAll('[data-mentor-area]');
+    var search = box.querySelector('[data-mentor-search]');
+    // In the section title, outside the explorer.
+    var count = box.closest('section').querySelector('[data-mentor-count]');
+    var resets = box.querySelectorAll('[data-mentor-reset]');
+    var empty = box.querySelector('[data-mentor-empty]');
+    var moreWrap = box.querySelector('[data-mentor-more-wrap]');
+    var more = box.querySelector('[data-mentor-more]');
+    var preview = parseInt(box.getAttribute('data-preview'), 10) || cards.length;
+    // On a phone the cards stack, so fewer of them before "Show all".
+    if (window.matchMedia('(max-width: 640px)').matches) preview = Math.min(preview, 4);
+
+    // Accents aside, so "interpretabilita" finds "Interpretabilità".
+    function fold(s) {
+      return String(s || '')
+        .normalize('NFD')
+        .replace(/[̀-ͯ]/g, '')
+        .toLowerCase();
+    }
+
+    var items = cards.map(function (card) {
+      return {
+        card: card,
+        tracks: (card.getAttribute('data-tracks') || '').split(' '),
+        areas: (card.getAttribute('data-areas') || '').split(' '),
+        text: fold(card.getAttribute('data-search')),
+      };
+    });
+
+    var params = new URLSearchParams(location.search);
+    var state = {
+      track: params.get('track') || '',
+      areas: (params.get('area') || '').split(',').filter(Boolean),
+      query: params.get('q') || '',
+      expanded: false,
+    };
+    search.value = state.query;
+
+    function matches(item, areas) {
+      if (state.track && item.tracks.indexOf(state.track) === -1) return false;
+      if (
+        areas.length &&
+        !areas.some(function (a) {
+          return item.areas.indexOf(a) !== -1;
+        })
+      ) {
+        return false;
+      }
+      var words = fold(state.query).split(/\s+/).filter(Boolean);
+      return words.every(function (w) {
+        return item.text.indexOf(w) !== -1;
+      });
+    }
+
+    function render() {
+      var filtered = !!(state.track || state.areas.length || state.query.trim());
+      var shown = items.filter(function (item) {
+        return matches(item, state.areas);
+      });
+      var limit = filtered || state.expanded ? shown.length : preview;
+
+      items.forEach(function (item) {
+        item.card.hidden = true;
+      });
+      shown.forEach(function (item, i) {
+        item.card.hidden = i >= limit;
+      });
+
+      segments.forEach(function (b) {
+        b.setAttribute(
+          'aria-pressed',
+          b.getAttribute('data-mentor-track') === state.track ? 'true' : 'false'
+        );
+      });
+      chips.forEach(function (b) {
+        var id = b.getAttribute('data-mentor-area');
+        var on = state.areas.indexOf(id) !== -1;
+        var n = items.filter(function (item) {
+          return item.areas.indexOf(id) !== -1 && matches(item, []);
+        }).length;
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+        b.classList.toggle('is-empty', n === 0);
+      });
+
+      var total = items.length + (it ? ' mentor' : ' mentors');
+      count.textContent = filtered ? shown.length + (it ? ' di ' : ' of ') + total : total;
+      resets.forEach(function (b) {
+        b.hidden = !filtered;
+      });
+      empty.hidden = shown.length > 0;
+      moreWrap.hidden = limit >= shown.length;
+
+      var next = new URLSearchParams();
+      if (state.track) next.set('track', state.track);
+      if (state.areas.length) next.set('area', state.areas.join(','));
+      if (state.query.trim()) next.set('q', state.query.trim());
+      var qs = next.toString();
+      history.replaceState(null, '', location.pathname + (qs ? '?' + qs : '') + location.hash);
+    }
+
+    segments.forEach(function (b) {
+      b.addEventListener('click', function () {
+        state.track = b.getAttribute('data-mentor-track');
+        render();
+      });
+    });
+    chips.forEach(function (b) {
+      b.addEventListener('click', function () {
+        var id = b.getAttribute('data-mentor-area');
+        var at = state.areas.indexOf(id);
+        if (at === -1) state.areas.push(id);
+        else state.areas.splice(at, 1);
+        render();
+      });
+    });
+    search.addEventListener('input', function () {
+      state.query = search.value;
+      render();
+    });
+    resets.forEach(function (b) {
+      b.addEventListener('click', function () {
+        state.track = '';
+        state.areas = [];
+        state.query = search.value = '';
+        render();
+      });
+    });
+    more.addEventListener('click', function () {
+      state.expanded = true;
+      render();
+    });
+
+    box.querySelector('[data-mentor-filters]').hidden = false;
+    render();
+
+    // Profiles. Without showModal the link just scrolls to the profile, which
+    // CSS shows inline (.mentor-dialog:target).
+    function urlWithout() {
+      return location.pathname + location.search;
+    }
+
+    function open(id) {
+      var dialog = document.getElementById(id);
+      if (!dialog || !dialog.classList.contains('mentor-dialog') || dialog.open) return false;
+      if (typeof dialog.showModal !== 'function') return false;
+      // From a co-mentor's profile to the other one: one dialog at a time.
+      var current = document.querySelector('.mentor-dialog[open]');
+      if (current) current.close();
+      dialog.showModal();
+      history.replaceState(null, '', urlWithout() + '#' + id);
+      return true;
+    }
+
+    // Cards, and the co-mentor links inside the profiles.
+    box.closest('section').addEventListener('click', function (e) {
+      var link = e.target.closest('[data-mentor-open]');
+      if (link && open(link.getAttribute('data-mentor-open'))) e.preventDefault();
+    });
+
+    document.querySelectorAll('.mentor-dialog').forEach(function (dialog) {
+      dialog.addEventListener('click', function (e) {
+        // A click on the backdrop lands on the dialog itself.
+        if (e.target === dialog || e.target.closest('[data-mentor-close]')) dialog.close();
+      });
+      dialog.addEventListener('close', function () {
+        if (location.hash === '#' + dialog.id) history.replaceState(null, '', urlWithout());
+      });
+    });
+
+    if (location.hash) open(decodeURIComponent(location.hash.slice(1)));
+  }
+
   // ── Mentorship key dates (content/mentorship.njk) ──────────────────────
   // Like the calendar, the steps follow today's date: the ones over are done,
   // the one in progress gets "Now" and, between two steps, the next one gets
@@ -585,6 +770,7 @@
   initThemeToggle();
   initSeminarCalendar();
   initTimeline();
+  initMentorExplorer();
   initVideoEmbeds();
   initAnnouncements();
   initScrollReveal();

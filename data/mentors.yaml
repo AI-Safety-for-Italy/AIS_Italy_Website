@@ -1,0 +1,274 @@
+# Mentors and projects of the AI Safety for Italy Mentorship Program — the
+# "Mentors and projects" explorer on the /mentorship/ page.
+#
+# Left off the live site while `published` is false; local and preview builds
+# always show it. Set it to true once the list is final (the timeline in
+# data/mentorship.yaml publishes it on 31 October 2026).
+published: false
+
+# Optional: a short line on an orange background under the intro.
+more_coming: 'More mentors will be announced in the coming days and weeks.'
+more_coming_it: 'Altri mentor verranno pubblicati nei prossimi giorni e nelle prossime settimane.'
+
+title: 'Mentors and projects'
+title_it: 'Mentor e progetti'
+intro: 'The mentors of this edition and the projects they propose. Open a card to read the full project.'
+intro_it: 'I mentor di questa edizione e i progetti che propongono. Apri una scheda per leggere il progetto completo.'
+
+# The research areas a mentor can be tagged with, in the order the filter
+# shows them. A mentor's `areas` lists these ids; an area no mentor uses is
+# not shown.
+research_areas:
+  - id: interpretability
+    label: 'Interpretability'
+    label_it: 'Interpretabilità'
+  - id: evaluations
+    label: 'Evaluations'
+    label_it: 'Valutazione dei modelli'
+  - id: alignment
+    label: 'Alignment'
+    label_it: 'Allineamento'
+  - id: security
+    label: 'Security and robustness'
+    label_it: 'Sicurezza e robustezza'
+  - id: governance
+    label: 'Governance and policy'
+    label_it: 'Governance e policy'
+  - id: ethics
+    label: 'AI ethics'
+    label_it: "Etica dell'IA"
+  - id: society
+    label: 'Society and economy'
+    label_it: 'Società ed economia'
+  - id: careers
+    label: 'Careers in AI safety'
+    label_it: "Carriere nell'AI safety"
+
+# One entry per mentor, shown in this order.
+#
+#   id            unique, lowercase-with-dashes: the profile's link is
+#                 /mentorship/#<id>
+#   name          full name
+#   role(_it)     position, e.g. "PhD student"
+#   affiliation   organisation
+#   photo         optional; a square picture in src/assets/img/mentors/,
+#                 at least 400x400. Without one the initials are shown.
+#   links         optional: website, linkedin, scholar, github
+#   tracks        ids of data/mentorship.yaml `tracks`: projects, orientation
+#   areas         ids of `research_areas` above
+#   bio(_it)      two or three sentences about the mentor
+#   project       for the projects track: title, summary (one or two lines,
+#                 shown on the card), description (the full text), mentee
+#                 (who it is for) and deliverable, each with its _it
+#   orientation   for the orientation track: what the mentor can help with
+#   co_mentors    optional: ids of the mentors who supervise the same project.
+#                 Each of them is a separate entry listing the others here;
+#                 write the `project` on one of them only, the others show it
+#                 too. Their cards get a "Co-mentor" label on top.
+#   places        optional: how many mentees the mentor takes
+#   language      optional: meeting language(s)
+mentors:
+  - id: giulia-esempio
+    name: 'Giulia Esempio'
+    role: 'PhD student in machine learning'
+    role_it: 'Dottoranda in machine learning'
+    affiliation: 'Example University'
+    links:
+      website: 'https://example.com'
+      scholar: 'https://scholar.google.com'
+    tracks: [projects]
+    areas: [interpretability, alignment]
+    bio: 'Works on mechanistic interpretability of language models, with a focus on how models represent factual knowledge. Previously a research fellow on an AI safety program.'
+    bio_it: "Si occupa di interpretabilità meccanicistica dei modelli linguistici, in particolare di come i modelli rappresentano la conoscenza fattuale. In passato research fellow in un programma di AI safety."
+    project:
+      title: 'Where do language models store what they know about Italy?'
+      title_it: "Dove i modelli linguistici conservano ciò che sanno sull'Italia?"
+      summary: 'Locate and edit factual associations in open models, comparing Italian and English prompts.'
+      summary_it: 'Individuare e modificare le associazioni fattuali nei modelli aperti, confrontando prompt in italiano e in inglese.'
+      description: 'The project replicates a known technique for locating factual associations inside a small open-weight model, then asks whether the same facts are stored in the same place when the question is asked in Italian. The mentee will run the experiments, write up what holds and what does not, and publish the code.'
+      description_it: "Il progetto replica una tecnica nota per individuare le associazioni fattuali all'interno di un piccolo modello open-weight, poi verifica se gli stessi fatti sono conservati nello stesso punto quando la domanda è posta in italiano. Il mentee eseguirà gli esperimenti, scriverà cosa regge e cosa no e pubblicherà il codice."
+      mentee: 'Comfortable with Python and PyTorch; some familiarity with transformers helps.'
+      mentee_it: 'Dimestichezza con Python e PyTorch; una conoscenza di base dei transformer è utile.'
+      deliverable: 'A short paper or blog post with open-source code'
+      deliverable_it: 'Un breve articolo o post con codice open source'
+    places: 2
+    language: 'Italian, English'
+    language_it: 'Italiano, inglese'
+
+  - id: marco-segnaposto
+    name: 'Marco Segnaposto'
+    role: 'Policy researcher'
+    role_it: 'Ricercatore di policy'
+    affiliation: 'Example Think Tank'
+    links:
+      linkedin: 'https://www.linkedin.com'
+    tracks: [projects, orientation]
+    areas: [governance, careers]
+    bio: 'Follows the implementation of the EU AI Act and advises public bodies on rules for general-purpose AI models.'
+    bio_it: "Segue l'attuazione dell'AI Act europeo e fornisce consulenza a enti pubblici sulle regole per i modelli di IA per finalità generali."
+    project:
+      title: 'Mapping how Italy is implementing the AI Act'
+      title_it: "Mappare come l'Italia sta attuando l'AI Act"
+      summary: 'A structured review of the Italian authorities, deadlines and open questions in applying the EU AI Act.'
+      summary_it: "Una ricognizione strutturata di autorità, scadenze e questioni aperte nell'applicazione italiana dell'AI Act."
+      description: 'The mentee will build a public map of who does what in the Italian implementation of the AI Act, compare it with two other member states and identify the gaps that matter most for frontier models.'
+      description_it: "Il mentee costruirà una mappa pubblica di chi fa cosa nell'attuazione italiana dell'AI Act, la confronterà con quella di altri due Stati membri e individuerà le lacune più rilevanti per i modelli di frontiera."
+      mentee: 'Background in law, political science or economics; no technical skills needed.'
+      mentee_it: 'Formazione in giurisprudenza, scienze politiche o economia; non servono competenze tecniche.'
+      deliverable: 'A policy brief'
+      deliverable_it: 'Un policy brief'
+    orientation: 'Careers in AI policy in Italy and in Brussels, think tanks and public institutions.'
+    orientation_it: 'Carriere nella policy sull’IA in Italia e a Bruxelles, think tank e istituzioni pubbliche.'
+    places: 2
+    language: 'Italian'
+    language_it: 'Italiano'
+
+  - id: sara-campione
+    name: 'Sara Campione'
+    role: 'Research engineer'
+    role_it: 'Research engineer'
+    affiliation: 'Example AI Lab'
+    links:
+      github: 'https://github.com'
+      website: 'https://example.com'
+    tracks: [projects]
+    areas: [evaluations, security]
+    bio: 'Builds evaluations for dangerous capabilities of frontier models, in particular in cybersecurity.'
+    bio_it: 'Costruisce valutazioni delle capacità pericolose dei modelli di frontiera, in particolare in ambito cybersecurity.'
+    project:
+      title: 'An Italian-language benchmark for model refusals'
+      title_it: 'Un benchmark in italiano per i rifiuti dei modelli'
+      summary: 'Do safety refusals hold up when harmful requests are written in Italian? Build a small benchmark to find out.'
+      summary_it: 'I rifiuti di sicurezza reggono quando le richieste dannose sono scritte in italiano? Costruire un piccolo benchmark per scoprirlo.'
+      description: 'Most refusal benchmarks are in English. The project adapts an existing one to Italian with care for the cultural context, runs it on a handful of open and closed models and analyses where behaviour differs from English.'
+      description_it: "La maggior parte dei benchmark sui rifiuti è in inglese. Il progetto ne adatta uno esistente all'italiano con attenzione al contesto culturale, lo esegue su alcuni modelli aperti e chiusi e analizza dove il comportamento differisce dall'inglese."
+      mentee: 'Python; native-level Italian.'
+      mentee_it: 'Python; italiano di madrelingua.'
+      deliverable: 'An open dataset and a report'
+      deliverable_it: 'Un dataset aperto e un report'
+    places: 1
+    language: 'English'
+    language_it: 'Inglese'
+
+  - id: luca-modello
+    name: 'Luca Modello'
+    role: 'Associate professor of philosophy'
+    role_it: 'Professore associato di filosofia'
+    affiliation: 'Example University'
+    co_mentors: [anna-prototipo]
+    tracks: [projects]
+    areas: [ethics, society]
+    bio: 'Works on the ethics of technology and on the moral status of AI systems.'
+    bio_it: "Si occupa di etica della tecnologia e dello status morale dei sistemi di IA."
+    project:
+      title: 'Who is responsible when an AI agent acts?'
+      title_it: 'Chi è responsabile quando agisce un agente di IA?'
+      summary: 'A philosophical analysis of responsibility gaps created by autonomous AI agents.'
+      summary_it: "Un'analisi filosofica dei vuoti di responsabilità creati dagli agenti di IA autonomi."
+      description: 'The project reviews the literature on responsibility gaps and tests its arguments against concrete cases of AI agents acting on behalf of users, aiming at a short paper that can become the basis of a thesis.'
+      description_it: "Il progetto ripercorre la letteratura sui vuoti di responsabilità e ne mette alla prova gli argomenti su casi concreti di agenti di IA che agiscono per conto degli utenti, con l'obiettivo di un breve articolo che possa diventare la base di una tesi."
+      mentee: 'Students in philosophy, law or related fields.'
+      mentee_it: 'Studenti di filosofia, giurisprudenza o affini.'
+      deliverable: 'A scientific article'
+      deliverable_it: 'Un articolo scientifico'
+    places: 2
+    language: 'Italian'
+    language_it: 'Italiano'
+
+  - id: anna-prototipo
+    name: 'Anna Prototipo'
+    role: 'Researcher in technology law'
+    role_it: 'Ricercatrice in diritto delle tecnologie'
+    affiliation: 'Example University'
+    co_mentors: [luca-modello]
+    tracks: [projects]
+    areas: [ethics, governance]
+    bio: 'Studies civil liability for damage caused by autonomous systems.'
+    bio_it: 'Studia la responsabilità civile per i danni causati da sistemi autonomi.'
+    language: 'Italian'
+    language_it: 'Italiano'
+
+  - id: elena-prova
+    name: 'Elena Prova'
+    role: 'AI safety researcher'
+    role_it: 'Ricercatrice in AI safety'
+    affiliation: 'Example Research Institute'
+    links:
+      website: 'https://example.com'
+      linkedin: 'https://www.linkedin.com'
+    tracks: [orientation]
+    areas: [careers, alignment]
+    bio: 'Moved from physics to AI safety research after a fellowship abroad; now works on scalable oversight.'
+    bio_it: "È passata dalla fisica alla ricerca in AI safety dopo una fellowship all'estero; oggi lavora su scalable oversight."
+    orientation: 'Moving into technical AI safety from a STEM background, fellowships and research programs, applying abroad.'
+    orientation_it: "Entrare nell'AI safety tecnica da un percorso STEM, fellowship e programmi di ricerca, candidarsi all'estero."
+    places: 3
+    language: 'Italian, English'
+    language_it: 'Italiano, inglese'
+
+  - id: andrea-fittizio
+    name: 'Andrea Fittizio'
+    role: 'Postdoctoral researcher'
+    role_it: 'Ricercatore postdoc'
+    affiliation: 'Example Polytechnic'
+    links:
+      scholar: 'https://scholar.google.com'
+    tracks: [projects]
+    areas: [security, alignment]
+    bio: 'Studies adversarial robustness and jailbreaks of multimodal models.'
+    bio_it: 'Studia la robustezza avversariale e i jailbreak dei modelli multimodali.'
+    project:
+      title: 'Jailbreaks hidden in images'
+      title_it: 'Jailbreak nascosti nelle immagini'
+      summary: 'Measure how well current defences catch harmful instructions embedded in images.'
+      summary_it: 'Misurare quanto le difese attuali intercettino istruzioni dannose inserite nelle immagini.'
+      description: 'Multimodal models can be steered by text hidden in pictures. The project collects known attacks, evaluates a few defences on open models and proposes a simple baseline that others can build on.'
+      description_it: 'I modelli multimodali possono essere manipolati da testo nascosto nelle immagini. Il progetto raccoglie gli attacchi noti, valuta alcune difese su modelli aperti e propone una baseline semplice su cui altri possano costruire.'
+      mentee: 'Machine learning experience; access to a GPU is not required.'
+      mentee_it: 'Esperienza di machine learning; non serve avere una GPU.'
+      deliverable: 'Software and a workshop paper'
+      deliverable_it: 'Software e un articolo per un workshop'
+    places: 2
+    language: 'English'
+    language_it: 'Inglese'
+
+  - id: chiara-bozza
+    name: 'Chiara Bozza'
+    role: 'Journalist and science communicator'
+    role_it: 'Giornalista e divulgatrice scientifica'
+    affiliation: 'Freelance'
+    tracks: [projects]
+    areas: [society, governance]
+    bio: 'Writes about technology and its effects on work and democracy for Italian newspapers.'
+    bio_it: "Scrive di tecnologia e dei suoi effetti sul lavoro e sulla democrazia per quotidiani italiani."
+    project:
+      title: 'An Italian primer on AI risks'
+      title_it: 'Un primo manuale in italiano sui rischi dell’IA'
+      summary: 'Write accessible educational material on the main risks of advanced AI, for students and teachers.'
+      summary_it: "Scrivere materiale divulgativo accessibile sui principali rischi dell'IA avanzata, per studenti e docenti."
+      description: 'The mentee will design and write a short series of explainers, tested with a class of high-school students, that the AIS4I community can reuse in its outreach.'
+      description_it: 'Il mentee progetterà e scriverà una breve serie di schede divulgative, testate con una classe di scuola superiore, che la comunità AIS4I potrà riutilizzare nelle sue attività.'
+      mentee: 'Clear writing in Italian; curiosity for the topic. No technical skills needed.'
+      mentee_it: "Scrittura chiara in italiano; curiosità per il tema. Non servono competenze tecniche."
+      deliverable: 'Educational material'
+      deliverable_it: 'Materiale educativo'
+    places: 1
+    language: 'Italian'
+    language_it: 'Italiano'
+
+  - id: paolo-demo
+    name: 'Paolo Demo'
+    role: 'Software engineer'
+    role_it: 'Software engineer'
+    affiliation: 'Example Tech Company'
+    links:
+      linkedin: 'https://www.linkedin.com'
+    tracks: [orientation]
+    areas: [careers, evaluations]
+    bio: 'Works on the safety infrastructure of a large AI product; mentors engineers moving into the field.'
+    bio_it: 'Lavora sull’infrastruttura di sicurezza di un grande prodotto di IA; fa da mentor a ingegneri che vogliono entrare nel settore.'
+    orientation: 'Engineering roles in AI safety, building a portfolio, preparing for interviews.'
+    orientation_it: "Ruoli di ingegneria nell'AI safety, costruire un portfolio, prepararsi ai colloqui."
+    places: 2
+    language: 'Italian, English'
+    language_it: 'Italiano, inglese'

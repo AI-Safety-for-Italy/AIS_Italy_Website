@@ -66,11 +66,13 @@ facts:
     value_it: 'Tra 10 e 20 in totale'
 
 # "Due percorsi". `with_partner: true` shows the "In collaboration with CePTE"
-# label on a track.
+# label on a track. `id` is what a mentor's `tracks` in data/mentors.yaml
+# refers to.
 tracks_title: 'Two tracks'
 tracks_title_it: 'Due percorsi'
 tracks:
-  - title: 'Career orientation'
+  - id: orientation
+    title: 'Career orientation'
     title_it: 'Orientamento professionale'
     with_partner: true
     text: 'An individual track for those who want to find their way among study and career opportunities in AI safety and AI governance. Mentor and mentee meet regularly to talk about interests, skills to develop, study and job opportunities, networking and concrete next steps. No technical skills are needed.'
@@ -79,7 +81,8 @@ tracks:
     commitment_it: 'Almeno 2 ore a settimana'
     outcome: 'A personal action plan'
     outcome_it: "Un piano d'azione personale"
-  - title: 'AI safety projects'
+  - id: projects
+    title: 'AI safety projects'
     title_it: 'Progetti di AI safety'
     text: 'A hands-on track for those who already have a clear idea of their interests and want to gain experience on a real project, defined and supervised by one or more mentors. Projects may cover model interpretability and evaluation, governance and policy, AI ethics and other topics related to reducing the risks of advanced AI systems. For students, the project can become the basis of a thesis, subject to agreement with their university.'
     text_it: "Un percorso pratico per chi ha già un'idea chiara dei propri interessi e vuole fare esperienza su un progetto reale, definito e supervisionato da uno o più mentor. I progetti possono riguardare interpretabilità e valutazione dei modelli, governance e policy, etica dell'IA e altri temi legati alla riduzione dei rischi dei sistemi di IA avanzati. Per chi studia, il progetto può diventare la base di una tesi, previo accordo con la propria università."
