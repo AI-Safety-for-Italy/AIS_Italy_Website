@@ -1,4 +1,4 @@
-last_updated: '2026-10-23'
+last_updated: '2026-10-28'
 members:
 - id: 1
   name: Angelo Leone
@@ -927,3 +927,65 @@ members:
     ecc.), Evaluation (capability evaluations, dangerous capability evals, benchmarking),
     Alignment (RLHF, scalable oversight, value alignment), Robustness e adversarial
     ML, AI governance e policy
+- id: 119
+  name: Giuliano Campagnolo
+  profile: https://www.linkedin.com/in/giuliano-campagnolo/
+  location: Trento, Italia
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.), Alignment (RLHF, scalable oversight, value alignment), AI governance e
+    policy, Etica dell'AI e impatto sociale, Rischi catastrofici / esistenziali
+- id: 120
+  name: Irene Tallini
+  location: Trieste, Italia
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.)
+- id: 121
+  name: Alessandro Tamai
+  profile: https://aleetamai.github.io
+  location: Italia, US
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.)
+- id: 122
+  name: Valerio Fusco
+  profile: https://www.linkedin.com/in/valerio-fusco-091078187/
+  location: Roma, Italia
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.), Evaluation (capability evaluations, dangerous capability evals, benchmarking),
+    Alignment (RLHF, scalable oversight, value alignment), Robustness e adversarial
+    ML, AI governance e policy, Etica dell'AI e impatto sociale, Sicurezza informatica
+    per modelli di frontiera, Rischi catastrofici / esistenziali
+  groups:
+  - mentorship
+  - governance
+  - communication
+  - technical
+  - community
+  - events
+  - seminars
+  - education
+- id: 123
+  name: Lorenzo Bolzani
+  profile: https://lorenzob.github.io/
+  location: Milano, Italia
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.), Alignment (RLHF, scalable oversight, value alignment), Etica dell'AI e
+    impatto sociale, Rischi catastrofici / esistenziali
+- id: 124
+  name: Salim Benhamadi
+  profile: https://www.linkedin.com/in/salimbenhamadi/?isSelfProfile=true
+  location: Milan, Italy
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.), Evaluation (capability evaluations, dangerous capability evals, benchmarking),
+    AI governance e policy, Etica dell'AI e impatto sociale
+- id: 125
+  name: Gabriele Merlin
+  profile: gab709.github.io
+  location: Saarbrucken/Roma, Germania/Italia
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.), Evaluation (capability evaluations, dangerous capability evals, benchmarking)
+- id: 126
+  name: Tatiana Mayira Russo Munoz
+  profile: www.linkedin.com/in/tatianarussom
+  location: Verdellino, Bergamo, Italia
+  areas: Evaluation (capability evaluations, dangerous capability evals, benchmarking),
+    AI governance e policy, Etica dell'AI e impatto sociale
