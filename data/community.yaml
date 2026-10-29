@@ -20,6 +20,43 @@ benefits:
     description: "Get guidance on career paths in AI safety, job opportunities, and connections to organizations working in the field."
 
 
+# Local groups, shown on the community page as pins on the map of Italy and
+# as a list beside it; the home page counts them. x/y are pre-projected into
+# that SVG's 0 0 420 560 viewBox (Mercator, same projection as the outline),
+# so a new city needs its projected x/y, not lat/lon. Cities carry no links on
+# purpose: people reach a group by joining AIS4I through the sign-up form.
+local_groups:
+  title: 'Find your local group'
+  title_it: 'Trova il tuo gruppo locale'
+  join: "Join AIS4I and become part of your city's group"
+  join_it: 'Unisciti ad AIS4I ed entra a far parte del gruppo della tua città'
+  start: 'No group in your city yet?'
+  start_it: 'Non esiste ancora un gruppo nella tua città?'
+  start_link: "Join AIS4I and we'll help you start one"
+  start_link_it: 'Unisciti ad AIS4I e ti aiuteremo a crearne uno'
+  cities:
+    - name: 'Genova'
+      x: 90.6
+      y: 175.2
+    - name: 'Milano'
+      x: 98.7
+      y: 125.8
+    - name: 'Padova'
+      x: 187.5
+      y: 128.5
+    - name: 'Torino'
+      x: 49.0
+      y: 144.3
+    - name: 'Trento'
+      x: 162.5
+      y: 97.2
+    - name: 'Trieste'
+      x: 250.3
+      y: 117.0
+    - name: 'Udine'
+      x: 232.4
+      y: 97.0
+
 # Working groups, in the order the community page lists them.
 # Each person in src/data/team.js names the groups they work in by `id`
 # (their `groups` list). `form_keys` are the group keys that
