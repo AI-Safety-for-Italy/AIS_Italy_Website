@@ -50,6 +50,9 @@ local_groups:
     - name: 'Trento'
       x: 162.5
       y: 97.2
+    - name: 'Trieste'
+      x: 250.3
+      y: 117.0
     - name: 'Udine'
       x: 232.4
       y: 97.0
