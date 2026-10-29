@@ -20,10 +20,10 @@ seoDescription_it: "AI Safety for Italy è la community italiana che lavora per 
 {% block content %}
 {# The entry flagged `featured: true` in events.yaml, if any, sits beside the
    hero. The stats strip reads its numbers from the data files, so it stays
-   true as members and cities are added. #}
+   true as members and local groups are added. #}
 {% set featured = events.upcoming_events | selectattr("featured") | selectattr("hero") | first %}
 {% set memberCount = members.members | length %}
-{% set cityCount = about.map.cities | length %}
+{% set groupCount = community.local_groups.cities | length %}
 
 <!-- Hero: what we do, the next step, and the next event -->
 <section class="home-hero">
@@ -84,8 +84,8 @@ seoDescription_it: "AI Safety for Italy è la community italiana che lavora per 
             <span class="stat-label" data-en="members in the network" data-it="membri nella rete">members in the network</span>
         </div>
         <div class="stat reveal">
-            <span class="stat-value" data-count="{{ cityCount }}">{{ cityCount }}</span>
-            <span class="stat-label" data-en="cities" data-it="città">cities</span>
+            <span class="stat-value" data-count="{{ groupCount }}">{{ groupCount }}</span>
+            <span class="stat-label" data-en="local groups" data-it="gruppi locali">local groups</span>
         </div>
         <div class="stat reveal">
             <span class="stat-value" data-count="2026">2026</span>

@@ -3768,13 +3768,12 @@ textarea.form-input {
 }
 
 /* ==========================================================================
-   Animated map of Italy — About page
+   Local groups map — Community page
 
    Sequence on scroll: the coastline draws itself in, the fill washes up
-   behind it, the network knits together link by link, the dots drop in, and
-   then it settles into a loop where a bright packet keeps travelling along
-   every link and each dot breathes. Everything keys off .is-visible, added
-   by the shared scroll-reveal observer in base.njk.
+   behind it, the dots drop in with their city names, and then each dot keeps
+   breathing. Everything keys off .is-visible, added by the shared
+   scroll-reveal observer in base.njk.
    ========================================================================== */
 
 .map-layout {
@@ -3840,80 +3839,6 @@ textarea.form-input {
   }
 }
 
-/* --- Network links ---
-   Two layers per link. The base line is a constant faint red. Over it, a long
-   blurred dash travels the same curve, so brightness swells and fades as it
-   passes: a moving breath rather than a hard packet driving along the route.
-   Each link is given its own phase so the graph shimmers instead of blinking
-   in unison. */
-.map-link {
-  fill: none;
-  stroke: var(--secondary);
-  stroke-width: 1;
-  stroke-opacity: 0;
-  stroke-linecap: round;
-  stroke-dasharray: 1;
-  stroke-dashoffset: 1;
-}
-
-.map-figure.is-visible .map-link {
-  animation: link-draw 0.7s ease-out forwards;
-  animation-delay: calc(1.5s + var(--link-index) * 0.07s);
-}
-
-@keyframes link-draw {
-  from {
-    stroke-dashoffset: 1;
-    stroke-opacity: 0;
-  }
-
-  to {
-    stroke-dashoffset: 0;
-    stroke-opacity: 0.22;
-  }
-}
-
-.map-link-wave {
-  fill: none;
-  stroke: var(--secondary);
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  /* a long lit stretch, not a dot, so it reads as a swell of brightness */
-  stroke-dasharray: 0.4 0.6;
-  stroke-dashoffset: 1;
-  filter: url(#linkGlow);
-  opacity: 0;
-}
-
-.map-figure.is-visible .map-link-wave {
-  animation: link-breath 5.4s ease-in-out infinite;
-  animation-delay: calc(2.2s + var(--link-index) * 0.31s);
-}
-
-@keyframes link-breath {
-  0% {
-    stroke-dashoffset: 1;
-    opacity: 0;
-  }
-
-  25% {
-    opacity: 0.5;
-  }
-
-  50% {
-    opacity: 0.75;
-  }
-
-  75% {
-    opacity: 0.45;
-  }
-
-  100% {
-    stroke-dashoffset: 0;
-    opacity: 0;
-  }
-}
-
 /* --- Dots --- */
 .map-pin {
   opacity: 0;
@@ -3923,7 +3848,7 @@ textarea.form-input {
 
 .map-figure.is-visible .map-pin {
   animation: pin-in 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-  animation-delay: calc(1.75s + var(--pin-index) * 0.1s);
+  animation-delay: calc(1.5s + var(--pin-index) * 0.1s);
 }
 
 @keyframes pin-in {
@@ -3956,7 +3881,20 @@ textarea.form-input {
 
 .map-figure.is-visible .map-pin-halo {
   animation: pin-halo 3s ease-out infinite;
-  animation-delay: calc(2.3s + var(--pin-index) * 0.22s);
+  animation-delay: calc(2.1s + var(--pin-index) * 0.22s);
+}
+
+/* The page-coloured stroke, painted under the fill, keeps a name legible
+   where it crosses the coastline. */
+.map-pin-label {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  fill: var(--text-primary);
+  stroke: var(--bg-secondary);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+  paint-order: stroke;
 }
 
 @keyframes pin-halo {
@@ -3981,19 +3919,6 @@ textarea.form-input {
     fill-opacity: 1;
   }
 
-  .map-link,
-  .map-figure.is-visible .map-link {
-    animation: none;
-    stroke-dashoffset: 0;
-    stroke-opacity: 0.28;
-  }
-
-  .map-link-wave,
-  .map-figure.is-visible .map-link-wave {
-    animation: none;
-    opacity: 0;
-  }
-
   .map-pin,
   .map-figure.is-visible .map-pin {
     animation: none;
@@ -4005,6 +3930,46 @@ textarea.form-input {
     animation: none;
     opacity: 0;
   }
+}
+
+/* --- City list beside the map ---
+   Plain labels, not buttons: no city has a page or a link of its own. */
+.group-list {
+  list-style: none;
+  margin: 1.5rem 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+  gap: 0.6rem;
+}
+
+.group-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.65rem 0.9rem;
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  font-weight: 600;
+}
+
+.group-chip::before {
+  content: '';
+  flex: none;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: var(--secondary);
+}
+
+.group-join {
+  margin: 0 0 0.75rem;
+}
+
+.group-start {
+  margin: 0;
+  color: var(--text-secondary);
 }
 
 /* ==========================================================================
