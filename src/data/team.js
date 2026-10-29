@@ -256,6 +256,23 @@ const teamData = [
     interests: ['Interpretability', 'Robustness', 'AI governance and policy'],
     links: [{ label: 'LinkedIn', url: 'https://www.linkedin.com/in/riccardoconte-cybersecurity/' }],
   },
+  {
+    name: 'Carlo Martinucci',
+    tier: 'leadership',
+    board_order: 10,
+    board_role: 'Public outreach',
+    board_role_it: 'Divulgazione',
+    groups: ['education', 'communications'],
+    role: 'Public outreach',
+    role_it: 'Divulgazione',
+    photo: '/assets/img/team/carlo-martinucci.jpg',
+    bio: 'Carlo is a mathematician. He worked as a software engineer and lead for almost 10 years, then founded (and closed) a startup with the goal of fighting social polarization. He got interested in AI safety reading Tim Urban’s Wait But Why posts in 2015; around 2023 he became convinced that AI might kill us, so he started working on how to avoid that. He is particularly interested in understanding what role we can have, as Europeans, in making sure that AI goes well for everyone.',
+    bio_it:
+      'Carlo è un matematico. Ha lavorato per quasi 10 anni come software engineer e lead, poi ha fondato (e chiuso) una startup con l’obiettivo di contrastare la polarizzazione sociale. Si è avvicinato all’AI safety nel 2015 leggendo i post di Tim Urban su Wait But Why; intorno al 2023 si è convinto che l’IA potrebbe ucciderci, e ha iniziato a lavorare su come evitarlo. Gli interessa in particolare capire quale ruolo possiamo avere, come europei, perché l’IA vada bene per tutti.',
+    areas: ['Public outreach'],
+    interests: ['AI governance', 'European AI policy'],
+    links: [],
+  },
 ];
 
 module.exports = validateTeamData(teamData).filter((member) => !member.hidden);
