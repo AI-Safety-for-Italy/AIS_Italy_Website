@@ -277,6 +277,16 @@ analysis and the linked Google Sheet come next.
   Discord roles read the answers) and the public link. How long answers are
   kept is not set yet: deleting them on a schedule needs a job, which comes
   later.
+- **Answers** (the editor's Answers tab; also the only tab for the Discord
+  roles a form lets read its answers): a summary with a chart per question
+  (bars, columns or donut, sortable, the choice remembered per form), numbers
+  at a glance and answers over time; filters by status and date, and a click
+  on a bar keeps only the answers that chose it, on every chart. One answer at
+  a time, with previous / next (arrow keys) and its status (new, reviewing,
+  accepted, rejected); a table with a column per question. The form's managers
+  can also delete an answer for good and export them all as CSV (no cell runs
+  as a formula in a spreadsheet). Every look, change, deletion and export is
+  on the audit trail.
 - **Questions**: short and long text, email, https link, number, one or several
   choices (with Other), drop-down, scale, date, yes/no, consent (recorded with
   the version of its text), text blocks and pages.

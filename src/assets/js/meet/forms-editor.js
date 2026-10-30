@@ -7,6 +7,9 @@
  *   Settings   open/close, dates, link, one answer per email, keeping,
  *              which Discord roles read the answers
  *   Share      the public link
+ *   Answers    the answers: a summary with charts, one by one, a table
+ *              (forms-responses.js); the only tab for those who may read the
+ *              answers but not change the form
  * The server checks everything again (server/forms/schema.js, forms.js). */
 (function () {
   'use strict';
@@ -201,30 +204,26 @@
     savedEl.hidden = false;
     M.clear(state);
     document.getElementById('feCrumb').textContent = form.title;
-    if (!form.canManage) {
-      state.appendChild(
-        h(
-          'div',
-          { class: 'empty-state' },
-          h('h3', null, 'You can read this form’s answers'),
-          h(
-            'p',
-            null,
-            'Only its owner and the forms admins can change it. The answers page comes next.'
-          )
-        )
-      );
-      return;
-    }
     document.getElementById('feCrumbs').hidden = true;
     document.getElementById('feTopbar').hidden = false;
     renderTop();
+    if (!form.canManage) {
+      // Reading the answers only: one tab, nothing to save.
+      document.querySelectorAll('#feTabs a').forEach(function (a) {
+        a.hidden = a.getAttribute('data-tab') !== 'responses';
+      });
+      saveBtn.hidden = true;
+      savedEl.hidden = true;
+      setTab('responses');
+      return;
+    }
     renderPalette();
     setTab(location.hash.slice(1) || 'questions');
   }
 
   function renderTop() {
     document.getElementById('feTitle').textContent = txOrMain(schema.title) || form.title;
+    showCount(form.responses);
     var status = document.getElementById('feStatus');
     M.clear(status);
     status.appendChild(
@@ -235,11 +234,6 @@
         STATUS[form.status]
       )
     );
-    document.getElementById('feVersion').textContent =
-      'Version ' +
-      form.version +
-      ' · ' +
-      (form.responses === 1 ? '1 answer' : (form.responses || 0) + ' answers');
     var langs = document.getElementById('feLang');
     langs.hidden = schema.languages.length < 2;
     langs.querySelectorAll('button').forEach(function (b) {
@@ -260,27 +254,48 @@
 
   // ── Tabs ─────────────────────────────────────────────────────────────────
 
+  var TABS = ['questions', 'preview', 'settings', 'share', 'responses'];
+  var answers = null;
+
   function setTab(name) {
-    tab = ['questions', 'preview', 'settings', 'share'].indexOf(name) === -1 ? 'questions' : name;
+    tab = TABS.indexOf(name) === -1 ? 'questions' : name;
+    if (!form.canManage) tab = 'responses';
     document.querySelectorAll('#feTabs a').forEach(function (a) {
       if (a.getAttribute('data-tab') === tab) a.setAttribute('aria-current', 'page');
       else a.removeAttribute('aria-current');
     });
-    ['questions', 'preview', 'settings', 'share'].forEach(function (t) {
+    TABS.forEach(function (t) {
       document.getElementById('tab-' + t).hidden = t !== tab;
     });
-    saveBtn.hidden = tab !== 'questions' && tab !== 'preview';
+    saveBtn.hidden = !form.canManage || (tab !== 'questions' && tab !== 'preview');
+    savedEl.hidden = saveBtn.hidden || dirty;
+    dirtyEl.hidden = saveBtn.hidden || !dirty;
     document.getElementById('feLang').hidden = tab !== 'questions' || schema.languages.length < 2;
     if (tab === 'questions') {
       renderCanvas();
       renderProps();
     } else if (tab === 'preview') renderPreview();
     else if (tab === 'settings') renderSettings();
-    else renderShare();
+    else if (tab === 'share') renderShare();
+    else if (!answers) {
+      answers = M.formResponses(document.getElementById('tab-responses'), {
+        formId: id,
+        onCount: showCount,
+      });
+    } else answers.reload();
   }
   window.addEventListener('hashchange', function () {
-    if (form && form.canManage) setTab(location.hash.slice(1));
+    if (form) setTab(location.hash.slice(1));
   });
+
+  // The number of answers, on the tab and under the title; deleting one in the
+  // Answers tab updates both.
+  function showCount(n) {
+    form.responses = n;
+    document.getElementById('feCount').textContent = n ? String(n) : '';
+    document.getElementById('feVersion').textContent =
+      'Version ' + form.version + ' · ' + (n === 1 ? '1 answer' : (n || 0) + ' answers');
+  }
 
   // ── Palette ──────────────────────────────────────────────────────────────
 
