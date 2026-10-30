@@ -192,3 +192,22 @@ test('in production the admin password opens content and permissions, not person
   const info = (await call(authApi, { url: '/api/auth', user: root })).body;
   assert.deepEqual(info.areas, { content: true, crm: false, forms: false, members: false });
 });
+
+// ── 6. The private pages cannot be framed by another site ──────────────────
+
+test('the private pages and the API cannot be framed, and are not sniffed', () => {
+  const vercel = require('../vercel.json');
+  const paths = ['/app/', '/app/members/', '/form/', '/join/', '/meet/', '/api/form', '/api/auth'];
+  for (const path of paths) {
+    const headers = {};
+    for (const rule of vercel.headers) {
+      // Vercel's sources here are path patterns: "/(a|b)/(.*)" and the like.
+      if (new RegExp(`^${rule.source}$`).test(path)) {
+        rule.headers.forEach((h) => (headers[h.key] = h.value));
+      }
+    }
+    assert.equal(headers['Content-Security-Policy'], "frame-ancestors 'none'", path);
+    assert.equal(headers['X-Frame-Options'], 'DENY', path);
+    assert.equal(headers['X-Content-Type-Options'], 'nosniff', path);
+  }
+});
