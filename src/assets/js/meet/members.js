@@ -200,7 +200,7 @@
       class: 'form-input',
       rows: 2,
       maxlength: 2000,
-      placeholder: 'Internal note (optional)',
+      placeholder: 'Internal note (optional; not encrypted, so no personal data)',
     });
     var approve = h(
       'button',

@@ -18,6 +18,9 @@ const db = require('./db');
 const mail = require('./mail');
 const permissions = require('./permissions');
 const discord = require('./discord');
+const crm = require('./crm/crypto');
+const access = require('./crm/access');
+const audit = require('./crm/audit');
 const { HttpError } = require('./http');
 
 const ROLES = [
@@ -70,6 +73,8 @@ function text(value, label, max, required) {
  * `source` names the form it came from. Returns { id }.
  */
 async function createApplication(fields, { source } = {}) {
+  // Without the keys the details could not be stored protected: take none.
+  if (!crm.configured()) throw new HttpError(503, 'Applications are not available right now');
   const f = fields || {};
   const name = text(f.name, 'Name', 120, true);
   const email = text(f.email, 'Email', 200, true).toLowerCase();
@@ -84,27 +89,48 @@ async function createApplication(fields, { source } = {}) {
     label: text(a && a.label, 'Question', 500, true),
     value: text(Array.isArray(a.value) ? a.value.join(', ') : a.value, 'Answer', 5000, false),
   }));
-  const { rows } = await db.query(
-    `insert into member_applications (name, email, requested_role, answers, source)
-     values ($1, $2, $3, $4, $5) returning id`,
+  const id = crypto.randomUUID();
+  await db.query(
+    `insert into member_applications (id, requested_role, source, details_encrypted, email_key)
+     values ($1, $2, $3, $4, $5)`,
     [
-      name,
-      email,
+      id,
       requestedRole,
-      JSON.stringify(answers),
       source ? String(source).slice(0, 100) : null,
+      crm.encrypt(JSON.stringify({ name, email, answers }), context(id)),
+      crm.personKey(email),
     ]
   );
-  return { id: rows[0].id };
+  return { id };
+}
+
+function context(id) {
+  return `member:${id}`;
+}
+
+/** Who applied: { name, email, answers }, or null when it cannot be opened. */
+function details(row) {
+  const text = row.details_encrypted ? crm.decrypt(row.details_encrypted, context(row.id)) : null;
+  if (text === null) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
 }
 
 function summary(r) {
+  const d = details(r) || {
+    name: '(cannot be opened with the current key)',
+    email: '',
+    answers: [],
+  };
   return {
     id: r.id,
-    name: r.name,
-    email: r.email,
+    name: d.name,
+    email: d.email,
     requestedRole: r.requested_role,
-    answers: r.answers,
+    answers: d.answers,
     source: r.source,
     status: r.status,
     role: r.role,
@@ -126,13 +152,14 @@ function summary(r) {
 const SELECT = `
   select a.*, u.name as decided_by_name,
     (select count(*) from member_applications b
-      where lower(b.email) = lower(a.email) and b.id <> a.id) as duplicates
+      where b.email_key = a.email_key and b.id <> a.id) as duplicates
   from member_applications a
   left join app_users u on u.id = a.decided_by`;
 
 async function listApplications(user) {
-  await permissions.require(user, 'members');
+  await access.requirePermission(user, 'members');
   const { rows } = await db.query(`${SELECT} order by a.created_at desc`);
+  await audit.record(user, 'member-list', null, { count: rows.length });
   return {
     applications: rows.map(summary),
     roles: boardRoles(),
@@ -153,6 +180,8 @@ function firstName(name) {
 
 /** Emails the join link; records the outcome. Returns { sent, detail }. */
 async function sendInvite(row, siteOrigin) {
+  const who = details(row);
+  if (!who) return { sent: false, detail: 'The application cannot be opened with the current key' };
   const role = ROLES.find((r) => r.key === row.role);
   const link = `${siteOrigin}/api/join?t=${row.join_token}`;
   const until = new Date(row.join_expires_at).toLocaleDateString('it-IT', {
@@ -162,10 +191,10 @@ async function sendInvite(row, siteOrigin) {
   });
   try {
     await mail.send({
-      to: row.email,
+      to: who.email,
       subject: 'Benvenuto/a in AI Safety for Italy: entra su Discord',
       text:
-        `Ciao ${firstName(row.name)},\n\n` +
+        `Ciao ${firstName(who.name)},\n\n` +
         'la tua richiesta di entrare nella community di AI Safety for Italy è stata accettata: benvenuto/a!\n\n' +
         'Per entrare nel nostro server Discord apri questo link. Ti chiederà di accedere con Discord ' +
         `(se non hai un account puoi crearlo lì) e ti aggiungerà al server come ${role.labelIt}.\n\n` +
@@ -196,7 +225,7 @@ function newToken() {
  * application. Approving emails the join link. Returns { application, invite }.
  */
 async function decide(user, id, body, { siteOrigin }) {
-  await permissions.require(user, 'members', { fresh: true });
+  await access.requirePermission(user, 'members', { fresh: true });
   const b = body || {};
   const note = text(b.note, 'Note', 2000, false);
   await loadRow(id);
@@ -225,6 +254,11 @@ async function decide(user, id, body, { siteOrigin }) {
     throw new HttpError(400, 'Approve or reject?');
   }
   if (!updated.rows.length) throw new HttpError(409, 'Someone already decided on this application');
+  // What was decided, never what the person or the note says.
+  await audit.record(user, 'member-decide', id, {
+    decision: b.decision,
+    role: b.decision === 'approve' ? b.role : undefined,
+  });
   const invite =
     b.decision === 'approve' ? await sendInvite(updated.rows[0], siteOrigin) : undefined;
   return { application: summary(await loadRow(id)), invite };
@@ -232,7 +266,7 @@ async function decide(user, id, body, { siteOrigin }) {
 
 /** A fresh link for an approved person who has not joined yet. */
 async function resendInvite(user, id, { siteOrigin }) {
-  await permissions.require(user, 'members', { fresh: true });
+  await access.requirePermission(user, 'members', { fresh: true });
   await loadRow(id);
   const { rows } = await db.query(
     `update member_applications set join_token = $2,
@@ -241,6 +275,7 @@ async function resendInvite(user, id, { siteOrigin }) {
     [id, newToken(), JOIN_DAYS]
   );
   if (!rows.length) throw new HttpError(409, 'Only approved people who have not joined yet');
+  await audit.record(user, 'member-resend', id);
   const invite = await sendInvite(rows[0], siteOrigin);
   return { application: summary(await loadRow(id)), invite };
 }
@@ -311,7 +346,7 @@ async function completeJoin(token, { code, redirectUri }, fetchImpl) {
 /** Local development, without Discord: the link joins at once. */
 async function completeJoinDev(token) {
   const row = await checkJoinToken(token);
-  await markJoined(row, `dev-${row.id.slice(0, 8)}`, row.name);
+  await markJoined(row, `dev-${row.id.slice(0, 8)}`, (details(row) || {}).name || 'Dev');
 }
 
 module.exports = {

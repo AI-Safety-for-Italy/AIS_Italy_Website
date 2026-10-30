@@ -366,4 +366,14 @@ create table if not exists member_applications (
 );
 
 create index if not exists member_applications_created on member_applications (created_at);
+
+-- Who applied, kept encrypted like the form answers (server/crm/crypto.js):
+-- details_encrypted holds { name, email, answers }, bound to the row's id.
+-- email_key, an opaque HMAC of the email, finds someone who applied twice.
+-- The plain name, email and answers columns stay empty.
+alter table member_applications add column if not exists details_encrypted text;
+alter table member_applications add column if not exists email_key text;
+alter table member_applications alter column name drop not null;
+alter table member_applications alter column email drop not null;
+create index if not exists member_applications_email_key on member_applications (email_key);
 `;

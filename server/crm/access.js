@@ -18,16 +18,17 @@ const audit = require('./audit');
 const MAX_SESSION_AGE_MS = 24 * 60 * 60 * 1000;
 
 const CRM_KEYS = permissions.PERMISSIONS.filter((p) => p.area === 'crm').map((p) => p.key);
-// The forms (server/forms/) hold personal data too and go through this door.
-const GUARDED_KEYS = permissions.PERMISSIONS.filter((p) => ['crm', 'forms'].includes(p.area)).map(
-  (p) => p.key
-);
+// The forms (server/forms/) and the member applications (server/members.js)
+// hold personal data too and go through this door.
+const GUARDED_KEYS = permissions.PERMISSIONS.filter((p) =>
+  ['crm', 'forms', 'members'].includes(p.area)
+).map((p) => p.key);
 
 async function requireRecentLogin(user, now = Date.now()) {
   const { rows } = await db.query('select last_login_at from app_users where id = $1', [user.id]);
   const last = rows[0] && rows[0].last_login_at;
   if (!last || now - new Date(last).getTime() > MAX_SESSION_AGE_MS) {
-    throw new HttpError(401, 'Please sign in again to use the CRM');
+    throw new HttpError(401, 'Please sign in again to use this tool');
   }
 }
 
@@ -37,7 +38,7 @@ async function requireRecentLogin(user, now = Date.now()) {
  * Discord roles whatever their age: for every change.
  */
 async function requirePermission(user, key, { fresh = false } = {}) {
-  if (!GUARDED_KEYS.includes(key)) throw new Error(`Not a CRM or forms permission: ${key}`);
+  if (!GUARDED_KEYS.includes(key)) throw new Error(`Not a guarded permission: ${key}`);
   await requireRecentLogin(user);
   try {
     if (fresh) return await permissions.require(user, key, { fresh: true });

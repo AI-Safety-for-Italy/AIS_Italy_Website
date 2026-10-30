@@ -30,6 +30,10 @@ const ACTIONS = new Set([
   'form-export',
   'form-sync',
   'form-delete-response',
+  // Member applications (server/members.js): subject_key is the application id.
+  'member-list',
+  'member-decide',
+  'member-resend',
 ]);
 
 /**

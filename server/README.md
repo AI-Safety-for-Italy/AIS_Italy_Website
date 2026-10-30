@@ -310,6 +310,15 @@ or gives it to them if they are already in, and the board shows their Discord
 account. The link works once; "Send the link again" makes a new one. Rejecting
 sends nothing.
 
+**Personal data.** Name, email and answers are stored encrypted with the
+CRM keys (`CRM_ENCRYPTION_KEY`, `CRM_KEY_SECRET`), bound to their row; the
+email is otherwise kept only as an opaque key, to spot someone who applied
+twice. Without the keys no application is taken (503). The board goes
+through the same door as the CRM (`server/crm/access.js`): a sign-in less
+than a day old, Discord roles read again, and every look and decision on the
+audit trail. The internal note is not encrypted: it must not hold personal
+data.
+
 **Setting up**, besides what sign-in and the bot already need:
 
 - `DISCORD_ROLE_PARTICIPANT`, `DISCORD_ROLE_ORGANIZER`: the role ids to give.

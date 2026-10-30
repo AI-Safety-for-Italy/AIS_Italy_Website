@@ -34,6 +34,9 @@ beforeEach(() => {
     DISCORD_ROLE_ORGANIZER: 'r-org',
   });
   delete process.env.MEET_DEV_LOGIN;
+  process.env.CRM_ENCRYPTION_KEY = Buffer.alloc(32, 9).toString('base64');
+  delete process.env.CRM_ENCRYPTION_KEY_PREVIOUS;
+  process.env.CRM_KEY_SECRET = 'a-members-secret-of-at-least-thirty-two-chars';
   // The bot: reading a member's roles (before deciding) and the join calls.
   permissions.setFetch(async (url, init = {}) => {
     botCalls.push({ url, method: init.method, body: init.body && JSON.parse(init.body) });
@@ -92,9 +95,63 @@ test('a submission is validated and keeps the answers as the form gave them', as
   await rejects(members.createApplication(application({ requestedRole: 'admin' })), 400);
   const { id } = await members.createApplication(application(), { source: 'iscrizione' });
   const { rows } = await db.query('select * from member_applications where id = $1', [id]);
-  assert.equal(rows[0].email, 'giulia@example.com');
   assert.equal(rows[0].status, 'pending');
-  assert.deepEqual(rows[0].answers[1], { label: 'Aree', value: 'Governance, Interpretability' });
+  assert.equal(rows[0].source, 'iscrizione');
+  const { board } = await setUp();
+  const [a] = (await members.listApplications(board)).applications;
+  assert.equal(a.name, 'Giulia Bianchi');
+  assert.equal(a.email, 'giulia@example.com');
+  assert.deepEqual(a.answers[1], { label: 'Aree', value: 'Governance, Interpretability' });
+});
+
+test('who applied is stored encrypted: no name, email or answer in the clear', async () => {
+  const { id } = await members.createApplication(application());
+  const { rows } = await db.query('select * from member_applications where id = $1', [id]);
+  const stored = JSON.stringify(rows[0]);
+  for (const plain of ['Giulia', 'giulia@example.com', 'Torino', 'Governance']) {
+    assert.ok(!stored.toLowerCase().includes(plain.toLowerCase()), plain);
+  }
+  assert.ok(rows[0].details_encrypted);
+  // Bound to its row: copied onto another application, it does not open.
+  const other = await members.createApplication(application({ email: 'sara@example.org' }));
+  await db.query('update member_applications set details_encrypted = $1 where id = $2', [
+    rows[0].details_encrypted,
+    other.id,
+  ]);
+  const { board } = await setUp();
+  const list = (await members.listApplications(board)).applications;
+  assert.match(list.find((x) => x.id === other.id).name, /cannot be opened/);
+  // Without the keys, nothing is taken.
+  delete process.env.CRM_KEY_SECRET;
+  await rejects(members.createApplication(application()), 503);
+});
+
+test('applying twice is spotted by the email, without storing it', async () => {
+  const { board } = await setUp();
+  await members.createApplication(application());
+  await members.createApplication(application({ email: ' GIULIA@example.com ' }));
+  await members.createApplication(application({ email: 'sara@example.org' }));
+  const list = (await members.listApplications(board)).applications;
+  assert.deepEqual(list.map((a) => a.duplicates).sort(), [0, 1, 1]);
+});
+
+test('the board needs a recent sign-in, and every look and decision is on the audit trail', async () => {
+  const { board, other } = await setUp();
+  const { id } = await members.createApplication(application());
+  await db.query(`update app_users set last_login_at = now() - interval '2 days' where id = $1`, [
+    board.id,
+  ]);
+  await rejects(members.listApplications(board), 401);
+  await db.query('update app_users set last_login_at = now() where id = $1', [board.id]);
+  await members.listApplications(board);
+  await members.decide(board, id, { decision: 'approve', role: 'organizer', note: 'ok' }, ORIGIN);
+  await rejects(members.listApplications(other), 403);
+  const { rows } = await db.query('select action, subject_key, detail from crm_audit order by id');
+  const actions = rows.map((r) => r.action);
+  assert.deepEqual(actions, ['member-list', 'member-decide', 'denied']);
+  assert.equal(rows[1].subject_key, id);
+  assert.deepEqual(rows[1].detail, { decision: 'approve', role: 'organizer' });
+  assert.ok(!JSON.stringify(rows).includes('giulia'));
 });
 
 test('only the members permission sees and decides, and roles are read again first', async () => {

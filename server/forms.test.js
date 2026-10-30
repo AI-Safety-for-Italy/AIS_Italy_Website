@@ -660,9 +660,11 @@ const signupAnswers = (over = {}) => ({
   ...over,
 });
 
+/** The board's list, oldest first, as someone with `members` sees it. */
 async function applications() {
-  const { rows } = await db.query('select * from member_applications order by created_at');
-  return rows;
+  const { rows } = await db.query('select count(*)::int as n from member_applications');
+  if (!rows[0].n) return [];
+  return (await require('./members').listApplications(await admin())).applications.reverse();
 }
 
 test('the sign-up template comes wired to the members board, but only for forms admins', async () => {
@@ -710,8 +712,8 @@ test('an answer to the sign-up form also reaches the board, with the role asked 
   assert.equal(rows.length, 2);
   assert.equal(rows[0].name, 'Giulia Bianchi');
   assert.equal(rows[0].email, 'giulia@example.org');
-  assert.equal(rows[0].requested_role, 'organizer');
-  assert.equal(rows[1].requested_role, 'participant');
+  assert.equal(rows[0].requestedRole, 'organizer');
+  assert.equal(rows[1].requestedRole, 'participant');
   assert.equal(rows[0].source, slug);
   assert.equal(rows[0].status, 'pending');
   const shown = Object.fromEntries(rows[0].answers.map((a) => [a.label, a.value]));
