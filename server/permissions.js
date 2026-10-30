@@ -65,8 +65,14 @@ const DEV_ROLES = [
   'Partecipanti',
 ].map((name) => ({ id: `dev-${name.toLowerCase()}`, name }));
 
-function isDev() {
-  return process.env.MEET_DEV_LOGIN === '1';
+/**
+ * The local stand-ins (sign in under any name and roles, join without
+ * Discord) are for a developer's own machine. On Vercel (production and
+ * previews set VERCEL) they stay off whatever MEET_DEV_LOGIN says: one
+ * stray variable must not open the site to anyone.
+ */
+function devLogin() {
+  return process.env.MEET_DEV_LOGIN === '1' && !process.env.VERCEL;
 }
 
 let fetchImpl = (...args) => fetch(...args);
@@ -186,7 +192,7 @@ async function anyContentRole(roleIds) {
 
 /** The server's roles, for the permissions table: [{ id, name }]. */
 async function guildRoles() {
-  if (isDev() && !botConfigured()) return DEV_ROLES;
+  if (devLogin() && !botConfigured()) return DEV_ROLES;
   if (!botConfigured()) return [];
   const res = await bot(`/guilds/${process.env.DISCORD_GUILD_ID}/roles`);
   if (!res.ok) throw new HttpError(502, `Discord did not list the roles (${res.status})`);
@@ -247,6 +253,7 @@ module.exports = {
   KEYS,
   areas,
   DEV_ROLES,
+  devLogin,
   setFetch,
   botConfigured,
   bot,

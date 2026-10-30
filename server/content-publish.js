@@ -18,6 +18,7 @@
 
 const contentBuild = require('./content-build');
 const content = require('./content');
+const permissions = require('./permissions');
 
 const DISCORD_API = 'https://discord.com/api/v10';
 
@@ -27,7 +28,7 @@ function setFetch(fn) {
 }
 
 function isLocal() {
-  return process.env.MEET_DEV_LOGIN === '1' && !process.env.CONTENT_BUILD_TOKEN;
+  return permissions.devLogin() && !process.env.CONTENT_BUILD_TOKEN;
 }
 
 /** Starts the deploy workflow. Returns { started, detail }. */
@@ -85,7 +86,7 @@ async function announce({ user, action, entry, siteOrigin }) {
   const channel = process.env.DISCORD_CONTENT_CHANNEL_ID;
   const token = process.env.DISCORD_BOT_TOKEN_AIS_TEAM_AREA;
   if (!channel || !token) {
-    if (process.env.MEET_DEV_LOGIN === '1') {
+    if (permissions.devLogin()) {
       console.log(`\n[Discord announcement]\n${text}\n`);
       return { sent: true, detail: 'local: printed in the terminal' };
     }

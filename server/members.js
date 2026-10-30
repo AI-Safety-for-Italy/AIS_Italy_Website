@@ -40,7 +40,7 @@ const JOIN_DAYS = 30;
 const EMAIL = /^[^\s@<>(),;:"]+@[^\s@<>(),;:"]+\.[^\s@<>(),;:"]+$/;
 
 function devMode() {
-  return process.env.MEET_DEV_LOGIN === '1' && !permissions.botConfigured();
+  return permissions.devLogin() && !permissions.botConfigured();
 }
 
 function roleId(key) {
