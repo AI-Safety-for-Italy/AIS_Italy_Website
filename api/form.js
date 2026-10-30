@@ -4,9 +4,21 @@
 // Everything sent is checked against the form on the server
 // (server/forms/schema.js) and the anti-spam tests (server/forms/guard.js);
 // answers are stored encrypted.
-const { route, sendJson, readJson, getQuery, clientIp, HttpError } = require('../server/http');
+const {
+  route,
+  sendJson,
+  readJson,
+  getQuery,
+  clientIp,
+  origin,
+  HttpError,
+} = require('../server/http');
 const crypto = require('../server/crm/crypto');
 const forms = require('../server/forms/forms');
+
+// The owner's notification goes out before answering (a Vercel function may
+// be frozen once it has replied), but never holds the person up for long.
+const NOTIFY_BUDGET_MS = 8000;
 
 function ready() {
   // Without the keys, answers could not be stored protected: take none.
@@ -21,6 +33,17 @@ module.exports = route({
   async POST(req, res) {
     ready();
     const result = await forms.submit(getQuery(req).f, await readJson(req), clientIp(req));
+    // A bot's send is not stored and has no formId: nobody is told.
+    if (result.formId) {
+      let timer;
+      await Promise.race([
+        forms
+          .notifyOwner(result.formId, origin(req))
+          .catch((err) => console.error('Notification failed', err)),
+        new Promise((resolve) => (timer = setTimeout(resolve, NOTIFY_BUDGET_MS))),
+      ]);
+      clearTimeout(timer);
+    }
     sendJson(res, 201, { ok: true, confirmation: result.confirmation });
   },
 });

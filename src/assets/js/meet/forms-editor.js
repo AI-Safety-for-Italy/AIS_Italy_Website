@@ -1552,13 +1552,6 @@
     once.checked = s.oneResponsePerEmail;
     var notify = h('input', { type: 'checkbox', role: 'switch', class: 'fe-switch-input' });
     notify.checked = s.notifyOwner;
-    var keep = h('input', {
-      class: 'form-input is-compact',
-      type: 'number',
-      min: '1',
-      max: '120',
-      value: String(s.retentionMonths),
-    });
 
     var roles = (meta && meta.roles) || [];
     var roleBox = h('div', { class: 'fe-roles' });
@@ -1600,7 +1593,6 @@
         settings: {
           oneResponsePerEmail: once.checked,
           notifyOwner: notify.checked,
-          retentionMonths: Number(keep.value),
           // Only the forms admins may change the link to the board.
           membership: join.editable() ? join.value() : undefined,
         },
@@ -1712,12 +1704,7 @@
                 'p',
                 { class: 'form-note' },
                 'The Discord bot is not set up here, so the roles cannot be listed.'
-              ),
-          field(
-            'Keep the answers for (months)',
-            keep,
-            'After this, answers are deleted. Personal data should not be kept longer than needed.'
-          )
+              )
         ),
         error,
         h('div', { class: 'action-bar' }, del, save)

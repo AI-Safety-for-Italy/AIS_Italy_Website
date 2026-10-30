@@ -25,6 +25,7 @@ const guard = require('./guard');
 const templates = require('./templates');
 const membership = require('./membership');
 const members = require('../members');
+const notify = require('../notify');
 
 const STATUSES = ['draft', 'open', 'closed'];
 const SLUG = /^[a-z0-9](?:[a-z0-9-]{1,58}[a-z0-9])$/;
@@ -32,7 +33,6 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ROLE = /^[\w-]{1,40}$/;
 const DEFAULT_SETTINGS = {
   oneResponsePerEmail: false,
-  retentionMonths: 24,
   notifyOwner: true,
   // The community's registration form: see ./membership.js. null for any other.
   membership: null,
@@ -292,12 +292,6 @@ async function updateSettings(user, id, body) {
     }
     settings.membership = next;
   }
-  if (s.retentionMonths !== undefined) {
-    const n = Number(s.retentionMonths);
-    if (!Number.isInteger(n) || n < 1 || n > 120)
-      throw new HttpError(400, 'Keep answers 1 to 120 months', { field: 'retentionMonths' });
-    settings.retentionMonths = n;
-  }
 
   let roles = form.access_roles;
   if (b.accessRoles !== undefined) {
@@ -457,6 +451,21 @@ async function toBoard(form, schema, settings, answers) {
   }
 }
 
+/**
+ * Tells the form's owner a new answer came, if they asked for it (the
+ * setting) and the form has one (a form made with the admin password has
+ * none). Says that someone answered, never what. Returns the channels used.
+ */
+async function notifyOwner(formId, origin) {
+  const { rows } = await db.query('select id, title, owner_id, settings from forms where id = $1', [
+    formId,
+  ]);
+  const form = rows[0];
+  if (!form || !form.owner_id) return [];
+  if (!{ ...DEFAULT_SETTINGS, ...form.settings }.notifyOwner) return [];
+  return notify.notifyUser(form.owner_id, notify.newFormAnswerMessage({ form, origin }));
+}
+
 // ── Answers ──────────────────────────────────────────────────────────────────
 
 function openAnswers(form, row) {
@@ -508,6 +517,7 @@ module.exports = {
   remove,
   publicView,
   submit,
+  notifyOwner,
   responses,
   requireForms,
   meta,

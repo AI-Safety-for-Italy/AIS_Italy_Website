@@ -445,13 +445,12 @@ test('settings are validated: dates, link, roles, and something to answer before
   );
   await rejects(forms.updateSettings(mara, id, { slug: 'Not A Slug!' }), 400);
   await rejects(forms.updateSettings(mara, id, { accessRoles: ['ok', 'not ok!'] }), 400);
-  await rejects(forms.updateSettings(mara, id, { settings: { retentionMonths: 0 } }), 400);
   const saved = await forms.updateSettings(mara, id, {
     slug: 'my-form',
-    settings: { retentionMonths: 12, oneResponsePerEmail: true },
+    settings: { notifyOwner: false, oneResponsePerEmail: true },
   });
   assert.equal(saved.slug, 'my-form');
-  assert.equal(saved.settings.retentionMonths, 12);
+  assert.equal(saved.settings.notifyOwner, false);
   assert.equal(saved.settings.oneResponsePerEmail, true);
 });
 
@@ -776,5 +775,56 @@ test('only forms admins may link a form to the board, and the mapping must fit t
   ];
   for (const membership of bad) {
     await rejects(forms.updateSettings(root, id, { settings: { membership } }), 400);
+  }
+});
+
+// ── Telling the owner ────────────────────────────────────────────────────────
+
+test('the owner hears that someone answered, never what, and only if they asked', async () => {
+  const mail = require('./mail');
+  const sent = [];
+  process.env.MEET_FAKE_MAIL = '0';
+  mail.setTransportFactory(() => ({ sendMail: async (m) => sent.push(m), close() {} }));
+  await mail.saveSettings({ host: 'smtp.x', port: 465, fromEmail: 'tech@ais4i.it', password: 'p' });
+  try {
+    await setRoles();
+    const mara = await member('Mara', ['r-forms']);
+    await auth.updateProfile(mara.id, { notifyChannel: 'email', notifyEmail: 'mara@example.org' });
+    const { id, slug } = await openForm(mara);
+    const send = async (answers, extra = {}) => {
+      const view = (await call(publicApi, { url: `/api/form?f=${slug}` })).body;
+      later(5000);
+      return call(publicApi, {
+        method: 'POST',
+        url: `/api/form?f=${slug}`,
+        body: { version: view.version, token: view.token, answers, ...extra },
+      });
+    };
+
+    assert.equal((await send(goodAnswers())).statusCode, 201);
+    assert.equal(sent.length, 1);
+    assert.equal(sent[0].to, 'mara@example.org');
+    assert.match(sent[0].subject, /Candidatura di prova/);
+    assert.ok(sent[0].text.includes(`/app/forms/edit/?id=${id}`));
+    for (const said of ['Ada', 'example.org/cv', 'Ricercatrice']) {
+      assert.ok(!JSON.stringify(sent[0]).includes(said), said);
+    }
+
+    // A bot is not stored, so nobody is told.
+    await send(goodAnswers({ email: 'b@example.org' }), { website: 'http://spam.example' });
+    assert.equal(sent.length, 1);
+
+    // Switched off: nothing.
+    await forms.updateSettings(mara, id, { settings: { notifyOwner: false } });
+    assert.equal((await send(goodAnswers({ email: 'c@example.org' }))).statusCode, 201);
+    assert.equal(sent.length, 1);
+
+    // A form made with the admin password has no owner to tell.
+    const root = await admin();
+    const made = await forms.create(root, { title: 'Senza proprietario', schema: fullSchema() });
+    await forms.updateSettings(root, made.id, { status: 'open' });
+    assert.deepEqual(await forms.notifyOwner(made.id, 'https://x'), []);
+  } finally {
+    process.env.MEET_FAKE_MAIL = '1';
   }
 });

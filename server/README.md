@@ -265,8 +265,11 @@ analysis and the linked Google Sheet come next.
   sign-up); add questions from the left, drag them in the middle, set the
   chosen one on the right; texts in Italian and English; a preview drawn by
   the public page's own code; settings (draft / open / closed, dates, link,
-  one answer per email, how long to keep answers, which Discord roles read
-  the answers) and the public link.
+  one answer per email, telling the owner about new answers (by email or
+  Discord DM, as on their settings page; never what the answer says), which
+  Discord roles read the answers) and the public link. How long answers are
+  kept is not set yet: deleting them on a schedule needs a job, which comes
+  later.
 - **Questions**: short and long text, email, https link, number, one or several
   choices (with Other), drop-down, scale, date, yes/no, consent (recorded with
   the version of its text), text blocks and pages.
