@@ -211,3 +211,56 @@ test('the private pages and the API cannot be framed, and are not sniffed', () =
     assert.equal(headers['X-Content-Type-Options'], 'nosniff', path);
   }
 });
+
+// ── 7. Links in emails come from a fixed address ────────────────────────────
+
+const { siteUrl } = require('./http');
+
+test('links in emails use SITE_URL when set, whatever host the request names', () => {
+  const req = { headers: { host: 'evil.example', 'x-forwarded-host': 'evil.example' } };
+  assert.equal(siteUrl(req), 'https://evil.example');
+  process.env.SITE_URL = 'https://www.ais4i.it/';
+  assert.equal(siteUrl(req), 'https://www.ais4i.it');
+});
+
+test('an approval email points to SITE_URL, not to the host of the request', async () => {
+  const mail = require('./mail');
+  const membersApi = require('../api/app/members');
+  const sent = [];
+  const fakeMail = process.env.MEET_FAKE_MAIL;
+  process.env.MEET_FAKE_MAIL = '0';
+  process.env.CRM_ENCRYPTION_KEY = Buffer.alloc(32, 5).toString('base64');
+  process.env.CRM_KEY_SECRET = 'a-hardening-secret-of-at-least-thirty-two-chars';
+  process.env.DISCORD_ROLE_PARTICIPANT = 'r-part';
+  process.env.MEET_DEV_LOGIN = '1'; // role ids from the local stand-ins
+  mail.setTransportFactory(() => ({ sendMail: async (m) => sent.push(m), close() {} }));
+  try {
+    await mail.saveSettings({
+      host: 'smtp.x',
+      port: 465,
+      fromEmail: 'tech@ais4i.it',
+      password: 'p',
+    });
+    process.env.SITE_URL = 'https://www.ais4i.it';
+    const root = await admin();
+    const { id } = await members.createApplication({
+      name: 'Giulia Bianchi',
+      email: 'g@example.org',
+    });
+    const res = await call(membersApi, {
+      method: 'POST',
+      url: `/api/app/members?action=decide&id=${id}`,
+      user: root,
+      body: { decision: 'approve', role: 'participant' },
+      headers: { host: 'evil.example', 'x-forwarded-host': 'evil.example' },
+    });
+    assert.equal(res.statusCode, 200, JSON.stringify(res.body));
+    assert.equal(sent.length, 1);
+    assert.match(sent[0].text, /https:\/\/www\.ais4i\.it\/api\/join\?t=/);
+    assert.ok(!sent[0].text.includes('evil.example'));
+  } finally {
+    if (fakeMail === undefined) delete process.env.MEET_FAKE_MAIL;
+    else process.env.MEET_FAKE_MAIL = fakeMail;
+    delete process.env.DISCORD_ROLE_PARTICIPANT;
+  }
+});

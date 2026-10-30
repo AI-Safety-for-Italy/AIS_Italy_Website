@@ -60,6 +60,17 @@ function origin(req) {
   return `${String(proto).split(',')[0]}://${host}`;
 }
 
+/**
+ * The site's address for links in emails and messages: SITE_URL when set
+ * (production: https://www.ais4i.it), else the origin of the request (the
+ * previews and a local machine). Not for OAuth redirect URIs, which must be
+ * the host the browser is really on: those use origin().
+ */
+function siteUrl(req) {
+  const fixed = String(process.env.SITE_URL || '').trim();
+  return fixed ? fixed.replace(/\/+$/, '') : origin(req);
+}
+
 function getQuery(req) {
   return Object.fromEntries(new URL(req.url, 'http://localhost').searchParams);
 }
@@ -121,6 +132,7 @@ module.exports = {
   readJson,
   redirect,
   origin,
+  siteUrl,
   getQuery,
   getCookie,
   clientIp,

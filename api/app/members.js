@@ -4,7 +4,7 @@
 //                                         -> { application, invite }
 //   POST ?action=resend&id=…              -> a fresh join link by email
 // Needs the `members` permission (server/permissions.js).
-const { route, sendJson, readJson, getQuery, origin, HttpError } = require('../../server/http');
+const { route, sendJson, readJson, getQuery, siteUrl, HttpError } = require('../../server/http');
 const { requireUser } = require('../../server/auth');
 const members = require('../../server/members');
 
@@ -18,7 +18,7 @@ module.exports = route({
     const user = await requireUser(req);
     const query = getQuery(req);
     const body = await readJson(req);
-    const ctx = { siteOrigin: origin(req) };
+    const ctx = { siteOrigin: siteUrl(req) };
     if (query.action === 'decide') {
       sendJson(res, 200, await members.decide(user, query.id, body, ctx));
     } else if (query.action === 'resend') {

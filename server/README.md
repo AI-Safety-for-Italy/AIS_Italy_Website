@@ -44,6 +44,13 @@ the terminal instead of sent. Set `DATABASE_URL`, the `DISCORD_*` variables or
 | `DISCORD_CLIENT_SECRET` | Same page ("Reset Secret"; the bot token is not affected)                     |
 | `DISCORD_GUILD_ID`      | Discord, Developer Mode on → right-click the server → Copy ID                 |
 | `DISCORD_ROLES_IDS`     | Roles allowed in, comma-separated (Server Settings → Roles → Copy ID)         |
+| `SITE_URL`              | **Production only**: `https://www.ais4i.it`, for the links in emails          |
+
+Never set `MEET_DEV_LOGIN` on Vercel: it is ignored there anyway (the stand-in
+sign-in works only off Vercel), but it has no business in a deployment. In
+production the shared admin password opens the site's content and the
+permissions table only; the CRM, form answers and member applications need a
+Discord sign-in.
 
 On the Discord application, add a redirect for every host the site runs on:
 `https://www.ais4i.it/api/discord`, `https://ais4i-dev.vercel.app/api/discord`
@@ -297,12 +304,12 @@ Security (`server/forms/`):
 The registration form's submissions, reviewed by members whose Discord roles
 hold **Member applications** (ticked on Site content → Permissions).
 
-| Where                           | What                                                              |
-| ------------------------------- | ----------------------------------------------------------------- |
-| `/app/members/`                 | The board: to review, invited, on Discord, rejected               |
-| `api/app/members.js`            | The board's API                                                   |
-| `api/join.js`, `/join/`         | The personal link an approved person gets, and where it ends      |
-| `server/members.js`             | Submissions (`createApplication`), decisions, the join            |
+| Where                   | What                                                         |
+| ----------------------- | ------------------------------------------------------------ |
+| `/app/members/`         | The board: to review, invited, on Discord, rejected          |
+| `api/app/members.js`    | The board's API                                              |
+| `api/join.js`, `/join/` | The personal link an approved person gets, and where it ends |
+| `server/members.js`     | Submissions (`createApplication`), decisions, the join       |
 
 **Flow.** A submission becomes a pending application (`createApplication()`,
 called by whatever serves the registration form). Approving picks a role,

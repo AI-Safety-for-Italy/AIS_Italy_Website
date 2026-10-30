@@ -17,7 +17,7 @@
 //                                              emailed invite, if any)
 //   POST   &action=invite { emails }        -> invites more guests
 //   POST   &action=resend&invite=<invite id> -> emails a guest's link again
-const { route, sendJson, readJson, getQuery, origin, HttpError } = require('../../server/http');
+const { route, sendJson, readJson, getQuery, siteUrl, HttpError } = require('../../server/http');
 const { requireUser } = require('../../server/auth');
 const polls = require('../../server/polls');
 const notify = require('../../server/notify');
@@ -60,7 +60,7 @@ module.exports = route({
     const { id, action, invite } = getQuery(req);
     const body = await readJson(req);
     const send = (poll, invites) =>
-      notify.sendInvites({ poll, ownerId: user.id, invites, origin: origin(req) });
+      notify.sendInvites({ poll, ownerId: user.id, invites, origin: siteUrl(req) });
 
     if (action === 'finalize') {
       let result = await polls.finalizePoll(id, body, user.id);

@@ -14,14 +14,14 @@
 //   POST   ?action=switch-off     -> the site goes back to the YAML (manage)
 // `publish` says whether the rebuild started and the team was told
 // (server/content-publish.js). Permissions: server/permissions.js.
-const { route, sendJson, readJson, getQuery, origin, HttpError } = require('../../server/http');
+const { route, sendJson, readJson, getQuery, siteUrl, HttpError } = require('../../server/http');
 const { requireUser } = require('../../server/auth');
 const content = require('../../server/content');
 const permissions = require('../../server/permissions');
 const publish = require('../../server/content-publish');
 
 async function after(req, user, result) {
-  return publish.afterSave({ user, result, siteOrigin: origin(req) });
+  return publish.afterSave({ user, result, siteOrigin: siteUrl(req) });
 }
 
 /**

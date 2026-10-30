@@ -10,7 +10,7 @@ const {
   readJson,
   getQuery,
   clientIp,
-  origin,
+  siteUrl,
   HttpError,
 } = require('../server/http');
 const crypto = require('../server/crm/crypto');
@@ -38,7 +38,7 @@ module.exports = route({
       let timer;
       await Promise.race([
         forms
-          .notifyOwner(result.formId, origin(req))
+          .notifyOwner(result.formId, siteUrl(req))
           .catch((err) => console.error('Notification failed', err)),
         new Promise((resolve) => (timer = setTimeout(resolve, NOTIFY_BUDGET_MS))),
       ]);
