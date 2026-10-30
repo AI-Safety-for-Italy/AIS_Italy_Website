@@ -28,6 +28,8 @@ const members = require('../members');
 const notify = require('../notify');
 
 const STATUSES = ['draft', 'open', 'closed'];
+// Where the team is with one answer (form_responses.status).
+const RESPONSE_STATUSES = ['new', 'reviewing', 'accepted', 'rejected'];
 const SLUG = /^[a-z0-9](?:[a-z0-9-]{1,58}[a-z0-9])$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ROLE = /^[\w-]{1,40}$/;
@@ -480,7 +482,7 @@ function openAnswers(form, row) {
 
 /** Every answer to a form, decrypted, with the questions of each version. */
 async function responses(user, id) {
-  const { form } = await formFor(user, id, 'read');
+  const { form, who } = await formFor(user, id, 'read');
   const { rows } = await db.query(
     `select id, version, submitted_at, answers_encrypted, status from form_responses
      where form_id = $1 and deleted_at is null order by submitted_at desc`,
@@ -495,6 +497,9 @@ async function responses(user, id) {
     form: summary(form),
     currentVersion: form.current_version,
     versions,
+    statuses: RESPONSE_STATUSES,
+    // Deleting answers and exporting them: the form's managers only.
+    canManage: canManage(user, who, form),
     responses: rows.map((r) => ({
       id: r.id,
       version: r.version,
@@ -505,8 +510,103 @@ async function responses(user, id) {
   };
 }
 
+async function responseOf(form, responseId) {
+  if (!UUID.test(String(responseId || ''))) throw new HttpError(404, 'No such answer');
+  const { rows } = await db.query(
+    'select id from form_responses where id = $1 and form_id = $2 and deleted_at is null',
+    [responseId, form.id]
+  );
+  if (!rows.length) throw new HttpError(404, 'No such answer');
+  return rows[0];
+}
+
+/** Moves one answer along: new, reviewing, accepted, rejected. Readers may. */
+async function setResponseStatus(user, id, responseId, status) {
+  const { form } = await formFor(user, id, 'read', { fresh: true });
+  await responseOf(form, responseId);
+  if (!RESPONSE_STATUSES.includes(status)) throw new HttpError(400, 'Unknown status');
+  await db.query('update form_responses set status = $3 where id = $1 and form_id = $2', [
+    responseId,
+    form.id,
+    status,
+  ]);
+  await audit.record(user, 'form-review', responseId, { status });
+  return { id: responseId, status };
+}
+
+/**
+ * Deletes one answer for good (a person asking to be forgotten, a test, a
+ * duplicate): the row goes, with its encrypted answers. Managers only.
+ */
+async function deleteResponse(user, id, responseId) {
+  const { form } = await formFor(user, id, 'manage', { fresh: true });
+  await responseOf(form, responseId);
+  await db.query('delete from form_responses where id = $1 and form_id = $2', [
+    responseId,
+    form.id,
+  ]);
+  await audit.record(user, 'form-delete-response', responseId, { form: form.id });
+  return { ok: true };
+}
+
+// A cell a spreadsheet would run as a formula starts with one of these: a
+// leading apostrophe makes it text (OWASP "CSV injection").
+const FORMULA = /^[=+\-@\t\r]/;
+
+function csvCell(value) {
+  let text = value === null || value === undefined ? '' : String(value);
+  if (FORMULA.test(text)) text = `'${text}`;
+  return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+/**
+ * Every answer as CSV, one column per question of any version (the current
+ * ones first), for the form's managers. Written on the audit trail.
+ */
+async function exportCsv(user, id) {
+  const { form } = await formFor(user, id, 'manage', { fresh: true });
+  const data = await responses(user, id);
+  const columns = [];
+  const seen = new Set();
+  const newestFirst = Object.keys(data.versions)
+    .map(Number)
+    .sort((a, b) => b - a);
+  for (const v of newestFirst) {
+    const schema = data.versions[v];
+    for (const item of schemaLib.answerable(schema)) {
+      if (seen.has(item.id)) continue;
+      seen.add(item.id);
+      columns.push({
+        id: item.id,
+        label: schemaLib.textIn(schema, item.label, schema.languages[0]),
+      });
+    }
+  }
+  const lines = [['Submitted', 'Status', 'Version', ...columns.map((c) => c.label)]];
+  for (const r of data.responses.slice().reverse()) {
+    const schema = data.versions[r.version];
+    const cells = columns.map((c) => {
+      if (r.answers.unreadable) return '(cannot be opened)';
+      const item = schema.items.find((i) => i.id === c.id);
+      const value = r.answers[c.id];
+      return item && value !== undefined ? schemaLib.answerText(schema, item, value) : '';
+    });
+    lines.push([new Date(r.submittedAt).toISOString(), r.status, r.version, ...cells]);
+  }
+  await audit.record(user, 'form-export', form.id, { count: data.responses.length });
+  return {
+    filename: `${form.slug}-answers.csv`,
+    // The BOM lets Excel read the accents as UTF-8.
+    csv: '\ufeff' + lines.map((l) => l.map(csvCell).join(',')).join('\r\n') + '\r\n',
+  };
+}
+
 module.exports = {
   STATUSES,
+  RESPONSE_STATUSES,
+  setResponseStatus,
+  deleteResponse,
+  exportCsv,
   DEFAULT_SETTINGS,
   isOpen,
   list,

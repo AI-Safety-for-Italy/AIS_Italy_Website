@@ -70,29 +70,6 @@ function usable(schema, stored) {
   }
 }
 
-/** One answer as text for the board. */
-function show(schema, it, value) {
-  const lang = schema.languages[0];
-  switch (it.type) {
-    case 'single':
-    case 'multi':
-    case 'dropdown': {
-      const labels = (value.selected || []).map((id) => {
-        const o = it.options.find((x) => x.id === id);
-        return o ? schemaLib.textIn(schema, o.label, lang) : id;
-      });
-      if (value.other) labels.push(value.other);
-      return labels.join(', ');
-    }
-    case 'yes_no':
-      return value === 'yes' ? 'Sì' : 'No';
-    case 'consent':
-      return 'Accettato';
-    default:
-      return String(value);
-  }
-}
-
 /**
  * The fields members.createApplication() takes, from cleaned answers.
  * Returns null when the answers lack a name or email (nothing to approve).
@@ -115,7 +92,7 @@ function toApplication(schema, mapping, answers) {
     if (answers[it.id] === undefined) continue;
     list.push({
       label: schemaLib.textIn(schema, it.label, lang) || it.id,
-      value: show(schema, it, answers[it.id]),
+      value: schemaLib.answerText(schema, it, answers[it.id]),
     });
   }
   return { name, email, requestedRole, answers: list };

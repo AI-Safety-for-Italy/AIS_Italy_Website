@@ -2,6 +2,7 @@
 // invented data only. Run with `npm run test:meet`.
 const { test, beforeEach } = require('node:test');
 const assert = require('node:assert/strict');
+const crypto = require('node:crypto');
 const { PGlite } = require('@electric-sql/pglite');
 
 process.env.SESSION_SECRET = 'x'.repeat(40);
@@ -827,4 +828,83 @@ test('the owner hears that someone answered, never what, and only if they asked'
   } finally {
     process.env.MEET_FAKE_MAIL = '1';
   }
+});
+
+// ── Reviewing the answers ────────────────────────────────────────────────────
+
+test('a reader moves an answer along; outsiders and odd statuses are refused', async () => {
+  await setRoles();
+  const mara = await member('Mara', ['r-forms']);
+  const team = await member('Tea', ['r-mentors']);
+  const stranger = await member('Sid', []);
+  const { id, slug } = await openForm(mara);
+  await answer(slug, goodAnswers());
+  await forms.updateSettings(mara, id, { accessRoles: ['r-mentors'] });
+  const [first] = (await forms.responses(team, id)).responses;
+  assert.equal(first.status, 'new');
+
+  await forms.setResponseStatus(team, id, first.id, 'accepted');
+  const after = await forms.responses(mara, id);
+  assert.equal(after.responses[0].status, 'accepted');
+  assert.deepEqual(after.statuses, ['new', 'reviewing', 'accepted', 'rejected']);
+  assert.equal(after.canManage, true);
+  assert.equal((await forms.responses(team, id)).canManage, false);
+
+  await rejects(forms.setResponseStatus(team, id, first.id, 'starred'), 400);
+  await rejects(forms.setResponseStatus(stranger, id, first.id, 'rejected'), 404);
+  await rejects(forms.setResponseStatus(team, id, crypto.randomUUID(), 'new'), 404);
+  const trail = await audit.recent({ subjectKey: first.id });
+  assert.deepEqual(trail[0].detail, { status: 'accepted' });
+});
+
+test('only a manager deletes an answer, and it is gone for good', async () => {
+  await setRoles();
+  const mara = await member('Mara', ['r-forms']);
+  const team = await member('Tea', ['r-mentors']);
+  const { id, slug } = await openForm(mara);
+  await answer(slug, goodAnswers());
+  await answer(slug, goodAnswers({ email: 'bea@example.org' }));
+  await forms.updateSettings(mara, id, { accessRoles: ['r-mentors'] });
+  const [one] = (await forms.responses(mara, id)).responses;
+
+  await rejects(forms.deleteResponse(team, id, one.id), 404);
+  await forms.deleteResponse(mara, id, one.id);
+  const { rows } = await db.query('select id from form_responses where form_id = $1', [id]);
+  assert.deepEqual(
+    rows.map((r) => r.id),
+    (await forms.responses(mara, id)).responses.map((r) => r.id)
+  );
+  assert.equal(rows.length, 1);
+  assert.ok(!rows.some((r) => r.id === one.id));
+  await rejects(forms.deleteResponse(mara, id, one.id), 404);
+  assert.equal((await audit.recent({ subjectKey: one.id }))[0].action, 'form-delete-response');
+});
+
+test('the CSV export: managers only, every version, and no formula runs in a spreadsheet', async () => {
+  await setRoles();
+  const mara = await member('Mara', ['r-forms']);
+  const team = await member('Tea', ['r-mentors']);
+  const { id, slug } = await openForm(mara);
+  await answer(slug, goodAnswers({ bio: '=HYPERLINK("http://evil.example","x")' }));
+  // A new version without "bio", and a new question: both columns stay.
+  const schema = fullSchema();
+  schema.items = schema.items.filter((i) => i.id !== 'bio');
+  schema.items.push({ id: 'extra', type: 'short_text', label: { it: 'Nuova, "con" virgole' } });
+  await forms.saveSchema(mara, id, schema);
+  await answer(slug, goodAnswers({ email: 'bea@example.org', extra: '+39 333' }), {
+    ip: '203.0.113.9',
+  });
+  await forms.updateSettings(mara, id, { accessRoles: ['r-mentors'] });
+
+  await rejects(forms.exportCsv(team, id), 404);
+  const { filename, csv } = await forms.exportCsv(mara, id);
+  assert.match(filename, /^candidatura-di-prova-[0-9a-f]{6}-answers\.csv$/);
+  assert.ok(csv.startsWith('﻿Submitted,Status,Version,'));
+  const [header, older, newer] = csv.slice(1).trim().split('\r\n');
+  assert.ok(header.includes('"Nuova, ""con"" virgole"'));
+  assert.ok(header.includes('Chi sei'));
+  assert.ok(older.includes(`"'=HYPERLINK(""http://evil.example"",""x"")"`));
+  assert.ok(newer.includes("'+39 333"));
+  assert.ok(older.includes('Interpretabilità, Governance'));
+  assert.equal((await audit.recent({ subjectKey: id }))[0].action, 'form-export');
 });

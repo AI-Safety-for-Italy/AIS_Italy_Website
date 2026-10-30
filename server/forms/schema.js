@@ -301,10 +301,42 @@ function cleanAnswers(schema, input) {
   return { answers, email: emailItem ? answers[emailItem.id] : null };
 }
 
+/** One cleaned answer as plain text, in the form's main language. */
+function answerText(schema, item, value) {
+  const lang = schema.languages[0];
+  switch (item.type) {
+    case 'single':
+    case 'multi':
+    case 'dropdown': {
+      const labels = (value.selected || []).map((id) => {
+        const o = item.options.find((x) => x.id === id);
+        return o ? textIn(schema, o.label, lang) : id;
+      });
+      if (value.other) labels.push(value.other);
+      return labels.join(', ');
+    }
+    case 'yes_no':
+      return value === 'yes' ? (lang === 'en' ? 'Yes' : 'Sì') : 'No';
+    case 'consent':
+      return lang === 'en' ? 'Accepted' : 'Accettato';
+    default:
+      return String(value);
+  }
+}
+
 /** A text in the wanted language, or the form's main one. */
 function textIn(schema, value, lang) {
   if (!value) return '';
   return value[lang] || value[schema.languages[0]] || '';
 }
 
-module.exports = { TYPES, LANGS, cleanSchema, cleanAnswers, answerable, consentVersion, textIn };
+module.exports = {
+  TYPES,
+  LANGS,
+  cleanSchema,
+  cleanAnswers,
+  answerable,
+  consentVersion,
+  textIn,
+  answerText,
+};
