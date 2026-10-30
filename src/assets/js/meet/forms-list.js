@@ -31,13 +31,20 @@
   }
 
   function card(f) {
+    var edit = '/app/forms/edit/?id=' + encodeURIComponent(f.id);
+    // The card opens the form (its questions, or its answers for those who
+    // only read them); the count opens the answers straight away.
     return h(
-      'a',
-      { class: 'poll-item', href: '/app/forms/edit/?id=' + encodeURIComponent(f.id) },
+      'div',
+      { class: 'poll-item fl-card' },
       h(
         'div',
         null,
-        h('h3', null, f.title),
+        h(
+          'h3',
+          null,
+          h('a', { class: 'fl-open', href: f.canManage ? edit : edit + '#responses' }, f.title)
+        ),
         h(
           'div',
           { class: 'poll-item-meta' },
@@ -53,10 +60,14 @@
         { class: 'poll-item-side' },
         badge(f),
         h(
-          'div',
-          { class: 'poll-count' },
+          'a',
+          {
+            class: 'poll-count fl-answers',
+            href: edit + '#responses',
+            title: 'See the answers',
+          },
           h('strong', null, String(f.responses)),
-          h('span', null, f.responses === 1 ? 'answer' : 'answers')
+          h('span', null, (f.responses === 1 ? 'answer' : 'answers') + ' →')
         )
       )
     );

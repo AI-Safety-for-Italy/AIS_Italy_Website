@@ -6026,3 +6026,38 @@ textarea.fm-input:focus {
     transition: none;
   }
 }
+
+/* The forms list: the whole card opens the form, the count its answers. */
+.fl-card {
+  position: relative;
+}
+
+.fl-open {
+  color: inherit;
+  text-decoration: none;
+}
+
+.fl-open::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+
+.fl-answers {
+  position: relative;
+  z-index: 1;
+  padding: 0.35rem 0.6rem;
+  margin: -0.35rem -0.6rem;
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+}
+
+.fl-answers:hover {
+  background: var(--accent-50);
+}
+
+.fl-answers:hover strong,
+.fl-answers:hover span {
+  color: var(--accent-700);
+}
