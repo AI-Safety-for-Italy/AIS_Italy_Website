@@ -1,0 +1,56 @@
+---
+title: Join the community
+# Where the personal join link (/api/join, server/members.js) ends: ?s=ok, or
+# why it did not work. One page for both languages, like the 404: the email
+# that carries the link is in Italian.
+permalink: /join/
+excludeFromSitemap: true
+noindex: true
+eleventyExcludeFromCollections: true
+---
+{% extends "base.njk" %}
+{% block content %}
+<section class="page-hero">
+  <div class="container">
+    <span class="eyebrow">Community</span>
+    <div data-join="ok" hidden>
+      <h1 lang="it">Sei dentro!</h1>
+      <p class="lede" lang="it">Ti abbiamo aggiunto al server Discord di AI Safety for Italy con il tuo ruolo. Lo trovi nell'elenco dei server dell'app.</p>
+      <p class="lede">You are in: we added you to the AI Safety for Italy Discord server with your role.</p>
+      <p style="margin-top:2rem"><a class="btn btn-primary" href="https://discord.com/app">Apri Discord</a></p>
+    </div>
+    <div data-join="expired" hidden>
+      <h1 lang="it">Il link è scaduto</h1>
+      <p class="lede" lang="it">Scrivici a <a href="mailto:info@ais4i.it">info@ais4i.it</a> e te ne mandiamo uno nuovo.</p>
+      <p class="lede">This link has expired. Write to us and we will send you a new one.</p>
+    </div>
+    <div data-join="used" hidden>
+      <h1 lang="it">Questo link è già stato usato</h1>
+      <p class="lede" lang="it">Dovresti già essere nel server: cercalo nell'elenco dei server di Discord. Se non c'è, scrivici a <a href="mailto:info@ais4i.it">info@ais4i.it</a>.</p>
+      <p class="lede">This link has already been used: you should be in the server already.</p>
+    </div>
+    <div data-join="denied" hidden>
+      <h1 lang="it">Accesso a Discord annullato</h1>
+      <p class="lede" lang="it">Per entrare nel server serve autorizzare Discord. Puoi riaprire il link dell'email e riprovare.</p>
+      <p class="lede">Discord was not authorised. Open the link in the email again to retry.</p>
+    </div>
+    <div data-join="invalid" hidden>
+      <h1 lang="it">Link non valido</h1>
+      <p class="lede" lang="it">Apri di nuovo il link dall'email, intero. Se continua a non funzionare scrivici a <a href="mailto:info@ais4i.it">info@ais4i.it</a>.</p>
+      <p class="lede">This link is not valid. Open it again from the email, in full.</p>
+    </div>
+    <div data-join="failed" hidden>
+      <h1 lang="it">Qualcosa non ha funzionato</h1>
+      <p class="lede" lang="it">Non siamo riusciti ad aggiungerti al server. Riprova tra poco dal link dell'email; se non va, scrivici a <a href="mailto:info@ais4i.it">info@ais4i.it</a>.</p>
+      <p class="lede">We could not add you to the server. Try the link again in a while.</p>
+    </div>
+    <script>
+      (function () {
+        var s = new URLSearchParams(window.location.search).get('s');
+        var el = document.querySelector('[data-join="' + s + '"]') || document.querySelector('[data-join="invalid"]');
+        el.hidden = false;
+      })();
+    </script>
+  </div>
+</section>
+{% endblock %}

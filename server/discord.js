@@ -51,14 +51,15 @@ function isConfigured() {
   return missingSettings().length === 0 && config().roleIds.length > 0;
 }
 
-function authorizeUrl({ state, redirectUri }) {
+/** `scope` is the sign-in's by default; the join link asks for guilds.join. */
+function authorizeUrl({ state, redirectUri, scope = SCOPES }) {
   return (
     'https://discord.com/oauth2/authorize?' +
     new URLSearchParams({
       client_id: config().clientId,
       redirect_uri: redirectUri,
       response_type: 'code',
-      scope: SCOPES,
+      scope,
       state,
       prompt: 'none',
     })
@@ -86,24 +87,7 @@ async function getJson(fetchImpl, url, init, what) {
  */
 async function verify({ code, redirectUri, allowRoles }, fetchImpl = fetch) {
   const c = config();
-  const token = await getJson(
-    fetchImpl,
-    `${API}/oauth2/token`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        grant_type: 'authorization_code',
-        code,
-        redirect_uri: redirectUri,
-        client_id: c.clientId,
-        client_secret: c.clientSecret,
-      }),
-    },
-    'Token exchange'
-  );
-  const auth = { headers: { Authorization: `Bearer ${token.access_token}` } };
-  const user = await getJson(fetchImpl, `${API}/users/@me`, auth, 'Reading the profile');
+  const { auth, user } = await exchange({ code, redirectUri }, fetchImpl);
 
   let member;
   try {
@@ -139,4 +123,31 @@ async function verify({ code, redirectUri, allowRoles }, fetchImpl = fetch) {
   };
 }
 
-module.exports = { LoginError, isConfigured, missingSettings, authorizeUrl, verify };
+/**
+ * Turns the code Discord sent back into an access token and the profile it
+ * belongs to: { accessToken, auth (headers for further calls), user }.
+ */
+async function exchange({ code, redirectUri }, fetchImpl = fetch) {
+  const c = config();
+  const token = await getJson(
+    fetchImpl,
+    `${API}/oauth2/token`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        code,
+        redirect_uri: redirectUri,
+        client_id: c.clientId,
+        client_secret: c.clientSecret,
+      }),
+    },
+    'Token exchange'
+  );
+  const auth = { headers: { Authorization: `Bearer ${token.access_token}` } };
+  const user = await getJson(fetchImpl, `${API}/users/@me`, auth, 'Reading the profile');
+  return { accessToken: token.access_token, auth, user };
+}
+
+module.exports = { LoginError, isConfigured, missingSettings, authorizeUrl, verify, exchange };

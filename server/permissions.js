@@ -19,7 +19,7 @@ const { HttpError } = require('./http');
 
 const DISCORD_API = 'https://discord.com/api/v10';
 
-// The order is the order of the columns in the dashboard. Two areas share the
+// The order is the order of the columns in the dashboard. Several areas share the
 // table: the site's content (/app/content/) and the CRM board (/app/crm/,
 // server/crm/). Holding a permission of one area gives nothing in the other:
 // each API checks its own area (see `areas`).
@@ -36,11 +36,13 @@ const PERMISSIONS = [
   { key: 'crm_admin', label: 'CRM: settings', area: 'crm' },
   { key: 'forms', label: 'Forms', area: 'forms' },
   { key: 'forms_admin', label: 'Forms: all forms', area: 'forms' },
+  // The member applications board (server/members.js): an area of its own.
+  { key: 'members', label: 'Member applications', area: 'members' },
 ];
 const AREAS = [...new Set(PERMISSIONS.map((p) => p.area))];
 const KEYS = PERMISSIONS.map((p) => p.key);
 
-/** Which areas a set of permission keys opens: { content, crm, forms }. */
+/** Which areas a set of permission keys opens: { content, crm, forms, members }. */
 function areas(perms) {
   const out = {};
   AREAS.forEach((area) => {
@@ -76,9 +78,13 @@ function botConfigured() {
   return Boolean(process.env.DISCORD_BOT_TOKEN_AIS_TEAM_AREA && process.env.DISCORD_GUILD_ID);
 }
 
-async function bot(path) {
+async function bot(path, { method = 'GET', json } = {}) {
+  const headers = { Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN_AIS_TEAM_AREA}` };
+  if (json) headers['Content-Type'] = 'application/json';
   const res = await fetchImpl(`${DISCORD_API}${path}`, {
-    headers: { Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN_AIS_TEAM_AREA}` },
+    method,
+    headers,
+    body: json ? JSON.stringify(json) : undefined,
   });
   const body = await res.json().catch(() => ({}));
   return { status: res.status, ok: res.ok, body };
@@ -242,6 +248,8 @@ module.exports = {
   areas,
   DEV_ROLES,
   setFetch,
+  botConfigured,
+  bot,
   forRoles,
   forUser,
   refreshRoles,

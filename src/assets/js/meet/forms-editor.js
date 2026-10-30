@@ -1587,6 +1587,7 @@
       );
     });
 
+    var join = joinPanel();
     var error = h('p', { class: 'form-error', hidden: true });
     var save = h('button', { type: 'button', class: 'btn btn-primary' }, 'Save settings');
     save.addEventListener('click', function () {
@@ -1600,6 +1601,8 @@
           oneResponsePerEmail: once.checked,
           notifyOwner: notify.checked,
           retentionMonths: Number(keep.value),
+          // Only the forms admins may change the link to the board.
+          membership: join.editable() ? join.value() : undefined,
         },
         accessRoles: Array.prototype.map.call(
           roleBox.querySelectorAll('input:checked'),
@@ -1676,6 +1679,7 @@
           h('label', { class: 'fe-switch' }, h('span', null, 'One answer per email address'), once),
           h('label', { class: 'fe-switch' }, h('span', null, 'Tell me about new answers'), notify)
         ),
+        join.panel,
         h(
           'div',
           { class: 'panel form-grid' },
@@ -1719,6 +1723,145 @@
         h('div', { class: 'action-bar' }, del, save)
       )
     );
+  }
+
+  // The registration form: each answer also goes to the member applications
+  // board. Only the forms admins can change it; the others see what it does.
+  function joinPanel() {
+    var panel = h('div', { class: 'panel form-grid' });
+    var link = form.settings.membership
+      ? JSON.parse(JSON.stringify(form.settings.membership))
+      : null;
+    var admin = false;
+    var saved = form.schema;
+    var ofType = function (types) {
+      return saved.items.filter(function (i) {
+        return types.indexOf(i.type) !== -1;
+      });
+    };
+    var name = function (item) {
+      return (
+        (item.label && (item.label[saved.languages[0]] || item.label.it || item.label.en)) ||
+        item.id
+      );
+    };
+    function pick(label, types, key, optional) {
+      var select = h('select', { class: 'form-input is-compact', disabled: !admin ? true : null });
+      if (optional) select.appendChild(h('option', { value: '' }, 'None'));
+      ofType(types).forEach(function (item) {
+        select.appendChild(h('option', { value: item.id }, name(item)));
+      });
+      select.value = (link && link[key]) || '';
+      select.addEventListener('change', function () {
+        link[key] = select.value || null;
+        if (key === 'roleItem') link.roles = {};
+        draw();
+      });
+      return field(label, select);
+    }
+    function draw() {
+      M.clear(panel);
+      panel.appendChild(h('h2', null, 'Community sign-up'));
+      var on = h('input', { type: 'checkbox', role: 'switch', class: 'fe-switch-input' });
+      on.checked = Boolean(link);
+      on.disabled = !admin;
+      on.addEventListener('change', function () {
+        if (!on.checked) link = null;
+        else {
+          var first = function (types) {
+            var f = ofType(types)[0];
+            return f ? f.id : null;
+          };
+          link = {
+            nameItem: first(['short_text']),
+            surnameItem: null,
+            emailItem: first(['email']),
+            roleItem: null,
+            roles: {},
+          };
+        }
+        draw();
+      });
+      panel.appendChild(
+        h(
+          'p',
+          { class: 'panel-note', style: 'margin:0' },
+          'Make this the form people use to join the community: each answer also reaches the Member applications board, where it is approved and the person is let into Discord.'
+        )
+      );
+      panel.appendChild(
+        h(
+          'label',
+          { class: 'fe-switch' },
+          h('span', null, 'Send answers to the member applications'),
+          on
+        )
+      );
+      if (!admin)
+        panel.appendChild(h('p', { class: 'form-note' }, 'Only the forms admins can change this.'));
+      if (!link) return;
+      panel.appendChild(
+        h(
+          'div',
+          { class: 'fe-row' },
+          pick('First name is', ['short_text'], 'nameItem', false),
+          pick('Surname is', ['short_text'], 'surnameItem', true)
+        )
+      );
+      panel.appendChild(pick('Email is', ['email'], 'emailItem', false));
+      panel.appendChild(pick('Role asked for is', ['single', 'dropdown'], 'roleItem', true));
+      var roleItem =
+        link.roleItem &&
+        saved.items.filter(function (i) {
+          return i.id === link.roleItem;
+        })[0];
+      if (roleItem) {
+        roleItem.options.forEach(function (o) {
+          var sel = h(
+            'select',
+            { class: 'form-input is-compact', disabled: !admin ? true : null },
+            h('option', { value: '' }, 'No role asked for'),
+            h('option', { value: 'participant' }, 'Participant'),
+            h('option', { value: 'organizer' }, 'Organizer')
+          );
+          sel.value = link.roles[o.id] || '';
+          sel.addEventListener('change', function () {
+            if (sel.value) link.roles[o.id] = sel.value;
+            else delete link.roles[o.id];
+          });
+          panel.appendChild(field('“' + name(o) + '” asks to be', sel));
+        });
+        panel.appendChild(
+          h(
+            'p',
+            { class: 'form-note' },
+            'This only preselects the role: whoever approves can change it.'
+          )
+        );
+      }
+      if (form.responses)
+        panel.appendChild(
+          h(
+            'p',
+            { class: 'form-note' },
+            'Only answers sent from now on go to the board. Questions are the ones already saved: save the questions first if you changed them.'
+          )
+        );
+    }
+    draw();
+    M.permissions.then(function (perms) {
+      admin = perms.indexOf('forms_admin') !== -1;
+      draw();
+    });
+    return {
+      panel: panel,
+      editable: function () {
+        return admin;
+      },
+      value: function () {
+        return link;
+      },
+    };
   }
 
   // ── Share ────────────────────────────────────────────────────────────────

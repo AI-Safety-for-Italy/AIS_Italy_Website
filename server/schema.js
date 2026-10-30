@@ -335,4 +335,35 @@ create table if not exists form_submit_attempts (
 );
 
 create index if not exists form_submit_attempts_ip on form_submit_attempts (ip_hash, form_id, at);
+
+-- ── Member applications (/app/members/, server/members.js) ───────────────────
+
+-- One row per submission of the registration form. answers holds what the
+-- form asked, as [{ label, value }], so the board shows any form as it is.
+-- On approval the person gets join_token by email: following it links their
+-- Discord account (discord_id) and adds them to the server with roles.
+create table if not exists member_applications (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  email text not null,
+  requested_role text check (requested_role in ('participant', 'organizer')),
+  answers jsonb not null default '[]',
+  source text,
+  status text not null default 'pending' check (status in ('pending', 'approved', 'rejected')),
+  role text check (role in ('participant', 'organizer')),
+  note text not null default '',
+  decided_by uuid references app_users(id) on delete set null,
+  decided_at timestamptz,
+  join_token text unique,
+  join_expires_at timestamptz,
+  invite_sent_at timestamptz,
+  invite_error text,
+  discord_id text,
+  discord_name text,
+  joined_at timestamptz,
+  join_error text,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists member_applications_created on member_applications (created_at);
 `;

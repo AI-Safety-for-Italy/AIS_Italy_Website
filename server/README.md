@@ -288,3 +288,35 @@ Security (`server/forms/`):
 - Who may manage a form or read its answers is checked on every call; a form
   you may not see answers 404. Views, changes and refusals go on the CRM's
   append-only audit trail.
+
+# Member applications (`/app/members/`)
+
+The registration form's submissions, reviewed by members whose Discord roles
+hold **Member applications** (ticked on Site content → Permissions).
+
+| Where                           | What                                                              |
+| ------------------------------- | ----------------------------------------------------------------- |
+| `/app/members/`                 | The board: to review, invited, on Discord, rejected               |
+| `api/app/members.js`            | The board's API                                                   |
+| `api/join.js`, `/join/`         | The personal link an approved person gets, and where it ends      |
+| `server/members.js`             | Submissions (`createApplication`), decisions, the join            |
+
+**Flow.** A submission becomes a pending application (`createApplication()`,
+called by whatever serves the registration form). Approving picks a role,
+Participant or Organizer (the one asked for is preselected), and emails a
+personal link valid 30 days. Following it signs in with Discord (scope
+`identify guilds.join`); the bot adds the person to the server with that role,
+or gives it to them if they are already in, and the board shows their Discord
+account. The link works once; "Send the link again" makes a new one. Rejecting
+sends nothing.
+
+**Setting up**, besides what sign-in and the bot already need:
+
+- `DISCORD_ROLE_PARTICIPANT`, `DISCORD_ROLE_ORGANIZER`: the role ids to give.
+- On the Discord application, redirects `https://<host>/api/join` for every
+  host, next to the `/api/discord` ones.
+- `guilds.join` only works with the bot of the **same** application as
+  `DISCORD_CLIENT_ID`. The bot needs Create Instant Invite and Manage Roles,
+  and its role must sit above the two roles it gives.
+
+Locally (`npm run dev:meet`, no Discord) the link joins at once.

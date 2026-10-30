@@ -646,3 +646,133 @@ test('every template is a valid form, and a form can start from one', async () =
     ['name', 'email']
   );
 });
+
+// ── The community's registration form ───────────────────────────────────────
+
+const signupAnswers = (over = {}) => ({
+  first_name: 'Giulia',
+  last_name: 'Bianchi',
+  email: 'Giulia@Example.org',
+  involvement: { selected: ['active'] },
+  areas: { selected: ['governance', 'ethics'] },
+  publish: 'yes',
+  privacy: true,
+  ...over,
+});
+
+async function applications() {
+  const { rows } = await db.query('select * from member_applications order by created_at');
+  return rows;
+}
+
+test('the sign-up template comes wired to the members board, but only for forms admins', async () => {
+  await setRoles();
+  const root = await admin();
+  const mara = await member('Mara', ['r-forms']);
+  const wired = await forms.get(
+    root,
+    (
+      await forms.create(root, { title: 'Iscrizione', template: 'community_signup' })
+    ).id
+  );
+  assert.equal(wired.settings.membership.emailItem, 'email');
+  assert.equal(wired.settings.membership.roles.active, 'organizer');
+  const plain = await forms.get(
+    mara,
+    (
+      await forms.create(mara, { title: 'Iscrizione', template: 'community_signup' })
+    ).id
+  );
+  assert.equal(plain.settings.membership, null);
+  const other = await forms.get(
+    root,
+    (
+      await forms.create(root, { title: 'Altro', template: 'mentor_call' })
+    ).id
+  );
+  assert.equal(other.settings.membership, null);
+});
+
+test('an answer to the sign-up form also reaches the board, with the role asked for', async () => {
+  const root = await admin();
+  const { id, slug } = await forms.create(root, {
+    title: 'Iscrizione',
+    template: 'community_signup',
+  });
+  await forms.updateSettings(root, id, { status: 'open' });
+  await answer(slug, signupAnswers());
+  await answer(
+    slug,
+    signupAnswers({ email: 'sara@example.org', involvement: { selected: ['discord'] } })
+  );
+
+  const rows = await applications();
+  assert.equal(rows.length, 2);
+  assert.equal(rows[0].name, 'Giulia Bianchi');
+  assert.equal(rows[0].email, 'giulia@example.org');
+  assert.equal(rows[0].requested_role, 'organizer');
+  assert.equal(rows[1].requested_role, 'participant');
+  assert.equal(rows[0].source, slug);
+  assert.equal(rows[0].status, 'pending');
+  const shown = Object.fromEntries(rows[0].answers.map((a) => [a.label, a.value]));
+  assert.equal(
+    shown['Aree'] || shown['Quali aree ti interessano di più?'],
+    'AI governance e policy, Etica dell’AI e impatto sociale'.replace('’', "'")
+  );
+  assert.equal(
+    shown["Acconsenti alla pubblicazione del tuo profilo nella sezione 'Community' del sito?"],
+    'Sì'
+  );
+  // The answers are kept with the form too, encrypted.
+  const stored = await forms.responses(root, id);
+  assert.equal(stored.responses.length, 2);
+});
+
+test('a bot, a wrong answer or a form that is not wired sends nothing to the board', async () => {
+  const root = await admin();
+  const { id, slug } = await forms.create(root, {
+    title: 'Iscrizione',
+    template: 'community_signup',
+  });
+  await forms.updateSettings(root, id, { status: 'open' });
+  await answer(slug, signupAnswers(), { website: 'http://spam.example' });
+  await answer(slug, signupAnswers({ email: 'not-an-email' })).catch(() => {});
+  assert.equal((await applications()).length, 0);
+
+  // Unwired: the answer is kept, the board sees nothing.
+  await forms.updateSettings(root, id, { settings: { membership: null } });
+  await answer(slug, signupAnswers());
+  assert.equal((await applications()).length, 0);
+  assert.equal((await forms.responses(root, id)).responses.length, 1);
+});
+
+test('only forms admins may link a form to the board, and the mapping must fit the questions', async () => {
+  await setRoles();
+  const root = await admin();
+  const mara = await member('Mara', ['r-forms']);
+  const { id } = await forms.create(mara, { title: 'Mio', template: 'community_signup' });
+  const mapping = {
+    nameItem: 'first_name',
+    surnameItem: 'last_name',
+    emailItem: 'email',
+    roleItem: 'involvement',
+    roles: { active: 'organizer' },
+  };
+  await rejects(forms.updateSettings(mara, id, { settings: { membership: mapping } }), 403);
+  await forms.updateSettings(root, id, { settings: { membership: mapping } });
+  // Changing nothing is no change: the owner may save other settings.
+  await forms.updateSettings(mara, id, { settings: { membership: mapping, notifyOwner: false } });
+  await rejects(forms.updateSettings(mara, id, { settings: { membership: null } }), 403);
+
+  const bad = [
+    { ...mapping, emailItem: 'first_name' }, // not an email question
+    { ...mapping, nameItem: 'nope' },
+    { ...mapping, nameItem: undefined },
+    { ...mapping, roles: { ghost: 'organizer' } },
+    { ...mapping, roles: { active: 'god' } },
+    'yes',
+  ];
+  for (const membership of bad) {
+    await rejects(forms.updateSettings(root, id, { settings: { membership } }), 400);
+  }
+});

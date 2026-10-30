@@ -13,6 +13,7 @@
 // response, so one cannot be moved onto another form or response.
 
 const crypto = require('crypto');
+const { isDeepStrictEqual } = require('util');
 const db = require('../db');
 const { HttpError } = require('../http');
 const permissions = require('../permissions');
@@ -22,6 +23,8 @@ const audit = require('../crm/audit');
 const schemaLib = require('./schema');
 const guard = require('./guard');
 const templates = require('./templates');
+const membership = require('./membership');
+const members = require('../members');
 
 const STATUSES = ['draft', 'open', 'closed'];
 const SLUG = /^[a-z0-9](?:[a-z0-9-]{1,58}[a-z0-9])$/;
@@ -31,6 +34,8 @@ const DEFAULT_SETTINGS = {
   oneResponsePerEmail: false,
   retentionMonths: 24,
   notifyOwner: true,
+  // The community's registration form: see ./membership.js. null for any other.
+  membership: null,
 };
 
 // ── Who is asking ────────────────────────────────────────────────────────────
@@ -165,7 +170,7 @@ function slugify(text) {
 
 /** A new draft, owned by the user. `schema` may come from a template. */
 async function create(user, body) {
-  await requireForms(user, { fresh: true });
+  const who = await requireForms(user, { fresh: true });
   const b = body || {};
   const title = String(b.title || '')
     .trim()
@@ -173,6 +178,11 @@ async function create(user, body) {
   if (!title) throw new HttpError(400, 'Give the form a title', { field: 'title' });
   const schema = schemaLib.cleanSchema(b.schema || templates.schemaFor(b.template, title));
   const base = slugify(title) || 'form';
+  // The sign-up template comes already wired to the members board, but only
+  // for those who may wire a form to it (see updateSettings).
+  const settings = { ...DEFAULT_SETTINGS };
+  const wiring = b.schema ? null : templates.membershipFor(b.template);
+  if (wiring && who.perms.includes('forms_admin')) settings.membership = wiring;
   for (let n = 0; n < 10; n++) {
     // A short random tail: links are not guessable from the title alone.
     const slug = `${base}-${crypto.randomBytes(3).toString('hex')}`;
@@ -180,7 +190,7 @@ async function create(user, body) {
       const id = await db.transaction(async (tx) => {
         const { rows } = await tx.query(
           `insert into forms (slug, title, settings, owner_id) values ($1, $2, $3, $4) returning id`,
-          [slug, title, DEFAULT_SETTINGS, user.kind === 'admin' ? null : user.id]
+          [slug, title, settings, user.kind === 'admin' ? null : user.id]
         );
         await tx.query('insert into form_versions (form_id, version, schema) values ($1, 1, $2)', [
           rows[0].id,
@@ -261,6 +271,27 @@ async function updateSettings(user, id, body) {
   if (s.oneResponsePerEmail !== undefined)
     settings.oneResponsePerEmail = Boolean(s.oneResponsePerEmail);
   if (s.notifyOwner !== undefined) settings.notifyOwner = Boolean(s.notifyOwner);
+  if (s.membership !== undefined) {
+    // Sending answers to the members board is for the forms admins: it is a
+    // door into who may be let into the Discord server.
+    const wants = s.membership;
+    const had = settings.membership || null;
+    const schema = await schemaOf(form.id, form.current_version);
+    const next = membership.clean(schema, wants);
+    // (jsonb does not keep the order of keys: compare the content.)
+    if (!isDeepStrictEqual(next, had)) {
+      const who = await whoIs(user);
+      if (!who.perms.includes('forms_admin'))
+        throw new HttpError(
+          403,
+          'Only the forms admins can link a form to the member applications',
+          {
+            field: 'membership',
+          }
+        );
+    }
+    settings.membership = next;
+  }
   if (s.retentionMonths !== undefined) {
     const n = Number(s.retentionMonths);
     if (!Number.isInteger(n) || n < 1 || n > 120)
@@ -406,7 +437,24 @@ async function submit(slug, body, ip) {
       respondentKey,
     ]
   );
+  await toBoard(form, schema, settings, answers);
   return { ok: true, confirmation, responseId: id, formId: form.id };
+}
+
+/**
+ * The registration form's answers also go to the members board. The answers
+ * are already kept with the form, so a failure here is logged, not shown to
+ * the person: they did answer.
+ */
+async function toBoard(form, schema, settings, answers) {
+  const mapping = membership.usable(schema, settings.membership);
+  if (!mapping) return;
+  try {
+    const application = membership.toApplication(schema, mapping, answers);
+    if (application) await members.createApplication(application, { source: form.slug });
+  } catch (err) {
+    console.error(`Form ${form.id}: could not send an answer to the members board:`, err.message);
+  }
 }
 
 // ── Answers ──────────────────────────────────────────────────────────────────

@@ -190,6 +190,18 @@ const TEMPLATES = {
         q('first_name', 'short_text', 'Nome', { required: true }),
         q('last_name', 'short_text', 'Cognome', { required: true }),
         q('email', 'email', 'Indirizzo email', { required: true }),
+        q(
+          'involvement',
+          'single',
+          'Vuoi partecipare attivamente all’organizzazione o solo entrare nel Discord?',
+          {
+            required: true,
+            options: options([
+              ['active', 'Voglio partecipare attivamente'],
+              ['discord', 'Solo entrare nel Discord'],
+            ]),
+          }
+        ),
         q('profile', 'url', 'Sito o profilo professionale'),
         q('country', 'short_text', 'Paese in cui ti trovi attualmente'),
         q('city', 'short_text', 'Città in cui vivi attualmente'),
@@ -231,6 +243,21 @@ const TEMPLATES = {
   },
 };
 
+// Templates that come wired to the members board (see ./membership.js).
+const MEMBERSHIP = {
+  community_signup: {
+    nameItem: 'first_name',
+    surnameItem: 'last_name',
+    emailItem: 'email',
+    roleItem: 'involvement',
+    roles: { active: 'organizer', discord: 'participant' },
+  },
+};
+
+function membershipFor(key) {
+  return MEMBERSHIP[key] || null;
+}
+
 function list() {
   return Object.entries(TEMPLATES).map(([key, t]) => ({ key, label: t.label }));
 }
@@ -240,4 +267,4 @@ function schemaFor(key, title) {
   return template.schema(title);
 }
 
-module.exports = { list, schemaFor };
+module.exports = { list, schemaFor, membershipFor };

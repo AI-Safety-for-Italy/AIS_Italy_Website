@@ -1,5 +1,6 @@
 /* /app/: greets the signed-in member above the list of tools, and shows the
- * content tool to those whose Discord roles allow publishing something. */
+ * content tool to those whose Discord roles allow publishing something, and
+ * the applications board to those with `members`. */
 (function () {
   'use strict';
   window.Meet.me.then(function (user) {
@@ -9,5 +10,6 @@
     document.getElementById('contentTool').hidden = !areas.content;
     document.getElementById('crmTool').hidden = !areas.crm;
     document.getElementById('formsTool').hidden = !areas.forms;
+    document.getElementById('membersTool').hidden = !areas.members;
   });
 })();
