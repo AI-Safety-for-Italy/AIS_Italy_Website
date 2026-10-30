@@ -26,7 +26,8 @@ async function after(req, user, result) {
 
 /** The list, history and preview are for people who can publish something. */
 async function requireSomePermission(user) {
-  if (!(await permissions.forUser(user)).length) {
+  const perms = await permissions.forUser(user);
+  if (!perms.some((p) => permissions.CONTENT_KEYS.includes(p))) {
     throw new HttpError(403, 'Your Discord roles do not give access to the content tool');
   }
 }

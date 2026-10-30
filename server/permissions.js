@@ -27,8 +27,11 @@ const PERMISSIONS = [
   { key: 'blog', label: 'Blog' },
   { key: 'others', label: "Edit others' content" },
   { key: 'manage', label: 'Manage permissions' },
+  // Not content: the member applications board (server/members.js).
+  { key: 'members', label: 'Member applications' },
 ];
 const KEYS = PERMISSIONS.map((p) => p.key);
+const CONTENT_KEYS = KEYS.filter((k) => k !== 'members');
 
 // Local development (scripts/meet-dev.js) has no Discord server: these stand
 // in for the AIS roles, and the stand-in login lets you pick some.
@@ -56,9 +59,13 @@ function botConfigured() {
   return Boolean(process.env.DISCORD_BOT_TOKEN_AIS_TEAM_AREA && process.env.DISCORD_GUILD_ID);
 }
 
-async function bot(path) {
+async function bot(path, { method = 'GET', json } = {}) {
+  const headers = { Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN_AIS_TEAM_AREA}` };
+  if (json) headers['Content-Type'] = 'application/json';
   const res = await fetchImpl(`${DISCORD_API}${path}`, {
-    headers: { Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN_AIS_TEAM_AREA}` },
+    method,
+    headers,
+    body: json ? JSON.stringify(json) : undefined,
   });
   const body = await res.json().catch(() => ({}));
   return { status: res.status, ok: res.ok, body };
@@ -189,8 +196,11 @@ async function saveRolePermissions(list) {
 module.exports = {
   PERMISSIONS,
   KEYS,
+  CONTENT_KEYS,
   DEV_ROLES,
   setFetch,
+  botConfigured,
+  bot,
   forRoles,
   forUser,
   refreshRoles,
