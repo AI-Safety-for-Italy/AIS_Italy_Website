@@ -268,10 +268,10 @@ test('a CRM permission is needed, and a refusal is on the audit trail', async ()
   assert.equal(denied.length, 2);
   assert.deepEqual(denied[0].detail, { needs: 'people' });
   assert.equal(denied[0].userName, 'Nico');
-  // Only CRM permissions can be asked for here.
+  // Only the guarded permissions (CRM, forms, members) can be asked for here.
   await assert.rejects(
     access.requirePermission(mentor, 'seminar'),
-    /Not a CRM or forms permission/
+    /Not a guarded permission/
   );
   // The shared admin account has every permission.
   assert.ok((await access.requirePermission(await admin(), 'finance')).includes('finance'));
