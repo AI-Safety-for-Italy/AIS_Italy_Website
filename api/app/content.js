@@ -44,6 +44,8 @@ module.exports = route({
         roles: await permissions.guildRoles(),
         table: await permissions.listRolePermissions(),
         keys: permissions.PERMISSIONS,
+        // false: only the content columns can be changed by this user.
+        canGrantAll: permissions.canGrantAll(user),
       });
       return;
     }
@@ -94,7 +96,7 @@ module.exports = route({
     if (query.action === 'roles') {
       await permissions.require(user, 'manage', { fresh: true });
       const { table } = await readJson(req);
-      sendJson(res, 200, { table: await permissions.saveRolePermissions(table) });
+      sendJson(res, 200, { table: await permissions.saveRolePermissions(table, user) });
       return;
     }
     if (!query.id) throw new HttpError(400, 'Which item?');

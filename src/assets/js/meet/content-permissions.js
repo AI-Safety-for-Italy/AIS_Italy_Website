@@ -9,6 +9,7 @@
   var errorBox = document.getElementById('permError');
   var rows = []; // [{ roleId, roleName, permissions: [] }]
   var keys = [];
+  var canGrantAll = true;
 
   box.appendChild(M.loading());
 
@@ -18,6 +19,8 @@
     })
     .then(function (data) {
       keys = data.keys;
+      canGrantAll = data.canGrantAll !== false;
+      document.getElementById('permLocked').hidden = canGrantAll;
       var byId = {};
       data.table.forEach(function (r) {
         byId[r.roleId] = r;
@@ -106,6 +109,8 @@
                   },
                 });
                 check.checked = r.permissions.indexOf(k.key) !== -1;
+                // The server refuses these too: hiding is only a courtesy.
+                check.disabled = !canGrantAll && k.area !== 'content';
                 return h('td', null, check);
               })
             );

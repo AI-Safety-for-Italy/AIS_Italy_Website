@@ -84,3 +84,111 @@ test('on Vercel the stand-ins stay off, whatever MEET_DEV_LOGIN says', async () 
   assert.equal(members.devMode(), false);
   assert.deepEqual(await permissions.guildRoles(), []);
 });
+
+// ── 2. `manage` hands out content keys only ─────────────────────────────────
+
+const contentApi = require('../api/app/content');
+
+async function admin() {
+  await db.query('select 1');
+  const { rows } = await db.query(
+    `update app_users set last_login_at = now() where kind = 'admin' returning *`
+  );
+  return { id: rows[0].id, kind: 'admin', name: rows[0].name };
+}
+
+async function member(name, roles) {
+  return auth.upsertDiscordUser({ discordId: `test-${name}`, name, roles });
+}
+
+const tableOf = (rows) =>
+  rows.map(([roleId, permissions]) => ({ roleId, roleName: roleId, permissions }));
+
+test('a content manager changes content keys, but cannot give anyone the CRM, forms or members', async () => {
+  await permissions.saveRolePermissions(
+    tableOf([
+      ['r-comms', ['manage', 'blog']],
+      ['r-mentors', ['mentorship']],
+    ])
+  );
+  const manager = await member('Carla', ['r-comms']);
+  const put = (table) =>
+    call(contentApi, {
+      method: 'PUT',
+      url: '/api/app/content?action=roles',
+      user: manager,
+      body: { table },
+    });
+
+  const roles = await call(contentApi, { url: '/api/app/content?action=roles', user: manager });
+  assert.equal(roles.body.canGrantAll, false);
+
+  // Content keys: fine, and the CRM row is kept as it is.
+  let res = await put(
+    tableOf([
+      ['r-comms', ['manage', 'blog', 'event']],
+      ['r-mentors', ['mentorship']],
+    ])
+  );
+  assert.equal(res.statusCode, 200);
+
+  // Giving themselves forms_admin, CRM or members: refused, nothing saved.
+  for (const extra of ['forms_admin', 'crm_admin', 'members']) {
+    res = await put(
+      tableOf([
+        ['r-comms', ['manage', 'blog', 'event', extra]],
+        ['r-mentors', ['mentorship']],
+      ])
+    );
+    assert.equal(res.statusCode, 403, extra);
+  }
+  // Nor taking the CRM away from someone else, or dropping their row.
+  res = await put(tableOf([['r-comms', ['manage', 'blog', 'event']]]));
+  assert.equal(res.statusCode, 403);
+  const saved = await permissions.listRolePermissions();
+  assert.deepEqual(
+    saved.map((r) => [r.roleId, r.permissions]),
+    [
+      ['r-comms', ['event', 'blog', 'manage']],
+      ['r-mentors', ['mentorship']],
+    ]
+  );
+});
+
+test('the shared admin can hand out every key', async () => {
+  const root = await admin();
+  const roles = await call(contentApi, { url: '/api/app/content?action=roles', user: root });
+  assert.equal(roles.body.canGrantAll, true);
+  const res = await call(contentApi, {
+    method: 'PUT',
+    url: '/api/app/content?action=roles',
+    user: root,
+    body: { table: tableOf([['r-team', ['forms_admin', 'members', 'mentorship']]]) },
+  });
+  assert.equal(res.statusCode, 200);
+});
+
+// ── 3. The admin password and personal data in production ──────────────────
+
+test('in production the admin password opens content and permissions, not personal data', async () => {
+  const root = await admin();
+  assert.ok((await permissions.forUser(root)).includes('forms_admin'));
+  process.env.VERCEL_ENV = 'preview';
+  assert.ok((await permissions.forUser(root)).includes('members'));
+  process.env.VERCEL_ENV = 'production';
+  const perms = await permissions.forUser(root);
+  assert.ok(perms.includes('manage'));
+  for (const key of [
+    'mentorship',
+    'people',
+    'finance',
+    'crm_admin',
+    'forms',
+    'forms_admin',
+    'members',
+  ]) {
+    assert.ok(!perms.includes(key), key);
+  }
+  const info = (await call(authApi, { url: '/api/auth', user: root })).body;
+  assert.deepEqual(info.areas, { content: true, crm: false, forms: false, members: false });
+});

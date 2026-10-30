@@ -108,9 +108,21 @@ async function forRoles(roleIds) {
   return KEYS.filter((k) => granted.has(k));
 }
 
-/** The permission keys of a signed-in user (from auth.currentUser). */
+// The keys of the site's content: what the shared admin password still opens
+// in production (with `manage`, to hand out everything else).
+const CONTENT_ONLY = PERMISSIONS.filter((p) => p.area === 'content').map((p) => p.key);
+
+/**
+ * The permission keys of a signed-in user (from auth.currentUser).
+ * In production the shared admin password opens the site's content and the
+ * permissions table, never the personal data (CRM, form answers, member
+ * applications): those need a Discord sign-in, so the audit trail names a
+ * person. Locally and on the previews it opens everything.
+ */
 async function forUser(user) {
-  if (user.kind === 'admin') return KEYS.slice();
+  if (user.kind === 'admin') {
+    return process.env.VERCEL_ENV === 'production' ? CONTENT_ONLY.slice() : KEYS.slice();
+  }
   const { rows } = await db.query('select roles from app_users where id = $1', [user.id]);
   return forRoles(rows.length ? rows[0].roles : []);
 }
@@ -214,11 +226,19 @@ async function listRolePermissions() {
   }));
 }
 
+/** May `user` change who holds the keys outside the site's content? */
+function canGrantAll(user) {
+  return Boolean(user) && user.kind === 'admin';
+}
+
 /**
  * Replaces the permissions table with `list` ([{ roleId, roleName,
  * permissions }]). Roles left without permissions are dropped.
+ * With `actor` (a request from the dashboard): `manage` hands out the
+ * content keys only; the CRM, forms and member applications keys change only
+ * through the shared admin, so a content role cannot give itself more.
  */
-async function saveRolePermissions(list) {
+async function saveRolePermissions(list, actor) {
   if (!Array.isArray(list)) throw new HttpError(400, 'Expected a list of roles');
   const clean = [];
   const seen = new Set();
@@ -234,6 +254,23 @@ async function saveRolePermissions(list) {
     if (perms.some((p) => !KEYS.includes(p))) throw new HttpError(400, 'Unknown permission');
     if (perms.length) {
       clean.push({ roleId, roleName, permissions: KEYS.filter((k) => perms.includes(k)) });
+    }
+  }
+  if (actor && !canGrantAll(actor)) {
+    const before = new Map((await listRolePermissions()).map((r) => [r.roleId, r.permissions]));
+    const after = new Map(clean.map((r) => [r.roleId, r.permissions]));
+    const touched = new Set();
+    for (const id of new Set([...before.keys(), ...after.keys()])) {
+      const a = before.get(id) || [];
+      const b = after.get(id) || [];
+      a.filter((k) => !b.includes(k)).forEach((k) => touched.add(k));
+      b.filter((k) => !a.includes(k)).forEach((k) => touched.add(k));
+    }
+    if ([...touched].some((k) => !CONTENT_ONLY.includes(k))) {
+      throw new HttpError(
+        403,
+        'Only the shared admin can change who may use the CRM, forms and member applications'
+      );
     }
   }
   await db.transaction(async (tx) => {
@@ -267,5 +304,6 @@ module.exports = {
   anyContentRole,
   guildRoles,
   listRolePermissions,
+  canGrantAll,
   saveRolePermissions,
 };
