@@ -505,6 +505,26 @@ test('one answer per email, when the form asks for it', async () => {
   await answer(slug, goodAnswers({ email: 'bruno@example.org' }));
 });
 
+test('two answers from one email sent together: only one is kept', async () => {
+  await setRoles();
+  const mara = await member('Mara', ['r-forms']);
+  const { slug } = await openForm(mara, { settings: { settings: { oneResponsePerEmail: true } } });
+  const first = await forms.publicView(slug);
+  const second = await forms.publicView(slug);
+  later(5000);
+  const send = (view) =>
+    forms.submit(
+      slug,
+      { version: view.version, token: view.token, answers: goodAnswers() },
+      '203.0.113.7'
+    );
+  const results = await Promise.allSettled([send(first), send(second)]);
+  assert.equal(results.filter((r) => r.status === 'fulfilled').length, 1);
+  const lost = results.find((r) => r.status === 'rejected');
+  assert.equal(lost.reason.status, 409);
+  assert.equal((await db.query('select count(*)::int as n from form_responses')).rows[0].n, 1);
+});
+
 test('changing a form with answers makes a new version; old answers keep their questions', async () => {
   await setRoles();
   const mara = await member('Mara', ['r-forms']);
@@ -897,6 +917,7 @@ test('the CSV export: managers only, every version, and no formula runs in a spr
   await forms.updateSettings(mara, id, { accessRoles: ['r-mentors'] });
 
   await rejects(forms.exportCsv(team, id), 404);
+  const before = (await audit.recent({ subjectKey: id })).length;
   const { filename, csv } = await forms.exportCsv(mara, id);
   assert.match(filename, /^candidatura-di-prova-[0-9a-f]{6}-answers\.csv$/);
   assert.ok(csv.startsWith('﻿Submitted,Status,Version,'));
@@ -906,7 +927,10 @@ test('the CSV export: managers only, every version, and no formula runs in a spr
   assert.ok(older.includes(`"'=HYPERLINK(""http://evil.example"",""x"")"`));
   assert.ok(newer.includes("'+39 333"));
   assert.ok(older.includes('Interpretabilità, Governance'));
-  assert.equal((await audit.recent({ subjectKey: id }))[0].action, 'form-export');
+  const trail = await audit.recent({ subjectKey: id });
+  // The export adds one line of its own, not also a "viewed the answers" one.
+  assert.equal(trail.length, before + 1);
+  assert.equal(trail[0].action, 'form-export');
 });
 
 test('a long name still reaches the board; if the board refuses, nothing is kept and the person is told', async () => {

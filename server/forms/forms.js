@@ -414,18 +414,22 @@ async function submit(slug, body, ip) {
   const { answers, email } = schemaLib.cleanAnswers(schema, b.answers);
   const respondentKey = email ? crm.personKey(email) : null;
   const settings = { ...DEFAULT_SETTINGS, ...form.settings };
-  if (settings.oneResponsePerEmail && respondentKey) {
-    const { rows } = await db.query(
-      'select 1 from form_responses where form_id = $1 and respondent_key = $2 and deleted_at is null',
-      [form.id, respondentKey]
-    );
-    if (rows.length) throw new HttpError(409, 'This email has already answered this form');
-  }
+  const onePerEmail = settings.oneResponsePerEmail && respondentKey;
   const id = crypto.randomUUID();
   // The answer and, for the sign-up form, the application on the members
   // board are written together: if the board refuses it, the person is told
   // and nothing is kept, rather than an answer nobody will ever review.
   await db.transaction(async (tx) => {
+    if (onePerEmail) {
+      // One submission at a time per form, so two sent together cannot both
+      // pass the check below: the second waits, then sees the first.
+      await tx.query('select pg_advisory_xact_lock(hashtext($1))', [form.id]);
+      const { rows } = await tx.query(
+        'select 1 from form_responses where form_id = $1 and respondent_key = $2 and deleted_at is null',
+        [form.id, respondentKey]
+      );
+      if (rows.length) throw new HttpError(409, 'This email has already answered this form');
+    }
     await tx.query(
       `insert into form_responses (id, form_id, version, answers_encrypted, respondent_key)
        values ($1, $2, $3, $4, $5)`,
@@ -481,7 +485,7 @@ function openAnswers(form, row) {
 }
 
 /** Every answer to a form, decrypted, with the questions of each version. */
-async function responses(user, id) {
+async function responses(user, id, { record = true } = {}) {
   const { form, who } = await formFor(user, id, 'read');
   const { rows } = await db.query(
     `select id, version, submitted_at, answers_encrypted, status from form_responses
@@ -492,7 +496,8 @@ async function responses(user, id) {
   for (const v of new Set(rows.map((r) => r.version).concat(form.current_version))) {
     versions[v] = await schemaOf(form.id, v);
   }
-  await audit.record(user, 'form-view-responses', form.id, { count: rows.length });
+  // An export reads the answers too, but writes its own line, not this one.
+  if (record) await audit.record(user, 'form-view-responses', form.id, { count: rows.length });
   return {
     form: summary(form),
     currentVersion: form.current_version,
@@ -565,7 +570,7 @@ function csvCell(value) {
  */
 async function exportCsv(user, id) {
   const { form } = await formFor(user, id, 'manage', { fresh: true });
-  const data = await responses(user, id);
+  const data = await responses(user, id, { record: false });
   const columns = [];
   const seen = new Set();
   const newestFirst = Object.keys(data.versions)
