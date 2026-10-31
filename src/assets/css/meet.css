@@ -1788,44 +1788,6 @@ html[data-admin] .admin-only {
   color: var(--text-primary);
 }
 
-.tool-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 48px;
-  height: 48px;
-  flex: none;
-  border-radius: 12px;
-  background: var(--accent-100);
-  color: var(--accent);
-}
-
-[data-theme='dark'] .tool-icon {
-  background: rgba(47, 191, 113, 0.14);
-}
-
-.tool-icon svg {
-  width: 24px;
-  height: 24px;
-}
-
-.tool-body {
-  display: grid;
-  gap: 0.2rem;
-  flex: 1;
-}
-
-.tool-body strong {
-  font-family: var(--font-display);
-  font-size: 1.15rem;
-  font-weight: 600;
-}
-
-.tool-body span {
-  font-size: 0.9rem;
-  color: var(--text-secondary);
-}
-
 /* ── Settings ────────────────────────────────────────────────────────────── */
 
 .settings {
