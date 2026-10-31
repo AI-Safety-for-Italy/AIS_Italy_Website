@@ -1,4 +1,4 @@
-last_updated: '2026-10-28'
+last_updated: '2026-10-31'
 members:
 - id: 1
   name: Angelo Leone
@@ -989,3 +989,29 @@ members:
   location: Verdellino, Bergamo, Italia
   areas: Evaluation (capability evaluations, dangerous capability evals, benchmarking),
     AI governance e policy, Etica dell'AI e impatto sociale
+- id: 127
+  name: Diego Pizzocaro
+  profile: https://www.linkedin.com/in/diegopizzocaro/
+  location: Padova, Italia
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.), Evaluation (capability evaluations, dangerous capability evals, benchmarking),
+    AI governance e policy, Etica dell'AI e impatto sociale, Sicurezza informatica
+    per modelli di frontiera, Rischi catastrofici / esistenziali
+- id: 128
+  name: Arash Asilzadeh
+  profile: Network engineer
+  location: Genova, Italy
+  areas: AI governance e policy, Sicurezza informatica per modelli di frontiera, Rischi
+    catastrofici / esistenziali
+- id: 129
+  name: Federico Faroldi
+  profile: https://sites.google.com/site/fedefaroldi/, cernai.unipv.it/en
+  location: Pavia, Italy
+  areas: Alignment (RLHF, scalable oversight, value alignment), AI governance e policy,
+    Etica dell'AI e impatto sociale, Rischi catastrofici / esistenziali
+- id: 130
+  name: Samuele Punzo
+  profile: https://www.linkedin.com/in/samuele-punzo
+  location: Amsterdam, Netherlands
+  areas: Interpretability (mechanistic interpretability, analisi delle rappresentazioni,
+    ecc.), Alignment (RLHF, scalable oversight, value alignment)
