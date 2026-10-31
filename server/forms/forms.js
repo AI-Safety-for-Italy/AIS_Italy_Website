@@ -7,7 +7,7 @@
 //     Discord roles listed in the form's access_roles (say, the mentorship
 //     team for the mentor applications).
 // Every signed-in call needs a sign-in less than a day old, and the Discord
-// roles are re-read when older than five minutes (server/crm/access.js).
+// roles are re-read when older than five minutes (server/access.js).
 //
 // Answers are encrypted (server/crm/crypto.js) bound to their form and
 // response, so one cannot be moved onto another form or response.
@@ -17,7 +17,7 @@ const { isDeepStrictEqual } = require('util');
 const db = require('../db');
 const { HttpError } = require('../http');
 const permissions = require('../permissions');
-const access = require('../crm/access');
+const access = require('../access');
 const crm = require('../crm/crypto');
 const audit = require('../crm/audit');
 const schemaLib = require('./schema');

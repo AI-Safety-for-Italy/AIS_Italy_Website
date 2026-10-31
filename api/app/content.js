@@ -17,6 +17,7 @@
 const { route, sendJson, readJson, getQuery, siteUrl, HttpError } = require('../../server/http');
 const { requireUser } = require('../../server/auth');
 const content = require('../../server/content');
+const access = require('../../server/access');
 const permissions = require('../../server/permissions');
 const publish = require('../../server/content-publish');
 
@@ -39,7 +40,7 @@ module.exports = route({
     const user = await requireUser(req);
     const query = getQuery(req);
     if (query.action === 'roles') {
-      await permissions.require(user, 'manage');
+      await access.authorize(user, 'manage');
       sendJson(res, 200, {
         roles: await permissions.guildRoles(),
         table: await permissions.listRolePermissions(),
@@ -77,7 +78,7 @@ module.exports = route({
       return;
     }
     if (query.action === 'switch-on' || query.action === 'switch-off') {
-      await permissions.require(user, 'manage', { fresh: true });
+      await access.authorize(user, 'manage', { fresh: true });
       const on = query.action === 'switch-on';
       let result = {};
       if (on) result = await content.switchOn(`${user.name} (switch on)`);
@@ -94,7 +95,7 @@ module.exports = route({
     const user = await requireUser(req);
     const query = getQuery(req);
     if (query.action === 'roles') {
-      await permissions.require(user, 'manage', { fresh: true });
+      await access.authorize(user, 'manage', { fresh: true });
       const { table } = await readJson(req);
       sendJson(res, 200, { table: await permissions.saveRolePermissions(table, user) });
       return;

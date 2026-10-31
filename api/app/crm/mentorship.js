@@ -1,5 +1,5 @@
 // /api/app/crm/mentorship: the mentorship board. Every call needs the
-// `mentorship` permission (server/crm/access.js); changes re-read the Discord
+// `mentorship` permission (server/access.js); changes re-read the Discord
 // roles first. Everything read or changed is on the audit trail.
 //   GET                                   -> the board: { mentors, mentees, matches, … }
 //   GET  ?key=…&kind=mentor|mentee        -> one person, with notes and history
@@ -9,7 +9,7 @@
 //   POST ?action=end-match { id }
 const { route, sendJson, readJson, getQuery, HttpError } = require('../../../server/http');
 const { requireUser } = require('../../../server/auth');
-const access = require('../../../server/crm/access');
+const access = require('../../../server/access');
 const crypto = require('../../../server/crm/crypto');
 const mentorship = require('../../../server/crm/mentorship');
 
@@ -19,7 +19,7 @@ async function door(req, { write = false } = {}) {
   // Without its keys the CRM would store notes and keys unprotected: refuse.
   if (!crypto.configured())
     throw new HttpError(503, 'The CRM is not set up here yet (encryption keys)');
-  const perms = await access.requirePermission(user, 'mentorship', { fresh: write });
+  const perms = await access.authorize(user, 'mentorship', { fresh: write });
   return { user, perms };
 }
 

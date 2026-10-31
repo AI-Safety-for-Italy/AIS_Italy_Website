@@ -232,7 +232,7 @@ The rules, which later phases must keep:
   opaque key (`personKey` in `server/crm/crypto.js`: an HMAC of the email, not
   the email). Free notes are encrypted with AES-256-GCM, bound to their person.
 - **Permissions per part**, checked on the server on every request
-  (`server/crm/access.js`): `mentorship`, `people`, `finance`, `crm_admin`,
+  (`server/access.js`): `mentorship`, `people`, `finance`, `crm_admin`,
   set on the same Permissions page as the content tool's. A CRM permission
   opens nothing in the content tool and the other way round (`areas` in
   `server/permissions.js`). A sign-in older than 24 hours is asked again, and
@@ -334,7 +334,7 @@ sends nothing.
 CRM keys (`CRM_ENCRYPTION_KEY`, `CRM_KEY_SECRET`), bound to their row; the
 email is otherwise kept only as an opaque key, to spot someone who applied
 twice. Without the keys no application is taken (503). The board goes
-through the same door as the CRM (`server/crm/access.js`): a sign-in less
+through the same door as the CRM (`server/access.js`): a sign-in less
 than a day old, Discord roles read again, and every look and decision on the
 audit trail. The internal note is not encrypted: it must not hold personal
 data.

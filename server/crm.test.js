@@ -14,7 +14,7 @@ const permissions = require('./permissions');
 const sheets = require('./sheets');
 const cryptoCrm = require('./crm/crypto');
 const audit = require('./crm/audit');
-const access = require('./crm/access');
+const access = require('./access');
 const sources = require('./crm/sources');
 const contentApi = require('../api/app/content');
 const authApi = require('../api/auth');
@@ -261,33 +261,41 @@ test('a CRM permission is needed, and a refusal is on the audit trail', async ()
   const people = await member('Paolo', ['r-people']);
   const nobody = await member('Nico', []);
 
-  assert.deepEqual(await access.requirePermission(mentor, 'mentorship'), ['mentorship']);
-  await rejects(access.requirePermission(people, 'mentorship'), 403);
-  await rejects(access.requirePermission(nobody, 'people'), 403);
+  assert.deepEqual(await access.authorize(mentor, 'mentorship'), ['mentorship']);
+  await rejects(access.authorize(people, 'mentorship'), 403);
+  await rejects(access.authorize(nobody, 'people'), 403);
   const denied = (await audit.recent()).filter((a) => a.action === 'denied');
   assert.equal(denied.length, 2);
   assert.deepEqual(denied[0].detail, { needs: 'people' });
   assert.equal(denied[0].userName, 'Nico');
-  // Only the guarded permissions (CRM, forms, members) can be asked for here.
-  await assert.rejects(
-    access.requirePermission(mentor, 'seminar'),
-    /Not a guarded permission/
-  );
+  // The content permissions go through the same door (no recent sign-in asked).
+  const writer = await member('Wanda', ['r-content']);
+  assert.deepEqual(await access.authorize(writer, 'seminar'), ['seminar', 'event']);
+  await assert.rejects(access.authorize(mentor, 'nonsense'), /Unknown permission/);
   // The shared admin account has every permission.
-  assert.ok((await access.requirePermission(await admin(), 'finance')).includes('finance'));
+  assert.ok((await access.authorize(await admin(), 'finance')).includes('finance'));
+});
+
+test('a refused content permission is on the audit trail too', async () => {
+  await setRoles();
+  const writer = await member('Wanda', ['r-content']);
+  await rejects(access.authorize(writer, 'manage'), 403);
+  const denied = (await audit.recent()).filter((a) => a.action === 'denied');
+  assert.equal(denied.length, 1);
+  assert.deepEqual(denied[0].detail, { needs: 'manage' });
 });
 
 test('a sign-in older than a day has to be done again', async () => {
   await setRoles();
   const mentor = await member('Maria', ['r-mentors']);
-  await access.requirePermission(mentor, 'mentorship');
+  await access.authorize(mentor, 'mentorship');
   await db.query(`update app_users set last_login_at = now() - interval '25 hours' where id = $1`, [
     mentor.id,
   ]);
-  await rejects(access.requirePermission(mentor, 'mentorship'), 401);
+  await rejects(access.authorize(mentor, 'mentorship'), 401);
   // Signing in again (which stamps last_login_at) lets them back in.
   const again = await member('Maria', ['r-mentors']);
-  await access.requirePermission(again, 'mentorship');
+  await access.authorize(again, 'mentorship');
 });
 
 test('roles are read again from Discord when the last check is old, and a lost role locks the door', async () => {
@@ -302,14 +310,14 @@ test('roles are read again from Discord when the last check is old, and a lost r
     return { ok: true, status: 200, json: async () => ({ roles: current }) };
   });
   // Just signed in: the roles are fresh, Discord is not asked.
-  await access.requirePermission(mentor, 'mentorship');
+  await access.authorize(mentor, 'mentorship');
   assert.equal(calls, 0);
   // Ten minutes later it is asked, and still says yes.
   await db.query(
     `update app_users set roles_checked_at = now() - interval '10 minutes' where id = $1`,
     [mentor.id]
   );
-  await access.requirePermission(mentor, 'mentorship');
+  await access.authorize(mentor, 'mentorship');
   assert.equal(calls, 1);
   // Then the role is taken away on Discord: the next stale check closes the door.
   current = ['r-somewhere-else'];
@@ -317,10 +325,10 @@ test('roles are read again from Discord when the last check is old, and a lost r
     `update app_users set roles_checked_at = now() - interval '10 minutes' where id = $1`,
     [mentor.id]
   );
-  await rejects(access.requirePermission(mentor, 'mentorship'), 403);
+  await rejects(access.authorize(mentor, 'mentorship'), 403);
   // Within the five minutes it does not ask again.
   const before = calls;
-  await rejects(access.requirePermission(mentor, 'mentorship'), 403);
+  await rejects(access.authorize(mentor, 'mentorship'), 403);
   assert.equal(calls, before);
 });
 

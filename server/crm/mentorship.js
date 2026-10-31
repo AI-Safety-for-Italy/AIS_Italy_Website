@@ -5,7 +5,7 @@
 // and never stored; the three lists are joined by the opaque person key, so
 // someone who appears in two of them is one card. What the team decides
 // (status, track, who follows them, notes, pairs) is stored by key only.
-// Every function here assumes access.requirePermission(user, 'mentorship')
+// Every function here assumes access.authorize(user, 'mentorship')
 // has already been called by the API.
 
 const db = require('../db');
@@ -13,7 +13,7 @@ const { HttpError } = require('../http');
 const sources = require('./sources');
 const crm = require('./crypto');
 const audit = require('./audit');
-const access = require('./access');
+const access = require('../access');
 
 const STATUSES = {
   mentor: [

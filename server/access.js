@@ -1,19 +1,21 @@
-// The one door every CRM endpoint goes through (api/app/crm/*).
+// The one door every API goes through for a permission.
 //
-//   const perms = await access.require(user, 'mentorship');
+//   const perms = await access.authorize(user, 'mentorship');
 //
-// It checks, in this order:
+// For the keys that guard personal data (the CRM, the forms, the member
+// applications) it checks, in this order:
 //   1. the sign-in is recent: the CRM holds personal data, so a session older
 //      than 24 hours (the cookie lasts 7 days) asks for a new sign-in;
 //   2. the Discord roles, read again from Discord when the last read is older
 //      than five minutes, grant the permission for this part of the CRM;
 //   3. a refusal for lack of permission is written to the audit trail.
+// The other keys (the content tool) skip the first check and keep the rest.
 // Hiding a button is never the protection: this is.
 
-const db = require('../db');
-const { HttpError } = require('../http');
-const permissions = require('../permissions');
-const audit = require('./audit');
+const db = require('./db');
+const { HttpError } = require('./http');
+const permissions = require('./permissions');
+const audit = require('./crm/audit');
 
 const MAX_SESSION_AGE_MS = 24 * 60 * 60 * 1000;
 
@@ -33,13 +35,14 @@ async function requireRecentLogin(user, now = Date.now()) {
 }
 
 /**
- * Returns the user's permissions when they hold `key` (one of CRM_KEYS).
- * Throws 401 for an old sign-in and 403 otherwise. `fresh` re-reads the
- * Discord roles whatever their age: for every change.
+ * Returns the user's permissions when they hold `key` (any permission key).
+ * Throws 401 for an old sign-in (guarded keys only) and 403 otherwise, and
+ * writes every 403 on the audit trail. `fresh` re-reads the Discord roles
+ * whatever their age: for every change.
  */
-async function requirePermission(user, key, { fresh = false } = {}) {
-  if (!GUARDED_KEYS.includes(key)) throw new Error(`Not a guarded permission: ${key}`);
-  await requireRecentLogin(user);
+async function authorize(user, key, { fresh = false } = {}) {
+  if (!permissions.KEYS.includes(key)) throw new Error(`Unknown permission: ${key}`);
+  if (GUARDED_KEYS.includes(key)) await requireRecentLogin(user);
   try {
     if (fresh) return await permissions.require(user, key, { fresh: true });
     return await permissions.requireRecent(user, key);
@@ -82,4 +85,4 @@ function redact(record, perms) {
   return out;
 }
 
-module.exports = { CRM_KEYS, MAX_SESSION_AGE_MS, requirePermission, requireRecentLogin, redact };
+module.exports = { CRM_KEYS, MAX_SESSION_AGE_MS, authorize, requireRecentLogin, redact };

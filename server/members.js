@@ -20,7 +20,7 @@ const mail = require('./mail');
 const permissions = require('./permissions');
 const discord = require('./discord');
 const crm = require('./crm/crypto');
-const access = require('./crm/access');
+const access = require('./access');
 const audit = require('./crm/audit');
 const { HttpError } = require('./http');
 
@@ -172,7 +172,7 @@ const SELECT = `
   left join app_users u on u.id = a.decided_by`;
 
 async function listApplications(user) {
-  await access.requirePermission(user, 'members');
+  await access.authorize(user, 'members');
   const { rows } = await db.query(`${SELECT} order by a.created_at desc`);
   await audit.record(user, 'member-list', null, { count: rows.length });
   return {
@@ -245,7 +245,7 @@ function tokenHash(token) {
  * application. Approving emails the join link. Returns { application, invite }.
  */
 async function decide(user, id, body, { siteOrigin }) {
-  await access.requirePermission(user, 'members', { fresh: true });
+  await access.authorize(user, 'members', { fresh: true });
   const b = body || {};
   const note = text(b.note, 'Note', 2000, false);
   await loadRow(id);
@@ -287,7 +287,7 @@ async function decide(user, id, body, { siteOrigin }) {
 
 /** A fresh link for an approved person who has not joined yet. */
 async function resendInvite(user, id, { siteOrigin }) {
-  await access.requirePermission(user, 'members', { fresh: true });
+  await access.authorize(user, 'members', { fresh: true });
   await loadRow(id);
   const token = newToken();
   const { rows } = await db.query(
