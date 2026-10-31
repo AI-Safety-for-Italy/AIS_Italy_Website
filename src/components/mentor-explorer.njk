@@ -93,7 +93,7 @@
                         {{ avatar(mt, "") }}
                         <div class="mentor-card-who">
                             <h3 class="mentor-name">{{ mt.name }}</h3>
-                            <p class="mentor-role"><span data-en="{{ mt.role }}" data-it="{{ mt.role_it or mt.role }}">{{ mt.role }}</span>{% if mt.affiliation %}<span class="mentor-affiliation">{{ mt.affiliation }}</span>{% endif %}</p>
+                            <p class="mentor-role">{% if mt.role %}<span data-en="{{ mt.role }}" data-it="{{ mt.role_it or mt.role }}">{{ mt.role }}</span>{% endif %}{% if mt.affiliation %}<span class="mentor-affiliation">{{ mt.affiliation }}</span>{% endif %}</p>
                         </div>
                     </div>
                     <div class="mentor-card-body">
@@ -142,7 +142,7 @@
                     <span class="mentor-co-badge is-inline">Co-mentor</span>
                     {% endif %}
                     <h2 class="mentor-dialog-name" id="{{ mt.id }}-name">{{ mt.name }}</h2>
-                    <p class="mentor-role"><span data-en="{{ mt.role }}" data-it="{{ mt.role_it or mt.role }}">{{ mt.role }}</span>{% if mt.affiliation %}<span class="mentor-affiliation">{{ mt.affiliation }}</span>{% endif %}</p>
+                    <p class="mentor-role">{% if mt.role %}<span data-en="{{ mt.role }}" data-it="{{ mt.role_it or mt.role }}">{{ mt.role }}</span>{% endif %}{% if mt.affiliation %}<span class="mentor-affiliation">{{ mt.affiliation }}</span>{% endif %}</p>
                     {% if mt.places or mt.language %}
                     <p class="mentor-dialog-meta">
                         {% if mt.places %}<span data-en="{{ mt.places }} {{ 'place' if mt.places == 1 else 'places' }}" data-it="{{ mt.places }} {{ 'posto' if mt.places == 1 else 'posti' }}">{{ mt.places }} {{ 'place' if mt.places == 1 else 'places' }}</span>{% endif %}
@@ -176,7 +176,7 @@
                             {{ avatar(co, "is-small") }}
                             <span class="mentor-co-who">
                                 <span class="mentor-co-name">{{ co.name }}</span>
-                                <span class="mentor-role"><span data-en="{{ co.role }}" data-it="{{ co.role_it or co.role }}">{{ co.role }}</span>{% if co.affiliation %}<span class="mentor-affiliation">{{ co.affiliation }}</span>{% endif %}</span>
+                                <span class="mentor-role">{% if co.role %}<span data-en="{{ co.role }}" data-it="{{ co.role_it or co.role }}">{{ co.role }}</span>{% endif %}{% if co.affiliation %}<span class="mentor-affiliation">{{ co.affiliation }}</span>{% endif %}</span>
                             </span>
                         </a>
                     </li>

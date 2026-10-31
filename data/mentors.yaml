@@ -49,7 +49,7 @@ research_areas:
 #   id            unique, lowercase-with-dashes: the profile's link is
 #                 /mentorship/#<id>
 #   name          full name
-#   role(_it)     position, e.g. "PhD student"
+#   role(_it)     optional: position, e.g. "PhD student"
 #   affiliation   organisation
 #   photo         optional; a square picture in src/assets/img/mentors/,
 #                 at least 400x400. Without one the initials are shown.
@@ -70,8 +70,6 @@ research_areas:
 mentors:
   - id: lorenzo-pacchiardi
     name: 'Lorenzo Pacchiardi'
-    role: 'Assistant Research Professor'
-    role_it: 'Assistant Research Professor'
     affiliation: 'University of Cambridge'
     photo: '/assets/img/mentors/lorenzo-pacchiardi.jpg'
     links:
@@ -91,14 +89,11 @@ mentors:
       mentee_it: 'Programmazione in Python e qualche conoscenza del funzionamento degli LLM e della loro valutazione. La conoscenza del sistema elettorale italiano è un plus.'
       deliverable: 'A scientific article or a blog post'
       deliverable_it: 'Un articolo scientifico o un blogpost'
-    places: 2
     language: 'Italian, English'
     language_it: 'Italiano, inglese'
 
   - id: stefano-vergani
     name: 'Stefano Vergani'
-    role: 'Postdoctoral Research Associate'
-    role_it: 'Postdoctoral Research Associate'
     affiliation: "King's College London, GovAI"
     photo: '/assets/img/mentors/stefano-vergani.jpg'
     links:
@@ -118,14 +113,11 @@ mentors:
       mentee_it: "Un team bilanciato: idealmente almeno un mentee con esperienza nella difesa e nelle forze dell'ordine, in giurisprudenza o scienze politiche, e uno con un background tecnico e una conoscenza del funzionamento dell'IA. Sono essenziali esperienza di ricerca, un certo grado di autonomia, un approccio imparziale e apolitico e un inglese di livello professionale."
       deliverable: 'A scientific article or a blog post, possibly a journal article or a policy report for an Italian audience'
       deliverable_it: 'Un articolo scientifico o un blogpost, possibilmente un articolo su rivista o un policy report per un pubblico italiano'
-    places: 3
     language: 'Italian, English'
     language_it: 'Italiano, inglese'
 
   - id: emanuele-marconato
     name: 'Emanuele Marconato'
-    role: 'MSCA Postdoctoral Fellow'
-    role_it: 'MSCA Postdoctoral Fellow'
     affiliation: 'University of Copenhagen'
     photo: '/assets/img/mentors/emanuele-marconato.jpg'
     links:
@@ -156,14 +148,11 @@ mentors:
       mentee_it: 'Conoscenze di base di probabilità e statistica, algebra lineare e analisi funzionale, e buona familiarità con Python e GitHub. Non è necessario aver già svolto progetti di ricerca o pubblicato articoli.'
       deliverable: 'A scientific article and a software package'
       deliverable_it: 'Un articolo scientifico e un pacchetto software'
-    places: 1
     language: 'Italian, English'
     language_it: 'Italiano, inglese'
 
   - id: luigi-gresele
     name: 'Luigi Gresele'
-    role: 'Researcher'
-    role_it: 'Ricercatore'
     affiliation: 'University of Copenhagen'
     photo: '/assets/img/mentors/luigi-gresele.jpg'
     co_mentors: [emanuele-marconato]
@@ -174,8 +163,6 @@ mentors:
 
   - id: francesco-pinto
     name: 'Francesco Pinto'
-    role: 'Research Scientist'
-    role_it: 'Research Scientist'
     affiliation: 'Google DeepMind'
     photo: '/assets/img/mentors/francesco-pinto.jpg'
     links:
@@ -206,14 +193,11 @@ mentors:
       mentee_it: "Solide competenze in Python, familiarità con il prompting degli LLM e le API di inferenza, e conoscenze di base di robotica o embodied AI. Dimestichezza con Git e Linux, con la progettazione di esperimenti controllati e l'analisi rigorosa dei risultati. È fortemente consigliata esperienza con simulatori come CARLA, MuJoCo o Isaac Sim; equità algoritmica, AI safety o valutazione statistica sono un plus."
       deliverable: 'A scientific article, a software package, a dataset and a blog post'
       deliverable_it: 'Un articolo scientifico, un pacchetto software, un dataset e un blogpost'
-    places: 2
     language: 'Italian, English'
     language_it: 'Italiano, inglese'
 
   - id: fabio-pizzati
     name: 'Fabio Pizzati'
-    role: 'Researcher'
-    role_it: 'Ricercatore'
     affiliation: 'MBZUAI'
     co_mentors: [francesco-pinto, massimiliano-mancini]
     tracks: [projects]
@@ -221,8 +205,6 @@ mentors:
 
   - id: massimiliano-mancini
     name: 'Massimiliano Mancini'
-    role: 'Professor'
-    role_it: 'Professore'
     affiliation: 'University of Trento'
     co_mentors: [francesco-pinto, fabio-pizzati]
     tracks: [projects]
@@ -230,8 +212,6 @@ mentors:
 
   - id: lara-mauri
     name: 'Lara Mauri'
-    role: 'Postdoctoral researcher in computer science'
-    role_it: 'Assegnista di ricerca in informatica'
     affiliation: 'Università degli Studi di Milano'
     links:
       linkedin: 'https://www.linkedin.com/in/laramauri'
@@ -250,6 +230,5 @@ mentors:
       mentee_it: "Buona conoscenza di Python, familiarità con LLM e API (preferibilmente tool calling e agenti IA), capacità di sviluppare esperimenti riproducibili e conoscenze di base di statistica per l'analisi dei risultati. Non è richiesta esperienza nel fine-tuning o nell'addestramento di modelli."
       deliverable: 'A scientific article, a software package and a dataset'
       deliverable_it: 'Un articolo scientifico, un pacchetto software e un dataset'
-    places: 2
     language: 'Italian, English'
     language_it: 'Italiano, inglese'
