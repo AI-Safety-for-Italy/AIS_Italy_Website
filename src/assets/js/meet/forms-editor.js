@@ -1846,6 +1846,22 @@
           )
         );
       }
+      var joinSlug = (meta && meta.joinSlug) || 'iscrizione';
+      if (form.slug !== joinSlug)
+        panel.appendChild(
+          h(
+            'div',
+            { class: 'fe-translate' },
+            svg(TOOL_ICONS.warn),
+            h(
+              'p',
+              null,
+              'The site’s join buttons open /form/?f=' +
+                joinSlug +
+                ': give this form that address in Link below, or they will find no form.'
+            )
+          )
+        );
       if (form.responses)
         panel.appendChild(
           h(

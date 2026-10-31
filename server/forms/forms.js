@@ -186,8 +186,12 @@ async function create(user, body) {
   const wiring = b.schema ? null : templates.membershipFor(b.template);
   if (wiring && who.perms.includes('forms_admin')) settings.membership = wiring;
   for (let n = 0; n < 10; n++) {
-    // A short random tail: links are not guessable from the title alone.
-    const slug = `${base}-${crypto.randomBytes(3).toString('hex')}`;
+    // A short random tail: links are not guessable from the title alone. The
+    // registration form first tries the address the site's join buttons open.
+    const slug =
+      n === 0 && settings.membership
+        ? membership.JOIN_SLUG
+        : `${base}-${crypto.randomBytes(3).toString('hex')}`;
     try {
       const id = await db.transaction(async (tx) => {
         const { rows } = await tx.query(
@@ -362,6 +366,8 @@ async function meta(user) {
       answer: t.answer,
     })),
     roles,
+    // The address the registration form needs (see ./membership.js).
+    joinSlug: membership.JOIN_SLUG,
   };
 }
 

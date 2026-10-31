@@ -958,3 +958,17 @@ test('a long name still reaches the board; if the board refuses, nothing is kept
   assert.equal((await forms.responses(root, id)).responses.length, 1);
   assert.equal((await applications()).length, 1);
 });
+
+test('the sign-up form gets the address the site join buttons open, once', async () => {
+  const { JOIN_SLUG } = require('./forms/membership');
+  const site = require('../src/data/site.js');
+  assert.equal(site.forms.mailingList, `/form/?f=${JOIN_SLUG}`);
+  const root = await admin();
+  const first = await forms.create(root, { title: 'Iscrizione', template: 'community_signup' });
+  assert.equal(first.slug, JOIN_SLUG);
+  // Taken: the next one gets a random address, as any other form.
+  const second = await forms.create(root, { title: 'Iscrizione', template: 'community_signup' });
+  assert.notEqual(second.slug, JOIN_SLUG);
+  const plain = await forms.create(root, { title: 'Iscrizione', template: 'blank' });
+  assert.notEqual(plain.slug, JOIN_SLUG);
+});

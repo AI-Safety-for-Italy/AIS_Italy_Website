@@ -16,6 +16,9 @@ const { HttpError } = require('../http');
 const schemaLib = require('./schema');
 
 const ROLES = ['participant', 'organizer'];
+// The address the site's join buttons open (src/data/site.js, forms.mailingList):
+// the registration form must have it, or those buttons find no form.
+const JOIN_SLUG = 'iscrizione';
 
 function item(schema, id) {
   return schema.items.find((i) => i.id === id);
@@ -98,4 +101,4 @@ function toApplication(schema, mapping, answers) {
   return { name, email, requestedRole, answers: list };
 }
 
-module.exports = { ROLES, clean, usable, toApplication };
+module.exports = { ROLES, JOIN_SLUG, clean, usable, toApplication };
