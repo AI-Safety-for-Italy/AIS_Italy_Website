@@ -43,7 +43,11 @@
         if (!window.confirm('This replaces the previous import of this list. Go on?')) return;
         importBtn.disabled = true;
         result.textContent = 'Importing…';
-        M.api('POST', '/api/app/crm/mentorship?action=import&source=' + encodeURIComponent(s.id))
+        M.api(
+          'POST',
+          '/api/app/crm/mentorship?action=import&source=' + encodeURIComponent(s.id),
+          {}
+        )
           .then(function (r) {
             result.textContent =
               'Imported ' +
