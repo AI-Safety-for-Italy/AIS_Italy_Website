@@ -24,15 +24,9 @@
 {% endif %}
 {%- endmacro %}
 
-{# On a card the track is a tag like the areas, set apart by its dot. #}
+{# The research areas of a mentor. The track is left out: the filter shows it. #}
 {% macro cardTags(mt) -%}
 <ul class="tags mentor-area-tags">
-    {% for id in mt.tracks %}
-    {% set t = m.tracks | where("id", id) | first %}
-    {% if t %}
-    <li class="tag mentor-track-tag is-{{ id }}" data-en="{{ t.title }}" data-it="{{ t.title_it }}">{{ t.title }}</li>
-    {% endif %}
-    {% endfor %}
     {% for id in mt.areas %}
     {% set a = mx.research_areas | where("id", id) | first %}
     {% if a %}
