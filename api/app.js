@@ -17,6 +17,7 @@ const ROUTES = {
   forms: require('../server/routes/app/forms'),
   members: require('../server/routes/app/members'),
   overview: require('../server/routes/app/overview'),
+  permissions: require('../server/routes/app/permissions'),
   poll: require('../server/routes/app/poll'),
   polls: require('../server/routes/app/polls'),
   settings: require('../server/routes/app/settings'),

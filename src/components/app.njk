@@ -15,6 +15,8 @@
 {% extends "base.njk" %}
 {% block content %}
 {%- set current = tools | where("key", tool) | first %}
+{#- Settings is not a tool, but has tabs too (src/data/appSettings.js). -#}
+{%- if tool == appSettings.key %}{% set current = appSettings %}{% endif %}
 <div class="ap-shell" id="apShell">
   <nav class="ap-nav" id="apNav" aria-label="Personal area">
     <div class="ap-nav-top">
@@ -44,7 +46,7 @@
     <div class="ap-nav-bottom">
       <a class="ap-link" href="/app/settings/"{% if tool == "settings" %} aria-current="page"{% endif %}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>
-        <span class="ap-link-label">My settings</span>
+        <span class="ap-link-label">Settings</span>
       </a>
       <div class="app-user ap-user" id="appUser"></div>
     </div>
@@ -93,4 +95,5 @@
 {#- What the search (Ctrl+K) can open: the tools, their tabs and their actions.
     app-common.js keeps those the member may use. -#}
 <script type="application/json" id="apTools">{{ tools | dump | safe }}</script>
+<script type="application/json" id="apSettings">{{ appSettings | dump | safe }}</script>
 {% endblock %}

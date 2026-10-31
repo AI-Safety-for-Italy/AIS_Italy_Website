@@ -1,10 +1,12 @@
-// What a signed-in member may do with the site's content, from their Discord
-// roles.
+// What a signed-in member may do in the personal area, from their Discord
+// roles and from what was given to them by name.
 //
-// The content_role_permissions table maps a role to permission keys; it is
-// edited from the dashboard by whoever holds `manage`. A member gets the union
-// of the permissions of all their roles. The shared-password admin account
-// has every permission, so there is always a way in to set things up.
+// Two tables, both edited on /app/settings/permissions/ by whoever holds
+// `manage`: content_role_permissions maps a Discord role to permission keys,
+// user_permissions gives keys to one person. A member gets the union of the
+// permissions of all their roles and their own. Nothing takes a key away:
+// a person's own keys only add to their roles'. The shared-password admin
+// account has every permission, so there is always a way in to set things up.
 //
 // Roles are stored on sign-in (auth.upsertDiscordUser) and checked again with
 // the bot just before anything is published (refreshRoles), so someone who
@@ -16,6 +18,7 @@
 
 const db = require('./db');
 const { HttpError } = require('./http');
+const audit = require('./crm/audit');
 
 const DISCORD_API = 'https://discord.com/api/v10';
 
@@ -29,7 +32,9 @@ const PERMISSIONS = [
   { key: 'media', label: 'Videos & podcasts', area: 'content' },
   { key: 'blog', label: 'Blog', area: 'content' },
   { key: 'others', label: "Edit others' content", area: 'content' },
-  { key: 'manage', label: 'Manage permissions', area: 'content' },
+  // In the content area for the tool's own switches (switch on/off), but
+  // shown under Settings, where the permissions page is.
+  { key: 'manage', label: 'Manage permissions', area: 'content', group: 'settings' },
   { key: 'mentorship', label: 'CRM: mentorship', area: 'crm' },
   { key: 'people', label: 'CRM: people', area: 'crm' },
   { key: 'finance', label: 'CRM: finance', area: 'crm' },
@@ -123,8 +128,16 @@ async function forUser(user) {
   if (user.kind === 'admin') {
     return process.env.VERCEL_ENV === 'production' ? CONTENT_ONLY.slice() : KEYS.slice();
   }
-  const { rows } = await db.query('select roles from app_users where id = $1', [user.id]);
-  return forRoles(rows.length ? rows[0].roles : []);
+  const { rows } = await db.query(
+    `select r.permissions from app_users u
+       join content_role_permissions r on r.role_id = any(u.roles) where u.id = $1
+     union all
+     select permissions from user_permissions where user_id = $1`,
+    [user.id]
+  );
+  const granted = new Set();
+  rows.forEach((r) => r.permissions.forEach((p) => granted.add(p)));
+  return KEYS.filter((k) => granted.has(k));
 }
 
 /**
@@ -199,9 +212,19 @@ async function rolesOf(user) {
   return rows.length ? rows[0].roles : [];
 }
 
-/** May at least one of these roles do something with content or the CRM? */
-async function anyContentRole(roleIds) {
-  return (await forRoles(roleIds)).length > 0;
+/**
+ * May someone with these roles do something here? Also yes when the Discord
+ * account `discordId` was given permissions by name: the sign-in lets them in.
+ */
+async function anyContentRole(roleIds, discordId) {
+  if ((await forRoles(roleIds)).length > 0) return true;
+  if (!discordId) return false;
+  const { rows } = await db.query(
+    `select 1 from user_permissions p join app_users u on u.id = p.user_id
+     where u.discord_id = $1 and cardinality(p.permissions) > 0`,
+    [String(discordId)]
+  );
+  return rows.length > 0;
 }
 
 /** The server's roles, for the permissions table: [{ id, name }]. */
@@ -228,23 +251,69 @@ async function listRolePermissions() {
   }));
 }
 
+/** People given permissions by name: [{ userId, name, avatarUrl, permissions }]. */
+async function listUserPermissions() {
+  const { rows } = await db.query(
+    `select p.user_id, u.name, u.avatar_url, p.permissions from user_permissions p
+     join app_users u on u.id = p.user_id order by lower(u.name)`
+  );
+  return rows.map((r) => ({
+    userId: r.user_id,
+    name: r.name,
+    avatarUrl: r.avatar_url,
+    permissions: r.permissions,
+  }));
+}
+
+/** Who can be given permissions by name: everyone who signed in with Discord. */
+async function discordPeople() {
+  const { rows } = await db.query(
+    `select id, name, avatar_url from app_users where kind = 'discord' order by lower(name)`
+  );
+  return rows.map((r) => ({ userId: r.id, name: r.name, avatarUrl: r.avatar_url }));
+}
+
 /** May `user` change who holds the keys outside the site's content? */
 function canGrantAll(user) {
   return Boolean(user) && user.kind === 'admin';
 }
 
+/** The checked keys of one row of the table. */
+function cleanKeys(row) {
+  const perms = Array.isArray(row && row.permissions) ? row.permissions : [];
+  if (perms.some((p) => !KEYS.includes(p))) throw new HttpError(400, 'Unknown permission');
+  return KEYS.filter((k) => perms.includes(k));
+}
+
+/** The keys that differ between two maps of id -> keys. */
+function changedKeys(before, after) {
+  const touched = new Set();
+  for (const id of new Set([...before.keys(), ...after.keys()])) {
+    const a = before.get(id) || [];
+    const b = after.get(id) || [];
+    a.filter((k) => !b.includes(k)).forEach((k) => touched.add(k));
+    b.filter((k) => !a.includes(k)).forEach((k) => touched.add(k));
+  }
+  return touched;
+}
+
 /**
- * Replaces the permissions table with `list` ([{ roleId, roleName,
- * permissions }]). Roles left without permissions are dropped.
+ * Replaces the permissions of the Discord roles (`roles`: [{ roleId,
+ * roleName, permissions }]) and, when given, of the people (`people`:
+ * [{ userId, permissions }]). Rows left without permissions are dropped.
  * With `actor` (a request from the dashboard): `manage` hands out the
  * content keys only; the CRM, forms and member applications keys change only
- * through the shared admin, so a content role cannot give itself more.
+ * through the shared admin, so a content role cannot give itself more, nor
+ * give it to a person. Every change from the dashboard is on the audit trail.
+ * Returns { roles, people }.
  */
-async function saveRolePermissions(list, actor) {
-  if (!Array.isArray(list)) throw new HttpError(400, 'Expected a list of roles');
-  const clean = [];
+async function savePermissions({ roles, people }, actor) {
+  if (!Array.isArray(roles)) throw new HttpError(400, 'Expected a list of roles');
+  if (people !== undefined && !Array.isArray(people))
+    throw new HttpError(400, 'Expected a list of people');
+  const cleanRoles = [];
   const seen = new Set();
-  for (const row of list) {
+  for (const row of roles) {
     const roleId = String((row && row.roleId) || '').trim();
     const roleName = String((row && row.roleName) || '')
       .trim()
@@ -252,39 +321,72 @@ async function saveRolePermissions(list, actor) {
     if (!/^[\w-]{1,40}$/.test(roleId) || !roleName) throw new HttpError(400, 'Invalid role');
     if (seen.has(roleId)) throw new HttpError(400, `${roleName} is listed twice`);
     seen.add(roleId);
-    const perms = Array.isArray(row.permissions) ? row.permissions : [];
-    if (perms.some((p) => !KEYS.includes(p))) throw new HttpError(400, 'Unknown permission');
-    if (perms.length) {
-      clean.push({ roleId, roleName, permissions: KEYS.filter((k) => perms.includes(k)) });
-    }
+    const permissions = cleanKeys(row);
+    if (permissions.length) cleanRoles.push({ roleId, roleName, permissions });
   }
-  if (actor && !canGrantAll(actor)) {
-    const before = new Map((await listRolePermissions()).map((r) => [r.roleId, r.permissions]));
-    const after = new Map(clean.map((r) => [r.roleId, r.permissions]));
-    const touched = new Set();
-    for (const id of new Set([...before.keys(), ...after.keys()])) {
-      const a = before.get(id) || [];
-      const b = after.get(id) || [];
-      a.filter((k) => !b.includes(k)).forEach((k) => touched.add(k));
-      b.filter((k) => !a.includes(k)).forEach((k) => touched.add(k));
+  let cleanPeople = null;
+  if (people) {
+    cleanPeople = [];
+    const ids = new Set();
+    for (const row of people) {
+      const userId = String((row && row.userId) || '');
+      if (!/^[0-9a-f-]{36}$/i.test(userId) || ids.has(userId))
+        throw new HttpError(400, 'Invalid person');
+      ids.add(userId);
+      const permissions = cleanKeys(row);
+      if (permissions.length) cleanPeople.push({ userId, permissions });
     }
-    if ([...touched].some((k) => !CONTENT_ONLY.includes(k))) {
-      throw new HttpError(
-        403,
-        'Only the shared admin can change who may use the CRM, forms and member applications'
-      );
-    }
+    // Only accounts signed in with Discord: the shared admin has every key.
+    const known = new Set((await discordPeople()).map((p) => p.userId));
+    if (cleanPeople.some((p) => !known.has(p.userId))) throw new HttpError(400, 'Unknown person');
   }
+
+  const touched = changedKeys(
+    new Map((await listRolePermissions()).map((r) => [r.roleId, r.permissions])),
+    new Map(cleanRoles.map((r) => [r.roleId, r.permissions]))
+  );
+  if (cleanPeople) {
+    changedKeys(
+      new Map((await listUserPermissions()).map((p) => [p.userId, p.permissions])),
+      new Map(cleanPeople.map((p) => [p.userId, p.permissions]))
+    ).forEach((k) => touched.add(k));
+  }
+  if (actor && !canGrantAll(actor) && [...touched].some((k) => !CONTENT_ONLY.includes(k))) {
+    throw new HttpError(
+      403,
+      'Only the shared admin can change who may use the CRM, forms and member applications'
+    );
+  }
+
   await db.transaction(async (tx) => {
     await tx.query('delete from content_role_permissions');
-    for (const r of clean) {
+    for (const r of cleanRoles) {
       await tx.query(
         'insert into content_role_permissions (role_id, role_name, permissions) values ($1, $2, $3)',
         [r.roleId, r.roleName, r.permissions]
       );
     }
+    if (cleanPeople) {
+      await tx.query('delete from user_permissions');
+      for (const p of cleanPeople) {
+        await tx.query('insert into user_permissions (user_id, permissions) values ($1, $2)', [
+          p.userId,
+          p.permissions,
+        ]);
+      }
+    }
+    // Which keys changed, never whose: the table itself says who holds what.
+    if (actor && touched.size) {
+      await audit.record(actor, 'permissions-change', null, { keys: [...touched] }, tx);
+    }
   });
-  return listRolePermissions();
+  return { roles: await listRolePermissions(), people: await listUserPermissions() };
+}
+
+/** The roles' table only, as before people could be given keys by name. */
+async function saveRolePermissions(list, actor) {
+  if (!Array.isArray(list)) throw new HttpError(400, 'Expected a list of roles');
+  return (await savePermissions({ roles: list }, actor)).roles;
 }
 
 module.exports = {
@@ -306,6 +408,9 @@ module.exports = {
   anyContentRole,
   guildRoles,
   listRolePermissions,
+  listUserPermissions,
+  discordPeople,
   canGrantAll,
+  savePermissions,
   saveRolePermissions,
 };

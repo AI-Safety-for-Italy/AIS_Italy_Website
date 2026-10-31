@@ -150,6 +150,13 @@ create table if not exists content_role_permissions (
   updated_at timestamptz not null default now()
 );
 
+-- Keys given to one person by name, on top of their roles' (server/permissions.js).
+create table if not exists user_permissions (
+  user_id uuid primary key references app_users(id) on delete cascade,
+  permissions text[] not null default '{}',
+  updated_at timestamptz not null default now()
+);
+
 -- Seminars and events published from the dashboard. entry is shaped like an
 -- entry of data/events.yaml, so the site's templates read both the same way;
 -- slug is its anchor on the page. Deleting only flags it, so it can be undone.

@@ -83,7 +83,8 @@ async function getJson(fetchImpl, url, init, what) {
  * { discordId, name, avatarUrl, email, roles }. Throws LoginError when the
  * person is not in the server or lacks an allowed role. A role is allowed when
  * it is in DISCORD_ROLES_IDS or when `allowRoles(roles)` (optional, async)
- * says so: the content tool lets in the roles it grants permissions to.
+ * says so: the permissions page lets in the roles it grants keys to, and the
+ * people (by Discord user id, the second argument) it grants keys to by name.
  */
 async function verify({ code, redirectUri, allowRoles }, fetchImpl = fetch) {
   const c = config();
@@ -104,7 +105,8 @@ async function verify({ code, redirectUri, allowRoles }, fetchImpl = fetch) {
   }
   const roles = member.roles || [];
   const allowed =
-    roles.some((role) => c.roleIds.includes(role)) || (allowRoles && (await allowRoles(roles)));
+    roles.some((role) => c.roleIds.includes(role)) ||
+    (allowRoles && (await allowRoles(roles, user.id)));
   if (!allowed) throw new LoginError('missing_role');
 
   // A per-server avatar wins over the account one, like in Discord itself.

@@ -36,6 +36,8 @@ const ACTIONS = new Set([
   'member-resend',
   // The daily deletion of what is past its keeping time (server/retention.js).
   'retention-cleanup',
+  // Who may do what (server/permissions.js): detail lists the keys changed.
+  'permissions-change',
 ]);
 
 /**
