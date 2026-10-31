@@ -1,5 +1,6 @@
 /* /app/crm/settings/: which Google spreadsheet and tab each source of the
- * mentorship board reads (/api/app/crm/mentorship?action=sources). */
+ * mentorship board is imported from, and the import itself
+ * (/api/app/crm/mentorship?action=sources and action=import). */
 (function () {
   'use strict';
   var M = window.Meet;
@@ -26,6 +27,42 @@
       : 'Google Sheets is not set up here yet: the service account key is missing on the server.';
     M.clear(rows);
     sources.forEach(function (s) {
+      var result = h('p', { class: 'form-note', role: 'status', style: 'margin:0' });
+      var importBtn = h(
+        'button',
+        { type: 'button', class: 'btn btn-outline btn-sm', disabled: !s.spreadsheetId },
+        'Import now'
+      );
+      importBtn.addEventListener('click', function () {
+        var typed = document.getElementById('sheet-' + s.id).value.trim();
+        var tab = document.getElementById('tab-' + s.id).value.trim();
+        if (typed !== s.spreadsheetId || tab !== s.tab) {
+          result.textContent = 'Save the changes first: the import uses the saved address and tab.';
+          return;
+        }
+        if (!window.confirm('This replaces the previous import of this list. Go on?')) return;
+        importBtn.disabled = true;
+        result.textContent = 'Importing…';
+        M.api('POST', '/api/app/crm/mentorship?action=import&source=' + encodeURIComponent(s.id))
+          .then(function (r) {
+            result.textContent =
+              'Imported ' +
+              r.imported +
+              (r.imported === 1 ? ' person' : ' people') +
+              (r.withoutEmail ? ', ' + r.withoutEmail + ' without email (not on the board)' : '') +
+              '.' +
+              (r.missing && r.missing.length
+                ? ' Columns not found: ' + r.missing.join(', ') + '.'
+                : '');
+          })
+          .catch(function (err) {
+            if (err.status === 401) return M.appError(err);
+            result.textContent = err.message;
+          })
+          .then(function () {
+            importBtn.disabled = !s.spreadsheetId;
+          });
+      });
       rows.appendChild(
         h(
           'fieldset',
@@ -61,7 +98,9 @@
                 autocomplete: 'off',
               })
             )
-          )
+          ),
+          h('div', null, importBtn),
+          result
         )
       );
     });

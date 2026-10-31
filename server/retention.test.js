@@ -66,11 +66,23 @@ async function seed() {
       [status, age]
     );
   }
+  for (const [origin, age] of [
+    ['import', '30 months'],
+    ['board', '25 months'],
+    ['import', '2 months'],
+    ['form', '30 months'],
+  ]) {
+    await db.query(
+      `insert into crm_records (id, source, origin, data_encrypted, created_at)
+       values (gen_random_uuid(), 'mentors_prospective', $1, 'x', now() - $2::interval)`,
+      [origin, age]
+    );
+  }
 }
 
 test('after 24 months answers and applications never approved are deleted; members stay', async () => {
   await seed();
-  assert.deepEqual(await retention.cleanup(), { answers: 2, applications: 2 });
+  assert.deepEqual(await retention.cleanup(), { answers: 2, applications: 2, boardRecords: 2 });
   const left = await db.query('select count(*)::int as n from form_responses');
   assert.equal(left.rows[0].n, 2);
   const apps = await db.query('select status from member_applications order by status');
@@ -78,9 +90,14 @@ test('after 24 months answers and applications never approved are deleted; membe
     apps.rows.map((r) => r.status),
     ['approved', 'pending', 'rejected']
   );
+  const kept = await db.query('select origin from crm_records order by origin');
+  assert.deepEqual(
+    kept.rows.map((r) => r.origin),
+    ['form', 'import']
+  );
   const [line] = await audit.recent();
   assert.equal(line.action, 'retention-cleanup');
-  assert.deepEqual(line.detail, { months: 24, answers: 2, applications: 2 });
+  assert.deepEqual(line.detail, { months: 24, answers: 2, applications: 2, boardRecords: 2 });
 });
 
 test('the cleanup runs only with the secret, and not at all without one set', async () => {
@@ -89,7 +106,7 @@ test('the cleanup runs only with the secret, and not at all without one set', as
   assert.equal((await call({ authorization: 'Bearer wrong' })).statusCode, 401);
   const ok = await call({ authorization: `Bearer ${SECRET}` });
   assert.equal(ok.statusCode, 200);
-  assert.deepEqual(ok.body, { answers: 2, applications: 2 });
+  assert.deepEqual(ok.body, { answers: 2, applications: 2, boardRecords: 2 });
   delete process.env.CRON_SECRET;
   assert.equal((await call({ authorization: 'Bearer ' })).statusCode, 503);
 });

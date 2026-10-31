@@ -1,6 +1,6 @@
 ---
 title: Sheets
-# Which Google spreadsheets the mentorship board reads (server/crm/sources.js).
+# Which Google spreadsheets the mentorship board imports from (server/crm/sources.js).
 # Shown to those holding `crm_admin`; the API checks it.
 permalink: /app/crm/settings/
 tool: crm
@@ -15,9 +15,9 @@ seoTitle: 'Sheets | AI Safety for Italy'
 {% block page %}
     <form class="panel form-grid" id="sheetsForm" novalidate>
       <div class="panel-head" style="margin:0">
-        <h2>Where the board reads from</h2>
+        <h2>Where the board imports from</h2>
       </div>
-      <p class="panel-note" style="margin:0">The board never copies the answers: it reads these Google spreadsheets each time. Paste the spreadsheet’s address (or its id) and the name of the tab with the answers.</p>
+      <p class="panel-note" style="margin:0">The board keeps its own copy of the people. These Google spreadsheets are used once, to import what was already collected; from now on the site’s forms feed the board. Paste the spreadsheet’s address (or its id) and the name of the tab with the answers, save, then press Import now.</p>
       <p class="form-note" id="shareNote" hidden style="margin:0"></p>
       <div id="sheetRows"></div>
       <div class="form-error" role="alert" hidden></div>
