@@ -52,8 +52,15 @@ async function publicSettings() {
     user: s.user,
     fromEmail: s.fromEmail,
     fromName: s.fromName,
+    formsEmail: s.formsEmail || '',
     hasPassword: Boolean(s.password),
   };
+}
+
+/** The address every new form answer is announced to, or null (then: the form's owner). */
+async function formsAddress() {
+  const s = await readSettings();
+  return (s && s.formsEmail) || null;
 }
 
 async function isConfigured() {
@@ -73,11 +80,17 @@ async function saveSettings(body) {
   if (!host || host.length > 200) throw new HttpError(400, 'Enter the SMTP server');
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new HttpError(400, 'Invalid port');
   if (!isEmail(fromEmail)) throw new HttpError(400, 'Enter a valid sender address');
+  const formsEmail = String(body.formsEmail || '')
+    .trim()
+    .toLowerCase();
+  if (formsEmail && !isEmail(formsEmail))
+    throw new HttpError(400, 'Enter a valid address for form answers');
   const value = {
     host,
     port,
     user: String(body.user || '').trim(),
     fromEmail,
+    formsEmail,
     fromName:
       String(body.fromName || '')
         .trim()
@@ -197,6 +210,7 @@ async function send(message) {
 
 module.exports = {
   publicSettings,
+  formsAddress,
   saveSettings,
   isConfigured,
   send,
