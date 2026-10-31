@@ -2219,6 +2219,8 @@ html:has(.mentor-dialog[open]) {
   margin: 0.4rem 0 0;
   line-height: 1.7;
   color: var(--text-secondary);
+  /* Keeps the paragraph breaks of a multi-paragraph project description. */
+  white-space: pre-line;
 }
 
 @media (max-width: 1024px) {
