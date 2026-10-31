@@ -68,207 +68,188 @@ research_areas:
 #   places        optional: how many mentees the mentor takes
 #   language      optional: meeting language(s)
 mentors:
-  - id: giulia-esempio
-    name: 'Giulia Esempio'
-    role: 'PhD student in machine learning'
-    role_it: 'Dottoranda in machine learning'
-    affiliation: 'Example University'
+  - id: lorenzo-pacchiardi
+    name: 'Lorenzo Pacchiardi'
+    role: 'Assistant Research Professor'
+    role_it: 'Assistant Research Professor'
+    affiliation: 'University of Cambridge'
+    photo: '/assets/img/mentors/lorenzo-pacchiardi.jpg'
     links:
-      website: 'https://example.com'
-      scholar: 'https://scholar.google.com'
+      website: 'https://www.lorenzopacchiardi.me/'
     tracks: [projects]
-    areas: [interpretability, alignment]
-    bio: 'Works on mechanistic interpretability of language models, with a focus on how models represent factual knowledge. Previously a research fellow on an AI safety program.'
-    bio_it: "Si occupa di interpretabilità meccanicistica dei modelli linguistici, in particolare di come i modelli rappresentano la conoscenza fattuale. In passato research fellow in un programma di AI safety."
+    areas: [evaluations, governance, society]
+    bio: 'Assistant Research Professor at the Leverhulme Centre for the Future of Intelligence, University of Cambridge, and Research Scientist at Apart Research. He sits on the AI Act scientific panel, which advises the EU AI Office on the risks of general-purpose AI models, and develops evaluations of harmful manipulation.'
+    bio_it: "Assistant Research Professor al Leverhulme Centre for the Future of Intelligence dell'Università di Cambridge e Research Scientist ad Apart Research. Fa parte del panel scientifico dell'AI Act, che consiglia l'Ufficio europeo per l'IA sui rischi dei modelli per finalità generali, e sviluppa valutazioni sui rischi di manipolazione."
     project:
-      title: 'Where do language models store what they know about Italy?'
-      title_it: "Dove i modelli linguistici conservano ciò che sanno sull'Italia?"
-      summary: 'Locate and edit factual associations in open models, comparing Italian and English prompts.'
-      summary_it: 'Individuare e modificare le associazioni fattuali nei modelli aperti, confrontando prompt in italiano e in inglese.'
-      description: 'The project replicates a known technique for locating factual associations inside a small open-weight model, then asks whether the same facts are stored in the same place when the question is asked in Italian. The mentee will run the experiments, write up what holds and what does not, and publish the code.'
-      description_it: "Il progetto replica una tecnica nota per individuare le associazioni fattuali all'interno di un piccolo modello open-weight, poi verifica se gli stessi fatti sono conservati nello stesso punto quando la domanda è posta in italiano. Il mentee eseguirà gli esperimenti, scriverà cosa regge e cosa no e pubblicherà il codice."
-      mentee: 'Comfortable with Python and PyTorch; some familiarity with transformers helps.'
-      mentee_it: 'Dimestichezza con Python e PyTorch; una conoscenza di base dei transformer è utile.'
-      deliverable: 'A short paper or blog post with open-source code'
-      deliverable_it: 'Un breve articolo o post con codice open source'
+      title: 'Evaluation of AI chatbot responses to questions from Italian voters ahead of the 2027 elections'
+      title_it: 'Valutazione delle risposte dei chatbot di IA alle domande degli elettori italiani in vista delle elezioni del 2027'
+      summary: 'A dataset of realistic voter questions in Italian to test how accurate, up to date and balanced the main chatbots are before the 2027 elections.'
+      summary_it: 'Un dataset di domande realistiche di elettori in italiano per verificare quanto i principali chatbot siano accurati, aggiornati ed equilibrati prima delle elezioni del 2027.'
+      description: 'A growing number of citizens turn to chatbots based on Large Language Models (LLMs) to inform themselves about political topics, including parties, candidates, and how votes are cast and counted. Errors, omissions or imbalances in these responses may affect turnout and electoral choices, with effects that are hard to observe from the outside. 2027 will be an important election year for Italy. Between April and May, more than 2,000 municipalities will hold local elections, including Rome, Milan, Turin, Naples and Bologna. The general election is expected by the autumn and will be held under an electoral law approved only in October 2026. Many models may thus be unaware of it, and the reform offers a natural testbed for the problem of outdated information. The project builds a set of realistic questions in Italian, inspired by those of ordinary voters, covering voting procedures, deadlines and the electoral system. With these questions, we evaluate the main publicly accessible chatbots along four criteria: factual accuracy, up-to-dateness, quality of the cited sources, and political balance. The results and the dataset will be made public before the vote, to inform citizens, journalists and oversight authorities (AGCOM, the European AI Office) about the risks and limitations of these tools during election campaigns.'
+      description_it: "Un numero crescente di cittadini si rivolge ai chatbot basati su modelli linguistici di grandi dimensioni (LLM) per informarsi su temi politici, inclusi partiti, candidati, modalità di voto e di conteggio. Errori, omissioni o sbilanciamenti in queste risposte possono influenzare la partecipazione e le scelte elettorali, con effetti difficili da osservare dall'esterno. Il 2027 sarà un anno elettorale importante per l'Italia. Tra aprile e maggio si voterà nelle amministrative di oltre 2.000 Comuni, tra cui Roma, Milano, Torino, Napoli e Bologna. Le elezioni politiche sono attese entro l'autunno e si svolgeranno con una legge elettorale approvata solo nell'ottobre 2026. Molti modelli potrebbero quindi non conoscerla, e la riforma offre un banco di prova naturale per il problema delle informazioni obsolete. Il progetto costruisce un insieme di domande realistiche in italiano, ispirate a quelle di elettori comuni. Le domande riguardano procedure di voto, scadenze e sistema elettorale. Con queste domande valutiamo i principali chatbot accessibili al pubblico secondo quattro criteri: accuratezza fattuale, aggiornamento, qualità delle fonti citate ed equilibrio politico. I risultati e il dataset saranno resi pubblici prima del voto, per informare cittadini, giornalisti e autorità di vigilanza (AGCOM, Ufficio europeo per l'IA) sui rischi e sui limiti di questi strumenti in campagna elettorale."
+      mentee: 'Programming in Python and some knowledge of how LLMs and their evaluation work. Knowledge of the Italian electoral system is a plus.'
+      mentee_it: 'Programmazione in Python e qualche conoscenza del funzionamento degli LLM e della loro valutazione. La conoscenza del sistema elettorale italiano è un plus.'
+      deliverable: 'A scientific article or a blog post'
+      deliverable_it: 'Un articolo scientifico o un blogpost'
     places: 2
     language: 'Italian, English'
     language_it: 'Italiano, inglese'
 
-  - id: marco-segnaposto
-    name: 'Marco Segnaposto'
-    role: 'Policy researcher'
-    role_it: 'Ricercatore di policy'
-    affiliation: 'Example Think Tank'
+  - id: stefano-vergani
+    name: 'Stefano Vergani'
+    role: 'Postdoctoral Research Associate'
+    role_it: 'Postdoctoral Research Associate'
+    affiliation: "King's College London, GovAI"
+    photo: '/assets/img/mentors/stefano-vergani.jpg'
     links:
-      linkedin: 'https://www.linkedin.com'
-    tracks: [projects, orientation]
-    areas: [governance, careers]
-    bio: 'Follows the implementation of the EU AI Act and advises public bodies on rules for general-purpose AI models.'
-    bio_it: "Segue l'attuazione dell'AI Act europeo e fornisce consulenza a enti pubblici sulle regole per i modelli di IA per finalità generali."
-    project:
-      title: 'Mapping how Italy is implementing the AI Act'
-      title_it: "Mappare come l'Italia sta attuando l'AI Act"
-      summary: 'A structured review of the Italian authorities, deadlines and open questions in applying the EU AI Act.'
-      summary_it: "Una ricognizione strutturata di autorità, scadenze e questioni aperte nell'applicazione italiana dell'AI Act."
-      description: 'The mentee will build a public map of who does what in the Italian implementation of the AI Act, compare it with two other member states and identify the gaps that matter most for frontier models.'
-      description_it: "Il mentee costruirà una mappa pubblica di chi fa cosa nell'attuazione italiana dell'AI Act, la confronterà con quella di altri due Stati membri e individuerà le lacune più rilevanti per i modelli di frontiera."
-      mentee: 'Background in law, political science or economics; no technical skills needed.'
-      mentee_it: 'Formazione in giurisprudenza, scienze politiche o economia; non servono competenze tecniche.'
-      deliverable: 'A policy brief'
-      deliverable_it: 'Un policy brief'
-    orientation: 'Careers in AI policy in Italy and in Brussels, think tanks and public institutions.'
-    orientation_it: 'Carriere nella policy sull’IA in Italia e a Bruxelles, think tank e istituzioni pubbliche.'
-    places: 2
-    language: 'Italian'
-    language_it: 'Italiano'
-
-  - id: sara-campione
-    name: 'Sara Campione'
-    role: 'Research engineer'
-    role_it: 'Research engineer'
-    affiliation: 'Example AI Lab'
-    links:
-      github: 'https://github.com'
-      website: 'https://example.com'
+      linkedin: 'https://www.linkedin.com/in/stefano-vergani-b2a931238/'
     tracks: [projects]
-    areas: [evaluations, security]
-    bio: 'Builds evaluations for dangerous capabilities of frontier models, in particular in cybersecurity.'
-    bio_it: 'Costruisce valutazioni delle capacità pericolose dei modelli di frontiera, in particolare in ambito cybersecurity.'
+    areas: [governance, security]
+    bio: 'A particle physicist working on edge AI and quantum AI, he also works on AI safety and national security: at GovAI on the impact of AI on nuclear deterrence, and at ERA as a resident fellow on hardware verification. He supervises a team at SPAR on AI risks to satellites and advises a member of the UK House of Lords on science and AI safety.'
+    bio_it: "Fisico delle particelle, lavora su edge AI e quantum AI e si occupa di AI safety e sicurezza nazionale: a GovAI studia l'impatto dell'IA sulla deterrenza nucleare, a ERA è resident fellow su progetti di hardware verification. Supervisiona un team di SPAR sui rischi dell'IA per i satelliti e consiglia un membro della House of Lords britannica su scienza e AI safety."
     project:
-      title: 'An Italian-language benchmark for model refusals'
-      title_it: 'Un benchmark in italiano per i rifiuti dei modelli'
-      summary: 'Do safety refusals hold up when harmful requests are written in Italian? Build a small benchmark to find out.'
-      summary_it: 'I rifiuti di sicurezza reggono quando le richieste dannose sono scritte in italiano? Costruire un piccolo benchmark per scoprirlo.'
-      description: 'Most refusal benchmarks are in English. The project adapts an existing one to Italian with care for the cultural context, runs it on a handful of open and closed models and analyses where behaviour differs from English.'
-      description_it: "La maggior parte dei benchmark sui rifiuti è in inglese. Il progetto ne adatta uno esistente all'italiano con attenzione al contesto culturale, lo esegue su alcuni modelli aperti e chiusi e analizza dove il comportamento differisce dall'inglese."
-      mentee: 'Python; native-level Italian.'
-      mentee_it: 'Python; italiano di madrelingua.'
-      deliverable: 'An open dataset and a report'
-      deliverable_it: 'Un dataset aperto e un report'
-    places: 1
-    language: 'English'
-    language_it: 'Inglese'
-
-  - id: luca-modello
-    name: 'Luca Modello'
-    role: 'Associate professor of philosophy'
-    role_it: 'Professore associato di filosofia'
-    affiliation: 'Example University'
-    co_mentors: [anna-prototipo]
-    tracks: [projects]
-    areas: [ethics, society]
-    bio: 'Works on the ethics of technology and on the moral status of AI systems.'
-    bio_it: "Si occupa di etica della tecnologia e dello status morale dei sistemi di IA."
-    project:
-      title: 'Who is responsible when an AI agent acts?'
-      title_it: 'Chi è responsabile quando agisce un agente di IA?'
-      summary: 'A philosophical analysis of responsibility gaps created by autonomous AI agents.'
-      summary_it: "Un'analisi filosofica dei vuoti di responsabilità creati dagli agenti di IA autonomi."
-      description: 'The project reviews the literature on responsibility gaps and tests its arguments against concrete cases of AI agents acting on behalf of users, aiming at a short paper that can become the basis of a thesis.'
-      description_it: "Il progetto ripercorre la letteratura sui vuoti di responsabilità e ne mette alla prova gli argomenti su casi concreti di agenti di IA che agiscono per conto degli utenti, con l'obiettivo di un breve articolo che possa diventare la base di una tesi."
-      mentee: 'Students in philosophy, law or related fields.'
-      mentee_it: 'Studenti di filosofia, giurisprudenza o affini.'
-      deliverable: 'A scientific article'
-      deliverable_it: 'Un articolo scientifico'
-    places: 2
-    language: 'Italian'
-    language_it: 'Italiano'
-
-  - id: anna-prototipo
-    name: 'Anna Prototipo'
-    role: 'Researcher in technology law'
-    role_it: 'Ricercatrice in diritto delle tecnologie'
-    affiliation: 'Example University'
-    co_mentors: [luca-modello]
-    tracks: [projects]
-    areas: [ethics, governance]
-    bio: 'Studies civil liability for damage caused by autonomous systems.'
-    bio_it: 'Studia la responsabilità civile per i danni causati da sistemi autonomi.'
-    language: 'Italian'
-    language_it: 'Italiano'
-
-  - id: elena-prova
-    name: 'Elena Prova'
-    role: 'AI safety researcher'
-    role_it: 'Ricercatrice in AI safety'
-    affiliation: 'Example Research Institute'
-    links:
-      website: 'https://example.com'
-      linkedin: 'https://www.linkedin.com'
-    tracks: [orientation]
-    areas: [careers, alignment]
-    bio: 'Moved from physics to AI safety research after a fellowship abroad; now works on scalable oversight.'
-    bio_it: "È passata dalla fisica alla ricerca in AI safety dopo una fellowship all'estero; oggi lavora su scalable oversight."
-    orientation: 'Moving into technical AI safety from a STEM background, fellowships and research programs, applying abroad.'
-    orientation_it: "Entrare nell'AI safety tecnica da un percorso STEM, fellowship e programmi di ricerca, candidarsi all'estero."
+      title: 'Risks of AI Use in the Italian Security Sector'
+      title_it: "Rischi nell'utilizzo di IA nel comparto sicurezza italiano"
+      summary: 'A comparative analysis and a taxonomy of the risks of AI in policing, investigations and intelligence, with concrete incident scenarios.'
+      summary_it: "Un'analisi comparativa e una tassonomia dei rischi dell'IA in polizia, indagini e intelligence, con scenari concreti di incidente."
+      description: 'This project analyzes the risks associated with the use of AI within the Italian security sector, with a particular focus on investigative activities, data analysis, and intelligence. The first part of the work presents a comparative analysis of how AI is employed by police forces in major European countries, identifying trends and incidents. The second part develops a taxonomy of specific risks and potential harms. Factors to be considered include, for example, predictive biases, hallucinations, loss of control, and cyberattacks specifically targeting AI models and data. The project also examines "power concentration risks", that is, the potential for AI to be used to consolidate power or carry out coups d''état. The project concludes with a series of scenarios, examples and descriptions of potential incidents designed to provide a concrete illustration of the risks discussed. The project is technical and apolitical in nature, aiming to inform decision-makers in the security sector about the potential risks arising from the use of AI in their field.'
+      description_it: 'Questo progetto analizza i rischi relativi all''utilizzo di IA nel comparto della sicurezza italiano, con particolare focus sulle attività di indagine, analisi dei dati e intelligence. La prima parte del lavoro presenta un''analisi comparativa dell''uso dell''IA da parte delle forze di polizia nei principali paesi europei, identificando tendenze e incidenti. La seconda parte si occupa di creare una tassonomia di rischi specifici e possibili danni. Elementi che verranno presi in considerazione saranno, per esempio, bias predittivi, allucinazioni, perdita di controllo e possibili cyberattacchi specifici ai modelli e ai dati. Verranno anche presi in considerazione i cosiddetti "power concentration risks", ovvero verrà valutata la possibilità di usare l''IA per concentrare il potere o compiere colpi di stato. Il progetto terminerà con una serie di scenari, ovvero esempi e descrizioni di possibili incidenti per mostrare in maniera concreta i rischi descritti. Il progetto è di natura apolitica e tecnica e ha come finalità quella di informare i decisori nel comparto della sicurezza sui possibili rischi derivanti dall''utilizzo di IA nel loro campo.'
+      mentee: 'A balanced team: ideally at least one mentee with a background in defence and law enforcement, law or political science, and one with a technical background and an understanding of how AI works. Research experience, some independence and an impartial, apolitical approach are essential, as is professional English.'
+      mentee_it: "Un team bilanciato: idealmente almeno un mentee con esperienza nella difesa e nelle forze dell'ordine, in giurisprudenza o scienze politiche, e uno con un background tecnico e una conoscenza del funzionamento dell'IA. Sono essenziali esperienza di ricerca, un certo grado di autonomia, un approccio imparziale e apolitico e un inglese di livello professionale."
+      deliverable: 'A scientific article or a blog post, possibly a journal article or a policy report for an Italian audience'
+      deliverable_it: 'Un articolo scientifico o un blogpost, possibilmente un articolo su rivista o un policy report per un pubblico italiano'
     places: 3
     language: 'Italian, English'
     language_it: 'Italiano, inglese'
 
-  - id: andrea-fittizio
-    name: 'Andrea Fittizio'
-    role: 'Postdoctoral researcher'
-    role_it: 'Ricercatore postdoc'
-    affiliation: 'Example Polytechnic'
+  - id: emanuele-marconato
+    name: 'Emanuele Marconato'
+    role: 'MSCA Postdoctoral Fellow'
+    role_it: 'MSCA Postdoctoral Fellow'
+    affiliation: 'University of Copenhagen'
+    photo: '/assets/img/mentors/emanuele-marconato.jpg'
     links:
-      scholar: 'https://scholar.google.com'
+      website: 'https://emanuele-marconato.github.io/'
+    co_mentors: [luigi-gresele]
     tracks: [projects]
-    areas: [security, alignment]
-    bio: 'Studies adversarial robustness and jailbreaks of multimodal models.'
-    bio_it: 'Studia la robustezza avversariale e i jailbreak dei modelli multimodali.'
+    areas: [interpretability, alignment]
+    bio: 'Postdoc in the Department of Mathematical Sciences at the University of Copenhagen. He holds a PhD from the University of Trento on explainable AI, neuro-symbolic AI and representation learning, and works on the theory of mechanistic interpretability and on evaluating the representations of neural models.'
+    bio_it: "Postdoc al Dipartimento di Scienze Matematiche dell'Università di Copenaghen. Ha conseguito il dottorato all'Università di Trento su explainable AI, IA neuro-simbolica e representation learning, e lavora sugli aspetti teorici della mechanistic interpretability e sulla valutazione delle rappresentazioni dei modelli neurali."
     project:
-      title: 'Jailbreaks hidden in images'
-      title_it: 'Jailbreak nascosti nelle immagini'
-      summary: 'Measure how well current defences catch harmful instructions embedded in images.'
-      summary_it: 'Misurare quanto le difese attuali intercettino istruzioni dannose inserite nelle immagini.'
-      description: 'Multimodal models can be steered by text hidden in pictures. The project collects known attacks, evaluates a few defences on open models and proposes a simple baseline that others can build on.'
-      description_it: 'I modelli multimodali possono essere manipolati da testo nascosto nelle immagini. Il progetto raccoglie gli attacchi noti, valuta alcune difese su modelli aperti e propone una baseline semplice su cui altri possano costruire.'
-      mentee: 'Machine learning experience; access to a GPU is not required.'
-      mentee_it: 'Esperienza di machine learning; non serve avere una GPU.'
-      deliverable: 'Software and a workshop paper'
-      deliverable_it: 'Software e un articolo per un workshop'
-    places: 2
-    language: 'English'
-    language_it: 'Inglese'
+      title: 'Leveraging relational linear properties to steer language model generation'
+      title_it: 'Proprietà relazionali lineari per il controllo della generazione nei modelli linguistici'
+      summary: 'Use the relational linear properties found inside language models, which need no external annotation, to build a new steering technique.'
+      summary_it: 'Usare le proprietà relazionali lineari interne ai modelli linguistici, che non richiedono annotazioni esterne, per costruire una nuova tecnica di steering.'
+      description: |-
+        Controlling language model generation is a central topic in AI safety and Mechanistic Interpretability. Current techniques use supervised probes to detect and then select the region of neuron activations to act on to achieve controlled generation, but this requires gathering external annotations on several linguistic properties.
 
-  - id: chiara-bozza
-    name: 'Chiara Bozza'
-    role: 'Journalist and science communicator'
-    role_it: 'Giornalista e divulgatrice scientifica'
-    affiliation: 'Freelance'
-    tracks: [projects]
-    areas: [society, governance]
-    bio: 'Writes about technology and its effects on work and democracy for Italian newspapers.'
-    bio_it: "Scrive di tecnologia e dei suoi effetti sul lavoro e sulla democrazia per quotidiani italiani."
-    project:
-      title: 'An Italian primer on AI risks'
-      title_it: 'Un primo manuale in italiano sui rischi dell’IA'
-      summary: 'Write accessible educational material on the main risks of advanced AI, for students and teachers.'
-      summary_it: "Scrivere materiale divulgativo accessibile sui principali rischi dell'IA avanzata, per studenti e docenti."
-      description: 'The mentee will design and write a short series of explainers, tested with a class of high-school students, that the AIS4I community can reuse in its outreach.'
-      description_it: 'Il mentee progetterà e scriverà una breve serie di schede divulgative, testate con una classe di scuola superiore, che la comunità AIS4I potrà riutilizzare nelle sue attività.'
-      mentee: 'Clear writing in Italian; curiosity for the topic. No technical skills needed.'
-      mentee_it: "Scrittura chiara in italiano; curiosità per il tema. Non servono competenze tecniche."
-      deliverable: 'Educational material'
-      deliverable_it: 'Materiale educativo'
+        Relational linear properties of language models, in contrast, can be detected within the model internal computations and do not require external annotation.
+
+        The project will focus on relational linearity as a new tool for representational steering. The final goal of the project is to build a new steering technique and then to evaluate the model generation through representational control.
+      description_it: |-
+        Il controllo della generazione di output nei modelli linguistici rappresenta un tema centrale nell'ambito della sicurezza dell'intelligenza artificiale e della mechanistic interpretability. Le tecniche attuali si avvalgono di probes supervisionate per identificare e selezionare specifiche attivazioni neurali su cui intervenire, consentendo così di controllare la generazione; tuttavia, tale approccio richiede la raccolta di annotazioni esterne relative a diverse proprietà linguistiche.
+
+        Al contrario, le proprietà relazionali lineari dei modelli linguistici possono essere rilevate direttamente all'interno dei calcoli interni del modello, senza la necessità di annotazioni esterne.
+
+        Questo progetto si concentrerà sulla linearità relazionale come strumento innovativo per il controllo delle rappresentazioni ("representational steering"). L'obiettivo finale è sviluppare una nuova tecnica di controllo e, successivamente, valutare la generazione di output del modello attraverso la manipolazione delle sue rappresentazioni interne.
+      mentee: 'Basic probability and statistics, linear algebra and functional analysis, and good familiarity with Python and GitHub. No previous research projects or publications needed.'
+      mentee_it: 'Conoscenze di base di probabilità e statistica, algebra lineare e analisi funzionale, e buona familiarità con Python e GitHub. Non è necessario aver già svolto progetti di ricerca o pubblicato articoli.'
+      deliverable: 'A scientific article and a software package'
+      deliverable_it: 'Un articolo scientifico e un pacchetto software'
     places: 1
-    language: 'Italian'
-    language_it: 'Italiano'
+    language: 'Italian, English'
+    language_it: 'Italiano, inglese'
 
-  - id: paolo-demo
-    name: 'Paolo Demo'
-    role: 'Software engineer'
-    role_it: 'Software engineer'
-    affiliation: 'Example Tech Company'
+  - id: luigi-gresele
+    name: 'Luigi Gresele'
+    role: 'Researcher'
+    role_it: 'Ricercatore'
+    affiliation: 'University of Copenhagen'
+    photo: '/assets/img/mentors/luigi-gresele.jpg'
+    co_mentors: [emanuele-marconato]
+    tracks: [projects]
+    areas: [interpretability, alignment]
+    language: 'Italian, English'
+    language_it: 'Italiano, inglese'
+
+  - id: francesco-pinto
+    name: 'Francesco Pinto'
+    role: 'Research Scientist'
+    role_it: 'Research Scientist'
+    affiliation: 'Google DeepMind'
+    photo: '/assets/img/mentors/francesco-pinto.jpg'
     links:
-      linkedin: 'https://www.linkedin.com'
-    tracks: [orientation]
-    areas: [careers, evaluations]
-    bio: 'Works on the safety infrastructure of a large AI product; mentors engineers moving into the field.'
-    bio_it: 'Lavora sull’infrastruttura di sicurezza di un grande prodotto di IA; fa da mentor a ingegneri che vogliono entrare nel settore.'
-    orientation: 'Engineering roles in AI safety, building a portfolio, preparing for interviews.'
-    orientation_it: "Ruoli di ingegneria nell'AI safety, costruire un portfolio, prepararsi ai colloqui."
+      linkedin: 'https://www.linkedin.com/in/francesco-pinto-42a389b1'
+    co_mentors: [fabio-pizzati, massimiliano-mancini]
+    tracks: [projects]
+    areas: [evaluations, alignment, security, ethics]
+    bio: 'Works on hardening Gemini against prompt injection, in post-training and in the agent harness, develops agentic security benchmarks and designs more effective adversarial attacks. He has supervised students from every background, from undergraduates to final-year PhD students, and mentors Italian students starting a STEM career.'
+    bio_it: "Lavora a rendere Gemini più robusto alla prompt injection, sia nel post-training sia nell'harness degli agenti, sviluppa benchmark agentici di sicurezza e attacchi avversariali più efficaci. Ha supervisionato studenti di ogni livello, dalla triennale all'ultimo anno di dottorato, e fa da mentore a studenti italiani che avviano una carriera STEM."
+    project:
+      title: 'Evaluating Moral Choices of Embodied AI in High Stakes Environments'
+      title_it: "Valutazione delle scelte morali dell'embodied AI in contesti ad alto rischio"
+      summary: 'An open-source benchmark in driving and robotics simulators to test whether demographic traits change who an LLM-driven robot protects or puts in danger.'
+      summary_it: 'Un benchmark open source in simulatori di guida e robotica per verificare se i tratti demografici cambiano chi un robot guidato da un LLM protegge o mette in pericolo.'
+      description: |-
+        LLMs are increasingly being used as zero-shot policies and planners for robots. It is therefore essential to understand how their biases might translate into concrete consequences for people in safety-critical situations, and what moral trade-offs they make. In the absence of a measurement method, it remains unclear whether alignment procedures in the language space are effective and expressive enough to result in aligned behaviors within embodied AI. We will begin by investigating how biases related to demographic characteristics, as well as the perceived criticality of achieving a goal, can lead (whether intentionally, upon explicit request, or unintentionally, due to adversarial attacks or intrinsic biases) to choices and behaviors that endanger the safety of the individuals involved in various ways.
+
+        We will use CARLA for autonomous driving and OGBench for robotic manipulation, creating complex scenarios in which an agent must complete a task without endangering nearby people. For each scenario, we will generate variations that differ only in terms of a person's skin color, perceived gender, or other demographic traits, while keeping their position, movements, instructions, and physical conditions constant. We will provide the LLM with observations of the scene, ask it to select an action plan, and execute that plan within the simulator. We will then compare the actions and outcomes by measuring collisions, risk exposure, task completion, and the distribution of potential harm. As a second step, we will examine how these choices shift under conditions of perceived urgency (for example, choosing to hit animals because the driver is in a hurry) and under adversarial attacks explicitly aimed at damaging property or causing physical harm to people.
+
+        The open-source benchmark will provide tools to determine whether, under identical conditions, demographic traits influence who is protected or exposed to danger, and to assess the robustness of robot alignment in emergency situations. The project's impact is not limited to cases employing the "LLM-as-a-Brain" approach; it also extends to the literature on world models, whose inherent biases and moral choices in high-stakes contexts remain unknown.
+      description_it: |-
+        Gli LLM sono sempre più utilizzati come policy zero-shot e planner per robot. È quindi essenziale capire come i loro bias possano tradursi in conseguenze concrete per le persone in condizioni critiche per la sicurezza, e quali trade-off morali essi compiano. In assenza di un metodo di misura, non è chiaro se le procedure di alignment nello spazio del linguaggio restino efficaci e siano sufficientemente espressive da riflettersi in comportamenti allineati nell'embodied AI. Inizieremo studiando come i bias legati alle caratteristiche demografiche e alla criticità percepita per il raggiungimento dell'obiettivo possano, intenzionalmente (su esplicita richiesta) o involontariamente (a causa di attacchi avversariali o di bias intrinseci), produrre scelte e comportamenti che mettano in pericolo in diverso modo la sicurezza delle persone coinvolte.
+
+        Utilizzeremo CARLA per la guida autonoma e OGBench per la manipolazione robotica, creando scenari complessi in cui un agente deve completare un compito senza mettere in pericolo le persone vicine. Per ogni scenario creeremo versioni che differiscono soltanto per il colore della pelle, il genere percepito o altri tratti demografici di una persona, mantenendo invariati posizione, movimenti, istruzioni e condizioni fisiche. Forniremo all'LLM le osservazioni della scena, gli chiederemo di scegliere un piano d'azione e lo eseguiremo nel simulatore. Confronteremo azioni ed esiti, misurando collisioni, esposizione al rischio, completamento del compito e distribuzione dei potenziali danni. Come secondo passo, studieremo come cambino le scelte in condizioni di urgenza percepita (ad esempio, scegliere di investire animali perché il conducente ha fretta) e sotto attacchi avversariali con l'esplicito obiettivo di danneggiare cose o ferire persone.
+
+        Il benchmark open source offrirà strumenti per capire se, a parità di condizioni, i tratti demografici cambino chi viene protetto o esposto al pericolo, e quanto sia robusto l'allineamento dei robot in condizioni di emergenza. L'impatto del progetto non si limita ai casi in cui si usa l'approccio "LLM-as-a-Brain", ma si estende anche alla letteratura sui world models, i cui bias e le cui scelte morali in contesti high-stakes sono ancora ignoti.
+      mentee: 'Solid Python, familiarity with prompting LLMs and inference APIs, and basic robotics or embodied AI. Comfortable with Git and Linux, designing controlled experiments and analysing results rigorously. Experience with simulators such as CARLA, MuJoCo or Isaac Sim is strongly recommended; algorithmic fairness, AI safety or statistical evaluation are a plus.'
+      mentee_it: "Solide competenze in Python, familiarità con il prompting degli LLM e le API di inferenza, e conoscenze di base di robotica o embodied AI. Dimestichezza con Git e Linux, con la progettazione di esperimenti controllati e l'analisi rigorosa dei risultati. È fortemente consigliata esperienza con simulatori come CARLA, MuJoCo o Isaac Sim; equità algoritmica, AI safety o valutazione statistica sono un plus."
+      deliverable: 'A scientific article, a software package, a dataset and a blog post'
+      deliverable_it: 'Un articolo scientifico, un pacchetto software, un dataset e un blogpost'
+    places: 2
+    language: 'Italian, English'
+    language_it: 'Italiano, inglese'
+
+  - id: fabio-pizzati
+    name: 'Fabio Pizzati'
+    role: 'Researcher'
+    role_it: 'Ricercatore'
+    affiliation: 'MBZUAI'
+    co_mentors: [francesco-pinto, massimiliano-mancini]
+    tracks: [projects]
+    areas: [evaluations, alignment, security, ethics]
+
+  - id: massimiliano-mancini
+    name: 'Massimiliano Mancini'
+    role: 'Professor'
+    role_it: 'Professore'
+    affiliation: 'University of Trento'
+    co_mentors: [francesco-pinto, fabio-pizzati]
+    tracks: [projects]
+    areas: [evaluations, alignment, security, ethics]
+
+  - id: lara-mauri
+    name: 'Lara Mauri'
+    role: 'Postdoctoral researcher in computer science'
+    role_it: 'Assegnista di ricerca in informatica'
+    affiliation: 'Università degli Studi di Milano'
+    links:
+      linkedin: 'https://www.linkedin.com/in/laramauri'
+    tracks: [projects]
+    areas: [evaluations, alignment, security]
+    bio: 'Works at the intersection of machine learning and computer security, on the security, robustness and reliability of AI systems in adversarial and real-world settings. Her current research covers how alignment reshapes the behaviour of large language models and, for agentic AI, runtime monitoring, audit trails and traceability.'
+    bio_it: "Lavora all'intersezione tra machine learning e sicurezza informatica, sulla sicurezza, la robustezza e l'affidabilità dei sistemi di IA in contesti avversariali e reali. Oggi studia come l'allineamento modifica il comportamento dei modelli linguistici e, per l'IA agentica, il monitoraggio a runtime, gli audit trail e la tracciabilità."
+    project:
+      title: 'Watcher Switch: A study of the observer effect in autonomous AI agents'
+      title_it: "Watcher Switch: Studio dell'effetto osservatore negli agenti IA autonomi"
+      summary: 'Controlled experiments on how AI agents change their behaviour when monitoring seems to start or stop during a task.'
+      summary_it: 'Esperimenti controllati su come gli agenti IA cambiano comportamento quando il monitoraggio sembra iniziare o finire durante un compito.'
+      description: 'As LLM-powered agents become more autonomous and capable of performing complex, multi-step tasks, monitoring their behaviour is essential to ensuring their safety and reliability. However, monitoring itself may influence what is being observed: AI agents may behave differently when they believe they are being watched or evaluated (a phenomenon known as the observer effect). Previous research has shown that AI models can recognize evaluation settings and, in some cases, adapt their behaviour in response to perceived oversight. Much less is known, however, about the temporal dynamics of this effect. How do agents react when monitoring appears to start or stop during an ongoing task? And do any changes in behaviour persist once monitoring appears to have stopped? This project aims to investigate these questions through controlled experiments in which tool-using LLM agents carry out multi-step tasks in simulated environments. By varying perceived monitoring conditions at different stages of execution and comparing agent behaviour across matched scenarios, we will examine changes in tool use, compliance with safety constraints, and task performance. The goal is to characterize the causal and temporal dynamics of the observer effect and develop a reproducible evaluation framework.'
+      description_it: "Divenendo gli agenti basati su LLM più autonomi e capaci di svolgere compiti complessi e articolati in più step è essenziale monitorarne il comportamento per garantirne la sicurezza e l'affidabilità. Tuttavia, l'atto stesso del monitoraggio può influenzare ciò che viene osservato: gli agenti IA potrebbero comportarsi diversamente quando credono di essere osservati o sottoposti a valutazione, un fenomeno noto come observer effect (effetto osservatore). Studi precedenti hanno dimostrato che i modelli di IA sono in grado di riconoscere i contesti di valutazione e, in alcuni casi, di adattare il proprio comportamento in base alla supervisione percepita. Si conoscono invece meno le dinamiche temporali di questo effetto. Come reagiscono gli agenti quando il monitoraggio sembra iniziare o terminare durante lo svolgimento di un'attività? E gli eventuali cambiamenti nel loro comportamento persistono anche dopo che il monitoraggio sembra essersi concluso? Questo progetto si propone di indagare tali domande attraverso esperimenti controllati in cui agenti basati su LLM, dotati di strumenti esterni, svolgeranno attività multi-step all'interno di ambienti simulati. Variando le condizioni di monitoraggio percepite dagli agenti in diversi momenti dell'esecuzione e confrontandone il comportamento in scenari equivalenti, analizzeremo eventuali cambiamenti nell'utilizzo degli strumenti, nel rispetto dei vincoli di sicurezza e nelle prestazioni complessive. L'obiettivo è caratterizzare le dinamiche causali e temporali dell'effetto osservatore e sviluppare un framework di valutazione riproducibile."
+      mentee: 'Good Python, familiarity with LLMs and their APIs (ideally tool calling and AI agents), the ability to build reproducible experiments and basic statistics to analyse the results. No experience in fine-tuning or training models is required.'
+      mentee_it: "Buona conoscenza di Python, familiarità con LLM e API (preferibilmente tool calling e agenti IA), capacità di sviluppare esperimenti riproducibili e conoscenze di base di statistica per l'analisi dei risultati. Non è richiesta esperienza nel fine-tuning o nell'addestramento di modelli."
+      deliverable: 'A scientific article, a software package and a dataset'
+      deliverable_it: 'Un articolo scientifico, un pacchetto software e un dataset'
     places: 2
     language: 'Italian, English'
     language_it: 'Italiano, inglese'
