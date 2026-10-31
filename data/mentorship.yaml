@@ -8,6 +8,8 @@
 # The expression-of-interest form, shared by mentors and mentees.
 links:
   interest_form: 'https://forms.gle/eopxRMZVf7gK5XPW7'
+  # The mentee application form (server/forms/templates.js, mentee_application).
+  mentee_form: '/form/?f=candidatura-mentee'
 
 contact_email: 'info@ais4i.it'
 
@@ -39,6 +41,8 @@ interest:
   text_it: 'Vuoi fare da mentor o partecipare come mentee? Compila la manifestazione di interesse.'
   button: 'Express your interest'
   button_it: 'Manifesta il tuo interesse'
+  mentee_button: 'Apply as a mentee'
+  mentee_button_it: 'Candidati come mentee'
   dates_button: 'Key dates'
   dates_button_it: 'Date principali'
 

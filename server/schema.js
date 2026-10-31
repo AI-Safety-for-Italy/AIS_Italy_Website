@@ -393,4 +393,22 @@ create index if not exists member_applications_email_key on member_applications 
 -- Discord account that used the link has the application's email (null when
 -- Discord did not say).
 alter table member_applications add column if not exists join_email_match boolean;
+
+-- The people on the mentorship board (server/crm/records.js): one row per
+-- answer, in the shape server/crm/sources.js gives a sheet's row, encrypted
+-- and bound to the row's id. origin: 'import' (copied once from a Google
+-- sheet), 'form' (an answer to a form linked to the board: it goes when the
+-- answer goes) or 'board' (added by hand). person_key joins the lists.
+create table if not exists crm_records (
+  id uuid primary key,
+  source text not null,
+  person_key text,
+  origin text not null check (origin in ('import', 'form', 'board')),
+  response_id uuid references form_responses(id) on delete cascade,
+  data_encrypted text not null,
+  created_by uuid references app_users(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists crm_records_source on crm_records (source, origin);
 `;

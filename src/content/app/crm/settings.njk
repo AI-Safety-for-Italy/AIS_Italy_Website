@@ -1,0 +1,47 @@
+---
+title: Sheets
+# Which Google spreadsheets the mentorship board imports from (server/crm/sources.js).
+# Shown to those holding `crm_admin`; the API checks it.
+permalink: /app/crm/settings/
+tool: crm
+tab: settings
+pageTitle: Sheets
+noindex: true
+excludeFromSitemap: true
+eleventyExcludeFromCollections: true
+seoTitle: 'Sheets | AI Safety for Italy'
+---
+{% extends "app.njk" %}
+{% block page %}
+    <form class="panel form-grid" id="sheetsForm" novalidate>
+      <div class="panel-head" style="margin:0">
+        <h2>Where the board imports from</h2>
+      </div>
+      <p class="panel-note" style="margin:0">The board keeps its own copy of the people. These Google spreadsheets are used once, to import what was already collected; from now on the site’s forms feed the board. Paste the spreadsheet’s address (or its id) and the name of the tab with the answers, save, then press Import now.</p>
+      <p class="form-note" id="shareNote" hidden style="margin:0"></p>
+      <div id="sheetRows"></div>
+      <div class="form-error" role="alert" hidden></div>
+      <div><button class="btn btn-primary btn-sm" type="submit">Save</button></div>
+    </form>
+
+<dialog class="meet-dialog" id="replaceDialog" aria-labelledby="rpTitle">
+  <form class="dialog-body form-grid" id="replaceForm" method="dialog">
+    <h2 id="rpTitle">Replace the imported list</h2>
+    <p class="form-note" id="rpText" style="margin:0"></p>
+    <label class="check-row"><input type="checkbox" id="rpAck" required><span id="rpAckText"></span></label>
+    <div>
+      <label class="form-label" for="rpPassword">Admin password</label>
+      <input class="form-input is-compact" id="rpPassword" type="password" autocomplete="off" required>
+    </div>
+    <p class="form-error" id="rpError" role="alert" hidden></p>
+    <div class="dialog-foot">
+      <button type="button" class="btn btn-outline" id="rpCancel">Cancel</button>
+      <button type="submit" class="btn btn-primary" id="rpSubmit">Replace</button>
+    </div>
+  </form>
+</dialog>
+
+<script src="/assets/js/meet/common.js" defer></script>
+<script src="/assets/js/meet/app-common.js" defer></script>
+<script src="/assets/js/meet/crm-settings.js" defer></script>
+{% endblock %}

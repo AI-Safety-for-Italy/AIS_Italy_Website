@@ -213,7 +213,7 @@ Phases 0 (foundations) and 1 (the mentorship board) are here.
   means Applied; "Contattato: Sì" means Contacted…). Rows without an email
   are listed apart: they cannot be tracked until the sheet has one.
 - A person's card: stage, track, who follows them, the team's notes
-  (encrypted), every sheet row about them (contact details only with
+  (encrypted), every record about them (contact details only with
   `mentorship`) and their history from the audit trail.
 - **Pairs**: a selected mentor and a selected mentee on the same track. A
   mentee has one mentor; a mentor can go over the number of mentees they asked
@@ -255,7 +255,7 @@ Environment (Vercel; `scripts/meet-dev.js` sets throwaway values locally):
 | `CRM_KEY_SECRET`              | At least 32 characters. Makes the person keys. **Never change it**: it orphans every key. |
 | `GOOGLE_SERVICE_ACCOUNT_JSON` | The service account key (the same secret as the members workflow), to read the sheets.    |
 
-Which spreadsheet and tab each source reads is a setting (`crm_sources`),
+Which spreadsheet and tab each source imports from is a setting (`crm_sources`),
 edited by `crm_admin`; the sheets are shared, as Viewer, with the service
 account one at a time. `server/crm/sources.js` maps the sheets' columns to
 fields by header text, so a form that gains a question does not break the board.
@@ -354,7 +354,9 @@ Locally (`npm run dev:meet`, no Discord) the link joins at once.
 
 Answers to forms and member applications that were never approved are deleted
 24 months after they were sent; approved applications stay, as the record of
-who is a member (`server/retention.js`). A GitHub Action runs it once a day
+who is a member; the board's own copies of people (imported or added by
+hand) go the same way, those from a form go with their answer
+(`server/retention.js`). A GitHub Action runs it once a day
 on the live site (`.github/workflows/retention.yml`), calling
 `/api/cron/cleanup` with a shared secret; each run leaves one line with the
 counts on the audit trail.

@@ -17,6 +17,8 @@ const audit = require('./crm/audit');
 const access = require('./access');
 const sources = require('./crm/sources');
 const contentApi = require('./routes/app/content');
+const mentorshipApi = require('./routes/app/crm/mentorship');
+const boardRecords = require('./crm/records');
 const authApi = require('../api/auth');
 
 const KEY_A = Buffer.alloc(32, 1).toString('base64');
@@ -609,17 +611,67 @@ test('which spreadsheet each source reads is validated, saved, and audited', asy
   assert.equal((await audit.recent())[0].action, 'change-settings');
 });
 
+test('the sheets page takes an address or an id, and only crm_admin may use it', async () => {
+  assert.equal(
+    sources.sheetId(`https://docs.google.com/spreadsheets/d/${SHEET}/edit#gid=0`),
+    SHEET
+  );
+  assert.equal(sources.sheetId(` ${SHEET} `), SHEET);
+  process.env.GOOGLE_SERVICE_ACCOUNT_JSON = JSON.stringify({ client_email: 'reader@x.iam' });
+
+  await permissions.saveRolePermissions([
+    { roleId: 'r-admin', roleName: 'crm admins', permissions: ['crm_admin'] },
+    { roleId: 'r-mentors', roleName: 'mentorship team', permissions: ['mentorship'] },
+  ]);
+  const boss = await member('Bea', ['r-admin']);
+  const mentor = await member('Ugo', ['r-mentors']);
+  const url = '/api/app/crm/mentorship?action=sources';
+
+  assert.equal((await call(mentorshipApi, { url, user: mentor })).statusCode, 403);
+  assert.equal(
+    (await call(mentorshipApi, { method: 'PUT', url, user: mentor, body: {} })).statusCode,
+    403
+  );
+  const put = await call(mentorshipApi, {
+    method: 'PUT',
+    url,
+    user: boss,
+    body: {
+      mentors_prospective: {
+        spreadsheetId: `https://docs.google.com/spreadsheets/d/${SHEET}/edit`,
+      },
+    },
+  });
+  assert.equal(put.statusCode, 200);
+  assert.equal(put.body.serviceAccount, 'reader@x.iam');
+  assert.equal(put.body.sources.find((x) => x.id === 'mentors_prospective').spreadsheetId, SHEET);
+  const got = await call(mentorshipApi, { url, user: boss });
+  assert.equal(got.body.sources.length, sources.SHEET_SOURCES.length);
+  delete process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
+});
+
 test('nothing in the database holds an email or an answer, however much was read', async () => {
   const me = await admin();
-  for (const id of Object.keys(sources.SOURCES)) {
+  for (const id of sources.SHEET_SOURCES) {
     const { records } = await sources.load(id);
     for (const r of records)
       if (r.key) await audit.record(me, 'view-person', r.key, { source: id });
+    // The one-time copy onto the board is encrypted too.
+    await boardRecords.importSource(me, id);
   }
   await sources.saveConfig(me, { mentors_prospective: { spreadsheetId: SHEET, tab: 'Mentors' } });
+  // The board's records are ciphertext (random text, where a short name can
+  // turn up by chance): check they are encrypted, and look for names elsewhere.
+  const { rows: stored } = await db.query('select data_encrypted from crm_records');
+  assert.ok(stored.length > 0);
+  assert.ok(
+    stored.every((r) => /^v1\./.test(r.data_encrypted)),
+    'a board record is not encrypted'
+  );
   const dump = JSON.stringify([
     (await db.query('select * from crm_audit')).rows,
     (await db.query('select * from app_settings')).rows,
+    (await db.query('select id, source, person_key, origin, response_id from crm_records')).rows,
   ]);
   assert.ok(!dump.includes('@'), 'an email reached the database');
   assert.ok(!dump.includes('example.org'));

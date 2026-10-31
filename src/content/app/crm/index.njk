@@ -24,12 +24,17 @@ seoTitle: 'Mentorship board | AI Safety for Italy'
       </div>
       <input class="form-input is-compact crm-search" id="crmSearch" type="search" placeholder="Search name, affiliation, area…" aria-label="Search">
       <label class="check-row"><input type="checkbox" id="onlyMine"><span>Only mine</span></label>
+      <button type="button" class="btn btn-outline btn-sm" id="addMentor">Add a mentor to contact</button>
     </div>
 
     <div id="crmBoard"></div>
 
 <dialog class="meet-dialog crm-panel" id="personPanel" aria-labelledby="personName">
   <div class="dialog-body" id="personBody"></div>
+</dialog>
+
+<dialog class="meet-dialog" id="addPanel" aria-labelledby="addTitle">
+  <form class="dialog-body form-grid" id="addForm" novalidate></form>
 </dialog>
 
 <script src="/assets/js/meet/common.js" defer></script>

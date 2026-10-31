@@ -21,7 +21,8 @@ function sendJson(res, status, body) {
 
 const MAX_BODY = 100_000;
 
-async function readJson(req) {
+/** The JSON body. `max`: a larger limit for the few calls that carry a file. */
+async function readJson(req, { max = MAX_BODY } = {}) {
   // Vercel may already have buffered and parsed the body.
   if (req.body !== undefined && req.body !== null) {
     if (typeof req.body === 'object' && !Buffer.isBuffer(req.body)) return req.body;
@@ -30,7 +31,7 @@ async function readJson(req) {
   let raw = '';
   for await (const chunk of req) {
     raw += chunk;
-    if (raw.length > MAX_BODY) throw new HttpError(413, 'Request too large');
+    if (raw.length > max) throw new HttpError(413, 'Request too large');
   }
   return parseJson(raw);
 }

@@ -126,7 +126,12 @@ async function requireUser(req) {
   return user;
 }
 
-async function passwordLogin(req, res, password) {
+/**
+ * Is this the admin password? Wrong guesses count towards the same limit per
+ * address as the sign-in, so asking for it elsewhere opens no second door to
+ * guess it through. Throws 429 past the limit.
+ */
+async function checkAdminPassword(req, password) {
   const ip = clientIp(req);
   await db.query(`delete from login_attempts where attempted_at < now() - interval '1 day'`);
   const { rows } = await db.query(
@@ -139,9 +144,14 @@ async function passwordLogin(req, res, password) {
   }
   if (!verifyPassword(password, process.env.ADMIN_PASSWORD_HASH)) {
     await db.query('insert into login_attempts (ip) values ($1)', [ip]);
-    throw new HttpError(401, 'Wrong password');
+    return false;
   }
   await db.query('delete from login_attempts where ip = $1', [ip]);
+  return true;
+}
+
+async function passwordLogin(req, res, password) {
+  if (!(await checkAdminPassword(req, password))) throw new HttpError(401, 'Wrong password');
   const admin = (
     await db.query(`update app_users set last_login_at = now() where kind = 'admin' returning *`)
   ).rows[0];
@@ -212,6 +222,7 @@ module.exports = {
   logout,
   currentUser,
   requireUser,
+  checkAdminPassword,
   passwordLogin,
   upsertDiscordUser,
 };
