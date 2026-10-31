@@ -1596,6 +1596,7 @@
     });
 
     var join = joinPanel();
+    var board = crmPanel();
     var error = h('p', { class: 'form-error', hidden: true });
     var save = h('button', { type: 'button', class: 'btn btn-primary' }, 'Save settings');
     save.addEventListener('click', function () {
@@ -1610,6 +1611,7 @@
           notifyOwner: notify.checked,
           // Only the forms admins may change the link to the board.
           membership: join.editable() ? join.value() : undefined,
+          crm: board.editable() ? board.value() : undefined,
         },
         accessRoles: Array.prototype.map.call(
           roleBox.querySelectorAll('input:checked'),
@@ -1692,6 +1694,7 @@
           )
         ),
         join.panel,
+        board.panel,
         h(
           'div',
           { class: 'panel form-grid' },
@@ -1883,6 +1886,55 @@
       },
       value: function () {
         return link;
+      },
+    };
+  }
+
+  // The mentorship board: each answer also becomes a person on one of its
+  // lists. Only the forms admins can change it; the others see what it does.
+  function crmPanel() {
+    var panel = h('div', { class: 'panel form-grid' });
+    var lists = [
+      ['', 'Not linked'],
+      ['mentors_applications', 'Mentor applications'],
+      ['mentees_interest', 'Expressions of interest'],
+      ['mentees_applications', 'Mentee applications'],
+    ];
+    var current = form.settings.crm || '';
+    var admin = false;
+    function draw() {
+      M.clear(panel);
+      panel.appendChild(h('h2', null, 'Mentorship board'));
+      var select = h('select', { class: 'form-input is-compact', disabled: !admin ? true : null });
+      lists.forEach(function (l) {
+        select.appendChild(h('option', { value: l[0] }, l[1]));
+      });
+      select.value = current;
+      select.addEventListener('change', function () {
+        current = select.value;
+      });
+      panel.appendChild(field('Answers to this form also go to the mentorship board as', select));
+      panel.appendChild(
+        h(
+          'p',
+          { class: 'form-note' },
+          'Questions are matched by their id; the template’s questions are already right.' +
+            (admin ? '' : ' Only the forms admins can change this.')
+        )
+      );
+    }
+    draw();
+    M.permissions.then(function (perms) {
+      admin = perms.indexOf('forms_admin') !== -1;
+      draw();
+    });
+    return {
+      panel: panel,
+      editable: function () {
+        return admin;
+      },
+      value: function () {
+        return current || null;
       },
     };
   }
