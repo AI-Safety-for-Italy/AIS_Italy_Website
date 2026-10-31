@@ -850,6 +850,51 @@ test('the owner hears that someone answered, never what, and only if they asked'
   }
 });
 
+test('with a shared address set, every form tells that address, not the owner', async () => {
+  const mail = require('./mail');
+  const sent = [];
+  process.env.MEET_FAKE_MAIL = '0';
+  mail.setTransportFactory(() => ({ sendMail: async (m) => sent.push(m), close() {} }));
+  await mail.saveSettings({
+    host: 'smtp.x',
+    port: 465,
+    fromEmail: 'tech@ais4i.it',
+    formsEmail: 'Info@AIS4I.it',
+    password: 'p',
+  });
+  try {
+    assert.equal(await mail.formsAddress(), 'info@ais4i.it');
+    await setRoles();
+    const mara = await member('Mara', ['r-forms']);
+    await auth.updateProfile(mara.id, { notifyChannel: 'email', notifyEmail: 'mara@example.org' });
+    const { id } = await openForm(mara);
+    assert.deepEqual(await forms.notifyOwner(id, 'https://x'), ['email']);
+    assert.deepEqual(
+      sent.map((m) => m.to),
+      ['info@ais4i.it']
+    );
+    // A form without an owner is announced too.
+    const root = await admin();
+    const made = await forms.create(root, { title: 'Senza proprietario', schema: fullSchema() });
+    assert.deepEqual(await forms.notifyOwner(made.id, 'https://x'), ['email']);
+    // Switched off on the form: nothing, shared address or not.
+    await forms.updateSettings(mara, id, { settings: { notifyOwner: false } });
+    assert.deepEqual(await forms.notifyOwner(id, 'https://x'), []);
+    // A wrong address is refused when saving.
+    await assert.rejects(
+      mail.saveSettings({
+        host: 'smtp.x',
+        port: 465,
+        fromEmail: 'tech@ais4i.it',
+        formsEmail: 'nope',
+      }),
+      /valid address/
+    );
+  } finally {
+    process.env.MEET_FAKE_MAIL = '1';
+  }
+});
+
 // ── Reviewing the answers ────────────────────────────────────────────────────
 
 test('a reader moves an answer along; outsiders and odd statuses are refused', async () => {

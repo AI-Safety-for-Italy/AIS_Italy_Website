@@ -52,6 +52,11 @@ tab: settings
           <input class="form-input is-compact" id="smtpPassword" type="password" autocomplete="new-password">
         </div>
       </div>
+      <div>
+        <label class="form-label" for="formsEmail">New form answers go to <span class="panel-note">(optional)</span></label>
+        <input class="form-input is-compact" id="formsEmail" type="email" placeholder="info@ais4i.it">
+        <p class="panel-note" style="margin:0.35rem 0 0">One shared address for the “New answer” emails of every form. Empty: they go to whoever owns the form. The email only says there is an answer, never what it says.</p>
+      </div>
       <div class="form-error" role="alert" hidden></div>
       <div class="wk-nav">
         <button class="btn btn-primary btn-sm" type="submit">Save</button>
