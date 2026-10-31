@@ -240,6 +240,16 @@ async function load(sourceId) {
     spreadsheetId: config.spreadsheetId,
     tab: config.tab,
   });
+  return fromRows(sourceId, rows);
+}
+
+/**
+ * The records of rows already read ([{ header: text }], from a sheet or a CSV
+ * file): the same as load(), for a file the team downloaded.
+ */
+function fromRows(sourceId, rows) {
+  const source = SOURCES[sourceId];
+  if (!source || source.sheet === false) throw new HttpError(404, 'Unknown source');
   const headers = rows.length ? Object.keys(rows[0]) : [];
   const columns = mapColumns(sourceId, headers);
   const missing = Object.entries(columns)
@@ -293,5 +303,6 @@ module.exports = {
   sheetId,
   serviceAccountEmail,
   load,
+  fromRows,
   toRecord,
 };

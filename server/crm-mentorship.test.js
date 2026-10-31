@@ -501,3 +501,30 @@ test('a mentee application from a form shows the mentee as applied', async () =>
   assert.equal(lia.track, 'projects');
   assert.equal(lia.org, 'Studentessa, Università di Prova');
 });
+
+test('a sheet downloaded as CSV imports like the sheet itself', async () => {
+  const me = await admin();
+  const csv =
+    '﻿Informazioni cronologiche,Nome completo,Email,Per quale ruolo vorresti candidarti?,' +
+    'Percorso/i a cui vorresti partecipare,Quali aree tematiche si allineano di più al tuo background?\r\n' +
+    '01/10/2026,Nora Csv,nora@example.org,Mentee,Orientamento professionale,"Interpretability, ""evals""\nanche governance"\r\n' +
+    '02/10/2026,Senza Email,,Mentee,,\r\n';
+  const res = await call({
+    method: 'POST',
+    url: '/api/app/crm/mentorship?action=import&source=mentees_interest',
+    user: me,
+    body: { csv },
+  });
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.imported, 2);
+  assert.equal(res.body.withoutEmail, 1);
+  const board = await mentorship.board(me);
+  // The CSV replaced the earlier import of that list: Gino came from it.
+  assert.deepEqual(
+    board.mentees.map((m) => m.name),
+    ['Nora Csv']
+  );
+  const nora = board.mentees[0];
+  assert.equal(nora.track, 'orientation');
+  assert.equal(nora.areas, 'Interpretability, "evals"\nanche governance');
+});

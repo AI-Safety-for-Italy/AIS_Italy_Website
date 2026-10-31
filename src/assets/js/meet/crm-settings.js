@@ -43,10 +43,18 @@
         if (!window.confirm('This replaces the previous import of this list. Go on?')) return;
         importBtn.disabled = true;
         result.textContent = 'Importing…';
-        M.api(
+        send({}).then(function () {
+          importBtn.disabled = !s.spreadsheetId;
+        });
+      });
+
+      /** Imports this list ({} from the saved sheet, { csv } from a file) and says how it went. */
+      function send(body) {
+        result.textContent = 'Importing…';
+        return M.api(
           'POST',
           '/api/app/crm/mentorship?action=import&source=' + encodeURIComponent(s.id),
-          {}
+          body
         )
           .then(function (r) {
             result.textContent =
@@ -62,9 +70,43 @@
           .catch(function (err) {
             if (err.status === 401) return M.appError(err);
             result.textContent = err.message;
+          });
+      }
+
+      // Or the sheet downloaded as CSV (File → Download → CSV in Google Sheets):
+      // the columns are found by their headers, as for the sheet itself.
+      var file = h('input', {
+        type: 'file',
+        accept: '.csv,text/csv',
+        hidden: true,
+        'aria-label': 'CSV file for ' + s.label,
+      });
+      var csvBtn = h(
+        'button',
+        { type: 'button', class: 'btn btn-outline btn-sm' },
+        'Import a CSV file'
+      );
+      csvBtn.addEventListener('click', function () {
+        file.value = '';
+        file.click();
+      });
+      file.addEventListener('change', function () {
+        var picked = file.files && file.files[0];
+        if (!picked) return;
+        if (
+          !window.confirm(
+            'Import “' + picked.name + '”? This replaces the previous import of this list.'
+          )
+        )
+          return;
+        csvBtn.disabled = true;
+        picked
+          .text()
+          .then(function (text) {
+            return send({ csv: text });
           })
           .then(function () {
-            importBtn.disabled = !s.spreadsheetId;
+            csvBtn.disabled = false;
           });
       });
       rows.appendChild(
@@ -103,7 +145,7 @@
               })
             )
           ),
-          h('div', null, importBtn),
+          h('div', { class: 'wk-nav' }, importBtn, csvBtn, file),
           result
         )
       );

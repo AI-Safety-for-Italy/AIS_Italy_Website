@@ -16,6 +16,7 @@ const { HttpError } = require('../http');
 const crm = require('./crypto');
 const audit = require('./audit');
 const sources = require('./sources');
+const sheets = require('../sheets');
 
 const ORIGINS = ['import', 'form', 'board'];
 
@@ -87,12 +88,16 @@ async function add(sourceId, fields, { origin, responseId = null, user = null, q
 }
 
 /**
- * Copies a sheet onto the board once: reads it as sources.load() does and
- * replaces the previous copy of that source, so a second import fixes the
- * first instead of doubling it. Returns { imported, withoutEmail, missing }.
+ * Copies a sheet onto the board once: reads it as sources.load() does, or
+ * from `csv` (the sheet downloaded as a CSV file), and replaces the previous
+ * copy of that source, so a second import fixes the first instead of
+ * doubling it. Returns { imported, withoutEmail, missing }.
  */
-async function importSource(user, sourceId) {
-  const loaded = await sources.load(sourceId);
+async function importSource(user, sourceId, { csv } = {}) {
+  const loaded =
+    csv === undefined
+      ? await sources.load(sourceId)
+      : sources.fromRows(sourceId, sheets.rowsFromValues(sheets.parseCsv(csv)));
   await db.transaction(async (tx) => {
     await tx.query(`delete from crm_records where source = $1 and origin = 'import'`, [sourceId]);
     for (const record of loaded.records) {
@@ -102,7 +107,12 @@ async function importSource(user, sourceId) {
       user,
       'crm-import',
       null,
-      { source: sourceId, rows: loaded.records.length, withoutEmail: loaded.withoutEmail },
+      {
+        source: sourceId,
+        from: csv === undefined ? 'sheet' : 'csv',
+        rows: loaded.records.length,
+        withoutEmail: loaded.withoutEmail,
+      },
       tx
     );
   });

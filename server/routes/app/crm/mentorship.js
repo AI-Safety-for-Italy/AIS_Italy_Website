@@ -9,7 +9,7 @@
 //   POST ?action=end-match { id }
 //   POST ?action=add { first_name, last_name, email, … }  -> a mentor to contact, by hand
 //   POST ?action=remove { recordId }      -> removes someone added by hand
-//   POST ?action=import&source=…          -> copies that sheet onto the board (crm_admin)
+//   POST ?action=import&source=… [{ csv }] -> copies that sheet (or its CSV) onto the board (crm_admin)
 //   GET  ?action=sources                  -> { sources, serviceAccount } (crm_admin)
 //   PUT  ?action=sources { <source>: { spreadsheetId, tab } }  -> the same, saved (crm_admin)
 const { route, sendJson, readJson, getQuery, HttpError } = require('../../../http');
@@ -75,7 +75,10 @@ module.exports = route({
       if (!crypto.configured())
         throw new HttpError(503, 'The CRM is not set up here yet (encryption keys)');
       await access.authorize(user, 'crm_admin', { fresh: true });
-      sendJson(res, 200, await records.importSource(user, String(query.source || '')));
+      // A downloaded sheet can be a few megabytes of long answers.
+      const body = await readJson(req, { max: 5_000_000 });
+      const csv = typeof body.csv === 'string' ? body.csv : undefined;
+      sendJson(res, 200, await records.importSource(user, String(query.source || ''), { csv }));
       return;
     }
     const { user } = await door(req, { write: true });
