@@ -40,6 +40,7 @@ const TYPES = {
   section: { answer: false, label: 'New page' },
 };
 const LANGS = ['it', 'en'];
+const CONDITIONAL = ['single', 'dropdown', 'multi', 'yes_no'];
 const ID = /^[a-z][a-z0-9_]{1,39}$/;
 const MAX_ITEMS = 150;
 const MAX_OPTIONS = 60;
@@ -168,13 +169,63 @@ function cleanSchema(input) {
   const items = Array.isArray(s.items) ? s.items : [];
   if (items.length > MAX_ITEMS) throw fail(`At most ${MAX_ITEMS} questions`, { field: 'items' });
   const seen = new Set();
+  const cleaned = items.map((item) => cleanItem(item, languages, seen));
+  cleaned.forEach((item, i) => {
+    const showIf = cleanShowIf(items[i].showIf, cleaned.slice(0, i), item.id);
+    if (showIf) item.showIf = showIf;
+  });
   return {
     languages,
     title: texts(s.title, languages, LIMITS.title, 'title', { required: true }),
     description: texts(s.description, languages, LIMITS.description, 'description'),
     confirmation: texts(s.confirmation, languages, LIMITS.description, 'confirmation'),
-    items: items.map((item) => cleanItem(item, languages, seen)),
+    items: cleaned,
   };
+}
+
+/** "Show only if": { item, values } pointing at an earlier choice / yes-no question. */
+function cleanShowIf(raw, earlier, where) {
+  if (raw === undefined || raw === null) return null;
+  const ref = raw && typeof raw === 'object' ? raw : {};
+  const target = earlier.find((i) => i.id === ref.item);
+  if (!target)
+    throw fail(`${where}: "show only if" needs a question that comes before`, { field: where });
+  if (!CONDITIONAL.includes(target.type))
+    throw fail(`${where}: "show only if" works on choice and yes/no questions`, { field: where });
+  const allowed = target.type === 'yes_no' ? ['yes', 'no'] : target.options.map((o) => o.id);
+  const values = Array.isArray(ref.values) ? [...new Set(ref.values.map(String))] : [];
+  if (!values.length || values.some((v) => !allowed.includes(v)))
+    throw fail(`${where}: "show only if" needs at least one answer of that question`, {
+      field: where,
+    });
+  return { item: target.id, values };
+}
+
+/** Does this answer satisfy the condition? */
+function matches(showIf, target, answer) {
+  if (answer === undefined || answer === null) return false;
+  if (target.type === 'yes_no') return showIf.values.includes(answer);
+  return (answer.selected || []).some((id) => showIf.values.includes(id));
+}
+
+/**
+ * Ids of the items shown for these (cleaned) answers, in order. A section's
+ * condition covers every item up to the next section; an item may add its own.
+ * A condition on a hidden question does not hold.
+ */
+function visibleIds(schema, answers) {
+  const visible = new Set();
+  const byId = new Map(schema.items.map((i) => [i.id, i]));
+  const holds = (c) =>
+    !c || (visible.has(c.item) && matches(c, byId.get(c.item), (answers || {})[c.item]));
+  let sectionOk = true;
+  for (const item of schema.items) {
+    if (item.type === 'section') {
+      sectionOk = holds(item.showIf);
+      if (sectionOk) visible.add(item.id);
+    } else if (sectionOk && holds(item.showIf)) visible.add(item.id);
+  }
+  return visible;
 }
 
 /** Questions that take an answer. */
@@ -284,7 +335,17 @@ function cleanAnswers(schema, input) {
   const raw = input && typeof input === 'object' && !Array.isArray(input) ? input : {};
   const answers = {};
   const errors = {};
-  for (const item of answerable(schema)) {
+  // Walk in order: a question's visibility depends on the answers before it.
+  const shown = new Set();
+  const byId = new Map(schema.items.map((i) => [i.id, i]));
+  const holds = (c) => !c || (shown.has(c.item) && matches(c, byId.get(c.item), answers[c.item]));
+  let sectionOk = true;
+  for (const item of schema.items) {
+    if (item.type === 'section') sectionOk = holds(item.showIf);
+    if (!TYPES[item.type].answer) continue;
+    // Hidden: whatever the page sent is dropped and `required` does not apply.
+    if (!sectionOk || !holds(item.showIf)) continue;
+    shown.add(item.id);
     const result = cleanOne(
       item,
       Object.prototype.hasOwnProperty.call(raw, item.id) ? raw[item.id] : undefined
@@ -335,6 +396,7 @@ module.exports = {
   LANGS,
   cleanSchema,
   cleanAnswers,
+  visibleIds,
   answerable,
   consentVersion,
   textIn,

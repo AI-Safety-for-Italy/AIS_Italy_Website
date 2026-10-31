@@ -3977,6 +3977,25 @@ textarea.fm-input:focus {
   color: var(--text-tertiary);
 }
 
+.fe-only-if {
+  margin: 0.4rem 0 0;
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+}
+
+.fe-showif-values {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+}
+
+.fe-showif-value {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  font-size: 0.85rem;
+}
+
 .fe-missing {
   font-size: 0.72rem;
   font-weight: 600;

@@ -1021,3 +1021,92 @@ test('only forms admins link a form to the mentorship board, and only to a known
   await forms.updateSettings(boss, id, { settings: { crm: 'mentors_applications' } });
   assert.equal((await forms.get(boss, id)).settings.crm, 'mentors_applications');
 });
+
+// ── Show only if ─────────────────────────────────────────────────────────────
+
+const branching = (extra = {}) => ({
+  languages: ['it'],
+  title: { it: 'Ramo' },
+  items: [
+    {
+      id: 'kind',
+      type: 'single',
+      label: { it: 'Come?' },
+      options: [
+        { id: 'active', label: { it: 'Attivo' } },
+        { id: 'discord', label: { it: 'Solo Discord' } },
+      ],
+    },
+    {
+      id: 'what',
+      type: 'short_text',
+      required: true,
+      label: { it: 'Cosa?' },
+      showIf: { item: 'kind', values: ['active'] },
+    },
+    {
+      id: 'page2',
+      type: 'section',
+      label: { it: 'Pagina' },
+      showIf: { item: 'kind', values: ['active'] },
+    },
+    { id: 'hours', type: 'number', required: true, label: { it: 'Ore?' } },
+    { id: 'page3', type: 'section', label: { it: 'Fine' } },
+    { id: 'note', type: 'short_text', label: { it: 'Nota' } },
+    ...(extra.items || []),
+  ],
+});
+
+test('a hidden question loses its answer and its "required"; a section hides what follows it', () => {
+  const schema = schemaLib.cleanSchema(branching());
+  const hidden = schemaLib.cleanAnswers(schema, {
+    kind: { selected: ['discord'] },
+    what: 'sbirciare',
+    hours: 5,
+    note: 'ciao',
+  });
+  assert.deepEqual(hidden.answers, { kind: { selected: ['discord'] }, note: 'ciao' });
+  assert.deepEqual([...schemaLib.visibleIds(schema, hidden.answers)], ['kind', 'page3', 'note']);
+  // Shown: required applies again.
+  assert.throws(
+    () => schemaLib.cleanAnswers(schema, { kind: { selected: ['active'] } }),
+    (err) => Boolean(err.details.errors.what && err.details.errors.hours)
+  );
+  const shown = schemaLib.cleanAnswers(schema, {
+    kind: { selected: ['active'] },
+    what: 'x',
+    hours: 3,
+  });
+  assert.equal(shown.answers.hours, 3);
+});
+
+test('a "show only if" must point to an earlier choice question and real answers', () => {
+  const bad = (items) =>
+    assert.throws(
+      () => schemaLib.cleanSchema(branching({ items })),
+      (err) => err.status === 400 && Boolean(err.details.field)
+    );
+  const info = (showIf) => ({ id: 'zz', type: 'info', label: { it: 'Z' }, showIf });
+  bad([info({ item: 'ghost', values: ['a'] })]);
+  bad([
+    info({ item: 'later', values: ['yes'] }),
+    { id: 'later', type: 'yes_no', label: { it: 'L' } },
+  ]);
+  bad([info({ item: 'zz', values: ['yes'] })]);
+  bad([info({ item: 'what', values: ['x'] })]); // a text question
+  bad([info({ item: 'kind', values: ['nope'] })]);
+  bad([info({ item: 'kind', values: [] })]);
+});
+
+test('the editor sees who reads the answers: the owner and whoever holds forms_admin', async () => {
+  await setRoles();
+  const mara = await member('Mara', ['r-forms']);
+  const team = await member('Tea', ['r-mentors']);
+  const { id } = await openForm(mara);
+  await forms.updateSettings(mara, id, { accessRoles: ['r-mentors'] });
+  const readers = (await forms.get(mara, id)).readers;
+  assert.equal(readers.owner, 'Mara');
+  assert.deepEqual(readers.allFormsRoles, ['forms admins']);
+  assert.deepEqual(readers.allFormsPeople, []);
+  assert.equal((await forms.get(team, id)).readers, undefined); // a reader cannot change the form
+});
