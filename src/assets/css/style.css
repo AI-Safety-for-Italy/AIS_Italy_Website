@@ -2040,28 +2040,6 @@ a:hover {
   border-radius: var(--radius);
 }
 
-/* The track among the area tags: neutral, with the track's dot */
-.mentor-area-tags .mentor-track-tag.tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  color: var(--text-primary);
-  background: transparent;
-  border-color: var(--border-default);
-}
-
-.mentor-track-tag::before {
-  content: '';
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--accent);
-}
-
-.mentor-track-tag.is-orientation::before {
-  background: var(--secondary);
-}
-
 .mentor-empty {
   padding: 2.5rem 1.5rem;
   text-align: center;

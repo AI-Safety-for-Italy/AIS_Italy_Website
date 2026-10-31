@@ -4,7 +4,7 @@
 # Left off the live site while `published` is false; local and preview builds
 # always show it. Set it to true once the list is final (the timeline in
 # data/mentorship.yaml publishes it on 31 October 2026).
-published: false
+published: true
 
 # Optional: a short line on an orange background under the intro.
 more_coming: 'More mentors will be announced in the coming days.'
