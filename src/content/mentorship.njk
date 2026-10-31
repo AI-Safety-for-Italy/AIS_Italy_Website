@@ -34,6 +34,7 @@ seoDescription_it: "Il programma di mentorship di AI Safety for Italy mette in c
             <p class="lede" data-en="{{ m.lede }}" data-it="{{ m.lede_it }}">{{ m.lede }}</p>
             <div class="home-hero-ctas mentorship-ctas">
                 <a href="{{ m.links.interest_form }}" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-lg" data-en="{{ m.interest.button }}" data-it="{{ m.interest.button_it }}">{{ m.interest.button }}</a>
+                {% if m.call_open %}<a href="{{ m.links.mentee_form }}" class="btn btn-primary btn-lg" data-en="{{ m.interest.mentee_button }}" data-it="{{ m.interest.mentee_button_it }}">{{ m.interest.mentee_button }}</a>{% endif %}
                 <a href="#timeline" class="btn btn-secondary btn-lg" data-en="{{ m.interest.dates_button }}" data-it="{{ m.interest.dates_button_it }}">{{ m.interest.dates_button }}</a>
             </div>
             {% include "mentorship-partner.njk" %}

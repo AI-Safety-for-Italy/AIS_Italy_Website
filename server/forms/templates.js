@@ -179,6 +179,59 @@ const TEMPLATES = {
     }),
   },
 
+  mentee_application: {
+    label: 'Mentorship: mentee application',
+    // The address the site's "Apply as a mentee" button opens.
+    slug: 'candidatura-mentee',
+    schema: (title) => ({
+      languages: ['it'],
+      title: { it: title },
+      description: {
+        it: 'Candidati come mentee alla prossima edizione del programma di mentorship di AI Safety for Italy.',
+      },
+      confirmation: { it: 'Grazie! Il team mentorship ti contatterà a breve.' },
+      items: [
+        PRIVACY,
+        q('about', 'section', 'Chi sei'),
+        q('name', 'short_text', 'Nome completo', { required: true }),
+        q('email', 'email', 'Email', { required: true }),
+        q('role', 'short_text', 'Ruolo attuale'),
+        q('affiliation', 'short_text', 'Affiliazione'),
+        q('profile', 'url', 'Link al tuo profilo'),
+        q('cv', 'url', 'Link al tuo CV', {
+          help: { it: 'Un link a un PDF (Drive, Dropbox…) o al tuo sito.' },
+        }),
+        q('country', 'short_text', 'Paese di residenza e fuso orario'),
+        q('background', 'long_text', 'Descrivi brevemente il tuo background', { maxLength: 2000 }),
+        q('areas', 'multi', 'Quali aree tematiche ti interessano di più?', {
+          options: options(AREAS),
+          other: true,
+        }),
+        q('program', 'section', 'Il programma'),
+        q('tracks', 'multi', 'A quale percorso vuoi candidarti?', {
+          required: true,
+          options: TRACKS,
+        }),
+        q('motivation', 'long_text', 'Perché vuoi partecipare al programma?', {
+          required: true,
+          maxLength: 3000,
+        }),
+        q('goals', 'long_text', 'Cosa vorresti ottenere dal programma?', { maxLength: 2000 }),
+        q('project_idea', 'long_text', 'Hai già un’idea di progetto? (facoltativo)', {
+          maxLength: 3000,
+        }),
+        q('hours', 'number', 'Quante ore a settimana puoi dedicare?', { min: 1, max: 40 }),
+        q('language', 'single', 'Lingua di lavoro preferita', {
+          options: options([
+            ['it', 'Italiano'],
+            ['en', 'Inglese'],
+            ['both', 'Indifferente'],
+          ]),
+        }),
+      ],
+    }),
+  },
+
   community_signup: {
     label: 'Community sign-up',
     schema: (title) => ({
@@ -258,6 +311,22 @@ function membershipFor(key) {
   return MEMBERSHIP[key] || null;
 }
 
+// Templates that come linked to a list of the mentorship board.
+const CRM = {
+  mentor_call: 'mentors_applications',
+  mentorship_interest: 'mentees_interest',
+  mentee_application: 'mentees_applications',
+};
+
+function crmFor(key) {
+  return CRM[key] || null;
+}
+
+/** The address a template tries first, if it has one. */
+function slugFor(key) {
+  return (TEMPLATES[key] && TEMPLATES[key].slug) || null;
+}
+
 function list() {
   return Object.entries(TEMPLATES).map(([key, t]) => ({ key, label: t.label }));
 }
@@ -267,4 +336,4 @@ function schemaFor(key, title) {
   return template.schema(title);
 }
 
-module.exports = { list, schemaFor, membershipFor };
+module.exports = { list, schemaFor, membershipFor, crmFor, slugFor };

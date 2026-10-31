@@ -24,6 +24,8 @@ const schemaLib = require('./schema');
 const guard = require('./guard');
 const templates = require('./templates');
 const membership = require('./membership');
+const records = require('../crm/records');
+const sources = require('../crm/sources');
 const members = require('../members');
 const notify = require('../notify');
 
@@ -38,7 +40,11 @@ const DEFAULT_SETTINGS = {
   notifyOwner: true,
   // The community's registration form: see ./membership.js. null for any other.
   membership: null,
+  // The mentorship board list the answers also go to (server/crm/sources.js), or null.
+  crm: null,
 };
+
+const CRM_LISTS = ['mentors_applications', 'mentees_interest', 'mentees_applications'];
 
 // ── Who is asking ────────────────────────────────────────────────────────────
 
@@ -185,12 +191,17 @@ async function create(user, body) {
   const settings = { ...DEFAULT_SETTINGS };
   const wiring = b.schema ? null : templates.membershipFor(b.template);
   if (wiring && who.perms.includes('forms_admin')) settings.membership = wiring;
+  const crmList = b.schema ? null : templates.crmFor(b.template);
+  if (crmList && who.perms.includes('forms_admin')) settings.crm = crmList;
+  const ownSlug = b.schema ? null : templates.slugFor(b.template);
   for (let n = 0; n < 10; n++) {
     // A short random tail: links are not guessable from the title alone. The
     // registration form first tries the address the site's join buttons open.
     const slug =
       n === 0 && settings.membership
         ? membership.JOIN_SLUG
+        : n === 0 && ownSlug
+        ? ownSlug
         : `${base}-${crypto.randomBytes(3).toString('hex')}`;
     try {
       const id = await db.transaction(async (tx) => {
@@ -297,6 +308,21 @@ async function updateSettings(user, id, body) {
         );
     }
     settings.membership = next;
+  }
+
+  if (s.crm !== undefined) {
+    const next = s.crm || null;
+    if (next !== null && !CRM_LISTS.includes(next))
+      throw new HttpError(400, 'Unknown mentorship list', { field: 'crm' });
+    if (next !== (settings.crm || null)) {
+      // Like the members board: a door into the people the program contacts.
+      const who = await whoIs(user);
+      if (!who.perms.includes('forms_admin'))
+        throw new HttpError(403, 'Only the forms admins can link a form to the mentorship board', {
+          field: 'crm',
+        });
+    }
+    settings.crm = next;
   }
 
   let roles = form.access_roles;
@@ -448,6 +474,7 @@ async function submit(slug, body, ip) {
       ]
     );
     await toBoard(form, schema, settings, answers, tx);
+    if (settings.crm) await toMentorship(settings.crm, schema, answers, id, tx);
   });
   return { ok: true, confirmation, responseId: id, formId: form.id };
 }
@@ -461,6 +488,20 @@ async function toBoard(form, schema, settings, answers, q) {
   if (!mapping) return;
   const application = membership.toApplication(schema, mapping, answers);
   if (application) await members.createApplication(application, { source: form.slug, q });
+}
+
+/**
+ * The answer also goes to the mentorship board (server/crm/records.js): each
+ * field of the list is the answer to the question with that id.
+ */
+async function toMentorship(sourceId, schema, answers, responseId, q) {
+  const fields = {};
+  for (const name of Object.keys(sources.SOURCES[sourceId].fields)) {
+    const item = schema.items.find((i) => i.id === name);
+    fields[name] =
+      item && answers[name] !== undefined ? schemaLib.answerText(schema, item, answers[name]) : '';
+  }
+  await records.add(sourceId, fields, { origin: 'form', responseId, q });
 }
 
 /**

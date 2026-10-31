@@ -972,3 +972,52 @@ test('the sign-up form gets the address the site join buttons open, once', async
   const plain = await forms.create(root, { title: 'Iscrizione', template: 'blank' });
   assert.notEqual(plain.slug, JOIN_SLUG);
 });
+
+test('a mentee application form feeds the mentorship board, and goes with its answer', async () => {
+  await setRoles();
+  const root = await admin();
+  const { id, slug } = await forms.create(root, {
+    title: 'Candidatura mentee',
+    template: 'mentee_application',
+  });
+  assert.equal(slug, 'candidatura-mentee');
+  assert.equal((await forms.get(root, id)).settings.crm, 'mentees_applications');
+  await forms.updateSettings(root, id, { status: 'open' });
+
+  await answer(slug, {
+    privacy: true,
+    name: 'Gino Mentee',
+    email: 'gino@example.org',
+    tracks: { selected: ['projects'] },
+    motivation: 'Voglio imparare.',
+    hours: '5',
+  });
+  const { rows } = await db.query('select origin, response_id, source from crm_records');
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].origin, 'form');
+  assert.equal(rows[0].source, 'mentees_applications');
+  assert.ok(rows[0].response_id);
+
+  const { mentees } = await require('./crm/mentorship').board(root);
+  const gino = mentees.find((m) => m.name === 'Gino Mentee');
+  assert.equal(gino.status, 'applied');
+
+  const [one] = (await forms.responses(root, id)).responses;
+  await forms.deleteResponse(root, id, one.id);
+  assert.equal((await db.query('select 1 from crm_records')).rows.length, 0);
+});
+
+test('only forms admins link a form to the mentorship board, and only to a known list', async () => {
+  await setRoles();
+  const mara = await member('Mara', ['r-forms']);
+  const boss = await member('Bea', ['r-forms-admin']);
+  const { id } = await forms.create(mara, { title: 'Mentor', template: 'mentor_call' });
+  // A maker's copy of the template is not linked.
+  assert.equal((await forms.get(mara, id)).settings.crm, null);
+  await rejects(forms.updateSettings(mara, id, { settings: { crm: 'mentors_applications' } }), 403);
+  // Saving the unchanged value is fine for her.
+  await forms.updateSettings(mara, id, { settings: { crm: null } });
+  await rejects(forms.updateSettings(boss, id, { settings: { crm: 'everyone' } }), 400);
+  await forms.updateSettings(boss, id, { settings: { crm: 'mentors_applications' } });
+  assert.equal((await forms.get(boss, id)).settings.crm, 'mentors_applications');
+});
