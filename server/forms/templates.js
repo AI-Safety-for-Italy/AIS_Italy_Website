@@ -45,6 +45,8 @@ const TRACKS = options([
   ['orientation', 'Orientamento professionale'],
 ]);
 
+const ACTIVE = { item: 'involvement', values: ['active'] };
+
 const TEMPLATES = {
   blank: {
     label: 'Blank form',
@@ -225,12 +227,15 @@ const TEMPLATES = {
           other: true,
         }),
         q('goals', 'long_text', 'Cosa ti piacerebbe ottenere partecipando alla community?'),
-        q('groups', 'multi', 'A quali gruppi di lavoro vorresti contribuire?', {
+        // Only for those who want to take part: the Discord-only answer skips them.
+        q('groups', 'multi', 'Cosa ti piacerebbe fare?', {
           options: options(GROUPS),
+          showIf: ACTIVE,
         }),
-        q('hours', 'number', 'Quante ore vuoi dedicare ad AI Safety Italy ogni mese?', {
+        q('hours', 'number', 'Quante ore a settimana vuoi dedicare ad AI Safety Italy?', {
           min: 0,
-          max: 200,
+          max: 50,
+          showIf: ACTIVE,
         }),
         q(
           'publish',
