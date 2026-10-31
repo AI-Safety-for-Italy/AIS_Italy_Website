@@ -19,6 +19,8 @@ seoDescription_it: "Il programma di mentorship di AI Safety for Italy mette in c
 {% extends "base.njk" %}
 {% block content %}
 {% set m = mentorship %}
+{# The mentors are left off the live site until `published` in data/mentors.yaml. #}
+{% set showMentors = mentors.mentors and (mentors.published or not site.isProduction) %}
 
 <!-- Hero -->
 <section class="page-hero mentorship-hero">
@@ -34,7 +36,11 @@ seoDescription_it: "Il programma di mentorship di AI Safety for Italy mette in c
             <p class="lede" data-en="{{ m.lede }}" data-it="{{ m.lede_it }}">{{ m.lede }}</p>
             <div class="home-hero-ctas mentorship-ctas">
                 <a href="{{ m.links.interest_form }}" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-lg" data-en="{{ m.interest.button }}" data-it="{{ m.interest.button_it }}">{{ m.interest.button }}</a>
+                {% if showMentors %}
+                <a href="#mentors" class="btn btn-secondary btn-lg" data-en="Explore the mentors" data-it="Scopri i mentor">Explore the mentors</a>
+                {% else %}
                 <a href="#timeline" class="btn btn-secondary btn-lg" data-en="{{ m.interest.dates_button }}" data-it="{{ m.interest.dates_button_it }}">{{ m.interest.dates_button }}</a>
+                {% endif %}
             </div>
             {% include "mentorship-partner.njk" %}
         </div>
@@ -49,7 +55,13 @@ seoDescription_it: "Il programma di mentorship di AI Safety for Italy mette in c
     </div>
 </section>
 
-<!-- Express your interest -->
+{% if showMentors %}
+<!-- Mentors and projects -->
+{% include "mentor-explorer.njk" %}
+
+{% else %}
+<!-- Express your interest: with the mentors listed, the hero and each
+     mentor's profile carry this button already. -->
 <section class="section section-alt" id="interest">
     <div class="container">
         <div class="interest-card reveal">
@@ -63,6 +75,8 @@ seoDescription_it: "Il programma di mentorship di AI Safety for Italy mette in c
         </div>
     </div>
 </section>
+
+{% endif %}
 
 <!-- Two tracks -->
 <section class="section" id="tracks">
@@ -128,8 +142,29 @@ seoDescription_it: "Il programma di mentorship di AI Safety for Italy mette in c
     </div>
 </section>
 
+<!-- How selection works -->
+<section class="section" id="selection">
+    {% set s = m.selection %}
+    <div class="container">
+        <div class="rule-head reveal">
+            <h2 data-en="{{ s.title }}" data-it="{{ s.title_it }}">{{ s.title }}</h2>
+        </div>
+        <div class="selection-grid">
+            <div class="selection-text reveal">
+                {% for para in s.paragraphs %}
+                <p data-en="{{ para.text }}" data-it="{{ para.text_it }}">{{ para.text }}</p>
+                {% endfor %}
+            </div>
+            <aside class="ai-note reveal">
+                <h3 data-en="{{ s.ai_title }}" data-it="{{ s.ai_title_it }}">{{ s.ai_title }}</h3>
+                <p data-en="{{ s.ai_text }}" data-it="{{ s.ai_text_it }}">{{ s.ai_text }}</p>
+            </aside>
+        </div>
+    </div>
+</section>
+
 <!-- Key dates -->
-<section class="section" id="timeline">
+<section class="section section-alt" id="timeline">
     <div class="container timeline-layout">
         <div class="timeline-intro reveal">
             <h2 data-en="{{ m.timeline_title }}" data-it="{{ m.timeline_title_it }}">{{ m.timeline_title }}</h2>
@@ -159,27 +194,6 @@ seoDescription_it: "Il programma di mentorship di AI Safety for Italy mette in c
             </li>
             {% endfor %}
         </ol>
-    </div>
-</section>
-
-<!-- How selection works -->
-<section class="section section-alt" id="selection">
-    {% set s = m.selection %}
-    <div class="container">
-        <div class="rule-head reveal">
-            <h2 data-en="{{ s.title }}" data-it="{{ s.title_it }}">{{ s.title }}</h2>
-        </div>
-        <div class="selection-grid">
-            <div class="selection-text reveal">
-                {% for para in s.paragraphs %}
-                <p data-en="{{ para.text }}" data-it="{{ para.text_it }}">{{ para.text }}</p>
-                {% endfor %}
-            </div>
-            <aside class="ai-note reveal">
-                <h3 data-en="{{ s.ai_title }}" data-it="{{ s.ai_title_it }}">{{ s.ai_title }}</h3>
-                <p data-en="{{ s.ai_text }}" data-it="{{ s.ai_text_it }}">{{ s.ai_text }}</p>
-            </aside>
-        </div>
     </div>
 </section>
 

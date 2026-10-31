@@ -63,6 +63,9 @@ seoDescription_it: "AI Safety for Italy è la community italiana che lavora per 
                     </div>
                 </div>
                 <p class="event-card-summary" data-en="{{ card.summary }}" data-it="{{ card.summary_it }}">{{ card.summary }}</p>
+                {% if card.notice %}
+                <p class="note-orange" data-en="{{ card.notice }}" data-it="{{ card.notice_it or card.notice }}">{{ card.notice }}</p>
+                {% endif %}
                 <a href="{{ card.details_link }}" class="text-link" data-en="{{ card.details_text }}" data-it="{{ card.details_text_it }}">{{ card.details_text }}</a>
             </div>
             <div class="event-card-actions">
@@ -111,16 +114,16 @@ seoDescription_it: "AI Safety for Italy è la community italiana che lavora per 
                 <a href="/mentorship/" class="text-link" data-en="Tracks, requirements and key dates →" data-it="Percorsi, requisiti e date principali →">Tracks, requirements and key dates →</a>
                 {% include "mentorship-partner.njk" %}
             </div>
-            <div class="call-roles">
-                <div class="call-role">
-                    <h3 data-en="{{ mentorship.mentor.title }}" data-it="{{ mentorship.mentor.title_it }}">{{ mentorship.mentor.title }}</h3>
-                    <p data-en="{{ call.mentor }}" data-it="{{ call.mentor_it }}">{{ call.mentor }}</p>
-                    <a href="{{ mentorship.links.interest_form }}" target="_blank" rel="noopener noreferrer" class="btn btn-primary" data-en="{{ mentorship.mentor.button }}" data-it="{{ mentorship.mentor.button_it }}">{{ mentorship.mentor.button }}</a>
-                </div>
+            {# Mentor applications are closed: only the mentees' card is left,
+               pointing first at the mentors and their projects. #}
+            <div class="call-roles is-single">
                 <div class="call-role">
                     <h3 data-en="{{ mentorship.mentee.title }}" data-it="{{ mentorship.mentee.title_it }}">{{ mentorship.mentee.title }}</h3>
                     <p data-en="{{ call.mentee }}" data-it="{{ call.mentee_it }}">{{ call.mentee }}</p>
-                    <a href="{{ mentorship.links.interest_form }}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary" data-en="{{ mentorship.mentee.button }}" data-it="{{ mentorship.mentee.button_it }}">{{ mentorship.mentee.button }}</a>
+                    <div class="call-role-actions">
+                        <a href="/mentorship/#mentors" class="btn btn-primary" data-en="Explore the mentors" data-it="Scopri i mentor">Explore the mentors</a>
+                        <a href="{{ mentorship.links.interest_form }}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary" data-en="{{ mentorship.mentee.button }}" data-it="{{ mentorship.mentee.button_it }}">{{ mentorship.mentee.button }}</a>
+                    </div>
                 </div>
             </div>
         </div>

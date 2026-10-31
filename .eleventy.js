@@ -305,6 +305,15 @@ module.exports = function(eleventyConfig) {
     (list || []).filter(e => e && e.day).sort((a, b) => (a.day < b.day ? -1 : 1))
   );
 
+  // A mentor's project (data/mentors.yaml): their own, or else the first one
+  // written by one of their `co_mentors`, so a shared project is written once.
+  eleventyConfig.addFilter("projectOf", (list, mentor) => {
+    if (!mentor) return undefined;
+    if (mentor.project) return mentor.project;
+    const co = (list || []).find(m => (mentor.co_mentors || []).includes(m.id) && m.project);
+    return co ? co.project : undefined;
+  });
+
   eleventyConfig.addFilter("pluckFlat", (list, key) => {
     return (list || []).reduce((acc, item) => acc.concat((item && item[key]) || []), []);
   });
@@ -344,6 +353,7 @@ module.exports = function(eleventyConfig) {
   const dataFileNames = [
     'home.yaml',
     'mentorship.yaml',
+    'mentors.yaml',
     'about.yaml',
     'events.yaml',
     'activities.yaml',
