@@ -228,13 +228,13 @@ const TEMPLATES = {
         }),
         q('goals', 'long_text', 'Cosa ti piacerebbe ottenere partecipando alla community?'),
         // Only for those who want to take part: the Discord-only answer skips them.
-        q('groups', 'multi', 'Cosa ti piacerebbe fare?', {
+        q('groups', 'multi', 'A quali gruppi di lavoro vorresti contribuire?', {
           options: options(GROUPS),
           showIf: ACTIVE,
         }),
-        q('hours', 'number', 'Quante ore a settimana vuoi dedicare ad AI Safety Italy?', {
+        q('hours', 'number', 'Quante ore vuoi dedicare ad AI Safety Italy ogni mese?', {
           min: 0,
-          max: 50,
+          max: 200,
           showIf: ACTIVE,
         }),
         q(
