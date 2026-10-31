@@ -132,13 +132,17 @@ jobs:
       # follows its latest deploy: one link to share before merging into main.
       - name: Point the dev alias at this deploy
         if: github.ref == 'refs/heads/dev'
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
-          vercel alias set "${{ steps.deploy.outputs.url }}" ais4i-dev.vercel.app --scope ai-safety-4-italy --token=${{ secrets.VERCEL_TOKEN }}
+          scripts/vercel-alias.sh "${{ steps.deploy.outputs.url }}" ais4i-dev.vercel.app
           echo "Aliased to https://ais4i-dev.vercel.app" >> "$GITHUB_STEP_SUMMARY"
 
       # Same idea for the redesign branch, on its own fixed address.
       - name: Point the redesign alias at this deploy
         if: github.ref == 'refs/heads/design-improvements'
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
-          vercel alias set "${{ steps.deploy.outputs.url }}" ais4i-redesign.vercel.app --scope ai-safety-4-italy --token=${{ secrets.VERCEL_TOKEN }}
+          scripts/vercel-alias.sh "${{ steps.deploy.outputs.url }}" ais4i-redesign.vercel.app
           echo "Aliased to https://ais4i-redesign.vercel.app" >> "$GITHUB_STEP_SUMMARY"
