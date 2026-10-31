@@ -1930,7 +1930,8 @@ a:hover {
   color: var(--text-tertiary);
 }
 
-.mentor-affiliation::before {
+/* Only between a role and the affiliation: a mentor may have no role. */
+* + .mentor-affiliation::before {
   content: ' · ';
 }
 
