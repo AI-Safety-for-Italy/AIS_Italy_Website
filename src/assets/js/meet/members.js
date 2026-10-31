@@ -266,6 +266,10 @@
     if (a.status === 'approved') {
       if (a.joinedAt)
         lines.push('Joined Discord as ' + a.discordName + ', ' + when(a.joinedAt) + '.');
+      if (a.joinedAt && a.joinEmailMatch === false)
+        lines.push(
+          'Check this: the Discord account that used the link has a different email from the application. The link may have been forwarded.'
+        );
       else if (a.inviteSentAt) {
         lines.push(
           'Link emailed ' + when(a.inviteSentAt) + '; valid until ' + when(a.joinExpiresAt) + '.'

@@ -908,3 +908,29 @@ test('the CSV export: managers only, every version, and no formula runs in a spr
   assert.ok(older.includes('Interpretabilità, Governance'));
   assert.equal((await audit.recent({ subjectKey: id }))[0].action, 'form-export');
 });
+
+test('a long name still reaches the board; if the board refuses, nothing is kept and the person is told', async () => {
+  const root = await admin();
+  const { id, slug } = await forms.create(root, {
+    title: 'Iscrizione',
+    template: 'community_signup',
+  });
+  await forms.updateSettings(root, id, { status: 'open' });
+  const long = 'Maria '.repeat(46).trim(); // 275 characters, fine for a short answer
+  await answer(slug, signupAnswers({ first_name: long }));
+  const [app] = await applications();
+  assert.equal(app.name, long + ' Bianchi');
+
+  const members = require('./members');
+  const original = members.createApplication;
+  members.createApplication = async () => {
+    throw new Error('the board is down');
+  };
+  try {
+    await assert.rejects(answer(slug, signupAnswers({ email: 'sara@example.org' })));
+  } finally {
+    members.createApplication = original;
+  }
+  assert.equal((await forms.responses(root, id)).responses.length, 1);
+  assert.equal((await applications()).length, 1);
+});

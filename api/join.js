@@ -41,7 +41,8 @@ module.exports = route({
       res.setHeader('Set-Cookie', auth.cookieHeader(STATE_COOKIE, cookie, 900, 'Lax'));
       return redirect(
         res,
-        discord.authorizeUrl({ state, redirectUri, scope: 'identify guilds.join' })
+        // email: to tell the board when the account is not the applicant's.
+        discord.authorizeUrl({ state, redirectUri, scope: 'identify email guilds.join' })
       );
     }
 

@@ -422,35 +422,35 @@ async function submit(slug, body, ip) {
     if (rows.length) throw new HttpError(409, 'This email has already answered this form');
   }
   const id = crypto.randomUUID();
-  await db.query(
-    `insert into form_responses (id, form_id, version, answers_encrypted, respondent_key)
-     values ($1, $2, $3, $4, $5)`,
-    [
-      id,
-      form.id,
-      version,
-      crm.encrypt(JSON.stringify(answers), `form:${form.id}:${id}`),
-      respondentKey,
-    ]
-  );
-  await toBoard(form, schema, settings, answers);
+  // The answer and, for the sign-up form, the application on the members
+  // board are written together: if the board refuses it, the person is told
+  // and nothing is kept, rather than an answer nobody will ever review.
+  await db.transaction(async (tx) => {
+    await tx.query(
+      `insert into form_responses (id, form_id, version, answers_encrypted, respondent_key)
+       values ($1, $2, $3, $4, $5)`,
+      [
+        id,
+        form.id,
+        version,
+        crm.encrypt(JSON.stringify(answers), `form:${form.id}:${id}`),
+        respondentKey,
+      ]
+    );
+    await toBoard(form, schema, settings, answers, tx);
+  });
   return { ok: true, confirmation, responseId: id, formId: form.id };
 }
 
 /**
- * The registration form's answers also go to the members board. The answers
- * are already kept with the form, so a failure here is logged, not shown to
- * the person: they did answer.
+ * The registration form's answers also go to the members board, in the same
+ * transaction as the answer (`q`): a failure fails the whole submission.
  */
-async function toBoard(form, schema, settings, answers) {
+async function toBoard(form, schema, settings, answers, q) {
   const mapping = membership.usable(schema, settings.membership);
   if (!mapping) return;
-  try {
-    const application = membership.toApplication(schema, mapping, answers);
-    if (application) await members.createApplication(application, { source: form.slug });
-  } catch (err) {
-    console.error(`Form ${form.id}: could not send an answer to the members board:`, err.message);
-  }
+  const application = membership.toApplication(schema, mapping, answers);
+  if (application) await members.createApplication(application, { source: form.slug, q });
 }
 
 /**

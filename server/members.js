@@ -40,6 +40,11 @@ const ROLES = [
   },
 ];
 const JOIN_DAYS = 30;
+// What a submission may hold: at least as much as a form lets through
+// (server/forms/schema.js: 300-character short answers, so a name and a
+// surname; 254-character emails; 150 questions; 8000-character texts, and
+// choices of up to 60 options of 200 characters).
+const LIMITS = { name: 700, email: 254, answers: 200, label: 500, value: 20000 };
 const EMAIL = /^[^\s@<>(),;:"]+@[^\s@<>(),;:"]+\.[^\s@<>(),;:"]+$/;
 
 function devMode() {
@@ -72,25 +77,33 @@ function text(value, label, max, required) {
  *                        the board should show them (value: text or list)
  * `source` names the form it came from. Returns { id }.
  */
-async function createApplication(fields, { source } = {}) {
+async function createApplication(fields, { source, q = db } = {}) {
   // Without the keys the details could not be stored protected: take none.
   if (!crm.configured()) throw new HttpError(503, 'Applications are not available right now');
   const f = fields || {};
-  const name = text(f.name, 'Name', 120, true);
-  const email = text(f.email, 'Email', 200, true).toLowerCase();
+  const name = text(f.name, 'Name', LIMITS.name, true);
+  const email = text(f.email, 'Email', LIMITS.email, true).toLowerCase();
   if (!EMAIL.test(email)) throw new HttpError(400, 'Enter a valid email');
   const requestedRole = f.requestedRole || null;
   if (requestedRole && !ROLES.some((r) => r.key === requestedRole)) {
     throw new HttpError(400, 'Unknown role');
   }
   const list = f.answers == null ? [] : f.answers;
-  if (!Array.isArray(list) || list.length > 80) throw new HttpError(400, 'Invalid answers');
+  if (!Array.isArray(list) || list.length > LIMITS.answers)
+    throw new HttpError(400, 'Invalid answers');
   const answers = list.map((a) => ({
-    label: text(a && a.label, 'Question', 500, true),
-    value: text(Array.isArray(a.value) ? a.value.join(', ') : a.value, 'Answer', 5000, false),
+    label: text(a && a.label, 'Question', LIMITS.label, true),
+    value: text(
+      Array.isArray(a.value) ? a.value.join(', ') : a.value,
+      'Answer',
+      LIMITS.value,
+      false
+    ),
   }));
   const id = crypto.randomUUID();
-  await db.query(
+  // `q`: the caller's transaction, so the form's answer and the application
+  // are kept together or not at all.
+  await q.query(
     `insert into member_applications (id, requested_role, source, details_encrypted, email_key)
      values ($1, $2, $3, $4, $5)`,
     [
@@ -143,6 +156,8 @@ function summary(r) {
     discordName: r.discord_name,
     joinedAt: r.joined_at,
     joinError: r.join_error,
+    // false: joined with a Discord account whose email is not the application's.
+    joinEmailMatch: r.join_email_match,
     createdAt: r.created_at,
     // Same email on another application, e.g. someone who registered twice.
     duplicates: Number(r.duplicates || 0),
@@ -179,11 +194,11 @@ function firstName(name) {
 }
 
 /** Emails the join link; records the outcome. Returns { sent, detail }. */
-async function sendInvite(row, siteOrigin) {
+async function sendInvite(row, siteOrigin, token) {
   const who = details(row);
   if (!who) return { sent: false, detail: 'The application cannot be opened with the current key' };
   const role = ROLES.find((r) => r.key === row.role);
-  const link = `${siteOrigin}/api/join?t=${row.join_token}`;
+  const link = `${siteOrigin}/api/join?t=${token}`;
   const until = new Date(row.join_expires_at).toLocaleDateString('it-IT', {
     day: 'numeric',
     month: 'long',
@@ -220,6 +235,11 @@ function newToken() {
   return crypto.randomBytes(24).toString('base64url');
 }
 
+/** What the database keeps of a join token: its SHA-256, never the token. */
+function tokenHash(token) {
+  return crypto.createHash('sha256').update(String(token)).digest('base64url');
+}
+
 /**
  * Approves (`decision: 'approve'`, with `role`) or rejects a pending
  * application. Approving emails the join link. Returns { application, invite }.
@@ -230,6 +250,7 @@ async function decide(user, id, body, { siteOrigin }) {
   const note = text(b.note, 'Note', 2000, false);
   await loadRow(id);
   let updated;
+  const token = newToken();
   if (b.decision === 'approve') {
     if (!ROLES.some((r) => r.key === b.role)) throw new HttpError(400, 'Choose a role');
     if (!roleId(b.role))
@@ -241,7 +262,7 @@ async function decide(user, id, body, { siteOrigin }) {
          decided_by = $4, decided_at = now(), join_token = $5,
          join_expires_at = now() + make_interval(days => $6)
        where id = $1 and status in ('pending', 'rejected') returning *`,
-      [id, b.role, note, user.id, newToken(), JOIN_DAYS]
+      [id, b.role, note, user.id, tokenHash(token), JOIN_DAYS]
     );
   } else if (b.decision === 'reject') {
     updated = await db.query(
@@ -260,7 +281,7 @@ async function decide(user, id, body, { siteOrigin }) {
     role: b.decision === 'approve' ? b.role : undefined,
   });
   const invite =
-    b.decision === 'approve' ? await sendInvite(updated.rows[0], siteOrigin) : undefined;
+    b.decision === 'approve' ? await sendInvite(updated.rows[0], siteOrigin, token) : undefined;
   return { application: summary(await loadRow(id)), invite };
 }
 
@@ -268,15 +289,16 @@ async function decide(user, id, body, { siteOrigin }) {
 async function resendInvite(user, id, { siteOrigin }) {
   await access.requirePermission(user, 'members', { fresh: true });
   await loadRow(id);
+  const token = newToken();
   const { rows } = await db.query(
     `update member_applications set join_token = $2,
        join_expires_at = now() + make_interval(days => $3), join_error = null
      where id = $1 and status = 'approved' and joined_at is null returning *`,
-    [id, newToken(), JOIN_DAYS]
+    [id, tokenHash(token), JOIN_DAYS]
   );
   if (!rows.length) throw new HttpError(409, 'Only approved people who have not joined yet');
   await audit.record(user, 'member-resend', id);
-  const invite = await sendInvite(rows[0], siteOrigin);
+  const invite = await sendInvite(rows[0], siteOrigin, token);
   return { application: summary(await loadRow(id)), invite };
 }
 
@@ -292,7 +314,7 @@ class JoinError extends Error {
 async function checkJoinToken(token) {
   if (!/^[\w-]{20,64}$/.test(String(token || ''))) throw new JoinError('invalid');
   const { rows } = await db.query('select * from member_applications where join_token = $1', [
-    token,
+    tokenHash(token),
   ]);
   const row = rows[0];
   if (!row || row.status !== 'approved') throw new JoinError('invalid');
@@ -301,14 +323,44 @@ async function checkJoinToken(token) {
   return row;
 }
 
-async function markJoined(row, discordId, discordName) {
+/**
+ * Takes the link for this join, in one statement: of two clicks at the same
+ * moment, one wins and the other is told the link was used. Released again
+ * if joining then fails, so the person can retry.
+ */
+async function claim(row) {
+  const { rows } = await db.query(
+    `update member_applications set joined_at = now(), join_error = null
+     where id = $1 and status = 'approved' and joined_at is null and join_expires_at > now()
+     returning *`,
+    [row.id]
+  );
+  if (!rows.length) throw new JoinError('used');
+  return rows[0];
+}
+
+async function release(row, error) {
+  await db.query('update member_applications set joined_at = null, join_error = $2 where id = $1', [
+    row.id,
+    String(error).slice(0, 300),
+  ]);
+}
+
+async function markJoined(row, discordId, discordName, emailMatch) {
   await db.query(
     // The token stays, so opening the link again says "already used".
-    `update member_applications set discord_id = $2, discord_name = $3, joined_at = now(),
+    `update member_applications set discord_id = $2, discord_name = $3, join_email_match = $4,
        join_error = null
      where id = $1`,
-    [row.id, discordId, discordName]
+    [row.id, discordId, discordName, emailMatch]
   );
+}
+
+/** Does the Discord account's verified email match the application's? null: unknown. */
+function sameEmail(row, discordUser) {
+  const who = details(row);
+  if (!who || !discordUser.email || discordUser.verified === false) return null;
+  return String(discordUser.email).trim().toLowerCase() === String(who.email).toLowerCase();
 }
 
 /**
@@ -317,8 +369,15 @@ async function markJoined(row, discordId, discordName) {
  * links the application to their Discord account.
  */
 async function completeJoin(token, { code, redirectUri }, fetchImpl) {
-  const row = await checkJoinToken(token);
-  const { accessToken, user } = await discord.exchange({ code, redirectUri }, fetchImpl);
+  const row = await claim(await checkJoinToken(token));
+  let accessToken;
+  let user;
+  try {
+    ({ accessToken, user } = await discord.exchange({ code, redirectUri }, fetchImpl));
+  } catch (err) {
+    await release(row, err.message);
+    throw err;
+  }
   const guild = process.env.DISCORD_GUILD_ID;
   const role = roleId(row.role);
   try {
@@ -334,19 +393,16 @@ async function completeJoin(token, { code, redirectUri }, fetchImpl) {
     });
     if (!give.ok) throw new Error(`Giving the role failed (${give.status})`);
   } catch (err) {
-    await db.query('update member_applications set join_error = $2 where id = $1', [
-      row.id,
-      err.message.slice(0, 300),
-    ]);
+    await release(row, err.message);
     throw new JoinError('failed', err.message);
   }
-  await markJoined(row, user.id, user.global_name || user.username);
+  await markJoined(row, user.id, user.global_name || user.username, sameEmail(row, user));
 }
 
 /** Local development, without Discord: the link joins at once. */
 async function completeJoinDev(token) {
-  const row = await checkJoinToken(token);
-  await markJoined(row, `dev-${row.id.slice(0, 8)}`, (details(row) || {}).name || 'Dev');
+  const row = await claim(await checkJoinToken(token));
+  await markJoined(row, `dev-${row.id.slice(0, 8)}`, (details(row) || {}).name || 'Dev', null);
 }
 
 module.exports = {

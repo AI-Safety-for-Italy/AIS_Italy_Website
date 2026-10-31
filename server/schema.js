@@ -376,4 +376,10 @@ alter table member_applications add column if not exists email_key text;
 alter table member_applications alter column name drop not null;
 alter table member_applications alter column email drop not null;
 create index if not exists member_applications_email_key on member_applications (email_key);
+
+-- join_token holds the SHA-256 of the link's token, never the token itself:
+-- the database alone cannot let anyone in. join_email_match: whether the
+-- Discord account that used the link has the application's email (null when
+-- Discord did not say).
+alter table member_applications add column if not exists join_email_match boolean;
 `;
