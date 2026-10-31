@@ -1,0 +1,221 @@
+{# "Mentors and projects" on the mentorship page: a filterable grid of mentor
+   cards, each opening a dialog with the full project. Data in data/mentors.yaml,
+   track names from `tracks` in data/mentorship.yaml. Filtering, the "show all"
+   button and the dialogs are initMentorExplorer in main.js; without it every
+   card is listed and a card's link scrolls to its profile.
+   Co-mentors are separate entries that list each other in `co_mentors`; one
+   of them writes the project and the others take it from there (projectOf in
+   .eleventy.js). #}
+{% set mx = mentors %}
+{% set m = mentorship %}
+{% set PREVIEW = 6 %}
+{% set usedAreas = mx.mentors | pluckFlat("areas") %}
+
+{% macro initials(name) -%}
+{%- set parts = name | trim | split(" ") -%}
+{{ (parts | first)[0] }}{{ (parts | last)[0] if (parts | length) > 1 else "" }}
+{%- endmacro %}
+
+{% macro avatar(mt, cls) -%}
+{% if mt.photo %}
+<img class="mentor-avatar {{ cls }}" src="{{ mt.photo }}" alt="" loading="lazy" width="160" height="160">
+{% else %}
+<span class="mentor-avatar mentor-initials {{ cls }}" aria-hidden="true">{{ initials(mt.name) }}</span>
+{% endif %}
+{%- endmacro %}
+
+{# The research areas of a mentor. The track is left out: the filter shows it. #}
+{% macro cardTags(mt) -%}
+<ul class="tags mentor-area-tags">
+    {% for id in mt.areas %}
+    {% set a = mx.research_areas | where("id", id) | first %}
+    {% if a %}
+    <li class="tag" data-en="{{ a.label }}" data-it="{{ a.label_it }}">{{ a.label }}</li>
+    {% endif %}
+    {% endfor %}
+</ul>
+{%- endmacro %}
+
+<section class="section section-alt mentors-section" id="mentors">
+    <div class="container">
+        <div class="rule-head reveal">
+            <h2 data-en="{{ mx.title }}" data-it="{{ mx.title_it }}">{{ mx.title }}</h2>
+            <p class="mono-label" data-mentor-count aria-live="polite"><span>{{ mx.mentors | length }}</span> <span data-en="mentors" data-it="mentor">mentors</span></p>
+        </div>
+        <p class="mentors-intro" data-en="{{ mx.intro }}" data-it="{{ mx.intro_it }}">{{ mx.intro }}</p>
+        {% if mx.more_coming %}
+        <p class="note-orange mentors-more-coming" data-en="{{ mx.more_coming }}" data-it="{{ mx.more_coming_it or mx.more_coming }}">{{ mx.more_coming }}</p>
+        {% endif %}
+
+        <div class="mentor-explorer" data-mentor-explorer data-preview="{{ PREVIEW }}">
+            <div class="mentor-filters" data-mentor-filters hidden>
+                <div class="mentor-filter-top">
+                    <label class="mentor-search">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+                        <span class="sr-only" data-en="Search mentors and projects" data-it="Cerca tra mentor e progetti">Search mentors and projects</span>
+                        <input type="search" data-mentor-search autocomplete="off" placeholder="Search by name, topic, organisation…" data-placeholder-en="Search by name, topic, organisation…" data-placeholder-it="Cerca per nome, tema, ente…">
+                    </label>
+                    <span class="sr-only" id="mentor-filter-track" data-en="Track" data-it="Percorso">Track</span>
+                    <div class="mentor-segmented" role="group" aria-labelledby="mentor-filter-track">
+                        <button type="button" class="mentor-segment" data-mentor-track="" aria-pressed="true" data-en="All tracks" data-it="Tutti i percorsi">All tracks</button>
+                        {% for t in m.tracks %}
+                        <button type="button" class="mentor-segment" data-mentor-track="{{ t.id }}" aria-pressed="false" data-en="{{ t.title }}" data-it="{{ t.title_it }}">{{ t.title }}</button>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <span class="sr-only" id="mentor-filter-area" data-en="Research area" data-it="Area di ricerca">Research area</span>
+                <div class="mentor-chips" role="group" aria-labelledby="mentor-filter-area">
+                    {% for a in mx.research_areas %}
+                    {% if a.id in usedAreas %}
+                    <button type="button" class="mentor-chip" data-mentor-area="{{ a.id }}" aria-pressed="false" data-en="{{ a.label }}" data-it="{{ a.label_it }}">{{ a.label }}</button>
+                    {% endif %}
+                    {% endfor %}
+                    <button type="button" class="mentor-reset" data-mentor-reset hidden data-en="Clear filters" data-it="Azzera filtri">Clear filters</button>
+                </div>
+            </div>
+
+            <div class="mentor-grid">
+                {% for mt in mx.mentors %}
+                {% set p = mx.mentors | projectOf(mt) %}
+                <article class="mentor-card" data-mentor="{{ mt.id }}" data-tracks="{{ mt.tracks | join(' ') }}" data-areas="{{ mt.areas | join(' ') }}"
+                    data-search="{{ [mt.name, mt.affiliation, mt.role, mt.role_it, p.title, p.title_it, p.summary, p.summary_it, mt.orientation, mt.orientation_it] | join(' ') | lower }}">
+                    {% if mt.co_mentors %}
+                    <span class="mentor-co-badge">Co-mentor</span>
+                    {% endif %}
+                    <div class="mentor-card-head">
+                        {{ avatar(mt, "") }}
+                        <div class="mentor-card-who">
+                            <h3 class="mentor-name">{{ mt.name }}</h3>
+                            <p class="mentor-role">{% if mt.role %}<span data-en="{{ mt.role }}" data-it="{{ mt.role_it or mt.role }}">{{ mt.role }}</span>{% endif %}{% if mt.affiliation %}<span class="mentor-affiliation">{{ mt.affiliation }}</span>{% endif %}</p>
+                        </div>
+                    </div>
+                    <div class="mentor-card-body">
+                        {% if p %}
+                        <p class="mentor-project-title" data-en="{{ p.title }}" data-it="{{ p.title_it or p.title }}">{{ p.title }}</p>
+                        <p class="mentor-summary" data-en="{{ p.summary }}" data-it="{{ p.summary_it or p.summary }}">{{ p.summary }}</p>
+                        {% else %}
+                        <p class="mentor-help-label" data-en="Can help with" data-it="Può aiutarti con">Can help with</p>
+                        <p class="mentor-summary" data-en="{{ mt.orientation }}" data-it="{{ mt.orientation_it or mt.orientation }}">{{ mt.orientation }}</p>
+                        {% endif %}
+                    </div>
+                    <div class="mentor-card-foot">
+                        {{ cardTags(mt) }}
+                        <a class="mentor-open" href="#{{ mt.id }}" data-mentor-open="{{ mt.id }}" aria-haspopup="dialog">
+                            <span class="sr-only" data-en="{{ 'Read the project' if p else 'Read the profile' }}" data-it="{{ 'Leggi il progetto' if p else 'Leggi il profilo' }}">{{ 'Read the project' if p else 'Read the profile' }}</span><span class="sr-only">: {{ mt.name }}</span>
+                        </a>
+                    </div>
+                </article>
+                {% endfor %}
+            </div>
+
+            <div class="mentor-empty" data-mentor-empty hidden>
+                <p data-en="No mentor matches these filters." data-it="Nessun mentor corrisponde a questi filtri.">No mentor matches these filters.</p>
+                <button type="button" class="btn btn-secondary btn-sm" data-mentor-reset data-en="Clear filters" data-it="Azzera filtri">Clear filters</button>
+            </div>
+
+            <div class="mentor-more" data-mentor-more-wrap hidden>
+                <button type="button" class="btn btn-secondary" data-mentor-more aria-expanded="false"><span data-en="Show all mentors" data-it="Mostra tutti i mentor">Show all mentors</span> <span class="mentor-more-count">({{ mx.mentors | length }})</span></button>
+            </div>
+        </div>
+    </div>
+
+    {% for mt in mx.mentors %}
+    {% set p = mx.mentors | projectOf(mt) %}
+    <dialog class="mentor-dialog" id="{{ mt.id }}" aria-labelledby="{{ mt.id }}-name">
+        <div class="mentor-dialog-inner">
+            <button type="button" class="mentor-dialog-close" data-mentor-close>
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+                <span class="sr-only" data-en="Close" data-it="Chiudi">Close</span>
+            </button>
+
+            <header class="mentor-dialog-head">
+                {{ avatar(mt, "is-large") }}
+                <div>
+                    {% if mt.co_mentors %}
+                    <span class="mentor-co-badge is-inline">Co-mentor</span>
+                    {% endif %}
+                    <h2 class="mentor-dialog-name" id="{{ mt.id }}-name">{{ mt.name }}</h2>
+                    <p class="mentor-role">{% if mt.role %}<span data-en="{{ mt.role }}" data-it="{{ mt.role_it or mt.role }}">{{ mt.role }}</span>{% endif %}{% if mt.affiliation %}<span class="mentor-affiliation">{{ mt.affiliation }}</span>{% endif %}</p>
+                    {% if mt.places or mt.language %}
+                    <p class="mentor-dialog-meta">
+                        {% if mt.places %}<span data-en="{{ mt.places }} {{ 'place' if mt.places == 1 else 'places' }}" data-it="{{ mt.places }} {{ 'posto' if mt.places == 1 else 'posti' }}">{{ mt.places }} {{ 'place' if mt.places == 1 else 'places' }}</span>{% endif %}
+                        {% if mt.language %}<span data-en="{{ mt.language }}" data-it="{{ mt.language_it or mt.language }}">{{ mt.language }}</span>{% endif %}
+                    </p>
+                    {% endif %}
+                    {% if mt.links %}
+                    <ul class="mentor-links">
+                        {% if mt.links.website %}<li><a href="{{ mt.links.website }}" target="_blank" rel="noopener noreferrer">Website</a></li>{% endif %}
+                        {% if mt.links.linkedin %}<li><a href="{{ mt.links.linkedin }}" target="_blank" rel="noopener noreferrer">LinkedIn</a></li>{% endif %}
+                        {% if mt.links.scholar %}<li><a href="{{ mt.links.scholar }}" target="_blank" rel="noopener noreferrer">Google Scholar</a></li>{% endif %}
+                        {% if mt.links.github %}<li><a href="{{ mt.links.github }}" target="_blank" rel="noopener noreferrer">GitHub</a></li>{% endif %}
+                    </ul>
+                    {% endif %}
+                </div>
+            </header>
+
+            <div class="mentor-dialog-tags">
+                {{ cardTags(mt) }}
+            </div>
+
+            {% if mt.co_mentors %}
+            <section class="mentor-dialog-part">
+                <p class="mono-label" data-en="Co-mentored with" data-it="In co-mentorship con">Co-mentored with</p>
+                <ul class="mentor-co-list">
+                    {% for id in mt.co_mentors %}
+                    {% set co = mx.mentors | where("id", id) | first %}
+                    {% if co %}
+                    <li>
+                        <a class="mentor-co" href="#{{ co.id }}" data-mentor-open="{{ co.id }}" aria-haspopup="dialog">
+                            {{ avatar(co, "is-small") }}
+                            <span class="mentor-co-who">
+                                <span class="mentor-co-name">{{ co.name }}</span>
+                                <span class="mentor-role">{% if co.role %}<span data-en="{{ co.role }}" data-it="{{ co.role_it or co.role }}">{{ co.role }}</span>{% endif %}{% if co.affiliation %}<span class="mentor-affiliation">{{ co.affiliation }}</span>{% endif %}</span>
+                            </span>
+                        </a>
+                    </li>
+                    {% endif %}
+                    {% endfor %}
+                </ul>
+            </section>
+            {% endif %}
+
+            {% if p %}
+            <section class="mentor-dialog-part">
+                <p class="mono-label" data-en="Project" data-it="Progetto">Project</p>
+                <h3 data-en="{{ p.title }}" data-it="{{ p.title_it or p.title }}">{{ p.title }}</h3>
+                <p data-en="{{ p.description or p.summary }}" data-it="{{ p.description_it or p.summary_it or p.description or p.summary }}">{{ p.description or p.summary }}</p>
+            </section>
+            {% endif %}
+
+            {% if p.mentee %}
+            <section class="mentor-dialog-part">
+                <p class="mono-label" data-en="Who it is for" data-it="A chi si rivolge">Who it is for</p>
+                <p data-en="{{ p.mentee }}" data-it="{{ p.mentee_it or p.mentee }}">{{ p.mentee }}</p>
+            </section>
+            {% endif %}
+
+            {% if p.deliverable %}
+            <section class="mentor-dialog-part">
+                <p class="mono-label" data-en="Deliverable" data-it="Risultato">Deliverable</p>
+                <p data-en="{{ p.deliverable }}" data-it="{{ p.deliverable_it or p.deliverable }}">{{ p.deliverable }}</p>
+            </section>
+            {% endif %}
+
+            {% if mt.orientation %}
+            <section class="mentor-dialog-part">
+                <p class="mono-label" data-en="Career orientation: can help with" data-it="Orientamento: può aiutarti con">Career orientation: can help with</p>
+                <p data-en="{{ mt.orientation }}" data-it="{{ mt.orientation_it or mt.orientation }}">{{ mt.orientation }}</p>
+            </section>
+            {% endif %}
+
+            {% if mt.bio %}
+            <section class="mentor-dialog-part">
+                <p class="mono-label" data-en="About the mentor" data-it="Chi è">About the mentor</p>
+                <p data-en="{{ mt.bio }}" data-it="{{ mt.bio_it or mt.bio }}">{{ mt.bio }}</p>
+            </section>
+            {% endif %}
+        </div>
+    </dialog>
+    {% endfor %}
+</section>

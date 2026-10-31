@@ -110,8 +110,8 @@ upcoming_events:
     # announced. The `hero` block holds what that card says.
     featured: true
     # Used by the announcement bar only when data/global.yaml lists no announcements.
-    teaser: 'Open call for mentors and mentees · first edition from 15 December'
-    teaser_it: 'Call aperta per mentor e mentee · prima edizione dal 15 dicembre'
+    teaser: 'Open call for mentees · first edition from 15 December'
+    teaser_it: 'Call aperta per i mentee · prima edizione dal 15 dicembre'
     hero:
       label: 'Open call'
       label_it: 'Call aperta'
@@ -122,22 +122,25 @@ upcoming_events:
       title: 'AI Safety for Italy Mentorship Program'
       title_it: 'Programma di mentorship AI Safety for Italy'
       lines:
-        - text: 'Mentor applications close 20 October 2026'
-          text_it: 'Chiusura candidature mentor: 20 ottobre 2026'
+        - text: 'Mentee applications: 1 – 20 November 2026'
+          text_it: 'Candidature mentee: 1 – 20 novembre 2026'
         - text: 'First edition, 15 December 2026 – 15 March 2027'
           text_it: 'Prima edizione, 15 dicembre 2026 – 15 marzo 2027'
       summary: 'The program connects people who want to enter the field of AI safety, ethics and governance with people who already work in it, in Italy and abroad.'
       summary_it: "Il programma mette in contatto chi vuole entrare nel campo della sicurezza, dell'etica e della governance dell'intelligenza artificiale con persone che ci lavorano già, in Italia e all'estero."
+      # Optional: a short line on an orange background, under the summary.
+      # notice: ''
+      # notice_it: ''
       details_text: 'Tracks, requirements and key dates →'
       details_text_it: 'Percorsi, requisiti e date principali →'
       details_link: '/mentorship/'
-      primary_text: 'Express your interest'
-      primary_text_it: 'Manifesta il tuo interesse'
+      primary_text: 'Explore the mentors'
+      primary_text_it: 'Scopri i mentor'
+      primary_link: '/mentorship/#mentors'
       # Same form as links.interest_form in data/mentorship.yaml.
-      primary_link: 'https://forms.gle/eopxRMZVf7gK5XPW7'
-      secondary_text: 'Key dates'
-      secondary_text_it: 'Date principali'
-      secondary_link: '/mentorship/#timeline'
+      secondary_text: 'Register your interest'
+      secondary_text_it: 'Manifesta il tuo interesse'
+      secondary_link: 'https://forms.gle/eopxRMZVf7gK5XPW7'
     title: 'AI Safety for Italy Mentorship Program: Open Call'
     title_it: 'Programma di mentorship AI Safety for Italy: call aperta'
     date: 'First edition, 15 December 2026 – 15 March 2027'
