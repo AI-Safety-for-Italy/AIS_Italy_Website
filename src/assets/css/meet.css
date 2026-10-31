@@ -189,48 +189,6 @@
   }
 }
 
-/* ── Admin bar ───────────────────────────────────────────────────────────── */
-
-.admin-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
-  margin-bottom: 1.75rem;
-}
-
-.admin-tabs {
-  display: inline-flex;
-  gap: 0.25rem;
-  padding: 0.25rem;
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius);
-  background: var(--card-bg);
-}
-
-.admin-tabs a {
-  padding: 0.45rem 0.9rem;
-  border-radius: 6px;
-  font-size: 0.925rem;
-  font-weight: 600;
-  color: var(--text-secondary);
-  text-decoration: none;
-}
-
-.admin-tabs a:hover {
-  color: var(--accent);
-}
-
-.admin-tabs a[aria-current='page'] {
-  background: var(--accent-100);
-  color: var(--accent);
-}
-
-[data-theme='dark'] .admin-tabs a[aria-current='page'] {
-  background: var(--bg-tertiary);
-}
-
 .link-button {
   background: none;
   border: 0;
@@ -1830,38 +1788,6 @@ html[data-admin] .admin-only {
   color: var(--text-primary);
 }
 
-.tool-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 1rem;
-}
-
-.tool-card {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 1.35rem;
-  background: var(--card-bg);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius);
-  color: var(--text-primary);
-  text-decoration: none;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
-}
-
-a.tool-card:hover {
-  border-color: var(--accent);
-  box-shadow: var(--card-shadow-hover);
-  color: var(--text-primary);
-  transform: translateY(-1px);
-}
-
-.tool-card.is-soon {
-  border-style: dashed;
-  background: transparent;
-  color: var(--text-tertiary);
-}
-
 .tool-icon {
   display: inline-flex;
   align-items: center;
@@ -1898,10 +1824,6 @@ a.tool-card:hover {
 .tool-body span {
   font-size: 0.9rem;
   color: var(--text-secondary);
-}
-
-.tool-card.is-soon .tool-body span {
-  color: var(--text-tertiary);
 }
 
 /* ── Settings ────────────────────────────────────────────────────────────── */
@@ -2263,11 +2185,6 @@ div.poll-item {
 }
 
 /* ── CRM: mentorship board (/app/crm/) ──────────────────────────────────── */
-
-/* The board is wide: it uses the page's full width on large screens. */
-.crm-main .container {
-  max-width: 1400px;
-}
 
 .crm-notice {
   margin-bottom: 0.75rem;
