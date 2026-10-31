@@ -51,7 +51,7 @@
             'span',
             { class: 'hub-todo-top' },
             h('span', {
-              class: 'hub-tool-icon',
+              class: 'hub-tool-icon hub-tool-icon--' + tool.key,
               'aria-hidden': 'true',
               html:
                 '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +

@@ -6626,6 +6626,57 @@ a.hub-todo-card:hover {
   height: 20px;
 }
 
+/* One colour per tool, so the icons tell the tools apart at a glance. */
+.hub-tool-icon--polls {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.hub-tool-icon--content {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.hub-tool-icon--crm {
+  background: #ede9fe;
+  color: #6d28d9;
+}
+
+.hub-tool-icon--forms {
+  background: #ffe4e6;
+  color: #be123c;
+}
+
+.hub-tool-icon--members {
+  background: #cffafe;
+  color: #0e7490;
+}
+
+[data-theme='dark'] .hub-tool-icon--polls {
+  background: #1e3a8a;
+  color: #bfdbfe;
+}
+
+[data-theme='dark'] .hub-tool-icon--content {
+  background: #78350f;
+  color: #fde68a;
+}
+
+[data-theme='dark'] .hub-tool-icon--crm {
+  background: #4c1d95;
+  color: #ddd6fe;
+}
+
+[data-theme='dark'] .hub-tool-icon--forms {
+  background: #881337;
+  color: #fecdd3;
+}
+
+[data-theme='dark'] .hub-tool-icon--members {
+  background: #164e63;
+  color: #a5f3fc;
+}
+
 .hub-tool-body {
   display: flex;
   flex-direction: column;
