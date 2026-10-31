@@ -1305,7 +1305,8 @@
     }
     if (CHOICE.indexOf(item.type) !== -1) optionsEditor(item);
 
-    showIfEditor(item, at);
+    // The privacy consent is asked of everyone (the server refuses it hidden).
+    if (item.type !== 'consent') showIfEditor(item, at);
 
     var note = translationNote(item);
     if (note) props.appendChild(note);

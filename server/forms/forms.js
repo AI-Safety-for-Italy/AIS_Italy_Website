@@ -248,6 +248,9 @@ async function create(user, body) {
 async function saveSchema(user, id, input) {
   const { form } = await formFor(user, id, 'manage', { fresh: true });
   const schema = schemaLib.cleanSchema(input);
+  // The registration form keeps its link to the member applications only
+  // while its name, email and role questions still fit (./membership.js).
+  if (form.settings && form.settings.membership) membership.clean(schema, form.settings.membership);
   const { rows } = await db.query(
     'select count(*)::int as n from form_responses where form_id = $1 and version = $2',
     [form.id, form.current_version]
