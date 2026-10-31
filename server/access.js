@@ -22,8 +22,9 @@ const MAX_SESSION_AGE_MS = 24 * 60 * 60 * 1000;
 const CRM_KEYS = permissions.PERMISSIONS.filter((p) => p.area === 'crm').map((p) => p.key);
 // The forms (server/forms/) and the member applications (server/members.js)
 // hold personal data too and go through this door.
+// So does handing out those keys (`manage_all`, area settings).
 const GUARDED_KEYS = permissions.PERMISSIONS.filter((p) =>
-  ['crm', 'forms', 'members'].includes(p.area)
+  ['crm', 'forms', 'members', 'settings'].includes(p.area)
 ).map((p) => p.key);
 
 async function requireRecentLogin(user, now = Date.now()) {

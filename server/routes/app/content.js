@@ -7,13 +7,12 @@
 //   POST   ?action=restore&id=…&version=…  -> puts back an earlier version
 //   POST   ?action=preview {fields}        -> the entry the fields make, or
 //                                             the first validation error
-//   GET    ?action=roles          -> { roles, table, keys } (manage only)
-//   PUT    ?action=roles { table }         -> saves the permissions table
 //   POST   ?action=switch-on      -> imports data/events.yaml's seminars and
 //                                    events and puts the site on them (manage)
 //   POST   ?action=switch-off     -> the site goes back to the YAML (manage)
 // `publish` says whether the rebuild started and the team was told
-// (server/content-publish.js). Permissions: server/permissions.js.
+// (server/content-publish.js). Permissions: server/permissions.js, edited
+// through /api/app/permissions.
 const { route, sendJson, readJson, getQuery, siteUrl, HttpError } = require('../../http');
 const { requireUser } = require('../../auth');
 const content = require('../../content');
@@ -39,17 +38,6 @@ module.exports = route({
   async GET(req, res) {
     const user = await requireUser(req);
     const query = getQuery(req);
-    if (query.action === 'roles') {
-      await access.authorize(user, 'manage');
-      sendJson(res, 200, {
-        roles: await permissions.guildRoles(),
-        table: await permissions.listRolePermissions(),
-        keys: permissions.PERMISSIONS,
-        // false: only the content columns can be changed by this user.
-        canGrantAll: permissions.canGrantAll(user),
-      });
-      return;
-    }
     await requireSomePermission(user);
     if (query.id) {
       sendJson(res, 200, await content.getItem(query.id, user));
@@ -94,12 +82,6 @@ module.exports = route({
   async PUT(req, res) {
     const user = await requireUser(req);
     const query = getQuery(req);
-    if (query.action === 'roles') {
-      await access.authorize(user, 'manage', { fresh: true });
-      const { table } = await readJson(req);
-      sendJson(res, 200, { table: await permissions.saveRolePermissions(table, user) });
-      return;
-    }
     if (!query.id) throw new HttpError(400, 'Which item?');
     const result = await content.saveItem(user, await readJson(req), query.id);
     sendJson(res, 200, { id: result.id, publish: await after(req, user, result) });

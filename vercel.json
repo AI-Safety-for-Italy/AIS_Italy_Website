@@ -72,6 +72,11 @@
   "devCommand": "npm start",
   "redirects": [
     {
+      "source": "/app/content/permissions/",
+      "destination": "/app/settings/permissions/",
+      "permanent": true
+    },
+    {
       "source": "/admin",
       "destination": "/app/polls/",
       "permanent": true

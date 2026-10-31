@@ -87,7 +87,7 @@ test('on Vercel the stand-ins stay off, whatever MEET_DEV_LOGIN says', async () 
 
 // ── 2. `manage` hands out content keys only ─────────────────────────────────
 
-const contentApi = require('./routes/app/content');
+const permissionsApi = require('./routes/app/permissions');
 
 async function admin() {
   await db.query('select 1');
@@ -113,14 +113,14 @@ test('a content manager changes content keys, but cannot give anyone the CRM, fo
   );
   const manager = await member('Carla', ['r-comms']);
   const put = (table) =>
-    call(contentApi, {
+    call(permissionsApi, {
       method: 'PUT',
-      url: '/api/app/content?action=roles',
+      url: '/api/app/permissions',
       user: manager,
-      body: { table },
+      body: { roles: table },
     });
 
-  const roles = await call(contentApi, { url: '/api/app/content?action=roles', user: manager });
+  const roles = await call(permissionsApi, { url: '/api/app/permissions', user: manager });
   assert.equal(roles.body.canGrantAll, false);
 
   // Content keys: fine, and the CRM row is kept as it is.
@@ -157,15 +157,152 @@ test('a content manager changes content keys, but cannot give anyone the CRM, fo
 
 test('the shared admin can hand out every key', async () => {
   const root = await admin();
-  const roles = await call(contentApi, { url: '/api/app/content?action=roles', user: root });
+  const roles = await call(permissionsApi, { url: '/api/app/permissions', user: root });
   assert.equal(roles.body.canGrantAll, true);
-  const res = await call(contentApi, {
+  const res = await call(permissionsApi, {
     method: 'PUT',
-    url: '/api/app/content?action=roles',
+    url: '/api/app/permissions',
     user: root,
-    body: { table: tableOf([['r-team', ['forms_admin', 'members', 'mentorship']]]) },
+    body: { roles: tableOf([['r-team', ['forms_admin', 'members', 'mentorship']]]) },
   });
   assert.equal(res.statusCode, 200);
+});
+
+test('a person given keys by name gets them on top of their roles, and may sign in', async () => {
+  await permissions.saveRolePermissions(tableOf([['r-comms', ['blog']]]));
+  const root = await admin();
+  const sara = await member('Sara', ['r-comms']);
+  const nora = await member('Nora', []);
+  assert.equal(await permissions.anyContentRole([], 'test-Nora'), false);
+
+  const res = await call(permissionsApi, {
+    method: 'PUT',
+    url: '/api/app/permissions',
+    user: root,
+    body: {
+      roles: tableOf([['r-comms', ['blog']]]),
+      people: [
+        { userId: sara.id, permissions: ['forms'] },
+        { userId: nora.id, permissions: ['event'] },
+      ],
+    },
+  });
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(await permissions.forUser(sara), ['blog', 'forms']);
+  assert.deepEqual(await permissions.forUser(nora), ['event']);
+  // No role at all, but keys by name: the Discord sign-in lets her in.
+  assert.equal(await permissions.anyContentRole([], 'test-Nora'), true);
+
+  // The page lists them, and who else could be added.
+  const page = await call(permissionsApi, { url: '/api/app/permissions', user: root });
+  assert.deepEqual(
+    page.body.people.map((p) => [p.name, p.permissions]),
+    [
+      ['Nora', ['event']],
+      ['Sara', ['forms']],
+    ]
+  );
+  assert.deepEqual(page.body.candidates.map((p) => p.name).sort(), ['Nora', 'Sara']);
+
+  // Every change leaves a line on the audit trail, with the keys only.
+  const { rows } = await db.query(
+    `select user_name, detail from crm_audit where action = 'permissions-change'`
+  );
+  assert.equal(rows.length, 1);
+  assert.deepEqual(rows[0].detail.keys.sort(), ['event', 'forms']);
+});
+
+test('a content manager cannot give personal-data keys to a person either', async () => {
+  await permissions.saveRolePermissions(tableOf([['r-comms', ['manage']]]));
+  const manager = await member('Carla', ['r-comms']);
+  const tom = await member('Tom', []);
+  const put = (people) =>
+    call(permissionsApi, {
+      method: 'PUT',
+      url: '/api/app/permissions',
+      user: manager,
+      body: { roles: tableOf([['r-comms', ['manage']]]), people },
+    });
+  assert.equal((await put([{ userId: tom.id, permissions: ['blog'] }])).statusCode, 200);
+  for (const key of ['members', 'mentorship', 'forms']) {
+    const res = await put([{ userId: tom.id, permissions: ['blog', key] }]);
+    assert.equal(res.statusCode, 403, key);
+  }
+  assert.deepEqual(await permissions.forUser(tom), ['blog']);
+});
+
+test('the board, with manage_all, hands out every key but manage_all itself', async () => {
+  const root = await admin();
+  const tom = await member('Tom', []);
+  const save = (user, roles, people) =>
+    call(permissionsApi, {
+      method: 'PUT',
+      url: '/api/app/permissions',
+      user,
+      body: { roles, people },
+    });
+  // Only the shared admin gives manage_all; it brings manage with it.
+  const board = tableOf([['r-board', ['manage_all']]]);
+  assert.equal((await save(root, board, [])).statusCode, 200);
+  const anna = await member('Anna', ['r-board']);
+  assert.deepEqual(await permissions.forUser(anna), ['manage', 'manage_all']);
+  const page = await call(permissionsApi, { url: '/api/app/permissions', user: anna });
+  assert.equal(page.statusCode, 200);
+  assert.ok(page.body.grantable.includes('members'));
+  assert.ok(!page.body.grantable.includes('manage_all'));
+
+  // Personal-data keys, to a role or a person: fine for the board.
+  const res = await save(
+    anna,
+    [...board, ...tableOf([['r-mentors', ['mentorship', 'members']]])],
+    [{ userId: tom.id, permissions: ['forms_admin'] }]
+  );
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(await permissions.forUser(tom), ['forms_admin']);
+
+  // But not manage_all: neither giving it nor taking it away.
+  const keep = tableOf([
+    ['r-board', ['manage_all']],
+    ['r-mentors', ['mentorship', 'members']],
+  ]);
+  const give = await save(anna, keep, [
+    { userId: tom.id, permissions: ['forms_admin', 'manage_all'] },
+  ]);
+  assert.equal(give.statusCode, 403);
+  const takeAway = await save(
+    anna,
+    tableOf([
+      ['r-board', ['manage']],
+      ['r-mentors', ['mentorship', 'members']],
+    ]),
+    [{ userId: tom.id, permissions: ['forms_admin'] }]
+  );
+  assert.equal(takeAway.statusCode, 403);
+
+  // And an old sign-in is asked to sign in again before changing anything.
+  await db.query(`update app_users set last_login_at = now() - interval '2 days' where id = $1`, [
+    anna.id,
+  ]);
+  assert.equal((await save(anna, keep, [])).statusCode, 401);
+});
+
+test('only accounts signed in with Discord can be given keys by name', async () => {
+  const root = await admin();
+  for (const userId of [root.id, '00000000-0000-0000-0000-000000000000', 'nope']) {
+    const res = await call(permissionsApi, {
+      method: 'PUT',
+      url: '/api/app/permissions',
+      user: root,
+      body: { roles: [], people: [{ userId, permissions: ['blog'] }] },
+    });
+    assert.equal(res.statusCode, 400, userId);
+  }
+});
+
+test('without manage, the permissions page is refused', async () => {
+  const someone = await member('Ugo', []);
+  const res = await call(permissionsApi, { url: '/api/app/permissions', user: someone });
+  assert.equal(res.statusCode, 403);
 });
 
 // ── 3. The admin password and personal data in production ──────────────────

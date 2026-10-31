@@ -11,7 +11,8 @@ email to send the invite from their own calendar.
 | `/app/login/`                                    | Sign-in: Discord, or the shared admin password                                       |
 | `/app/`                                          | Tools available after sign-in (meeting polls for now)                                |
 | `/app/polls/`                                    | The member's own polls (not linked anywhere, not indexed)                            |
-| `/app/settings/`                                 | My settings: the member's own notifications (profile menu)                           |
+| `/app/settings/`                                 | Settings: the member's own notifications                                             |
+| `/app/settings/permissions/`                     | Who may do what, per Discord role and per person (`manage`, and the admin)           |
 | `/app/polls/settings/`                           | General settings: the sending mailbox (admin only)                                   |
 | `/meet/?p=…`, `/it/meet/?p=…`                    | The voting page people get the link to                                               |
 | `api/`                                           | Vercel Functions: `auth`, `discord`, `app/polls`, `app/poll`, `app/settings`, `poll` |
@@ -99,7 +100,7 @@ changes; "Change time" cancels the whole series. See `server/recurrence.js`.
 
 ### Notifications
 
-Each member chooses on `/app/settings/` (profile menu → My settings) how to hear about new answers to their
+Each member chooses on `/app/settings/` (Settings, at the bottom of the sidebar) how to hear about new answers to their
 polls: email, Discord direct message, both, or off; each poll also has its own
 "Notify me" switch. A Discord DM that cannot be delivered (no bot token, or the
 member blocks DMs) falls back to email. On invite-only polls the owner is also
@@ -136,10 +137,9 @@ online at the next build, which publishing starts (about 3 minutes).
 | ------------------------------------- | -------------------------------------------------------------------------- |
 | `/app/content/`                       | The list, newest first, and the latest changes                             |
 | `/app/content/edit/`                  | The form (`?type=seminar`, `?type=event`, or `?id=…`), with a live preview |
-| `/app/content/permissions/`           | Which Discord role may do what (roles with `manage`, and the admin)        |
-| `api/app/content.js`                  | The API                                                                    |
+| `server/routes/app/content.js`        | The API                                                                    |
 | `server/content.js`                   | Validation, the entry each item becomes, versions, the import              |
-| `server/permissions.js`               | Permissions from Discord roles                                             |
+| `server/permissions.js`               | Permissions from Discord roles and per person (`/api/app/permissions`)     |
 | `server/content-build.js`             | What the site's build gets (`.eleventy.js`, the `events` data)             |
 | `server/content-publish.js`           | After a save: start the build, tell the team channel                       |
 | `scripts/content-migrate.js`          | Moves the seminars and events of `data/events.yaml` into the database      |

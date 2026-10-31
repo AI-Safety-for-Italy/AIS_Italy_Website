@@ -39,12 +39,6 @@ module.exports = [
     tabs: [
       { key: 'content', label: 'Seminars & events', url: '/app/content/' },
       { key: 'content-new', label: 'New', url: '/app/content/edit/' },
-      {
-        key: 'content-permissions',
-        label: 'Permissions',
-        url: '/app/content/permissions/',
-        needs: 'manage',
-      },
     ],
     actions: [
       { label: 'New seminar', url: '/app/content/edit/?type=seminar', needs: 'seminar' },

@@ -39,6 +39,8 @@
       ? h('img', { class: 'app-avatar', src: user.avatarUrl, alt: '', width: size, height: size })
       : h('span', { class: 'app-avatar is-initial', 'aria-hidden': 'true' }, user.name.charAt(0));
   }
+  /** A member's picture, or their initial: ({ name, avatarUrl }, px). */
+  M.avatar = avatar;
 
   /** The profile button in the header, opening Tools / Settings / Sign out. */
   function showUser(user) {
@@ -59,7 +61,7 @@
         )
       ),
       h('a', { href: '/app/', role: 'menuitem' }, 'Tools'),
-      h('a', { href: '/app/settings/', role: 'menuitem' }, 'My settings'),
+      h('a', { href: '/app/settings/', role: 'menuitem' }, 'Settings'),
       user.kind === 'admin'
         ? h('a', { href: '/app/polls/settings/', role: 'menuitem' }, 'General settings')
         : null,
@@ -151,8 +153,10 @@
   var AREAS_CACHE = 'ais-areas';
   var shell = document.getElementById('apShell');
   var registry = [];
+  var settings = {};
   try {
     registry = JSON.parse((document.getElementById('apTools') || {}).textContent || '[]');
+    settings = JSON.parse((document.getElementById('apSettings') || {}).textContent || '{}');
   } catch (e) {
     registry = [];
   }
@@ -264,7 +268,10 @@
         out.push({ label: action.label, hint: tool.title + ' · action', url: action.url });
       });
     });
-    out.push({ label: 'My settings', hint: 'Notifications', url: '/app/settings/' });
+    (settings.tabs || []).forEach(function (tab) {
+      if (tab.needs && perms.indexOf(tab.needs) === -1) return;
+      out.push({ label: tab.label, hint: settings.title, url: tab.url });
+    });
     return out;
   }
 

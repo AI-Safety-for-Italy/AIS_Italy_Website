@@ -1,0 +1,66 @@
+---
+title: Permissions
+# Who may do what in the personal area: per Discord role and per person
+# (server/permissions.js, /api/app/permissions). Shown to those holding
+# `manage`; the shared admin account always may.
+tool: settings
+tab: permissions
+pageTitle: Permissions
+wide: true
+permalink: /app/settings/permissions/
+noindex: true
+excludeFromSitemap: true
+eleventyExcludeFromCollections: true
+seoTitle: 'Permissions | AI Safety for Italy'
+---
+{% extends "app.njk" %}
+{% block page %}
+    <div class="perm-page" id="permPage">
+      <p class="form-note" id="permLocked" hidden>Greyed-out boxes are not yours to change. The mentorship, forms and member applications columns open personal data: they need “Manage all permissions”, which only the shared admin gives.</p>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Discord roles</h2>
+        </div>
+        <p class="panel-note" style="margin-top:0">Everyone with a role gets what it allows. A member with several roles gets what all of them allow together. Roles are read from Discord at each sign-in and again every few minutes.</p>
+        <div class="results-wrap" id="roleTable"></div>
+        <p class="form-note" id="noBot" hidden>The Discord bot is not set up here, so the server’s roles cannot be listed. Add a role by its id (Discord → Server settings → Roles → ⋯ → Copy role ID).</p>
+        <form class="form-row" id="addRole" style="margin-top:1rem" hidden>
+          <div>
+            <label class="form-label" for="roleId">Role id</label>
+            <input class="form-input is-compact" id="roleId" required pattern="[0-9]{5,25}">
+          </div>
+          <div>
+            <label class="form-label" for="roleName">Role name</label>
+            <input class="form-input is-compact" id="roleName" required maxlength="100">
+          </div>
+          <div style="align-self:end"><button class="btn btn-outline btn-sm" type="submit">Add role</button></div>
+        </form>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>People</h2>
+        </div>
+        <p class="panel-note" style="margin-top:0">For one person, on top of what their roles allow: what you tick here adds to their roles, it never takes anything away. Only people who have signed in here once can be added.</p>
+        <div class="results-wrap" id="peopleTable"></div>
+        <form class="form-row" id="addPerson" style="margin-top:1rem">
+          <div>
+            <label class="form-label" for="personPick">Person</label>
+            <select class="form-input is-compact" id="personPick" required></select>
+          </div>
+          <div style="align-self:end"><button class="btn btn-outline btn-sm" type="submit">Add person</button></div>
+        </form>
+      </section>
+
+      <div class="form-error" id="permError" role="alert" hidden></div>
+      <div class="action-bar">
+        <p>Changes apply within a few minutes, and at once from the next sign-in.</p>
+        <button class="btn btn-primary" type="button" id="savePerms">Save permissions</button>
+      </div>
+    </div>
+
+<script src="/assets/js/meet/common.js" defer></script>
+<script src="/assets/js/meet/app-common.js" defer></script>
+<script src="/assets/js/meet/settings-permissions.js" defer></script>
+{% endblock %}

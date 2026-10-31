@@ -12,6 +12,7 @@ process.env.SESSION_SECRET = 'x'.repeat(40);
 
 const { PERMISSIONS } = require('./permissions');
 const tools = require('../src/data/tools');
+const appSettings = require('../src/data/appSettings');
 
 const APP_DIR = path.join(__dirname, '..', 'src', 'content', 'app');
 
@@ -53,8 +54,8 @@ test('every page of the personal area uses the shared frame', () => {
 test('the tool and tab of each page exist in the tools list', () => {
   for (const { name, data } of pages) {
     if (data.tool === undefined) continue;
-    if (data.tool === 'settings') continue;
-    const tool = tools.find((t) => t.key === data.tool);
+    const tool =
+      data.tool === appSettings.key ? appSettings : tools.find((t) => t.key === data.tool);
     assert.ok(tool, `${name}: unknown tool "${data.tool}"`);
     if (data.tab === undefined) continue;
     const listed = tool.tabs.some((t) => t.key === data.tab);
@@ -83,10 +84,16 @@ test('every tool has a unique key, app urls and at least one page', () => {
 
 test('every tool and tab url is the permalink of a page', () => {
   const permalinks = new Set(pages.map((p) => p.data.permalink));
-  for (const tool of tools) {
+  for (const tool of [...tools, appSettings]) {
     for (const url of [tool.url, ...tool.tabs.map((t) => t.url)]) {
       assert.ok(permalinks.has(pathOf(url)), `${tool.key}: no page has permalink ${pathOf(url)}`);
     }
+  }
+});
+
+test('the permissions named by the Settings tabs exist', () => {
+  for (const tab of appSettings.tabs) {
+    if (tab.needs !== undefined) assert.ok(permissionKeys.includes(tab.needs), tab.key);
   }
 });
 
