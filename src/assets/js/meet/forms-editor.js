@@ -1684,7 +1684,12 @@
             field('Closes on (optional)', closes)
           ),
           h('label', { class: 'fe-switch' }, h('span', null, 'One answer per email address'), once),
-          h('label', { class: 'fe-switch' }, h('span', null, 'Tell me about new answers'), notify)
+          h('label', { class: 'fe-switch' }, h('span', null, 'Tell me about new answers'), notify),
+          h(
+            'p',
+            { class: 'form-note', style: 'margin:0' },
+            'Answers are kept for 24 months after they are sent, then deleted.'
+          )
         ),
         join.panel,
         h(

@@ -349,3 +349,17 @@ data.
   and its role must sit above the two roles it gives.
 
 Locally (`npm run dev:meet`, no Discord) the link joins at once.
+
+# Keeping time of personal data
+
+Answers to forms and member applications that were never approved are deleted
+24 months after they were sent; approved applications stay, as the record of
+who is a member (`server/retention.js`). A GitHub Action runs it once a day
+on the live site (`.github/workflows/retention.yml`), calling
+`/api/cron/cleanup` with a shared secret; each run leaves one line with the
+counts on the audit trail.
+
+Setting up, once: a random `CRON_SECRET` of at least 32 characters
+(`openssl rand -base64 48`), saved both as a Vercel environment variable
+(Production) and as a GitHub repository secret. Without it the job does
+nothing. The privacy notice should say the same 24 months.

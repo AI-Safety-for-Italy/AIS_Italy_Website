@@ -34,6 +34,8 @@ const ACTIONS = new Set([
   'member-list',
   'member-decide',
   'member-resend',
+  // The daily deletion of what is past its keeping time (server/retention.js).
+  'retention-cleanup',
 ]);
 
 /**
