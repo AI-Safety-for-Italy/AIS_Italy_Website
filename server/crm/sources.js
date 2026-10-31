@@ -74,6 +74,31 @@ const SOURCES = {
       co_mentor: ['Nome completo (co-mentor)'],
     },
   },
+  // Mentee applications come from a form of the site only (the template
+  // mentee_application, server/forms/templates.js): there is no sheet to read.
+  mentees_applications: {
+    label: 'Mentee applications',
+    kind: 'mentee',
+    stage: 'applied',
+    sheet: false,
+    fields: {
+      name: ['Nome completo'],
+      email: ['Email'],
+      role: ['Ruolo attuale'],
+      affiliation: ['Affiliazione'],
+      profile: ['Link al tuo profilo'],
+      cv: ['Link al tuo CV'],
+      country: ['Paese di residenza*'],
+      background: ['Descrivi brevemente il tuo background'],
+      areas: ['Quali aree tematiche*'],
+      tracks: ['Percorso/i*'],
+      motivation: ['Perché vuoi partecipare*'],
+      goals: ['Cosa vorresti ottenere*'],
+      project_idea: ['Hai già un’idea*'],
+      hours: ['Quante ore a settimana*'],
+      language: ['Lingua di lavoro*'],
+    },
+  },
   mentees_interest: {
     label: 'Expressions of interest (mentors and mentees)',
     kind: 'mixed',
@@ -95,6 +120,9 @@ const SOURCES = {
     },
   },
 };
+
+// The sources read from a Google sheet (for the one-time import).
+const SHEET_SOURCES = Object.keys(SOURCES).filter((id) => SOURCES[id].sheet !== false);
 
 function norm(text) {
   return String(text || '')
@@ -140,7 +168,8 @@ async function getConfig() {
   const { rows } = await db.query('select value from app_settings where key = $1', [SETTINGS_KEY]);
   const saved = (rows[0] && rows[0].value) || {};
   const out = {};
-  for (const [id, source] of Object.entries(SOURCES)) {
+  for (const id of SHEET_SOURCES) {
+    const source = SOURCES[id];
     out[id] = {
       spreadsheetId: (saved[id] && saved[id].spreadsheetId) || '',
       tab: (saved[id] && saved[id].tab) || source.tab,
@@ -169,7 +198,7 @@ function serviceAccountEmail() {
 async function saveConfig(user, body) {
   const input = body && typeof body === 'object' ? body : {};
   const clean = {};
-  for (const id of Object.keys(SOURCES)) {
+  for (const id of SHEET_SOURCES) {
     const item = input[id] || {};
     const spreadsheetId = sheetId(item.spreadsheetId);
     const tab = String(item.tab || SOURCES[id].tab).trim();
@@ -201,7 +230,7 @@ async function saveConfig(user, body) {
  */
 async function load(sourceId) {
   const source = SOURCES[sourceId];
-  if (!source) throw new HttpError(404, 'Unknown source');
+  if (!source || source.sheet === false) throw new HttpError(404, 'Unknown source');
   const config = (await getConfig())[sourceId];
   if (process.env.CRM_SHEETS_FAKE !== '1' && !config.spreadsheetId) {
     throw new HttpError(409, `${source.label}: no spreadsheet set in the CRM settings yet`);
@@ -220,27 +249,43 @@ async function load(sourceId) {
   let withoutEmail = 0;
   const records = [];
   rows.forEach((raw, index) => {
-    const record = { row: index + 2 };
+    const fields = {};
     for (const [field, header] of Object.entries(columns)) {
-      record[field] = header ? String(raw[header] || '').trim() : '';
+      fields[field] = header ? String(raw[header] || '').trim() : '';
     }
-    if (source.fields.first_name && !record.name) {
-      record.name = [record.first_name, record.last_name].filter(Boolean).join(' ');
-    }
-    // The form also records the address the answers came from; use it when
-    // the question's own email is empty.
-    const email = record.email || record.form_email;
-    record.email = crypto_.normalizeEmail(email);
-    record.key = crypto_.personKey(record.email);
-    if (!record.name && !record.email) return; // an empty row the sheet kept
+    const record = toRecord(sourceId, fields, index + 2);
+    if (!record) return; // an empty row the sheet kept
     if (!record.key) withoutEmail++;
     records.push(record);
   });
   return { source: sourceId, records, missing, withoutEmail };
 }
 
+/**
+ * One person's row, from a sheet, a form or the board: { key, row, ...fields }
+ * with every field of the source as text, the email normalized and `key` its
+ * person key (null without a usable email). null for an empty row.
+ */
+function toRecord(sourceId, fields, row = null) {
+  const source = SOURCES[sourceId];
+  const record = { row };
+  for (const field of Object.keys(source.fields)) {
+    record[field] = String(fields[field] == null ? '' : fields[field]).trim();
+  }
+  if (source.fields.first_name && !record.name) {
+    record.name = [record.first_name, record.last_name].filter(Boolean).join(' ');
+  }
+  // The form also records the address the answers came from; use it when
+  // the question's own email is empty.
+  record.email = crypto_.normalizeEmail(record.email || record.form_email);
+  record.key = crypto_.personKey(record.email);
+  if (!record.name && !record.email) return null;
+  return record;
+}
+
 module.exports = {
   SOURCES,
+  SHEET_SOURCES,
   norm,
   mapColumns,
   getConfig,
@@ -248,4 +293,5 @@ module.exports = {
   sheetId,
   serviceAccountEmail,
   load,
+  toRecord,
 };

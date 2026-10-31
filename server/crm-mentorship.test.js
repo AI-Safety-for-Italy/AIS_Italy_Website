@@ -17,8 +17,10 @@ const crm = require('./crm/crypto');
 const audit = require('./crm/audit');
 const mentorship = require('./crm/mentorship');
 const api = require('./routes/app/crm/mentorship');
+const sources = require('./crm/sources');
+const records = require('./crm/records');
 
-beforeEach(() => {
+beforeEach(async () => {
   db.setDb(new PGlite());
   process.env.CRM_ENCRYPTION_KEY = Buffer.alloc(32, 1).toString('base64');
   process.env.CRM_KEY_SECRET = 'a-crm-secret-of-at-least-thirty-two-characters';
@@ -29,6 +31,11 @@ beforeEach(() => {
   permissions.setFetch(() => {
     throw new Error('no network in tests');
   });
+  // The board reads its own records: copy the invented sheets onto it once,
+  // as the team does with the real ones. Every test below then checks the
+  // board built from the imported copy.
+  const me = await admin();
+  for (const id of sources.SHEET_SOURCES) await records.importSource(me, id);
 });
 
 const ADA = () => crm.personKey('ada@example.org');
@@ -361,7 +368,7 @@ test('after reading, moving, noting and pairing, the database holds no name, ema
   await mentorship.createMatch(me, ADA(), GINO(), 'projects');
   const dump = JSON.stringify(
     await Promise.all(
-      ['crm_people_state', 'crm_notes', 'crm_matches', 'crm_audit'].map(
+      ['crm_people_state', 'crm_notes', 'crm_matches', 'crm_audit', 'crm_records'].map(
         async (t) => (await db.query(`select * from ${t}`)).rows
       )
     )
@@ -372,4 +379,112 @@ test('after reading, moving, noting and pairing, the database holds no name, ema
     'a name or an answer reached the database'
   );
   assert.ok(!dump.includes('riservato'), 'a note is stored in clear');
+});
+
+// ── The board's own records ─────────────────────────────────────────────────
+
+test('importing a sheet again replaces the first copy instead of doubling it', async () => {
+  const me = await admin();
+  const before = await mentorship.board(me);
+  const again = await records.importSource(me, 'mentors_prospective');
+  assert.equal(again.imported, 4);
+  assert.equal(again.withoutEmail, 1);
+  const after = await mentorship.board(me);
+  assert.deepEqual(
+    after.mentors.map((m) => [m.name, m.sources.length]),
+    before.mentors.map((m) => [m.name, m.sources.length])
+  );
+  const { rows } = await db.query(
+    `select count(*)::int as n from crm_records where source = 'mentors_prospective'`
+  );
+  assert.equal(rows[0].n, 4);
+});
+
+test('only CRM: settings may import, and the import is on the audit trail', async () => {
+  await permissions.saveRolePermissions([
+    { roleId: 'r-mentors', roleName: 'mentorship team', permissions: ['mentorship'] },
+    { roleId: 'r-crm-admin', roleName: 'crm admins', permissions: ['mentorship', 'crm_admin'] },
+  ]);
+  const maria = await member('Maria', ['r-mentors']);
+  const boss = await member('Bea', ['r-crm-admin']);
+  const url = '/api/app/crm/mentorship?action=import&source=mentees_interest';
+  assert.equal((await call({ method: 'POST', url, user: maria, body: {} })).statusCode, 403);
+  const res = await call({ method: 'POST', url, user: boss, body: {} });
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.imported > 0, true);
+  const lines = (await audit.recent()).filter((l) => l.action === 'crm-import');
+  assert.ok(lines.length >= 1);
+  assert.ok(!JSON.stringify(lines).includes('@'));
+  // Mentee applications have no sheet: nothing to import.
+  const none = await call({
+    method: 'POST',
+    url: '/api/app/crm/mentorship?action=import&source=mentees_applications',
+    user: boss,
+    body: {},
+  });
+  assert.equal(none.statusCode, 404);
+});
+
+test('a mentor to contact can be added by hand, and only those can be removed', async () => {
+  await setRoles();
+  const maria = await member('Maria', ['r-mentors']);
+  const add = (body) =>
+    call({ method: 'POST', url: '/api/app/crm/mentorship?action=add', user: maria, body });
+  assert.equal((await add({ first_name: 'Ivo', email: 'non-una-email' })).statusCode, 400);
+  assert.equal((await add({ email: 'ivo@example.org' })).statusCode, 400);
+  const res = await add({
+    first_name: 'Ivo',
+    last_name: 'Nuovo',
+    email: 'Ivo@Example.org',
+    org: 'Università di Prova',
+    track: 'Progetti',
+  });
+  assert.equal(res.statusCode, 201);
+  const me = await admin();
+  const ivo = byName((await mentorship.board(me)).mentors, 'Ivo Nuovo');
+  assert.equal(ivo.status, 'to_contact');
+  assert.equal(ivo.track, 'projects');
+
+  const detail = await mentorship.person(me, ['mentorship'], ivo.key, 'mentor');
+  const added = detail.sheets.find((s) => s.origin === 'board');
+  assert.ok(added.recordId);
+  // An imported row cannot be removed from here.
+  const ada = await mentorship.person(me, ['mentorship'], ADA(), 'mentor');
+  assert.equal(ada.sheets[0].recordId, undefined);
+  const { rows } = await db.query(`select id from crm_records where origin = 'import' limit 1`);
+  const refused = await call({
+    method: 'POST',
+    url: '/api/app/crm/mentorship?action=remove',
+    user: maria,
+    body: { recordId: rows[0].id },
+  });
+  assert.equal(refused.statusCode, 404);
+  const removed = await call({
+    method: 'POST',
+    url: '/api/app/crm/mentorship?action=remove',
+    user: maria,
+    body: { recordId: added.recordId },
+  });
+  assert.equal(removed.statusCode, 200);
+  assert.equal(byName((await mentorship.board(me)).mentors, 'Ivo Nuovo'), undefined);
+});
+
+test('a mentee application from a form shows the mentee as applied', async () => {
+  const me = await admin();
+  await records.add(
+    'mentees_applications',
+    {
+      name: 'Lia Candidata',
+      email: 'lia@example.org',
+      role: 'Studentessa',
+      affiliation: 'Università di Prova',
+      areas: 'Interpretability',
+      tracks: 'Progetti di AI safety',
+    },
+    { origin: 'form' }
+  );
+  const lia = byName((await mentorship.board(me)).mentees, 'Lia Candidata');
+  assert.equal(lia.status, 'applied');
+  assert.equal(lia.track, 'projects');
+  assert.equal(lia.org, 'Studentessa, Università di Prova');
 });
