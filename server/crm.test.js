@@ -660,10 +660,18 @@ test('nothing in the database holds an email or an answer, however much was read
     await boardRecords.importSource(me, id);
   }
   await sources.saveConfig(me, { mentors_prospective: { spreadsheetId: SHEET, tab: 'Mentors' } });
+  // The board's records are ciphertext (random text, where a short name can
+  // turn up by chance): check they are encrypted, and look for names elsewhere.
+  const { rows: stored } = await db.query('select data_encrypted from crm_records');
+  assert.ok(stored.length > 0);
+  assert.ok(
+    stored.every((r) => /^v1\./.test(r.data_encrypted)),
+    'a board record is not encrypted'
+  );
   const dump = JSON.stringify([
     (await db.query('select * from crm_audit')).rows,
     (await db.query('select * from app_settings')).rows,
-    (await db.query('select * from crm_records')).rows,
+    (await db.query('select id, source, person_key, origin, response_id from crm_records')).rows,
   ]);
   assert.ok(!dump.includes('@'), 'an email reached the database');
   assert.ok(!dump.includes('example.org'));

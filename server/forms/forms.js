@@ -318,9 +318,13 @@ async function updateSettings(user, id, body) {
       // Like the members board: a door into the people the program contacts.
       const who = await whoIs(user);
       if (!who.perms.includes('forms_admin'))
-        throw new HttpError(403, 'Only the forms admins can link a form to the mentorship board', {
-          field: 'crm',
-        });
+        throw new HttpError(
+          403,
+          'Only whoever holds “Forms: all forms” can link a form to the mentorship board',
+          {
+            field: 'crm',
+          }
+        );
     }
     settings.crm = next;
   }

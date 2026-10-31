@@ -366,10 +366,23 @@ test('after reading, moving, noting and pairing, the database holds no name, ema
   await mentorship.update(me, ADA(), 'mentor', { status: 'selected', owner: 'me' });
   await mentorship.update(me, GINO(), 'mentee', { status: 'selected' });
   await mentorship.createMatch(me, ADA(), GINO(), 'projects');
+  // The board's records are ciphertext (random text, where a short name can
+  // turn up by chance): check they are encrypted, and look for names elsewhere.
+  const { rows: stored } = await db.query('select data_encrypted from crm_records');
+  assert.ok(stored.length > 0);
+  assert.ok(
+    stored.every((r) => /^v1\./.test(r.data_encrypted)),
+    'a board record is not encrypted'
+  );
   const dump = JSON.stringify(
     await Promise.all(
-      ['crm_people_state', 'crm_notes', 'crm_matches', 'crm_audit', 'crm_records'].map(
-        async (t) => (await db.query(`select * from ${t}`)).rows
+      ['crm_people_state', 'crm_notes', 'crm_matches', 'crm_audit', 'crm_records'].map(async (t) =>
+        (
+          await db.query(`select * from ${t}`)
+        ).rows.map(
+          // eslint-disable-next-line no-unused-vars
+          ({ data_encrypted, ...rest }) => rest
+        )
       )
     )
   );
