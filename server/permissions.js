@@ -35,6 +35,10 @@ const PERMISSIONS = [
   // In the content area for the tool's own switches (switch on/off), but
   // shown under Settings, where the permissions page is.
   { key: 'manage', label: 'Manage permissions', area: 'content', group: 'settings' },
+  // Hands out every key but this one, the personal-data ones too: for the
+  // board. Only the shared admin gives it, so who administers personal data is
+  // never decided by those who hold it. Implies `manage`.
+  { key: 'manage_all', label: 'Manage all permissions', area: 'settings', group: 'settings' },
   { key: 'mentorship', label: 'CRM: mentorship', area: 'crm' },
   { key: 'people', label: 'CRM: people', area: 'crm' },
   { key: 'finance', label: 'CRM: finance', area: 'crm' },
@@ -44,7 +48,8 @@ const PERMISSIONS = [
   // The member applications board (server/members.js): an area of its own.
   { key: 'members', label: 'Member applications', area: 'members' },
 ];
-const AREAS = [...new Set(PERMISSIONS.map((p) => p.area))];
+// The tools' areas; `settings` (manage_all) opens no tool of its own.
+const AREAS = [...new Set(PERMISSIONS.map((p) => p.area))].filter((a) => a !== 'settings');
 const KEYS = PERMISSIONS.map((p) => p.key);
 
 /** Which areas a set of permission keys opens: { content, crm, forms, members }. */
@@ -108,8 +113,14 @@ async function forRoles(roleIds) {
     'select permissions from content_role_permissions where role_id = any($1)',
     [roleIds]
   );
+  return withImplied(rows);
+}
+
+/** The keys held by the union of these rows, `manage_all` bringing `manage`. */
+function withImplied(rows) {
   const granted = new Set();
   rows.forEach((r) => r.permissions.forEach((p) => granted.add(p)));
+  if (granted.has('manage_all')) granted.add('manage');
   return KEYS.filter((k) => granted.has(k));
 }
 
@@ -135,9 +146,7 @@ async function forUser(user) {
      select permissions from user_permissions where user_id = $1`,
     [user.id]
   );
-  const granted = new Set();
-  rows.forEach((r) => r.permissions.forEach((p) => granted.add(p)));
-  return KEYS.filter((k) => granted.has(k));
+  return withImplied(rows);
 }
 
 /**
@@ -278,6 +287,17 @@ function canGrantAll(user) {
   return Boolean(user) && user.kind === 'admin';
 }
 
+/**
+ * The keys `user` (holding `perms`) may give or take away: all of them for
+ * the shared admin; all but `manage_all` with `manage_all`; else the site's
+ * content keys (with `manage`).
+ */
+function grantable(user, perms) {
+  if (canGrantAll(user)) return KEYS.slice();
+  if (perms.includes('manage_all')) return KEYS.filter((k) => k !== 'manage_all');
+  return CONTENT_ONLY.slice();
+}
+
 /** The checked keys of one row of the table. */
 function cleanKeys(row) {
   const perms = Array.isArray(row && row.permissions) ? row.permissions : [];
@@ -301,10 +321,10 @@ function changedKeys(before, after) {
  * Replaces the permissions of the Discord roles (`roles`: [{ roleId,
  * roleName, permissions }]) and, when given, of the people (`people`:
  * [{ userId, permissions }]). Rows left without permissions are dropped.
- * With `actor` (a request from the dashboard): `manage` hands out the
- * content keys only; the CRM, forms and member applications keys change only
- * through the shared admin, so a content role cannot give itself more, nor
- * give it to a person. Every change from the dashboard is on the audit trail.
+ * With `actor` (a request from the dashboard), only the keys grantable() lets
+ * them change may differ: `manage` hands out the content keys only, so a
+ * content role cannot give itself more, nor give it to a person.
+ * Every change from the dashboard is on the audit trail.
  * Returns { roles, people }.
  */
 async function savePermissions({ roles, people }, actor) {
@@ -351,11 +371,17 @@ async function savePermissions({ roles, people }, actor) {
       new Map(cleanPeople.map((p) => [p.userId, p.permissions]))
     ).forEach((k) => touched.add(k));
   }
-  if (actor && !canGrantAll(actor) && [...touched].some((k) => !CONTENT_ONLY.includes(k))) {
-    throw new HttpError(
-      403,
-      'Only the shared admin can change who may use the CRM, forms and member applications'
-    );
+  if (actor) {
+    const allowed = grantable(actor, await forUser(actor));
+    const refused = [...touched].filter((k) => !allowed.includes(k));
+    if (refused.length) {
+      throw new HttpError(
+        403,
+        refused.includes('manage_all')
+          ? 'Only the shared admin can give or take away “Manage all permissions”'
+          : 'Changing who may use the CRM, forms and member applications needs “Manage all permissions”'
+      );
+    }
   }
 
   await db.transaction(async (tx) => {
@@ -411,6 +437,7 @@ module.exports = {
   listUserPermissions,
   discordPeople,
   canGrantAll,
+  grantable,
   savePermissions,
   saveRolePermissions,
 };

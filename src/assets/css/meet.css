@@ -2133,6 +2133,10 @@ div.poll-item {
 
 /* /app/settings/permissions/: the two tables, and a person's row head.
    Column names wrap, so the thirteen columns fit a laptop screen. */
+.perm-table th.r-name {
+  min-width: 8rem;
+}
+
 .perm-table th:not(.r-name),
 .perm-table td {
   padding-left: 0.3rem;

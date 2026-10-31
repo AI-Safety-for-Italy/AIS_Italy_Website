@@ -231,6 +231,61 @@ test('a content manager cannot give personal-data keys to a person either', asyn
   assert.deepEqual(await permissions.forUser(tom), ['blog']);
 });
 
+test('the board, with manage_all, hands out every key but manage_all itself', async () => {
+  const root = await admin();
+  const tom = await member('Tom', []);
+  const save = (user, roles, people) =>
+    call(permissionsApi, {
+      method: 'PUT',
+      url: '/api/app/permissions',
+      user,
+      body: { roles, people },
+    });
+  // Only the shared admin gives manage_all; it brings manage with it.
+  const board = tableOf([['r-board', ['manage_all']]]);
+  assert.equal((await save(root, board, [])).statusCode, 200);
+  const anna = await member('Anna', ['r-board']);
+  assert.deepEqual(await permissions.forUser(anna), ['manage', 'manage_all']);
+  const page = await call(permissionsApi, { url: '/api/app/permissions', user: anna });
+  assert.equal(page.statusCode, 200);
+  assert.ok(page.body.grantable.includes('members'));
+  assert.ok(!page.body.grantable.includes('manage_all'));
+
+  // Personal-data keys, to a role or a person: fine for the board.
+  const res = await save(
+    anna,
+    [...board, ...tableOf([['r-mentors', ['mentorship', 'members']]])],
+    [{ userId: tom.id, permissions: ['forms_admin'] }]
+  );
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(await permissions.forUser(tom), ['forms_admin']);
+
+  // But not manage_all: neither giving it nor taking it away.
+  const keep = tableOf([
+    ['r-board', ['manage_all']],
+    ['r-mentors', ['mentorship', 'members']],
+  ]);
+  const give = await save(anna, keep, [
+    { userId: tom.id, permissions: ['forms_admin', 'manage_all'] },
+  ]);
+  assert.equal(give.statusCode, 403);
+  const takeAway = await save(
+    anna,
+    tableOf([
+      ['r-board', ['manage']],
+      ['r-mentors', ['mentorship', 'members']],
+    ]),
+    [{ userId: tom.id, permissions: ['forms_admin'] }]
+  );
+  assert.equal(takeAway.statusCode, 403);
+
+  // And an old sign-in is asked to sign in again before changing anything.
+  await db.query(`update app_users set last_login_at = now() - interval '2 days' where id = $1`, [
+    anna.id,
+  ]);
+  assert.equal((await save(anna, keep, [])).statusCode, 401);
+});
+
 test('only accounts signed in with Discord can be given keys by name', async () => {
   const root = await admin();
   for (const userId of [root.id, '00000000-0000-0000-0000-000000000000', 'nope']) {

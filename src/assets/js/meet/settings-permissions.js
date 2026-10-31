@@ -16,7 +16,7 @@
   var people = []; // [{ userId, name, avatarUrl, permissions: [] }]
   var candidates = []; // [{ userId, name, avatarUrl }]
   var keys = [];
-  var canGrantAll = true;
+  var grantable = null; // the keys this user may change (null: all)
 
   // Column groups take the names of the tools (src/data/tools.js) and of
   // Settings (src/data/appSettings.js), as the sidebar shows them.
@@ -38,8 +38,8 @@
     })
     .then(function (data) {
       keys = data.keys;
-      canGrantAll = data.canGrantAll !== false;
-      document.getElementById('permLocked').hidden = canGrantAll;
+      grantable = data.grantable || null;
+      document.getElementById('permLocked').hidden = !grantable || grantable.length === keys.length;
       var byId = {};
       data.table.forEach(function (r) {
         byId[r.roleId] = r;
@@ -113,10 +113,11 @@
   }
 
   /** "CRM: people" -> "People": the group above already names the tool,
-   * and a key named like its tool ("Forms" under Forms) is its "Access". */
+   * and a key named like its tool ("Forms" under Forms) is its "Access".
+   * The full name stays in the column's tooltip. */
   function shortLabel(c) {
     if (c.key.label === groupTitle[c.group]) return 'Access';
-    var s = c.key.label.replace(/^(CRM|Forms): /, '');
+    var s = c.key.label.replace(/^(CRM|Forms): /, '').replace(/ permissions$/, '');
     return s.charAt(0).toUpperCase() + s.slice(1);
   }
 
@@ -167,7 +168,7 @@
       });
       check.checked = row.permissions.indexOf(k.key) !== -1;
       // The server refuses these too: greying them out is only a courtesy.
-      check.disabled = !canGrantAll && k.area !== 'content';
+      check.disabled = Boolean(grantable) && grantable.indexOf(k.key) === -1;
       return h('td', null, check);
     });
   }
@@ -259,7 +260,7 @@
       return !listed[c.userId];
     });
     pick.appendChild(
-      h('option', { value: '' }, free.length ? 'Choose someone…' : 'Everyone is listed')
+      h('option', { value: '' }, free.length ? 'Choose someone…' : 'Nobody else to add')
     );
     free.forEach(function (c) {
       pick.appendChild(h('option', { value: c.userId }, c.name));
