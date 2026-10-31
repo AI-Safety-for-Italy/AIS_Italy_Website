@@ -399,7 +399,20 @@ test('after reading, moving, noting and pairing, the database holds no name, ema
 test('importing a sheet again replaces the first copy instead of doubling it', async () => {
   const me = await admin();
   const before = await mentorship.board(me);
-  const again = await records.importSource(me, 'mentors_prospective');
+  // Without a confirmation the earlier copy is kept.
+  await assert.rejects(records.importSource(me, 'mentors_prospective'), (err) => {
+    assert.equal(err.status, 409);
+    assert.equal(err.details.existing, 4);
+    return true;
+  });
+  let asked = null;
+  const again = await records.importSource(me, 'mentors_prospective', {
+    confirmOverwrite: async (n) => {
+      asked = n;
+    },
+  });
+  assert.equal(asked, 4);
+  assert.equal(again.replaced, 4);
   assert.equal(again.imported, 4);
   assert.equal(again.withoutEmail, 1);
   const after = await mentorship.board(me);
@@ -422,9 +435,32 @@ test('only CRM: settings may import, and the import is on the audit trail', asyn
   const boss = await member('Bea', ['r-crm-admin']);
   const url = '/api/app/crm/mentorship?action=import&source=mentees_interest';
   assert.equal((await call({ method: 'POST', url, user: maria, body: {} })).statusCode, 403);
-  const res = await call({ method: 'POST', url, user: boss, body: {} });
+  // Already imported (beforeEach): replacing it takes the confirmation and
+  // the admin password.
+  const asks = await call({ method: 'POST', url, user: boss, body: {} });
+  assert.equal(asks.statusCode, 409);
+  assert.equal(asks.body.code, 'confirm_overwrite');
+  assert.ok(asks.body.existing > 0);
+  process.env.ADMIN_PASSWORD_HASH = auth.hashPassword('the admin password');
+  const noTick = { adminPassword: 'the admin password' };
+  assert.equal((await call({ method: 'POST', url, user: boss, body: noTick })).statusCode, 409);
+  const wrong = await call({
+    method: 'POST',
+    url,
+    user: boss,
+    body: { replace: true, adminPassword: 'guess' },
+  });
+  assert.equal(wrong.statusCode, 403);
+  assert.equal(wrong.body.code, 'wrong_password');
+  const res = await call({
+    method: 'POST',
+    url,
+    user: boss,
+    body: { replace: true, adminPassword: 'the admin password' },
+  });
   assert.equal(res.statusCode, 200);
   assert.equal(res.body.imported > 0, true);
+  assert.equal(res.body.replaced, asks.body.existing);
   const lines = (await audit.recent()).filter((l) => l.action === 'crm-import');
   assert.ok(lines.length >= 1);
   assert.ok(!JSON.stringify(lines).includes('@'));
@@ -503,6 +539,7 @@ test('a mentee application from a form shows the mentee as applied', async () =>
 });
 
 test('a sheet downloaded as CSV imports like the sheet itself', async () => {
+  process.env.ADMIN_PASSWORD_HASH = auth.hashPassword('the admin password');
   const me = await admin();
   const csv =
     '﻿Informazioni cronologiche,Nome completo,Email,Per quale ruolo vorresti candidarti?,' +
@@ -513,7 +550,7 @@ test('a sheet downloaded as CSV imports like the sheet itself', async () => {
     method: 'POST',
     url: '/api/app/crm/mentorship?action=import&source=mentees_interest',
     user: me,
-    body: { csv },
+    body: { csv, replace: true, adminPassword: 'the admin password' },
   });
   assert.equal(res.statusCode, 200);
   assert.equal(res.body.imported, 2);
@@ -527,4 +564,26 @@ test('a sheet downloaded as CSV imports like the sheet itself', async () => {
   const nora = board.mentees[0];
   assert.equal(nora.track, 'orientation');
   assert.equal(nora.areas, 'Interpretability, "evals"\nanche governance');
+});
+
+test('a file of another list, or with no one in it, is refused and the list is kept', async () => {
+  const me = await admin();
+  const count = async () =>
+    (await db.query(`select count(*)::int as n from crm_records where source = 'mentees_interest'`))
+      .rows[0].n;
+  const before = await count();
+  const tries = [
+    'Nome,Cognome,Contatto email\r\nAda,Rossi,ada@example.org\r\n', // the mentors' columns
+    'Nome completo,Telefono\r\nAda Rossi,123\r\n', // no email column
+    'Informazioni cronologiche,Nome completo,Email\r\n', // headers only
+    '',
+  ];
+  for (const csv of tries) {
+    // Refused before any confirmation is asked: even the password changes nothing.
+    await assert.rejects(
+      records.importSource(me, 'mentees_interest', { csv, confirmOverwrite: async () => {} }),
+      (err) => err.status === 400 && err.details.code === 'unusable'
+    );
+  }
+  assert.equal(await count(), before);
 });

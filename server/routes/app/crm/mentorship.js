@@ -10,10 +10,12 @@
 //   POST ?action=add { first_name, last_name, email, … }  -> a mentor to contact, by hand
 //   POST ?action=remove { recordId }      -> removes someone added by hand
 //   POST ?action=import&source=… [{ csv }] -> copies that sheet (or its CSV) onto the board (crm_admin)
+//        replacing an earlier import also needs { replace: true, adminPassword }; without
+//        them -> 409 { code: 'confirm_overwrite', existing }
 //   GET  ?action=sources                  -> { sources, serviceAccount } (crm_admin)
 //   PUT  ?action=sources { <source>: { spreadsheetId, tab } }  -> the same, saved (crm_admin)
 const { route, sendJson, readJson, getQuery, HttpError } = require('../../../http');
-const { requireUser } = require('../../../auth');
+const { requireUser, checkAdminPassword } = require('../../../auth');
 const access = require('../../../access');
 const crypto = require('../../../crm/crypto');
 const mentorship = require('../../../crm/mentorship');
@@ -76,9 +78,25 @@ module.exports = route({
         throw new HttpError(503, 'The CRM is not set up here yet (encryption keys)');
       await access.authorize(user, 'crm_admin', { fresh: true });
       // A downloaded sheet can be a few megabytes of long answers.
-      const body = await readJson(req, { max: 5_000_000 });
+      const body = (await readJson(req, { max: 5_000_000 })) || {};
       const csv = typeof body.csv === 'string' ? body.csv : undefined;
-      sendJson(res, 200, await records.importSource(user, String(query.source || ''), { csv }));
+      // Replacing an import already on the board takes both confirmations of
+      // the page and the admin password: a wrong file would wipe the list.
+      const confirmOverwrite = async (existing) => {
+        if (body.replace !== true)
+          throw new HttpError(409, 'This list was already imported', {
+            code: 'confirm_overwrite',
+            existing,
+          });
+        const password = typeof body.adminPassword === 'string' ? body.adminPassword : '';
+        if (!(await checkAdminPassword(req, password)))
+          throw new HttpError(403, 'Wrong admin password', { code: 'wrong_password' });
+      };
+      sendJson(
+        res,
+        200,
+        await records.importSource(user, String(query.source || ''), { csv, confirmOverwrite })
+      );
       return;
     }
     const { user } = await door(req, { write: true });

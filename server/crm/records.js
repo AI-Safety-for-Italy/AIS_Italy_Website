@@ -88,16 +88,53 @@ async function add(sourceId, fields, { origin, responseId = null, user = null, q
 }
 
 /**
+ * Why these rows cannot replace a list, or null: no one in them, or no column
+ * for the email or the name (a file of another list, a renamed tab).
+ */
+function unusable(sourceId, loaded) {
+  const found = (field) =>
+    Boolean(sources.SOURCES[sourceId].fields[field]) && !loaded.missing.includes(field);
+  if (!found('email') && !found('form_email')) return 'no email column was found';
+  if (!found('name') && !found('first_name')) return 'no name column was found';
+  if (!loaded.records.length) return 'it holds no one';
+  return null;
+}
+
+/**
  * Copies a sheet onto the board once: reads it as sources.load() does, or
  * from `csv` (the sheet downloaded as a CSV file), and replaces the previous
  * copy of that source, so a second import fixes the first instead of
- * doubling it. Returns { imported, withoutEmail, missing }.
+ * doubling it. Returns { imported, withoutEmail, missing, replaced }.
+ *
+ * Rows that cannot be a list are refused before anything is touched. When
+ * the source already has an import, `confirmOverwrite(count)` must resolve
+ * (the route asks for the admin password); without it the answer is 409.
  */
-async function importSource(user, sourceId, { csv } = {}) {
+async function importSource(user, sourceId, { csv, confirmOverwrite } = {}) {
   const loaded =
     csv === undefined
       ? await sources.load(sourceId)
       : sources.fromRows(sourceId, sheets.rowsFromValues(sheets.parseCsv(csv)));
+  const why = unusable(sourceId, loaded);
+  if (why) {
+    throw new HttpError(400, `Not imported: ${why}. The list is unchanged.`, {
+      code: 'unusable',
+      missing: loaded.missing,
+    });
+  }
+  const { rows } = await db.query(
+    `select count(*)::int as n from crm_records where source = $1 and origin = 'import'`,
+    [sourceId]
+  );
+  const replaced = rows[0].n;
+  if (replaced) {
+    if (!confirmOverwrite)
+      throw new HttpError(409, 'This list was already imported', {
+        code: 'confirm_overwrite',
+        existing: replaced,
+      });
+    await confirmOverwrite(replaced);
+  }
   await db.transaction(async (tx) => {
     await tx.query(`delete from crm_records where source = $1 and origin = 'import'`, [sourceId]);
     for (const record of loaded.records) {
@@ -112,6 +149,7 @@ async function importSource(user, sourceId, { csv } = {}) {
         from: csv === undefined ? 'sheet' : 'csv',
         rows: loaded.records.length,
         withoutEmail: loaded.withoutEmail,
+        replaced,
       },
       tx
     );
@@ -120,6 +158,7 @@ async function importSource(user, sourceId, { csv } = {}) {
     imported: loaded.records.length,
     withoutEmail: loaded.withoutEmail,
     missing: loaded.missing,
+    replaced,
   };
 }
 

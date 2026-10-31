@@ -24,6 +24,23 @@ seoTitle: 'Sheets | AI Safety for Italy'
       <div><button class="btn btn-primary btn-sm" type="submit">Save</button></div>
     </form>
 
+<dialog class="meet-dialog" id="replaceDialog" aria-labelledby="rpTitle">
+  <form class="dialog-body form-grid" id="replaceForm" method="dialog">
+    <h2 id="rpTitle">Replace the imported list</h2>
+    <p class="form-note" id="rpText" style="margin:0"></p>
+    <label class="check-row"><input type="checkbox" id="rpAck" required><span id="rpAckText"></span></label>
+    <div>
+      <label class="form-label" for="rpPassword">Admin password</label>
+      <input class="form-input is-compact" id="rpPassword" type="password" autocomplete="off" required>
+    </div>
+    <p class="form-error" id="rpError" role="alert" hidden></p>
+    <div class="dialog-foot">
+      <button type="button" class="btn btn-outline" id="rpCancel">Cancel</button>
+      <button type="submit" class="btn btn-primary" id="rpSubmit">Replace</button>
+    </div>
+  </form>
+</dialog>
+
 <script src="/assets/js/meet/common.js" defer></script>
 <script src="/assets/js/meet/app-common.js" defer></script>
 <script src="/assets/js/meet/crm-settings.js" defer></script>

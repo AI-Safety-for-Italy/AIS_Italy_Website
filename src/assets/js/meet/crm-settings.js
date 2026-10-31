@@ -40,7 +40,6 @@
           result.textContent = 'Save the changes first: the import uses the saved address and tab.';
           return;
         }
-        if (!window.confirm('This replaces the previous import of this list. Go on?')) return;
         importBtn.disabled = true;
         result.textContent = 'Importing…';
         send({}).then(function () {
@@ -48,17 +47,35 @@
         });
       });
 
-      /** Imports this list ({} from the saved sheet, { csv } from a file) and says how it went. */
-      function send(body) {
-        result.textContent = 'Importing…';
+      function post(body) {
         return M.api(
           'POST',
           '/api/app/crm/mentorship?action=import&source=' + encodeURIComponent(s.id),
           body
-        )
+        );
+      }
+
+      /**
+       * Imports this list ({} from the saved sheet, { csv } from a file) and
+       * says how it went. When the list was already imported, replacing it
+       * takes two confirmations and the admin password (askReplace).
+       */
+      function send(body) {
+        result.textContent = 'Importing…';
+        return post(body)
+          .catch(function (err) {
+            if (err.code !== 'confirm_overwrite') throw err;
+            return askReplace(s, err.data.existing, function (password) {
+              return post(Object.assign({}, body, { replace: true, adminPassword: password }));
+            });
+          })
           .then(function (r) {
+            if (!r) {
+              result.textContent = 'Not imported: the list is unchanged.';
+              return;
+            }
             result.textContent =
-              'Imported ' +
+              (r.replaced ? 'Replaced ' + r.replaced + ' with ' : 'Imported ') +
               r.imported +
               (r.imported === 1 ? ' person' : ' people') +
               (r.withoutEmail ? ', ' + r.withoutEmail + ' without email (not on the board)' : '') +
@@ -93,12 +110,7 @@
       file.addEventListener('change', function () {
         var picked = file.files && file.files[0];
         if (!picked) return;
-        if (
-          !window.confirm(
-            'Import “' + picked.name + '”? This replaces the previous import of this list.'
-          )
-        )
-          return;
+        if (!window.confirm('Import “' + picked.name + '” into ' + s.label + '?')) return;
         csvBtn.disabled = true;
         picked
           .text()
@@ -149,6 +161,89 @@
           result
         )
       );
+    });
+  }
+
+  // ── Replacing an import ──────────────────────────────────────────────────
+  // First confirmation: a plain question. Second: the dialog, where the box
+  // must be ticked and the admin password typed. `run(password)` sends the
+  // import; a wrong password keeps the dialog open. Resolves with the
+  // import's result, or null when cancelled.
+  var replaceDialog = document.getElementById('replaceDialog');
+  var rpForm = document.getElementById('replaceForm');
+  var rpPassword = document.getElementById('rpPassword');
+  var rpAck = document.getElementById('rpAck');
+  var rpError = document.getElementById('rpError');
+  var rpSubmit = document.getElementById('rpSubmit');
+
+  function askReplace(source, existing, run) {
+    var people = existing + (existing === 1 ? ' person' : ' people');
+    if (
+      !window.confirm(
+        source.label +
+          ' was already imported (' +
+          people +
+          '). Importing again deletes them and puts this import in their place. Go on?'
+      )
+    )
+      return Promise.resolve(null);
+    document.getElementById('rpText').textContent =
+      'The ' +
+      people +
+      ' imported earlier into “' +
+      source.label +
+      '” will be deleted. People added on the board or by a form stay.';
+    document.getElementById('rpAckText').textContent =
+      'Yes, replace the ' + people + ' already imported';
+    rpAck.checked = false;
+    rpPassword.value = '';
+    rpError.hidden = true;
+    rpSubmit.disabled = false;
+    replaceDialog.showModal();
+    rpPassword.focus();
+
+    return new Promise(function (resolve, reject) {
+      function done() {
+        rpForm.removeEventListener('submit', onSubmit);
+        document.getElementById('rpCancel').removeEventListener('click', onCancel);
+        replaceDialog.removeEventListener('cancel', onCancel);
+        replaceDialog.close();
+      }
+      function onCancel(e) {
+        if (e) e.preventDefault();
+        done();
+        resolve(null);
+      }
+      function onSubmit(e) {
+        e.preventDefault();
+        if (!rpAck.checked || !rpPassword.value) {
+          rpError.textContent = 'Tick the box and type the admin password.';
+          rpError.hidden = false;
+          return;
+        }
+        rpSubmit.disabled = true;
+        rpError.hidden = true;
+        run(rpPassword.value).then(
+          function (r) {
+            done();
+            resolve(r);
+          },
+          function (err) {
+            rpSubmit.disabled = false;
+            if (err.code === 'wrong_password' || err.status === 429) {
+              rpError.textContent = err.message;
+              rpError.hidden = false;
+              rpPassword.select();
+              return;
+            }
+            done();
+            reject(err);
+          }
+        );
+      }
+      rpForm.addEventListener('submit', onSubmit);
+      document.getElementById('rpCancel').addEventListener('click', onCancel);
+      replaceDialog.addEventListener('cancel', onCancel);
     });
   }
 
