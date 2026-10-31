@@ -6,7 +6,9 @@
 //   npm run dev:meet        (builds and watches the site too)
 //
 // Defaults, all overridable from the environment:
-//   - database: PGlite stored in .meet-dev-db/ (DATABASE_URL to use Postgres)
+//   - database: PGlite stored in .meet-dev-db/ (MEET_DEV_DB for another
+//     folder, e.g. for a second server beside the first: two servers must
+//     never share one folder; DATABASE_URL to use Postgres)
 //   - admin password: "admin"
 //   - Discord sign-in: a stand-in that signs in under any name (set the
 //     DISCORD_* vars to use a real Discord app)
@@ -34,11 +36,30 @@ if (!process.env.ADMIN_PASSWORD_HASH) {
 if (!process.env.DISCORD_CLIENT_ID) process.env.MEET_DEV_LOGIN ||= '1';
 // Emails are printed here instead of sent, unless MEET_FAKE_MAIL=0.
 process.env.MEET_FAKE_MAIL ||= '1';
+// CRM board: throwaway keys for the notes and person keys, and invented sheets
+// (server/crm/fixtures.js) unless a real service account key is set. Real
+// personal data never belongs in the local database.
+process.env.CRM_ENCRYPTION_KEY ||= Buffer.alloc(32, 7).toString('base64');
+process.env.CRM_KEY_SECRET ||= 'local-development-crm-secret-not-for-production';
+if (!process.env.GOOGLE_SERVICE_ACCOUNT_JSON) process.env.CRM_SHEETS_FAKE ||= '1';
 
 const db = require('../server/db');
 if (!process.env.MEET_DATABASE_URL && !process.env.DATABASE_URL) {
   const { PGlite } = require('@electric-sql/pglite');
-  db.setDb(new PGlite(path.join(ROOT, '.meet-dev-db')));
+  const local = new PGlite(process.env.MEET_DEV_DB || path.join(ROOT, '.meet-dev-db'));
+  db.setDb(local);
+  // Close the database cleanly on Ctrl+C: PGlite keeps it in files, and a
+  // process killed in the middle of a write can leave them unreadable (the
+  // server then dies at start with "RuntimeError: Aborted()"; move
+  // .meet-dev-db aside and a fresh one is made).
+  let closing = false;
+  const close = () => {
+    if (closing) return;
+    closing = true;
+    local.close().finally(() => process.exit(0));
+  };
+  process.on('SIGINT', close);
+  process.on('SIGTERM', close);
 }
 
 const TYPES = {
@@ -77,7 +98,9 @@ function serveStatic(req, res) {
 const server = http.createServer((req, res) => {
   const { pathname } = new URL(req.url, 'http://localhost');
   if (pathname.startsWith('/api/')) {
-    const file = path.join(ROOT, `${pathname.replace(/\/$/, '')}.js`);
+    // /api/app/* is one function on Vercel (api/app.js routes inside it).
+    const route = pathname.startsWith('/api/app/') ? '/api/app' : pathname.replace(/\/$/, '');
+    const file = path.join(ROOT, `${route}.js`);
     if (!file.startsWith(path.join(ROOT, 'api')) || !fs.existsSync(file)) {
       res.statusCode = 404;
       return res.end();

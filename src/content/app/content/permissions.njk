@@ -3,29 +3,21 @@ title: Content permissions
 # Which Discord role may publish what (server/permissions.js). Shown to those
 # whose roles include `manage`; the shared admin account always may.
 permalink: /app/content/permissions/
-appTab: content-permissions
+tool: content
+tab: content-permissions
 noindex: true
 excludeFromSitemap: true
 eleventyExcludeFromCollections: true
 seoTitle: 'Content permissions | AI Safety for Italy'
 ---
-{% extends "base.njk" %}
-{% block content %}
-<section class="page-hero meet-hero">
-  <div class="container">
-    <span class="eyebrow">Site content</span>
-    <h1>Permissions</h1>
-  </div>
-</section>
-
-<section class="meet-main">
-  <div class="container">
-    {% include "content-bar.njk" %}
+{% extends "app.njk" %}
+{% block page %}
     <div class="panel">
       <div class="panel-head">
         <h2>What each Discord role may do</h2>
       </div>
       <p class="panel-note" style="margin-top:0">Members get what all their roles allow together, read from Discord when they sign in and again before each publish. A role with nothing ticked gives no access to this tool. “Edit others’ content” lets them change and remove items someone else published; without it, only their own.</p>
+      <p class="form-note" id="permLocked" hidden>You can change the content columns. The CRM, forms and member applications columns hold access to personal data: only the shared admin can change them.</p>
       <div class="results-wrap" id="permTable"></div>
       <p class="form-note" id="noBot" hidden>The Discord bot is not set up here, so the server’s roles cannot be listed. Add a role by its id (Discord → Server settings → Roles → ⋯ → Copy role ID).</p>
       <form class="form-row" id="addRole" style="margin-top:1rem" hidden>
@@ -45,8 +37,6 @@ seoTitle: 'Content permissions | AI Safety for Italy'
         <button class="btn btn-primary" type="button" id="savePerms">Save permissions</button>
       </div>
     </div>
-  </div>
-</section>
 
 <script src="/assets/js/meet/common.js" defer></script>
 <script src="/assets/js/meet/app-common.js" defer></script>

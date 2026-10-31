@@ -23,7 +23,9 @@ const siteData = {
     linkedin: 'https://www.linkedin.com/company/ai-safety-italia/',
   },
   forms: {
-    mailingList: 'https://forms.gle/mtBnGSNY21bABNSt7',
+    // The registration form, made in /app/forms/ with the link name "iscrizione"
+    // (its answers go to the Member applications board).
+    mailingList: '/form/?f=iscrizione',
     courseApplication: 'placeholder', // Update with actual link when available
   },
   // True only for the live site (main, deployed with --prod). Local builds,

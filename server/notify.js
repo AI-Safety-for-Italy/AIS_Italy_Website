@@ -1,7 +1,8 @@
-// Messages the meeting polls send:
+// Messages the meeting polls and the forms send:
 //   - invitations to the guests of an invite-only poll (email);
 //   - to the poll's owner, about each new answer and when every guest has
-//     answered, by email and/or Discord DM as their settings say.
+//     answered, by email and/or Discord DM as their settings say;
+//   - to a form's owner, about each new answer (never what it says).
 //
 // Owner notifications never make the action that triggered them fail: a
 // broken mail server or a closed Discord DM is logged and skipped.
@@ -90,13 +91,23 @@ async function discordDm(discordId, content) {
  * `message` is { subject, lines } (see render). Returns the channels used.
  */
 async function notifyOwner(pollId, message) {
+  const { rows } = await db.query('select owner_id, notify from polls where id = $1', [pollId]);
+  const poll = rows[0];
+  if (!poll || !poll.notify || !poll.owner_id) return [];
+  return notifyUser(poll.owner_id, message);
+}
+
+/**
+ * Tells a signed-in user something happened, on the channels they chose on
+ * their settings page. Returns the channels used.
+ */
+async function notifyUser(userId, message) {
   const { rows } = await db.query(
-    `select p.notify, u.kind, u.discord_id, u.email, u.notify_email, u.notify_channel
-     from polls p join app_users u on u.id = p.owner_id where p.id = $1`,
-    [pollId]
+    'select discord_id, email, notify_email, notify_channel from app_users where id = $1',
+    [userId]
   );
   const owner = rows[0];
-  if (!owner || !owner.notify || owner.notify_channel === 'none') return [];
+  if (!owner || owner.notify_channel === 'none') return [];
 
   const wantsDiscord = ['discord', 'both'].includes(owner.notify_channel);
   const wantsEmail = ['email', 'both'].includes(owner.notify_channel);
@@ -133,6 +144,16 @@ function newAnswerMessage({ poll, name, yes, maybe, origin }) {
     lines: [
       `${name} answered “${poll.title}” (${counts}).`,
       { label: 'See the answers', link: `${origin}/app/polls/poll/?id=${poll.id}` },
+    ],
+  };
+}
+
+function newFormAnswerMessage({ form, origin }) {
+  return {
+    subject: `New answer: ${form.title}`,
+    lines: [
+      `Someone answered “${form.title}”.`,
+      { label: 'Open the form', link: `${origin}/app/forms/edit/?id=${form.id}` },
     ],
   };
 }
@@ -304,6 +325,8 @@ module.exports = {
   discordAvailable,
   setFetch,
   notifyOwner,
+  notifyUser,
+  newFormAnswerMessage,
   newAnswerMessage,
   allAnsweredMessage,
   sendInvites,

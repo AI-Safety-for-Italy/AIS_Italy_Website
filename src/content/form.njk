@@ -1,0 +1,31 @@
+---
+title: Form
+# The page a form's link opens: /form/?f=<slug>. Which form, and in which
+# language, comes from the API (assets/js/meet/forms-public.js): this page is
+# an empty shell, never indexed, with nothing personal in its HTML.
+permalink: /form/
+noindex: true
+excludeFromSitemap: true
+eleventyExcludeFromCollections: true
+meetHead: true
+seoTitle: 'Form | AI Safety for Italy'
+---
+{% extends "base.njk" %}
+{% block content %}
+<div class="fm-root" id="formView">
+  <div class="fm-shell">
+    <aside class="fm-aside">
+      <div class="fm-aside-inner">
+        <p class="fm-eyebrow">AI Safety for Italy</p>
+        <h1 class="fm-title"><span class="skeleton skeleton-title" aria-hidden="true"></span></h1>
+      </div>
+    </aside>
+    <div class="fm-body" aria-busy="true"></div>
+  </div>
+</div>
+
+<script src="/assets/js/meet/common.js" defer></script>
+<script src="/assets/js/meet/markdown-lite.js" defer></script>
+<script src="/assets/js/meet/forms-render.js" defer></script>
+<script src="/assets/js/meet/forms-public.js" defer></script>
+{% endblock %}

@@ -19,16 +19,37 @@ const { HttpError } = require('./http');
 
 const DISCORD_API = 'https://discord.com/api/v10';
 
-// The order is the order of the columns in the dashboard.
+// The order is the order of the columns in the dashboard. Several areas share the
+// table: the site's content (/app/content/) and the CRM board (/app/crm/,
+// server/crm/). Holding a permission of one area gives nothing in the other:
+// each API checks its own area (see `areas`).
 const PERMISSIONS = [
-  { key: 'seminar', label: 'Seminars' },
-  { key: 'event', label: 'Events' },
-  { key: 'media', label: 'Videos & podcasts' },
-  { key: 'blog', label: 'Blog' },
-  { key: 'others', label: "Edit others' content" },
-  { key: 'manage', label: 'Manage permissions' },
+  { key: 'seminar', label: 'Seminars', area: 'content' },
+  { key: 'event', label: 'Events', area: 'content' },
+  { key: 'media', label: 'Videos & podcasts', area: 'content' },
+  { key: 'blog', label: 'Blog', area: 'content' },
+  { key: 'others', label: "Edit others' content", area: 'content' },
+  { key: 'manage', label: 'Manage permissions', area: 'content' },
+  { key: 'mentorship', label: 'CRM: mentorship', area: 'crm' },
+  { key: 'people', label: 'CRM: people', area: 'crm' },
+  { key: 'finance', label: 'CRM: finance', area: 'crm' },
+  { key: 'crm_admin', label: 'CRM: settings', area: 'crm' },
+  { key: 'forms', label: 'Forms', area: 'forms' },
+  { key: 'forms_admin', label: 'Forms: all forms', area: 'forms' },
+  // The member applications board (server/members.js): an area of its own.
+  { key: 'members', label: 'Member applications', area: 'members' },
 ];
+const AREAS = [...new Set(PERMISSIONS.map((p) => p.area))];
 const KEYS = PERMISSIONS.map((p) => p.key);
+
+/** Which areas a set of permission keys opens: { content, crm, forms, members }. */
+function areas(perms) {
+  const out = {};
+  AREAS.forEach((area) => {
+    out[area] = PERMISSIONS.some((p) => p.area === area && perms.includes(p.key));
+  });
+  return out;
+}
 
 // Local development (scripts/meet-dev.js) has no Discord server: these stand
 // in for the AIS roles, and the stand-in login lets you pick some.
@@ -36,6 +57,7 @@ const DEV_ROLES = [
   'Admin',
   'Direttivo',
   'communication',
+  'mentorship',
   'blog',
   'Organizzatori',
   'seminars',
@@ -43,8 +65,14 @@ const DEV_ROLES = [
   'Partecipanti',
 ].map((name) => ({ id: `dev-${name.toLowerCase()}`, name }));
 
-function isDev() {
-  return process.env.MEET_DEV_LOGIN === '1';
+/**
+ * The local stand-ins (sign in under any name and roles, join without
+ * Discord) are for a developer's own machine. On Vercel (production and
+ * previews set VERCEL) they stay off whatever MEET_DEV_LOGIN says: one
+ * stray variable must not open the site to anyone.
+ */
+function devLogin() {
+  return process.env.MEET_DEV_LOGIN === '1' && !process.env.VERCEL;
 }
 
 let fetchImpl = (...args) => fetch(...args);
@@ -56,9 +84,13 @@ function botConfigured() {
   return Boolean(process.env.DISCORD_BOT_TOKEN_AIS_TEAM_AREA && process.env.DISCORD_GUILD_ID);
 }
 
-async function bot(path) {
+async function bot(path, { method = 'GET', json } = {}) {
+  const headers = { Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN_AIS_TEAM_AREA}` };
+  if (json) headers['Content-Type'] = 'application/json';
   const res = await fetchImpl(`${DISCORD_API}${path}`, {
-    headers: { Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN_AIS_TEAM_AREA}` },
+    method,
+    headers,
+    body: json ? JSON.stringify(json) : undefined,
   });
   const body = await res.json().catch(() => ({}));
   return { status: res.status, ok: res.ok, body };
@@ -76,9 +108,21 @@ async function forRoles(roleIds) {
   return KEYS.filter((k) => granted.has(k));
 }
 
-/** The permission keys of a signed-in user (from auth.currentUser). */
+// The keys of the site's content: what the shared admin password still opens
+// in production (with `manage`, to hand out everything else).
+const CONTENT_ONLY = PERMISSIONS.filter((p) => p.area === 'content').map((p) => p.key);
+
+/**
+ * The permission keys of a signed-in user (from auth.currentUser).
+ * In production the shared admin password opens the site's content and the
+ * permissions table, never the personal data (CRM, form answers, member
+ * applications): those need a Discord sign-in, so the audit trail names a
+ * person. Locally and on the previews it opens everything.
+ */
 async function forUser(user) {
-  if (user.kind === 'admin') return KEYS.slice();
+  if (user.kind === 'admin') {
+    return process.env.VERCEL_ENV === 'production' ? CONTENT_ONLY.slice() : KEYS.slice();
+  }
   const { rows } = await db.query('select roles from app_users where id = $1', [user.id]);
   return forRoles(rows.length ? rows[0].roles : []);
 }
@@ -99,11 +143,15 @@ async function refreshRoles(user) {
     console.error('Reading Discord roles failed', err.message);
     return;
   }
-  // 404: no longer in the server, so no roles at all.
+  // 404: no longer in the server, so no roles at all, and no session either.
   if (res.status === 404) {
-    await db.query(`update app_users set roles = '{}' where id = $1`, [user.id]);
+    await db.query(
+      `update app_users set roles = '{}', roles_checked_at = now(),
+         session_version = session_version + 1 where id = $1`,
+      [user.id]
+    );
   } else if (res.ok) {
-    await db.query('update app_users set roles = $2 where id = $1', [
+    await db.query('update app_users set roles = $2, roles_checked_at = now() where id = $1', [
       user.id,
       res.body.roles || [],
     ]);
@@ -123,14 +171,42 @@ async function require_(user, key, { fresh = false } = {}) {
   return perms;
 }
 
-/** May at least one of these roles do something with content? */
+/**
+ * Like require(), but re-reads the Discord roles only when the last check is
+ * older than `maxAgeMs` (default 5 minutes): for reads, which are frequent,
+ * where `fresh` on every call would hit Discord's rate limits. The shared-
+ * password admin has no Discord roles, so there is nothing to refresh.
+ */
+async function requireRecent(user, key, { maxAgeMs = 5 * 60 * 1000 } = {}) {
+  await refreshIfStale(user, { maxAgeMs });
+  return require_(user, key);
+}
+
+/** Re-reads the Discord roles when the last read is older than `maxAgeMs`. */
+async function refreshIfStale(user, { maxAgeMs = 5 * 60 * 1000 } = {}) {
+  if (user.kind === 'admin') return;
+  const { rows } = await db.query('select roles_checked_at from app_users where id = $1', [
+    user.id,
+  ]);
+  const checked = rows[0] && rows[0].roles_checked_at;
+  if (!checked || Date.now() - new Date(checked).getTime() > maxAgeMs) await refreshRoles(user);
+}
+
+/** The Discord role ids stored for a user (none for the shared admin). */
+async function rolesOf(user) {
+  if (user.kind === 'admin') return [];
+  const { rows } = await db.query('select roles from app_users where id = $1', [user.id]);
+  return rows.length ? rows[0].roles : [];
+}
+
+/** May at least one of these roles do something with content or the CRM? */
 async function anyContentRole(roleIds) {
   return (await forRoles(roleIds)).length > 0;
 }
 
 /** The server's roles, for the permissions table: [{ id, name }]. */
 async function guildRoles() {
-  if (isDev() && !botConfigured()) return DEV_ROLES;
+  if (devLogin() && !botConfigured()) return DEV_ROLES;
   if (!botConfigured()) return [];
   const res = await bot(`/guilds/${process.env.DISCORD_GUILD_ID}/roles`);
   if (!res.ok) throw new HttpError(502, `Discord did not list the roles (${res.status})`);
@@ -152,11 +228,19 @@ async function listRolePermissions() {
   }));
 }
 
+/** May `user` change who holds the keys outside the site's content? */
+function canGrantAll(user) {
+  return Boolean(user) && user.kind === 'admin';
+}
+
 /**
  * Replaces the permissions table with `list` ([{ roleId, roleName,
  * permissions }]). Roles left without permissions are dropped.
+ * With `actor` (a request from the dashboard): `manage` hands out the
+ * content keys only; the CRM, forms and member applications keys change only
+ * through the shared admin, so a content role cannot give itself more.
  */
-async function saveRolePermissions(list) {
+async function saveRolePermissions(list, actor) {
   if (!Array.isArray(list)) throw new HttpError(400, 'Expected a list of roles');
   const clean = [];
   const seen = new Set();
@@ -174,6 +258,23 @@ async function saveRolePermissions(list) {
       clean.push({ roleId, roleName, permissions: KEYS.filter((k) => perms.includes(k)) });
     }
   }
+  if (actor && !canGrantAll(actor)) {
+    const before = new Map((await listRolePermissions()).map((r) => [r.roleId, r.permissions]));
+    const after = new Map(clean.map((r) => [r.roleId, r.permissions]));
+    const touched = new Set();
+    for (const id of new Set([...before.keys(), ...after.keys()])) {
+      const a = before.get(id) || [];
+      const b = after.get(id) || [];
+      a.filter((k) => !b.includes(k)).forEach((k) => touched.add(k));
+      b.filter((k) => !a.includes(k)).forEach((k) => touched.add(k));
+    }
+    if ([...touched].some((k) => !CONTENT_ONLY.includes(k))) {
+      throw new HttpError(
+        403,
+        'Only the shared admin can change who may use the CRM, forms and member applications'
+      );
+    }
+  }
   await db.transaction(async (tx) => {
     await tx.query('delete from content_role_permissions');
     for (const r of clean) {
@@ -189,14 +290,22 @@ async function saveRolePermissions(list) {
 module.exports = {
   PERMISSIONS,
   KEYS,
+  areas,
   DEV_ROLES,
+  devLogin,
   setFetch,
+  botConfigured,
+  bot,
   forRoles,
   forUser,
   refreshRoles,
   require: require_,
+  requireRecent,
+  refreshIfStale,
+  rolesOf,
   anyContentRole,
   guildRoles,
   listRolePermissions,
+  canGrantAll,
   saveRolePermissions,
 };

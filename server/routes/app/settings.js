@@ -4,10 +4,10 @@
 //   PATCH { notifyChannel, notifyEmail }  -> the user's own notification choices
 //   PUT   { host, port, user, password, fromEmail, fromName }  -> SMTP (admin)
 //   POST  ?action=test { to }   -> sends a test email (admin)
-const { route, sendJson, readJson, getQuery, HttpError } = require('../../server/http');
-const auth = require('../../server/auth');
-const mail = require('../../server/mail');
-const notify = require('../../server/notify');
+const { route, sendJson, readJson, getQuery, HttpError } = require('../../http');
+const auth = require('../../auth');
+const mail = require('../../mail');
+const notify = require('../../notify');
 
 function requireAdmin(user) {
   if (user.kind !== 'admin') throw new HttpError(403, 'Only the admin can change this');

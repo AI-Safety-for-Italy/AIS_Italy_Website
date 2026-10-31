@@ -1,0 +1,38 @@
+---
+title: Mentorship board
+# The CRM's mentorship board. An empty shell: everything on it comes from
+# /api/app/crm/mentorship after the server has checked the `mentorship`
+# permission, so nothing personal is ever in this page's HTML.
+permalink: /app/crm/
+tool: crm
+tab: mentors
+wide: true
+noindex: true
+excludeFromSitemap: true
+eleventyExcludeFromCollections: true
+seoTitle: 'Mentorship board | AI Safety for Italy'
+---
+{% extends "app.njk" %}
+{% block page %}
+    <div id="crmNotices"></div>
+
+    <div class="crm-toolbar" id="crmToolbar" hidden>
+      <div class="chip-group" role="group" aria-label="Track" id="trackFilter">
+        <button type="button" class="chip" data-track="" aria-pressed="true">All tracks</button>
+        <button type="button" class="chip" data-track="projects" aria-pressed="false">AI safety projects</button>
+        <button type="button" class="chip" data-track="orientation" aria-pressed="false">Career orientation</button>
+      </div>
+      <input class="form-input is-compact crm-search" id="crmSearch" type="search" placeholder="Search name, affiliation, area…" aria-label="Search">
+      <label class="check-row"><input type="checkbox" id="onlyMine"><span>Only mine</span></label>
+    </div>
+
+    <div id="crmBoard"></div>
+
+<dialog class="meet-dialog crm-panel" id="personPanel" aria-labelledby="personName">
+  <div class="dialog-body" id="personBody"></div>
+</dialog>
+
+<script src="/assets/js/meet/common.js" defer></script>
+<script src="/assets/js/meet/app-common.js" defer></script>
+<script src="/assets/js/meet/crm-board.js" defer></script>
+{% endblock %}

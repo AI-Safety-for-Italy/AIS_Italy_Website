@@ -1,0 +1,24 @@
+---
+title: Member applications
+# The registration form's submissions, approved or rejected here; approving
+# emails a link that adds the person to the Discord server with their role
+# (server/members.js). Needs the `members` permission.
+permalink: /app/members/
+tool: members
+noindex: true
+excludeFromSitemap: true
+eleventyExcludeFromCollections: true
+seoTitle: 'Member applications | AI Safety for Italy'
+---
+{% extends "app.njk" %}
+{% block page %}
+    <div class="notice" id="setupNote" hidden style="margin-bottom:1.5rem"><span id="setupText"></span></div>
+    <div class="panel-head">
+      <div class="choice-group" role="radiogroup" aria-label="Show" id="filters"></div>
+    </div>
+    <div id="memberList"></div>
+
+<script src="/assets/js/meet/common.js" defer></script>
+<script src="/assets/js/meet/app-common.js" defer></script>
+<script src="/assets/js/meet/members.js" defer></script>
+{% endblock %}

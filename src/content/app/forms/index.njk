@@ -1,0 +1,41 @@
+---
+title: Forms
+# The forms this member may manage or read (server/forms/forms.js decides).
+permalink: /app/forms/
+tool: forms
+noindex: true
+excludeFromSitemap: true
+eleventyExcludeFromCollections: true
+seoTitle: 'Forms | AI Safety for Italy'
+---
+{% extends "app.njk" %}
+{% block actions %}<button type="button" class="btn btn-primary btn-sm" id="newForm" hidden>+ New form</button>{% endblock %}
+{% block page %}
+<div class="panel-head">
+  <h2>Your forms</h2>
+</div>
+<div id="formList"></div>
+
+<dialog class="meet-dialog" id="newDialog" aria-labelledby="newTitle">
+  <form class="dialog-body form-grid" id="newFormForm" method="dialog">
+    <h2 id="newTitle">New form</h2>
+    <div>
+      <label class="form-label" for="nfTitle">Title</label>
+      <input class="form-input is-compact" id="nfTitle" maxlength="200" required placeholder="e.g. Meetup sign-up">
+    </div>
+    <div>
+      <span class="form-label" id="nfTemplateLabel">Start from</span>
+      <div class="fe-templates" role="radiogroup" aria-labelledby="nfTemplateLabel" id="nfTemplates"></div>
+    </div>
+    <p class="form-error" id="nfError" hidden></p>
+    <div class="dialog-foot">
+      <button type="button" class="btn btn-outline" id="nfCancel">Cancel</button>
+      <button type="submit" class="btn btn-primary" id="nfCreate">Create</button>
+    </div>
+  </form>
+</dialog>
+
+<script src="/assets/js/meet/common.js" defer></script>
+<script src="/assets/js/meet/app-common.js" defer></script>
+<script src="/assets/js/meet/forms-list.js" defer></script>
+{% endblock %}

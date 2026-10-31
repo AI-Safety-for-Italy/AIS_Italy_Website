@@ -145,6 +145,8 @@
             err.status = res.status;
             err.field = data.field;
             err.code = data.code;
+            // A form's answers: { questionId: message } (server/forms/schema.js).
+            err.errors = data.errors;
             throw err;
           }
           return data;
@@ -558,7 +560,14 @@
     };
   }
 
+  // The one email rule; the server twin is server/email.js.
+  var EMAIL = /^[^\s@<>()",;:]+@[^\s@<>()",;:]+\.[^\s@<>()",;:]{2,}$/;
+  function isEmail(text) {
+    return typeof text === 'string' && text.length <= 254 && EMAIL.test(text);
+  }
+
   window.Meet = {
+    isEmail: isEmail,
     recurrenceText: recurrenceText,
     recurrenceFields: recurrenceFields,
     h: h,

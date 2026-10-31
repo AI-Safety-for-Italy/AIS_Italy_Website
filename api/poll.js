@@ -5,7 +5,7 @@
 //   GET   &check=1&name=…&email=… -> { nameTaken, emailTaken }
 //   POST  { name, email, votes: { slotId: 0|1|2 }, editToken?, inviteToken? }
 //         -> { editToken }
-const { route, sendJson, readJson, getQuery, origin } = require('../server/http');
+const { route, sendJson, readJson, getQuery, siteUrl } = require('../server/http');
 const polls = require('../server/polls');
 const notify = require('../server/notify');
 
@@ -40,7 +40,7 @@ module.exports = route({
     const result = await polls.submitResponse(getQuery(req).p, await readJson(req));
     let timer;
     await Promise.race([
-      notifyOwner(result, origin(req)).catch((err) => console.error('Notification failed', err)),
+      notifyOwner(result, siteUrl(req)).catch((err) => console.error('Notification failed', err)),
       new Promise((resolve) => (timer = setTimeout(resolve, NOTIFY_BUDGET_MS))),
     ]);
     clearTimeout(timer);

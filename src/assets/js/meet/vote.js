@@ -358,7 +358,7 @@
     }
 
     function validEmail(value) {
-      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+      return M.isEmail(value.trim());
     }
 
     // A name or email someone else already answered with is flagged while it

@@ -44,6 +44,13 @@ the terminal instead of sent. Set `DATABASE_URL`, the `DISCORD_*` variables or
 | `DISCORD_CLIENT_SECRET` | Same page ("Reset Secret"; the bot token is not affected)                     |
 | `DISCORD_GUILD_ID`      | Discord, Developer Mode on → right-click the server → Copy ID                 |
 | `DISCORD_ROLES_IDS`     | Roles allowed in, comma-separated (Server Settings → Roles → Copy ID)         |
+| `SITE_URL`              | **Production only**: `https://www.ais4i.it`, for the links in emails          |
+
+Never set `MEET_DEV_LOGIN` on Vercel: it is ignored there anyway (the stand-in
+sign-in works only off Vercel), but it has no business in a deployment. In
+production the shared admin password opens the site's content and the
+permissions table only; the CRM, form answers and member applications need a
+Discord sign-in.
 
 On the Discord application, add a redirect for every host the site runs on:
 `https://www.ais4i.it/api/discord`, `https://ais4i-dev.vercel.app/api/discord`
@@ -188,3 +195,171 @@ Locally, `npm run dev:meet` offers stand-ins for the Discord roles on the
 login page; `node scripts/content-migrate.js --local` (with the server
 stopped) imports into the local database; publishing rewrites
 `_content-snapshot.json`, which the watching build picks up.
+
+# CRM board (`/app/crm/`, in progress)
+
+A private board for the mentorship programme, later people and funding.
+Phases 0 (foundations) and 1 (the mentorship board) are here.
+
+**The mentorship board** (`/app/crm/`, permission `mentorship`;
+`server/crm/mentorship.js`, `api/app/crm/mentorship.js`):
+
+- **Mentors** and **Mentees**: a column per stage of the selection (mentors:
+  to contact, contacted, interested, applied, selected, matched, declined;
+  mentees: interested, contacted, applied, selected, matched, declined). Drag a
+  card to move it, filter by track, search, or show only the people you follow.
+- The three sheets are joined by person key: someone in two lists is one card.
+  Until the team moves them, the stage comes from the sheets (an application
+  means Applied; "Contattato: Sì" means Contacted…). Rows without an email
+  are listed apart: they cannot be tracked until the sheet has one.
+- A person's card: stage, track, who follows them, the team's notes
+  (encrypted), every sheet row about them (contact details only with
+  `mentorship`) and their history from the audit trail.
+- **Pairs**: a selected mentor and a selected mentee on the same track. A
+  mentee has one mentor; a mentor can go over the number of mentees they asked
+  for, with a warning. Pairing sets both to Matched; ending a pair sets them back
+  to Selected and keeps the ended pair.
+
+The foundations it stands on:
+
+The rules, which later phases must keep:
+
+- **Personal data stays in the Google Sheets the forms write to.** The board
+  reads them (`server/sheets.js`, read-only scope, fixed in the code) and never
+  copies emails, CVs or answers into the database. Reads are cached in memory
+  for two minutes, never on disk.
+- **The database holds only what is operational**, pointing at a person by an
+  opaque key (`personKey` in `server/crm/crypto.js`: an HMAC of the email, not
+  the email). Free notes are encrypted with AES-256-GCM, bound to their person.
+- **Permissions per part**, checked on the server on every request
+  (`server/access.js`): `mentorship`, `people`, `finance`, `crm_admin`,
+  set on the same Permissions page as the content tool's. A CRM permission
+  opens nothing in the content tool and the other way round (`areas` in
+  `server/permissions.js`). A sign-in older than 24 hours is asked again, and
+  the Discord roles are re-read when the last read is older than five minutes.
+- **Fields only some may read** (email, CV, profile links) are removed on the
+  server by `access.redact`, not hidden by the page.
+- **An append-only audit trail** (`crm_audit`; database triggers refuse update,
+  delete and truncate) of who looked at or changed which record. Records are
+  named by person key, never by email, and never carry what a person wrote.
+- **Development and tests use invented data** (`server/crm/fixtures.js`), the
+  same columns as the real sheets. `CRM_SHEETS_FAKE=1` is refused on the live
+  site. Real answers never go in git, in the local database, or in `dev`.
+
+Environment (Vercel; `scripts/meet-dev.js` sets throwaway values locally):
+
+| Variable                      | What                                                                                      |
+| ----------------------------- | ----------------------------------------------------------------------------------------- |
+| `CRM_ENCRYPTION_KEY`          | 32 random bytes, base64 (`openssl rand -base64 32`). Without it the CRM refuses to store. |
+| `CRM_ENCRYPTION_KEY_PREVIOUS` | The old key while rotating: still opens old notes, never writes.                          |
+| `CRM_KEY_SECRET`              | At least 32 characters. Makes the person keys. **Never change it**: it orphans every key. |
+| `GOOGLE_SERVICE_ACCOUNT_JSON` | The service account key (the same secret as the members workflow), to read the sheets.    |
+
+Which spreadsheet and tab each source reads is a setting (`crm_sources`),
+edited by `crm_admin`; the sheets are shared, as Viewer, with the service
+account one at a time. `server/crm/sources.js` maps the sheets' columns to
+fields by header text, so a form that gains a question does not break the board.
+
+# Forms (`/app/forms/`, `/form/?f=…`, in progress)
+
+Forms made and answered on the platform instead of Google Forms. **F0 (the
+engine) and F1 (the editor and the public page) are here**; answers review,
+analysis and the linked Google Sheet come next.
+
+- **The editor** (`/app/forms/`, permission `forms`, or `forms_admin` for all
+  forms): start blank or from a template modelled on the current Google
+  Forms (mentorship expression of interest, call for mentors, community
+  sign-up); add questions from the left, drag them in the middle, set the
+  chosen one on the right; texts in Italian and English; a preview drawn by
+  the public page's own code; settings (draft / open / closed, dates, link,
+  one answer per email, telling the owner about new answers (by email or
+  Discord DM, as on their settings page; never what the answer says), which
+  Discord roles read the answers) and the public link. How long answers are
+  kept is not set yet: deleting them on a schedule needs a job, which comes
+  later.
+- **Answers** (the editor's Answers tab; also the only tab for the Discord
+  roles a form lets read its answers): a summary with a chart per question
+  (bars, columns or donut, sortable, the choice remembered per form), numbers
+  at a glance and answers over time; filters by status and date, and a click
+  on a bar keeps only the answers that chose it, on every chart. One answer at
+  a time, with previous / next (arrow keys) and its status (new, reviewing,
+  accepted, rejected); a table with a column per question. The form's managers
+  can also delete an answer for good and export them all as CSV (no cell runs
+  as a formula in a spreadsheet). Every look, change, deletion and export is
+  on the audit trail.
+- **Questions**: short and long text, email, https link, number, one or several
+  choices (with Other), drop-down, scale, date, yes/no, consent (recorded with
+  the version of its text), text blocks and pages.
+- **The public page** (`/form/?f=<slug>`, `api/form.js`, no sign-in): one page
+  per section with a progress bar, errors beside their question, a draft kept
+  in the browser, in the form's languages.
+
+Security (`server/forms/`):
+
+- Every public answer is checked on the server against the version of the form
+  it was given to (`schema.js`); unknown keys are dropped.
+- Answers are stored encrypted (AES-256-GCM, `server/crm/crypto.js`), bound to
+  their form and response; the respondent is known only by the opaque key of
+  their email. Editing a form with answers makes a new version, so old answers
+  keep their questions.
+- Anti-spam (`guard.js`): a signed token with the time the form was opened, a
+  honeypot, a minimum filling time, and at most 5 answers per address and form
+  in 10 minutes; the address is kept only as a daily HMAC, for a day.
+- Who may manage a form or read its answers is checked on every call; a form
+  you may not see answers 404. Views, changes and refusals go on the CRM's
+  append-only audit trail.
+
+# Member applications (`/app/members/`)
+
+The registration form's submissions, reviewed by members whose Discord roles
+hold **Member applications** (ticked on Site content → Permissions).
+
+| Where                   | What                                                         |
+| ----------------------- | ------------------------------------------------------------ |
+| `/app/members/`         | The board: to review, invited, on Discord, rejected          |
+| `api/app/members.js`    | The board's API                                              |
+| `api/join.js`, `/join/` | The personal link an approved person gets, and where it ends |
+| `server/members.js`     | Submissions (`createApplication`), decisions, the join       |
+
+**Flow.** A submission becomes a pending application (`createApplication()`,
+called by whatever serves the registration form). Approving picks a role,
+Participant or Organizer (the one asked for is preselected), and emails a
+personal link valid 30 days. Following it signs in with Discord (scope
+`identify guilds.join`); the bot adds the person to the server with that role,
+or gives it to them if they are already in, and the board shows their Discord
+account. The link works once; "Send the link again" makes a new one. Rejecting
+sends nothing.
+
+**Personal data.** Name, email and answers are stored encrypted with the
+CRM keys (`CRM_ENCRYPTION_KEY`, `CRM_KEY_SECRET`), bound to their row; the
+email is otherwise kept only as an opaque key, to spot someone who applied
+twice. Without the keys no application is taken (503). The board goes
+through the same door as the CRM (`server/access.js`): a sign-in less
+than a day old, Discord roles read again, and every look and decision on the
+audit trail. The internal note is not encrypted: it must not hold personal
+data.
+
+**Setting up**, besides what sign-in and the bot already need:
+
+- `DISCORD_ROLE_PARTICIPANT`, `DISCORD_ROLE_ORGANIZER`: the role ids to give.
+- On the Discord application, redirects `https://<host>/api/join` for every
+  host, next to the `/api/discord` ones.
+- `guilds.join` only works with the bot of the **same** application as
+  `DISCORD_CLIENT_ID`. The bot needs Create Instant Invite and Manage Roles,
+  and its role must sit above the two roles it gives.
+
+Locally (`npm run dev:meet`, no Discord) the link joins at once.
+
+# Keeping time of personal data
+
+Answers to forms and member applications that were never approved are deleted
+24 months after they were sent; approved applications stay, as the record of
+who is a member (`server/retention.js`). A GitHub Action runs it once a day
+on the live site (`.github/workflows/retention.yml`), calling
+`/api/cron/cleanup` with a shared secret; each run leaves one line with the
+counts on the audit trail.
+
+Setting up, once: a random `CRON_SECRET` of at least 32 characters
+(`openssl rand -base64 48`), saved both as a Vercel environment variable
+(Production) and as a GitHub repository secret. Without it the job does
+nothing. The privacy notice should say the same 24 months.

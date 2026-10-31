@@ -5,7 +5,7 @@
 //   POST    ?action=password { password } -> signs in as the admin
 //   POST    ?action=dev { name, roles }   -> local development only; roles
 //                                           are ids from devRoles
-//   DELETE  -> signs out
+//   DELETE  -> signs out, on every device
 // Discord sign-in itself goes through /api/discord.
 const { route, sendJson, readJson, getQuery, HttpError } = require('../server/http');
 const auth = require('../server/auth');
@@ -15,10 +15,13 @@ const permissions = require('../server/permissions');
 module.exports = route({
   async GET(req, res) {
     const user = await auth.currentUser(req);
-    const devLogin = process.env.MEET_DEV_LOGIN === '1';
+    const devLogin = permissions.devLogin();
+    const perms = user ? await permissions.forUser(user) : [];
     sendJson(res, 200, {
       user,
-      permissions: user ? await permissions.forUser(user) : [],
+      permissions: perms,
+      // Which tools these permissions open: { content, crm }.
+      areas: permissions.areas(perms),
       discord: discord.isConfigured(),
       // Setting names only, so a half-done setup says what it still needs.
       discordMissing: discord.isConfigured() ? undefined : discord.missingSettings(),
@@ -32,7 +35,7 @@ module.exports = route({
     if (action === 'password') {
       const password = typeof body.password === 'string' ? body.password : '';
       sendJson(res, 200, { user: await auth.passwordLogin(req, res, password) });
-    } else if (action === 'dev' && process.env.MEET_DEV_LOGIN === '1') {
+    } else if (action === 'dev' && permissions.devLogin()) {
       // Stands in for Discord on a local machine, where there is no app to
       // sign in with. Each name is its own account.
       const name =
@@ -46,13 +49,16 @@ module.exports = route({
         name,
         roles,
       });
-      auth.startSession(res, user.id);
+      await auth.startSession(res, user.id);
       sendJson(res, 200, { user });
     } else {
       throw new HttpError(400, 'Unknown action');
     }
   },
   async DELETE(req, res) {
+    // Signing out ends the sessions of this account on every device too.
+    const user = await auth.currentUser(req);
+    if (user) await auth.endSessions(user.id);
     auth.logout(res);
     sendJson(res, 200, { user: null });
   },

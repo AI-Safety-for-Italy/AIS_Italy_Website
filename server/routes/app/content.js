@@ -14,19 +14,23 @@
 //   POST   ?action=switch-off     -> the site goes back to the YAML (manage)
 // `publish` says whether the rebuild started and the team was told
 // (server/content-publish.js). Permissions: server/permissions.js.
-const { route, sendJson, readJson, getQuery, origin, HttpError } = require('../../server/http');
-const { requireUser } = require('../../server/auth');
-const content = require('../../server/content');
-const permissions = require('../../server/permissions');
-const publish = require('../../server/content-publish');
+const { route, sendJson, readJson, getQuery, siteUrl, HttpError } = require('../../http');
+const { requireUser } = require('../../auth');
+const content = require('../../content');
+const access = require('../../access');
+const permissions = require('../../permissions');
+const publish = require('../../content-publish');
 
 async function after(req, user, result) {
-  return publish.afterSave({ user, result, siteOrigin: origin(req) });
+  return publish.afterSave({ user, result, siteOrigin: siteUrl(req) });
 }
 
-/** The list, history and preview are for people who can publish something. */
+/**
+ * The list, history and preview are for people who can publish something
+ * here: a permission of the CRM board gives nothing in this tool.
+ */
 async function requireSomePermission(user) {
-  if (!(await permissions.forUser(user)).length) {
+  if (!permissions.areas(await permissions.forUser(user)).content) {
     throw new HttpError(403, 'Your Discord roles do not give access to the content tool');
   }
 }
@@ -36,11 +40,13 @@ module.exports = route({
     const user = await requireUser(req);
     const query = getQuery(req);
     if (query.action === 'roles') {
-      await permissions.require(user, 'manage');
+      await access.authorize(user, 'manage');
       sendJson(res, 200, {
         roles: await permissions.guildRoles(),
         table: await permissions.listRolePermissions(),
         keys: permissions.PERMISSIONS,
+        // false: only the content columns can be changed by this user.
+        canGrantAll: permissions.canGrantAll(user),
       });
       return;
     }
@@ -72,7 +78,7 @@ module.exports = route({
       return;
     }
     if (query.action === 'switch-on' || query.action === 'switch-off') {
-      await permissions.require(user, 'manage', { fresh: true });
+      await access.authorize(user, 'manage', { fresh: true });
       const on = query.action === 'switch-on';
       let result = {};
       if (on) result = await content.switchOn(`${user.name} (switch on)`);
@@ -89,9 +95,9 @@ module.exports = route({
     const user = await requireUser(req);
     const query = getQuery(req);
     if (query.action === 'roles') {
-      await permissions.require(user, 'manage', { fresh: true });
+      await access.authorize(user, 'manage', { fresh: true });
       const { table } = await readJson(req);
-      sendJson(res, 200, { table: await permissions.saveRolePermissions(table) });
+      sendJson(res, 200, { table: await permissions.saveRolePermissions(table, user) });
       return;
     }
     if (!query.id) throw new HttpError(400, 'Which item?');

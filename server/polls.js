@@ -4,6 +4,7 @@
 
 const crypto = require('crypto');
 const db = require('./db');
+const { isEmail } = require('./email');
 const mail = require('./mail');
 const recurrence = require('./recurrence');
 const { HttpError } = require('./http');
@@ -13,7 +14,6 @@ const MAX_SLOTS = 200;
 const MAX_RESPONSES = 300;
 const MAX_INVITES = 50;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const EMAIL = /^[^\s@<>(),;:"]+@[^\s@<>(),;:"]+\.[^\s@<>(),;:"]+$/;
 
 const newToken = () => crypto.randomBytes(16).toString('base64url');
 
@@ -28,7 +28,7 @@ function text(value, field, { max, required = false } = {}) {
 
 function email(value, field = 'Email') {
   const s = text(value, field, { max: 254, required: true }).toLowerCase();
-  if (!EMAIL.test(s)) throw new HttpError(400, `${field} is not a valid address`);
+  if (!isEmail(s)) throw new HttpError(400, `${field} is not a valid address`);
   return s;
 }
 

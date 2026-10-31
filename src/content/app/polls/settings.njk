@@ -3,24 +3,15 @@ title: General settings
 # Settings that apply to every user of the meeting polls. Only the admin
 # account can see and change them; the API enforces it.
 permalink: /app/polls/settings/
-appTab: settings
 noindex: true
 excludeFromSitemap: true
 eleventyExcludeFromCollections: true
 seoTitle: 'General settings | AI Safety for Italy'
+tool: polls
+tab: settings
 ---
-{% extends "base.njk" %}
-{% block content %}
-<section class="page-hero meet-hero">
-  <div class="container">
-    <span class="eyebrow">Meeting polls</span>
-    <h1>General settings</h1>
-  </div>
-</section>
-
-<section class="meet-main">
-  <div class="container">
-    {% include "app-bar.njk" %}
+{% extends "app.njk" %}
+{% block page %}
     <div class="settings">
       <div class="empty-state" id="adminOnly" hidden>
         <p style="margin:0">Only the admin can change the general settings. Your own notifications are under your profile → My settings.</p>
@@ -68,8 +59,6 @@ seoTitle: 'General settings | AI Safety for Italy'
       </div>
     </form>
     </div>
-  </div>
-</section>
 
 <script src="/assets/js/meet/common.js" defer></script>
 <script src="/assets/js/meet/app-common.js" defer></script>

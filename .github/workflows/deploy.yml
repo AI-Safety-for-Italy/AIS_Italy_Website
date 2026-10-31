@@ -39,6 +39,9 @@ jobs:
       - name: Check formatting
         run: npm run format:check
 
+      - name: Lint
+        run: npx eslint server api src/assets/js
+
       - name: Build site
         run: npm run build
 

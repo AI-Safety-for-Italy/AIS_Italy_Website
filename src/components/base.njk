@@ -270,13 +270,13 @@
 </head>
 <body style="background-color: var(--bg-primary); color: var(--text-primary);">
     {# The meeting-poll pages get a bare logo header and footer line instead. #}
-    {% if meetHead %}{% include "meet-header.njk" %}{% else %}{% include "header.njk" %}{% endif %}
+    {% if appShell %}{# the frame of app.njk draws its own #}{% elif meetHead %}{% include "meet-header.njk" %}{% else %}{% include "header.njk" %}{% endif %}
 
     <main id="main">
         {% block content %}{% endblock %}
     </main>
 
-    {% if meetHead %}{% include "meet-footer.njk" %}{% else %}{% include "footer.njk" %}{% endif %}
+    {% if appShell %}{% elif meetHead %}{% include "meet-footer.njk" %}{% else %}{% include "footer.njk" %}{% endif %}
 
     {# Cookie consent for GA4. Rendered only when site.analytics.gaId is set
        (production). main.js shows it until the visitor picks, and gtag.js is

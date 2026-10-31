@@ -3,24 +3,16 @@ title: Edit content
 # The form for one seminar or event: /app/content/edit/?type=seminar for a new
 # one, ?id=… to change one. Publishing saves it and rebuilds the site.
 permalink: /app/content/edit/
-appTab: content-new
+tool: content
+tab: content-new
+pageTitle: New seminar
 noindex: true
 excludeFromSitemap: true
 eleventyExcludeFromCollections: true
 seoTitle: 'Edit content | AI Safety for Italy'
 ---
-{% extends "base.njk" %}
-{% block content %}
-<section class="page-hero meet-hero">
-  <div class="container">
-    <span class="eyebrow">Site content</span>
-    <h1 id="pageTitle">New seminar</h1>
-  </div>
-</section>
-
-<section class="meet-main">
-  <div class="container">
-    {% include "content-bar.njk" %}
+{% extends "app.njk" %}
+{% block page %}
     <div class="notice" id="deletedNotice" hidden style="margin-bottom:1.5rem">
       <span><strong>Removed from the site.</strong> Saving, or restoring a version below, puts it back.</span>
     </div>
@@ -157,8 +149,6 @@ seoTitle: 'Edit content | AI Safety for Italy'
       </div>
     </form>
     <div id="formState"></div>
-  </div>
-</section>
 
 <script src="/assets/js/meet/common.js" defer></script>
 <script src="/assets/js/meet/app-common.js" defer></script>

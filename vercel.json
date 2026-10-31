@@ -50,6 +50,23 @@
           "value": "noindex, nofollow"
         }
       ]
+    },
+    {
+      "source": "/(app|form|join|meet|it/meet|api)/(.*)",
+      "headers": [
+        {
+          "key": "Content-Security-Policy",
+          "value": "frame-ancestors 'none'"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        }
+      ]
     }
   ],
   "devCommand": "npm start",
@@ -98,12 +115,18 @@
     }
   ],
   "functions": {
-    "api/app/*.js": {
+    "api/app.js": {
       "maxDuration": 60,
       "includeFiles": "data/events.yaml"
     },
     "api/poll.js": {
       "maxDuration": 30
     }
-  }
+  },
+  "rewrites": [
+    {
+      "source": "/api/app/:route*",
+      "destination": "/api/app?__route=:route*"
+    }
+  ]
 }

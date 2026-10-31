@@ -4,25 +4,20 @@ permalink: /app/polls/poll/
 noindex: true
 excludeFromSitemap: true
 eleventyExcludeFromCollections: true
-appTab: poll
 seoTitle: 'Poll | AI Safety for Italy'
+tool: polls
+tab: poll
+pageTitle: Poll
 ---
-{% extends "base.njk" %}
-{% block content %}
-<section class="page-hero meet-hero">
-  <div class="container">
-    <span class="eyebrow">Meeting poll <span id="statusBadge"></span></span>
-    <h1 id="pollTitle"><span class="skeleton skeleton-title" aria-hidden="true"></span></h1>
-    <div class="meet-meta" id="pollMeta"></div>
-  </div>
-</section>
-
-<section class="meet-main">
-  <div class="container">
-    {% include "app-bar.njk" %}
-    <div id="pollView"></div>
-  </div>
-</section>
+{% extends "app.njk" %}
+{% block page %}
+<div class="ap-page-head">
+  {# The poll title shows in the top bar (poll-admin.js sets #apTitle too). #}
+  <h2 id="pollTitle" hidden></h2>
+  <span id="statusBadge"></span>
+</div>
+<div class="meet-meta" id="pollMeta"></div>
+<div id="pollView"></div>
 
 <dialog class="meet-dialog" id="finalizeDialog" aria-labelledby="finalizeTitle">
   <form method="dialog" id="finalizeForm">
