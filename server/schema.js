@@ -188,6 +188,10 @@ create index if not exists content_versions_item on content_versions (item_id, c
 -- again before writes and, if older than a few minutes, before reads.
 alter table app_users add column if not exists roles_checked_at timestamptz;
 
+-- Raised to end every session of a user (server/auth.js): on sign-out, and
+-- when they are no longer in the Discord server.
+alter table app_users add column if not exists session_version integer not null default 0;
+
 -- Who looked at or changed which CRM record. Append-only on purpose: the
 -- triggers refuse any update, delete or truncate, so no bug or stray query
 -- can rewrite the history. No foreign key to app_users for the same reason (a

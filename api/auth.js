@@ -5,7 +5,7 @@
 //   POST    ?action=password { password } -> signs in as the admin
 //   POST    ?action=dev { name, roles }   -> local development only; roles
 //                                           are ids from devRoles
-//   DELETE  -> signs out
+//   DELETE  -> signs out, on every device
 // Discord sign-in itself goes through /api/discord.
 const { route, sendJson, readJson, getQuery, HttpError } = require('../server/http');
 const auth = require('../server/auth');
@@ -49,13 +49,16 @@ module.exports = route({
         name,
         roles,
       });
-      auth.startSession(res, user.id);
+      await auth.startSession(res, user.id);
       sendJson(res, 200, { user });
     } else {
       throw new HttpError(400, 'Unknown action');
     }
   },
   async DELETE(req, res) {
+    // Signing out ends the sessions of this account on every device too.
+    const user = await auth.currentUser(req);
+    if (user) await auth.endSessions(user.id);
     auth.logout(res);
     sendJson(res, 200, { user: null });
   },

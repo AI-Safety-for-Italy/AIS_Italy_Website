@@ -143,11 +143,13 @@ async function refreshRoles(user) {
     console.error('Reading Discord roles failed', err.message);
     return;
   }
-  // 404: no longer in the server, so no roles at all.
+  // 404: no longer in the server, so no roles at all, and no session either.
   if (res.status === 404) {
-    await db.query(`update app_users set roles = '{}', roles_checked_at = now() where id = $1`, [
-      user.id,
-    ]);
+    await db.query(
+      `update app_users set roles = '{}', roles_checked_at = now(),
+         session_version = session_version + 1 where id = $1`,
+      [user.id]
+    );
   } else if (res.ok) {
     await db.query('update app_users set roles = $2, roles_checked_at = now() where id = $1', [
       user.id,

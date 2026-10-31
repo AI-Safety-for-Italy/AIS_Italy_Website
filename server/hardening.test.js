@@ -264,3 +264,46 @@ test('an approval email points to SITE_URL, not to the host of the request', asy
     delete process.env.DISCORD_ROLE_PARTICIPANT;
   }
 });
+
+// ── 5. Sessions end when the member signs out or leaves Discord ────────────
+
+test('signing out ends every session of the account, on every device', async () => {
+  const user = await auth.upsertDiscordUser({ discordId: 'test-Ada', name: 'Ada', roles: [] });
+  const laptop = await auth.sessionFor(user.id);
+  const phone = await auth.sessionFor(user.id);
+  const who = (cookie) =>
+    call(authApi, { url: '/api/auth', headers: { cookie: `${auth.COOKIE}=${cookie}` } });
+  assert.equal((await who(laptop)).body.user.name, 'Ada');
+
+  const out = await call(authApi, {
+    method: 'DELETE',
+    url: '/api/auth',
+    headers: { cookie: `${auth.COOKIE}=${laptop}` },
+  });
+  assert.equal(out.statusCode, 200);
+  assert.equal((await who(laptop)).body.user, null);
+  assert.equal((await who(phone)).body.user, null);
+
+  // Signing in again works, with a cookie the old ones cannot stand for.
+  const again = await auth.sessionFor(user.id);
+  assert.equal((await who(again)).body.user.name, 'Ada');
+});
+
+test('leaving the Discord server ends the sessions too', async () => {
+  process.env.DISCORD_BOT_TOKEN_AIS_TEAM_AREA = 'bot';
+  process.env.DISCORD_GUILD_ID = 'g1';
+  try {
+    const user = await auth.upsertDiscordUser({ discordId: 'd-gone', name: 'Gone', roles: ['r1'] });
+    const cookie = await auth.sessionFor(user.id);
+    permissions.setFetch(async () => ({ ok: false, status: 404, json: async () => ({}) }));
+    await permissions.refreshRoles(user);
+    const res = await call(authApi, {
+      url: '/api/auth',
+      headers: { cookie: `${auth.COOKIE}=${cookie}` },
+    });
+    assert.equal(res.body.user, null);
+  } finally {
+    delete process.env.DISCORD_BOT_TOKEN_AIS_TEAM_AREA;
+    delete process.env.DISCORD_GUILD_ID;
+  }
+});
