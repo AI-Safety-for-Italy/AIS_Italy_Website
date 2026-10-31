@@ -56,6 +56,7 @@ module.exports = [
       { key: 'mentors', label: 'Mentors', url: '/app/crm/#mentors' },
       { key: 'mentees', label: 'Mentees', url: '/app/crm/#mentees' },
       { key: 'pairs', label: 'Pairs', url: '/app/crm/#pairs' },
+      { key: 'settings', label: 'Sheets', url: '/app/crm/settings/', needs: 'crm_admin' },
     ],
     actions: [],
   },

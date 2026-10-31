@@ -1,0 +1,30 @@
+---
+title: Sheets
+# Which Google spreadsheets the mentorship board reads (server/crm/sources.js).
+# Shown to those holding `crm_admin`; the API checks it.
+permalink: /app/crm/settings/
+tool: crm
+tab: settings
+pageTitle: Sheets
+noindex: true
+excludeFromSitemap: true
+eleventyExcludeFromCollections: true
+seoTitle: 'Sheets | AI Safety for Italy'
+---
+{% extends "app.njk" %}
+{% block page %}
+    <form class="panel form-grid" id="sheetsForm" novalidate>
+      <div class="panel-head" style="margin:0">
+        <h2>Where the board reads from</h2>
+      </div>
+      <p class="panel-note" style="margin:0">The board never copies the answers: it reads these Google spreadsheets each time. Paste the spreadsheet’s address (or its id) and the name of the tab with the answers.</p>
+      <p class="form-note" id="shareNote" hidden style="margin:0"></p>
+      <div id="sheetRows"></div>
+      <div class="form-error" role="alert" hidden></div>
+      <div><button class="btn btn-primary btn-sm" type="submit">Save</button></div>
+    </form>
+
+<script src="/assets/js/meet/common.js" defer></script>
+<script src="/assets/js/meet/app-common.js" defer></script>
+<script src="/assets/js/meet/crm-settings.js" defer></script>
+{% endblock %}

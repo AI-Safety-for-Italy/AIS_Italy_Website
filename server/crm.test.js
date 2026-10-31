@@ -17,6 +17,7 @@ const audit = require('./crm/audit');
 const access = require('./access');
 const sources = require('./crm/sources');
 const contentApi = require('./routes/app/content');
+const mentorshipApi = require('./routes/app/crm/mentorship');
 const authApi = require('../api/auth');
 
 const KEY_A = Buffer.alloc(32, 1).toString('base64');
@@ -607,6 +608,45 @@ test('which spreadsheet each source reads is validated, saved, and audited', asy
     400
   );
   assert.equal((await audit.recent())[0].action, 'change-settings');
+});
+
+test('the sheets page takes an address or an id, and only crm_admin may use it', async () => {
+  assert.equal(
+    sources.sheetId(`https://docs.google.com/spreadsheets/d/${SHEET}/edit#gid=0`),
+    SHEET
+  );
+  assert.equal(sources.sheetId(` ${SHEET} `), SHEET);
+  process.env.GOOGLE_SERVICE_ACCOUNT_JSON = JSON.stringify({ client_email: 'reader@x.iam' });
+
+  await permissions.saveRolePermissions([
+    { roleId: 'r-admin', roleName: 'crm admins', permissions: ['crm_admin'] },
+    { roleId: 'r-mentors', roleName: 'mentorship team', permissions: ['mentorship'] },
+  ]);
+  const boss = await member('Bea', ['r-admin']);
+  const mentor = await member('Ugo', ['r-mentors']);
+  const url = '/api/app/crm/mentorship?action=sources';
+
+  assert.equal((await call(mentorshipApi, { url, user: mentor })).statusCode, 403);
+  assert.equal(
+    (await call(mentorshipApi, { method: 'PUT', url, user: mentor, body: {} })).statusCode,
+    403
+  );
+  const put = await call(mentorshipApi, {
+    method: 'PUT',
+    url,
+    user: boss,
+    body: {
+      mentors_prospective: {
+        spreadsheetId: `https://docs.google.com/spreadsheets/d/${SHEET}/edit`,
+      },
+    },
+  });
+  assert.equal(put.statusCode, 200);
+  assert.equal(put.body.serviceAccount, 'reader@x.iam');
+  assert.equal(put.body.sources.find((x) => x.id === 'mentors_prospective').spreadsheetId, SHEET);
+  const got = await call(mentorshipApi, { url, user: boss });
+  assert.equal(got.body.sources.length, Object.keys(sources.SOURCES).length);
+  delete process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
 });
 
 test('nothing in the database holds an email or an answer, however much was read', async () => {

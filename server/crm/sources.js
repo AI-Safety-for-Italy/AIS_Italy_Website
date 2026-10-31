@@ -149,13 +149,29 @@ async function getConfig() {
   return out;
 }
 
+/** The id of a spreadsheet, from its address or from the id itself. */
+function sheetId(value) {
+  const text = String(value || '').trim();
+  const match = /\/d\/([A-Za-z0-9_-]+)/.exec(text);
+  return match ? match[1] : text;
+}
+
+/** The service account's email, which the sheets must be shared with, or null. */
+function serviceAccountEmail() {
+  try {
+    return JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON || '').client_email || null;
+  } catch {
+    return null;
+  }
+}
+
 /** Validates and stores which spreadsheet and tab each source reads. */
 async function saveConfig(user, body) {
   const input = body && typeof body === 'object' ? body : {};
   const clean = {};
   for (const id of Object.keys(SOURCES)) {
     const item = input[id] || {};
-    const spreadsheetId = String(item.spreadsheetId || '').trim();
+    const spreadsheetId = sheetId(item.spreadsheetId);
     const tab = String(item.tab || SOURCES[id].tab).trim();
     if (spreadsheetId && !sheets.SHEET_ID.test(spreadsheetId)) {
       throw new HttpError(400, `${SOURCES[id].label}: that is not a spreadsheet id`, { field: id });
@@ -223,4 +239,13 @@ async function load(sourceId) {
   return { source: sourceId, records, missing, withoutEmail };
 }
 
-module.exports = { SOURCES, norm, mapColumns, getConfig, saveConfig, load };
+module.exports = {
+  SOURCES,
+  norm,
+  mapColumns,
+  getConfig,
+  saveConfig,
+  sheetId,
+  serviceAccountEmail,
+  load,
+};

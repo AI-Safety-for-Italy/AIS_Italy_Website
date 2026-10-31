@@ -7,11 +7,27 @@
 //   POST ?action=note    { key, kind, body }
 //   POST ?action=match   { mentorKey, menteeKey, track }
 //   POST ?action=end-match { id }
+//   GET  ?action=sources                  -> { sources, serviceAccount } (crm_admin)
+//   PUT  ?action=sources { <source>: { spreadsheetId, tab } }  -> the same, saved (crm_admin)
 const { route, sendJson, readJson, getQuery, HttpError } = require('../../../http');
 const { requireUser } = require('../../../auth');
 const access = require('../../../access');
 const crypto = require('../../../crm/crypto');
 const mentorship = require('../../../crm/mentorship');
+const sources = require('../../../crm/sources');
+
+/** The sheets the board reads, for the settings page: [{ id, label, spreadsheetId, tab }]. */
+async function sourceList() {
+  const config = await sources.getConfig();
+  return {
+    sources: Object.entries(sources.SOURCES).map(([id, s]) => ({
+      id,
+      label: s.label,
+      ...config[id],
+    })),
+    serviceAccount: sources.serviceAccountEmail(),
+  };
+}
 
 /** Signed in, CRM set up, and allowed: returns { user, perms }. */
 async function door(req, { write = false } = {}) {
@@ -25,6 +41,12 @@ async function door(req, { write = false } = {}) {
 
 module.exports = route({
   async GET(req, res) {
+    if (getQuery(req).action === 'sources') {
+      const user = await requireUser(req);
+      await access.authorize(user, 'crm_admin');
+      sendJson(res, 200, await sourceList());
+      return;
+    }
     const { user, perms } = await door(req);
     const { key, kind } = getQuery(req);
     if (key) {
@@ -32,6 +54,14 @@ module.exports = route({
       return;
     }
     sendJson(res, 200, await mentorship.board(user));
+  },
+
+  async PUT(req, res) {
+    const user = await requireUser(req);
+    if (getQuery(req).action !== 'sources') throw new HttpError(400, 'Unknown action');
+    await access.authorize(user, 'crm_admin', { fresh: true });
+    await sources.saveConfig(user, await readJson(req));
+    sendJson(res, 200, await sourceList());
   },
 
   async POST(req, res) {
