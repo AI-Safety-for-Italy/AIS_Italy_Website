@@ -174,6 +174,14 @@ function cleanSchema(input) {
     const showIf = cleanShowIf(items[i].showIf, cleaned.slice(0, i), item.id);
     if (showIf) item.showIf = showIf;
   });
+  // A hidden consent would let an answer in without it: the privacy consent
+  // is asked of everyone.
+  for (const item of cleaned) {
+    if (item.type === 'consent' && conditional({ items: cleaned }, item.id))
+      throw fail(`${item.id}: a consent is asked of everyone, it cannot be shown only if…`, {
+        field: item.id,
+      });
+  }
   return {
     languages,
     title: texts(s.title, languages, LIMITS.title, 'title', { required: true }),
@@ -226,6 +234,19 @@ function visibleIds(schema, answers) {
     } else if (sectionOk && holds(item.showIf)) visible.add(item.id);
   }
   return visible;
+}
+
+/**
+ * Can this item be hidden by an answer? Yes when it has its own "show only
+ * if", or sits in a section that has one.
+ */
+function conditional(schema, id) {
+  let section = null;
+  for (const item of schema.items) {
+    if (item.type === 'section') section = item;
+    if (item.id === id) return Boolean(item.showIf || (section && section.showIf));
+  }
+  return false;
 }
 
 /** Questions that take an answer. */
@@ -397,6 +418,7 @@ module.exports = {
   cleanSchema,
   cleanAnswers,
   visibleIds,
+  conditional,
   answerable,
   consentVersion,
   textIn,

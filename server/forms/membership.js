@@ -35,6 +35,13 @@ function need(schema, id, types, label, required) {
       field: 'membership',
     });
   }
+  // Hidden by an answer, it would leave the application without it: the
+  // answer kept, and nobody asked to review it.
+  if (schemaLib.conditional(schema, found.id)) {
+    throw new HttpError(400, `The ${label} question must always be shown, not only if…`, {
+      field: 'membership',
+    });
+  }
   return found.id;
 }
 

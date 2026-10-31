@@ -1061,3 +1061,51 @@ test('the editor sees who reads the answers: the owner and whoever holds forms_a
   assert.deepEqual(readers.allFormsPeople, []);
   assert.equal((await forms.get(team, id)).readers, undefined); // a reader cannot change the form
 });
+
+test('a consent cannot be shown only if…, on its own or through its section', () => {
+  const consent = { id: 'ok', type: 'consent', required: true, label: { it: 'Acconsento' } };
+  const refused = (items) =>
+    assert.throws(
+      () => schemaLib.cleanSchema(branching({ items })),
+      (err) => err.status === 400 && err.details.field === 'ok'
+    );
+  refused([{ ...consent, showIf: { item: 'kind', values: ['active'] } }]);
+  // After page3 (shown to everyone) it is fine; under a hidden section it is not.
+  schemaLib.cleanSchema(branching({ items: [consent] }));
+  refused([
+    {
+      id: 'more',
+      type: 'section',
+      label: { it: 'Altro' },
+      showIf: { item: 'kind', values: ['active'] },
+    },
+    consent,
+  ]);
+});
+
+test('the registration form keeps its name, email and role questions always shown', async () => {
+  const root = await admin();
+  const { id } = await forms.create(root, { title: 'Iscrizione', template: 'community_signup' });
+  const { schema, settings } = await forms.get(root, id);
+  const gate = { id: 'gate', type: 'yes_no', label: { it: 'Vuoi?' } };
+  const hiding = (itemId) => ({
+    ...schema,
+    items: [
+      gate,
+      ...schema.items.map((it) =>
+        it.id === itemId ? { ...it, showIf: { item: 'gate', values: ['yes'] } } : it
+      ),
+    ],
+  });
+  // Saving questions that would hide a mapped one is refused...
+  for (const mapped of ['first_name', 'email', 'involvement']) {
+    await rejects(forms.saveSchema(root, id, hiding(mapped)), 400);
+  }
+  // ...and so is mapping a question that is already conditional.
+  await forms.updateSettings(root, id, { settings: { membership: null } });
+  await forms.saveSchema(root, id, hiding('email'));
+  await rejects(
+    forms.updateSettings(root, id, { settings: { membership: settings.membership } }),
+    400
+  );
+});
