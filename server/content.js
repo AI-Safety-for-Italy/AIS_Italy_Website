@@ -532,6 +532,8 @@ async function importEntries(entries, userName = 'Import from events.yaml') {
       skipped++;
       continue;
     }
+    // The id is dropped on purpose: an import always creates a new entry.
+    // eslint-disable-next-line no-unused-vars
     const { id: _id, ...entry } = raw;
     // Markdown versions of the hand-written HTML, so the form can edit them.
     for (const key of ['description', 'description_past']) {

@@ -256,6 +256,8 @@ async function person(user, perms, key, kind) {
   const state = (await states()).get(`${kind}:${key}`);
   const card_ = card(found, state, {});
   const sheetsView = Object.entries(found.records).map(([sourceId, record]) => {
+    // The key is dropped on purpose: it is the lookup id, not a field to show.
+    // eslint-disable-next-line no-unused-vars
     const { key: _key, row, ...fields } = record;
     const shown = access.redact(fields, perms);
     // Only what has an answer.

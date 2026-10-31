@@ -76,6 +76,8 @@ async function load() {
 
 /** An entry whose day is over, as the Past section shows it. */
 function asPast(entry) {
+  // The register_* keys are dropped on purpose: a Past entry shows no register fields.
+  /* eslint-disable no-unused-vars */
   const {
     register_text,
     register_text_it,
@@ -85,6 +87,7 @@ function asPast(entry) {
     description_past_it,
     ...rest
   } = entry;
+  /* eslint-enable no-unused-vars */
   return {
     ...rest,
     status: 'Past',

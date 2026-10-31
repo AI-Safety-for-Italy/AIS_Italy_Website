@@ -156,6 +156,8 @@ async function readRows(ref) {
     return rowsFromValues(require('./crm/fixtures').values(source));
   }
   if (!SHEET_ID.test(String(spreadsheetId || ''))) throw new HttpError(400, 'Invalid sheet id');
+  // The control-character match is the point: such bytes are rejected in tab names.
+  // eslint-disable-next-line no-control-regex
   if (!tab || String(tab).length > 100 || /[\u0000-\u001f]/.test(tab)) {
     throw new HttpError(400, 'Invalid tab name');
   }
