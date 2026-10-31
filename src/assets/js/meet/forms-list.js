@@ -148,4 +148,11 @@
         error.hidden = false;
       });
   });
+
+  // ?new=1 (a link to start a new form) opens the dialog once the button is shown.
+  if (new URLSearchParams(window.location.search).get('new') === '1') {
+    M.areas.then(function (areas) {
+      if (areas.forms) newBtn.click();
+    });
+  }
 })();

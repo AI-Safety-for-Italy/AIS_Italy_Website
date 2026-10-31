@@ -18,7 +18,7 @@
     "test": "run-s test:members test:meet",
     "test:members": "sh scripts/run-tests.sh",
     "prepare": "husky install",
-    "test:meet": "node --test --test-concurrency=1 server/polls.test.js server/content.test.js server/crm.test.js server/crm-mentorship.test.js server/forms.test.js server/members.test.js server/hardening.test.js",
+    "test:meet": "node --test --test-concurrency=1 server/polls.test.js server/content.test.js server/crm.test.js server/crm-mentorship.test.js server/forms.test.js server/members.test.js server/hardening.test.js server/overview.test.js",
     "dev:meet": "run-p meet:*",
     "meet:css": "postcss src/assets/css/style.css -o _site/assets/css/style.css --watch",
     "meet:site": "eleventy --watch",

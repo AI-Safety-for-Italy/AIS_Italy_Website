@@ -2,36 +2,19 @@
 title: Forms
 # The forms this member may manage or read (server/forms/forms.js decides).
 permalink: /app/forms/
+tool: forms
 noindex: true
 excludeFromSitemap: true
 eleventyExcludeFromCollections: true
 seoTitle: 'Forms | AI Safety for Italy'
 ---
-{% extends "base.njk" %}
-{% block content %}
-<section class="page-hero meet-hero">
-  <div class="container">
-    <span class="eyebrow">Personal area</span>
-    <h1>Forms</h1>
-  </div>
-</section>
-
-<section class="meet-main">
-  <div class="container">
-    <div class="admin-bar">
-      <nav class="crumbs" aria-label="Breadcrumb">
-        <a href="/app/">Tools</a>
-        <span aria-hidden="true">/</span>
-        <span>Forms</span>
-      </nav>
-    </div>
-    <div class="panel-head">
-      <h2>Your forms</h2>
-      <button type="button" class="btn btn-primary btn-sm" id="newForm" hidden>+ New form</button>
-    </div>
-    <div id="formList"></div>
-  </div>
-</section>
+{% extends "app.njk" %}
+{% block actions %}<button type="button" class="btn btn-primary btn-sm" id="newForm" hidden>+ New form</button>{% endblock %}
+{% block page %}
+<div class="panel-head">
+  <h2>Your forms</h2>
+</div>
+<div id="formList"></div>
 
 <dialog class="meet-dialog" id="newDialog" aria-labelledby="newTitle">
   <form class="dialog-body form-grid" id="newFormForm" method="dialog">

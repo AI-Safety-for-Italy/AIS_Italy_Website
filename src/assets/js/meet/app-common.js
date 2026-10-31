@@ -1,5 +1,7 @@
 /* Pages of the signed-in area (/app/): checks who is signed in, shows them in
- * the header with a sign-out button, and sends anyone signed out to the login.
+ * the sidebar with a sign-out menu, and sends anyone signed out to the login;
+ * runs the frame of src/components/app.njk (which tools show, their to-do
+ * counts, the menu on a phone, the Ctrl+K search).
  * The real protection is in the API; this only avoids showing an empty page. */
 (function () {
   'use strict';
@@ -122,9 +124,9 @@
     return info.permissions || [];
   });
 
-  /** Resolves with the tools the user's roles open: { content, crm }. */
+  /** Resolves with the tools the user's roles open: { content, crm, forms, members }. */
   M.areas = auth.then(function (info) {
-    return info.areas || { content: false, crm: false, forms: false };
+    return info.areas || {};
   });
 
   /** Resolves with the signed-in user ({ id, kind, name, avatarUrl }). */
@@ -143,6 +145,244 @@
     if (err.status === 401) return toLogin();
     M.toast(err.message, true);
   };
+
+  // ── The frame (src/components/app.njk): tools, counts, menu, search ──────
+
+  var AREAS_CACHE = 'ais-areas';
+  var shell = document.getElementById('apShell');
+  var registry = [];
+  try {
+    registry = JSON.parse((document.getElementById('apTools') || {}).textContent || '[]');
+  } catch (e) {
+    registry = [];
+  }
+
+  /** Shows the tools these areas open, and the tabs these permissions open. */
+  function showAllowed(areas, perms, isAdmin) {
+    document.querySelectorAll('[data-area]').forEach(function (el) {
+      el.hidden = !areas[el.getAttribute('data-area')];
+    });
+    if (!perms) return;
+    document.querySelectorAll('[data-needs]').forEach(function (el) {
+      el.hidden = perms.indexOf(el.getAttribute('data-needs')) === -1;
+    });
+    if (isAdmin !== undefined) {
+      document.querySelectorAll('.ap-tabs .admin-only').forEach(function (el) {
+        el.hidden = !isAdmin;
+      });
+    }
+  }
+
+  if (shell) {
+    // Last visit's tools at once, so the sidebar does not jump.
+    try {
+      var cached = JSON.parse(window.localStorage.getItem(AREAS_CACHE) || 'null');
+      if (cached) showAllowed(cached);
+    } catch (e) {
+      /* nothing cached */
+    }
+    auth.then(function (info) {
+      if (!info.user) return;
+      var areas = info.areas || {};
+      showAllowed(areas, info.permissions || [], info.user.kind === 'admin');
+      try {
+        window.localStorage.setItem(AREAS_CACHE, JSON.stringify(areas));
+      } catch (e) {
+        /* the sidebar just shows a moment later next time */
+      }
+    });
+  }
+
+  /** What waits for the member in each tool: { tools: { key: { count, label, url } } }. */
+  M.overview = shell
+    ? M.me
+        .then(function () {
+          return M.api('GET', '/api/app/overview');
+        })
+        .catch(function () {
+          return { tools: {} };
+        })
+    : Promise.resolve({ tools: {} });
+
+  M.overview.then(function (data) {
+    Object.keys(data.tools || {}).forEach(function (key) {
+      var todo = data.tools[key];
+      document.querySelectorAll('[data-ap-count="' + key + '"]').forEach(function (el) {
+        el.textContent = todo && todo.count ? String(todo.count) : '';
+        el.hidden = !(todo && todo.count);
+        if (todo && todo.label) el.title = todo.count + ' ' + todo.label;
+      });
+    });
+  });
+
+  // The menu on a narrow screen: the sidebar slides in.
+  var nav = document.getElementById('apNav');
+  var openMenu = document.getElementById('apMenu');
+  var scrim = document.getElementById('apScrim');
+  function setMenu(open) {
+    if (!shell) return;
+    shell.classList.toggle('is-menu-open', open);
+    if (scrim) scrim.hidden = !open;
+    if (openMenu) openMenu.setAttribute('aria-expanded', String(open));
+    if (open && nav) {
+      var first = nav.querySelector('a, button');
+      if (first) first.focus();
+    }
+  }
+  if (openMenu)
+    openMenu.addEventListener('click', function () {
+      setMenu(true);
+    });
+  if (scrim)
+    scrim.addEventListener('click', function () {
+      setMenu(false);
+    });
+  var closeMenu = document.getElementById('apNavClose');
+  if (closeMenu)
+    closeMenu.addEventListener('click', function () {
+      setMenu(false);
+      if (openMenu) openMenu.focus();
+    });
+
+  // ── Search (Ctrl+K): go to a tool, a tab or an action ───────────────────
+
+  var palette = null;
+
+  function entries(areas, perms, isAdmin) {
+    var out = [{ label: 'Home', hint: 'Personal area', url: '/app/' }];
+    registry.forEach(function (tool) {
+      if (tool.area && !areas[tool.area]) return;
+      out.push({ label: tool.title, hint: 'Tool', url: tool.url });
+      (tool.tabs || []).forEach(function (tab) {
+        if (tab.needs && perms.indexOf(tab.needs) === -1) return;
+        if (tab.admin && !isAdmin) return;
+        if (tab.url === tool.url) return;
+        out.push({ label: tab.label, hint: tool.title, url: tab.url });
+      });
+      (tool.actions || []).forEach(function (action) {
+        if (action.needs && perms.indexOf(action.needs) === -1) return;
+        out.push({ label: action.label, hint: tool.title + ' · action', url: action.url });
+      });
+    });
+    out.push({ label: 'My settings', hint: 'Notifications', url: '/app/settings/' });
+    return out;
+  }
+
+  function openPalette() {
+    if (palette) {
+      palette.input.focus();
+      return;
+    }
+    auth.then(function (info) {
+      var all = entries(
+        info.areas || {},
+        info.permissions || [],
+        info.user && info.user.kind === 'admin'
+      );
+      var active = 0;
+      var shown = all;
+      var input = h('input', {
+        type: 'search',
+        class: 'ap-palette-input',
+        placeholder: 'Go to a tool or do something…',
+        'aria-label': 'Search the personal area',
+        'aria-controls': 'apPaletteList',
+        autocomplete: 'off',
+      });
+      var list = h('ul', { class: 'ap-palette-list', id: 'apPaletteList', role: 'listbox' });
+      var box = h(
+        'div',
+        { class: 'ap-palette', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Search' },
+        h(
+          'div',
+          { class: 'ap-palette-box' },
+          h('div', { class: 'ap-palette-field' }, input, h('kbd', null, 'Esc')),
+          list
+        )
+      );
+      function draw() {
+        var q = input.value.trim().toLowerCase();
+        shown = all.filter(function (e) {
+          return !q || (e.label + ' ' + e.hint).toLowerCase().indexOf(q) !== -1;
+        });
+        active = Math.min(active, Math.max(shown.length - 1, 0));
+        M.clear(list);
+        if (!shown.length)
+          list.appendChild(h('li', { class: 'ap-palette-none' }, 'Nothing matches.'));
+        shown.forEach(function (e, i) {
+          list.appendChild(
+            h(
+              'li',
+              {
+                role: 'option',
+                'aria-selected': String(i === active),
+                class: 'ap-palette-item',
+                onmousemove: function () {
+                  if (active !== i) {
+                    active = i;
+                    draw();
+                  }
+                },
+                onclick: function () {
+                  go(e);
+                },
+              },
+              h('span', null, e.label),
+              h('small', null, e.hint)
+            )
+          );
+        });
+      }
+      function go(e) {
+        close();
+        window.location.href = e.url;
+      }
+      function close() {
+        box.remove();
+        palette = null;
+      }
+      input.addEventListener('input', function () {
+        active = 0;
+        draw();
+      });
+      input.addEventListener('keydown', function (ev) {
+        if (ev.key === 'ArrowDown') {
+          ev.preventDefault();
+          active = Math.min(active + 1, shown.length - 1);
+          draw();
+        } else if (ev.key === 'ArrowUp') {
+          ev.preventDefault();
+          active = Math.max(active - 1, 0);
+          draw();
+        } else if (ev.key === 'Enter' && shown[active]) {
+          ev.preventDefault();
+          go(shown[active]);
+        } else if (ev.key === 'Escape') {
+          close();
+        }
+      });
+      box.addEventListener('click', function (ev) {
+        if (ev.target === box) close();
+      });
+      document.body.appendChild(box);
+      palette = { input: input, close: close };
+      draw();
+      input.focus();
+    });
+  }
+
+  var searchButton = document.getElementById('apSearchOpen');
+  if (searchButton) searchButton.addEventListener('click', openPalette);
+  document.addEventListener('keydown', function (e) {
+    if (!shell) return;
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
+      e.preventDefault();
+      if (palette) palette.close();
+      else openPalette();
+    } else if (e.key === 'Escape' && shell.classList.contains('is-menu-open')) {
+      setMenu(false);
+    }
+  });
 
   M.statusBadge = function (status) {
     var label = { open: 'Open', closed: 'Closed', scheduled: 'Time chosen' }[status] || status;

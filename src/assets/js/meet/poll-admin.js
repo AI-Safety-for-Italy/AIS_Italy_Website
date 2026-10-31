@@ -90,6 +90,8 @@
     poll = data;
     document.title = poll.title + ' | Admin';
     document.getElementById('pollTitle').textContent = poll.title;
+    var apTitle = document.getElementById('apTitle');
+    if (apTitle) apTitle.textContent = poll.title;
     M.clear(document.getElementById('statusBadge')).appendChild(
       M.statusBadge(poll.status === 'open' && !poll.open ? 'closed' : poll.status)
     );

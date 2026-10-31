@@ -1,22 +1,15 @@
 ---
 title: My settings
+tool: settings
+pageTitle: My settings
 permalink: /app/settings/
 noindex: true
 excludeFromSitemap: true
 eleventyExcludeFromCollections: true
 seoTitle: 'My settings | AI Safety for Italy'
 ---
-{% extends "base.njk" %}
-{% block content %}
-<section class="page-hero meet-hero">
-  <div class="container">
-    <span class="eyebrow">Personal area</span>
-    <h1>My settings</h1>
-  </div>
-</section>
-
-<section class="meet-main">
-  <div class="container">
+{% extends "app.njk" %}
+{% block page %}
     <div class="settings">
     <form class="panel form-grid" id="notifyForm" novalidate>
       <div class="panel-head" style="margin:0">
@@ -38,8 +31,6 @@ seoTitle: 'My settings | AI Safety for Italy'
       <div><button class="btn btn-primary btn-sm" type="submit">Save</button></div>
     </form>
     </div>
-  </div>
-</section>
 
 <script src="/assets/js/meet/common.js" defer></script>
 <script src="/assets/js/meet/app-common.js" defer></script>

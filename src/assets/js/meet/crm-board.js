@@ -135,7 +135,7 @@
 
   function setTab(tab) {
     view.tab = ['mentors', 'mentees', 'pairs'].indexOf(tab) === -1 ? 'mentors' : tab;
-    document.querySelectorAll('#crmTabs a').forEach(function (a) {
+    document.querySelectorAll('.ap-tabs a[data-tab]').forEach(function (a) {
       if (a.getAttribute('data-tab') === view.tab) a.setAttribute('aria-current', 'page');
       else a.removeAttribute('aria-current');
     });

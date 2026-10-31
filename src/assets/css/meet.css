@@ -6061,3 +6061,726 @@ textarea.fm-input:focus {
 .fl-answers:hover span {
   color: var(--accent-700);
 }
+
+/* ── The frame of the personal area (src/components/app.njk) ──────────────
+   A sidebar with the tools on the left, a top bar with the page's title, its
+   tool's tabs and the search, and the page. The shared pieces every tool's
+   pages are made of (.ap-page-head, .ap-card, .ap-empty…) follow it. */
+
+.ap-shell {
+  display: grid;
+  grid-template-columns: 256px minmax(0, 1fr);
+  min-height: 100vh;
+  background: var(--bg-primary);
+}
+
+/* Sidebar */
+.ap-nav {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  height: 100vh;
+  padding: 18px 12px 14px;
+  overflow-y: auto;
+  box-sizing: border-box;
+  background: var(--card-bg);
+  border-right: 1px solid var(--border-default);
+}
+
+.ap-nav-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.ap-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 8px;
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-decoration: none;
+}
+
+.ap-brand:hover {
+  color: var(--text-primary);
+}
+
+.ap-brand-accent {
+  color: var(--accent);
+}
+
+.ap-nav-heading {
+  margin: 18px 0 4px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.ap-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 40px;
+  padding: 0 10px;
+  border-radius: 10px;
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.ap-link[hidden] {
+  display: none;
+}
+
+.ap-link svg {
+  flex: none;
+  width: 18px;
+  height: 18px;
+}
+
+.ap-link-label {
+  flex: 1;
+  min-width: 0;
+}
+
+.ap-link:hover {
+  background: var(--bg-overlay);
+  color: var(--text-primary);
+}
+
+.ap-link[aria-current='page'] {
+  background: var(--accent-100);
+  color: var(--accent-700);
+  font-weight: 700;
+}
+
+.ap-count {
+  min-width: 20px;
+  padding: 1px 7px;
+  border-radius: var(--radius-full);
+  background: var(--accent);
+  color: var(--text-on-accent);
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+}
+
+[data-theme='dark'] .ap-count {
+  color: #062015;
+}
+
+.ap-count[hidden] {
+  display: none;
+}
+
+.ap-nav-bottom {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-muted);
+}
+
+/* The profile button and its menu, at the bottom of the sidebar */
+.ap-user {
+  position: relative;
+}
+
+.ap-user .app-user-button {
+  width: 100%;
+  justify-content: flex-start;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+}
+
+.ap-user .app-user-button:hover {
+  background: var(--bg-overlay);
+}
+
+.ap-user .app-user-name {
+  flex: 1;
+  text-align: left;
+}
+
+.ap-user .app-menu {
+  top: auto;
+  right: auto;
+  bottom: calc(100% + 6px);
+  left: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Main column and its top bar */
+.ap-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.ap-top {
+  position: sticky;
+  top: 0;
+  z-index: 15;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  padding: 12px clamp(16px, 3vw, 36px) 0;
+  background: var(--card-bg);
+  border-bottom: 1px solid var(--border-default);
+}
+
+.ap-title {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding-bottom: 12px;
+}
+
+.ap-crumb {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.ap-crumb a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.ap-crumb a:hover {
+  color: var(--accent-700);
+}
+
+.ap-title h1 {
+  margin: 0;
+  overflow: hidden;
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.25;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.ap-top-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  padding-bottom: 12px;
+}
+
+.ap-search {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 10px 0 12px;
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  background: var(--bg-primary);
+  color: var(--text-tertiary);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.ap-search:hover {
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+
+.ap-search svg {
+  width: 16px;
+  height: 16px;
+}
+
+.ap-search-label {
+  min-width: 120px;
+  text-align: left;
+}
+
+.ap-search kbd,
+.ap-palette kbd {
+  padding: 1px 6px;
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.ap-tabs {
+  display: flex;
+  flex-basis: 100%;
+  gap: 22px;
+  overflow-x: auto;
+}
+
+.ap-tabs a {
+  padding: 10px 0;
+  border-bottom: 2px solid transparent;
+  color: var(--text-tertiary);
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.ap-tabs a:hover {
+  color: var(--text-primary);
+}
+
+.ap-tabs a[aria-current='page'] {
+  border-bottom-color: var(--accent);
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.ap-tabs a[hidden] {
+  display: none;
+}
+
+.ap-icon-button {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.ap-icon-button:hover {
+  background: var(--bg-overlay);
+  color: var(--text-primary);
+}
+
+.ap-icon-button svg {
+  width: 20px;
+  height: 20px;
+}
+
+.ap-menu,
+.ap-nav-close {
+  display: none;
+}
+
+.ap-page {
+  flex: 1;
+  width: 100%;
+  max-width: 1240px;
+  box-sizing: border-box;
+  padding: 28px clamp(16px, 3vw, 36px) 56px;
+}
+
+.ap-page.is-wide {
+  max-width: none;
+}
+
+/* The search (Ctrl+K) */
+.ap-palette {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 12vh 16px 16px;
+  background: var(--overlay-light);
+}
+
+.ap-palette-box {
+  width: min(560px, 100%);
+  overflow: hidden;
+  border: 1px solid var(--border-default);
+  border-radius: 16px;
+  background: var(--card-bg);
+  box-shadow: var(--shadow-xl);
+}
+
+.ap-palette-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--border-muted);
+}
+
+.ap-palette-input {
+  flex: 1;
+  height: 54px;
+  border: 0;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 16px;
+  outline: none;
+}
+
+.ap-palette-list {
+  max-height: 50vh;
+  margin: 0;
+  padding: 6px;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.ap-palette-item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ap-palette-item small {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+}
+
+.ap-palette-item[aria-selected='true'] {
+  background: var(--accent-100);
+  color: var(--accent-800);
+}
+
+.ap-palette-none {
+  padding: 14px 12px;
+  color: var(--text-tertiary);
+}
+
+/* Shared pieces of a page */
+.ap-page-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.ap-page-head h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.ap-section-title {
+  margin: 0 0 12px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.ap-card {
+  padding: 20px;
+  border: 1px solid var(--border-default);
+  border-radius: 14px;
+  background: var(--card-bg);
+}
+
+.ap-empty {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 40px 20px;
+  border: 1.5px dashed var(--border-strong);
+  border-radius: 14px;
+  text-align: center;
+  color: var(--text-tertiary);
+}
+
+.ap-empty h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 19px;
+  color: var(--text-primary);
+}
+
+/* Narrow screens: the sidebar becomes a menu that slides in */
+@media (max-width: 900px) {
+  .ap-shell {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ap-nav {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 100;
+    width: min(300px, 86vw);
+    height: auto;
+    transform: translateX(-100%);
+    transition: transform 0.2s var(--ease);
+    box-shadow: var(--shadow-xl);
+  }
+
+  .is-menu-open .ap-nav {
+    transform: none;
+  }
+
+  .ap-scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 90;
+    background: var(--overlay-light);
+  }
+
+  .ap-scrim[hidden] {
+    display: none;
+  }
+
+  .ap-menu,
+  .ap-nav-close {
+    display: inline-flex;
+  }
+
+  .ap-menu {
+    margin-left: -8px;
+    margin-bottom: 12px;
+  }
+
+  .ap-menu-floating {
+    position: fixed;
+    top: 10px;
+    left: 14px;
+    z-index: 20;
+    margin: 0;
+    background: var(--card-bg);
+    box-shadow: var(--shadow);
+  }
+
+  .ap-search-label,
+  .ap-search kbd {
+    display: none;
+  }
+
+  .ap-search {
+    width: 40px;
+    justify-content: center;
+    padding: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ap-nav {
+    transition: none;
+  }
+}
+
+/* The home page of the personal area (/app/, hub.js) */
+.hub {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+}
+
+.hub-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.hub-date {
+  margin: 0 0 4px;
+  font-size: 14px;
+  color: var(--text-tertiary);
+}
+
+.hub-hello {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(30px, 4vw, 40px);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.hub-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.hub-actions [hidden] {
+  display: none;
+}
+
+.hub-todo {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.hub-todo-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 124px;
+  box-sizing: border-box;
+  padding: 18px;
+  border: 1px solid var(--border-default);
+  border-radius: 14px;
+  background: var(--card-bg);
+  color: var(--text-primary);
+  text-decoration: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+a.hub-todo-card:hover {
+  border-color: var(--accent);
+  box-shadow: var(--card-shadow-hover);
+  color: var(--text-primary);
+}
+
+.hub-todo-card > span:last-child {
+  font-size: 13px;
+  color: var(--text-tertiary);
+}
+
+.hub-todo-card.is-loading {
+  background: linear-gradient(90deg, var(--bg-tertiary), var(--border-muted), var(--bg-tertiary));
+  background-size: 200% 100%;
+  animation: skeleton 1.2s ease-in-out infinite;
+}
+
+.hub-todo-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.hub-todo-count {
+  font-size: 34px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.hub-clear {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 18px;
+  border-radius: 14px;
+  background: var(--accent-50);
+  border: 1px solid var(--accent-200);
+}
+
+.hub-clear span {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.hub-tools {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.hub-tool {
+  display: flex;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--border-default);
+  border-radius: 14px;
+  background: var(--card-bg);
+  color: var(--text-primary);
+  text-decoration: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.hub-tool[hidden] {
+  display: none;
+}
+
+.hub-tool:hover {
+  border-color: var(--accent);
+  box-shadow: var(--card-shadow-hover);
+  color: var(--text-primary);
+}
+
+.hub-tool-icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--accent-100);
+  color: var(--accent-700);
+}
+
+.hub-tool-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.hub-tool-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.hub-tool-body strong {
+  font-size: 15px;
+}
+
+.hub-tool-body span {
+  font-size: 13px;
+  color: var(--text-tertiary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hub-todo-card.is-loading {
+    animation: none;
+  }
+}
+
+/* The name in the sidebar's profile button stays, even on a phone. */
+.ap-user .app-user-name {
+  display: inline;
+}
+
+/* A page with its own bar (the form editor): no padding around it. */
+.ap-page.is-bare {
+  padding: 0;
+}
+
+@media (max-width: 900px) {
+  /* Room for the floating menu button beside the page's own bar. */
+  .ap-page.is-bare .fe-bar {
+    padding-left: 64px;
+  }
+}

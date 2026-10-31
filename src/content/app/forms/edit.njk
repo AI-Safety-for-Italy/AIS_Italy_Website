@@ -8,9 +8,14 @@ noindex: true
 excludeFromSitemap: true
 eleventyExcludeFromCollections: true
 seoTitle: 'Edit form | AI Safety for Italy'
+# In the frame of app.njk, but with its own bar (title, tabs, save) instead
+# of the shared one, and the whole width.
+tool: forms
+bare: true
+wide: true
 ---
-{% extends "base.njk" %}
-{% block content %}
+{% extends "app.njk" %}
+{% block page %}
 <div class="fe-bar" id="feTopbar" hidden>
   <a class="fe-back" href="/app/forms/" aria-label="All forms" title="All forms">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>

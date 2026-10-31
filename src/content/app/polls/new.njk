@@ -4,21 +4,12 @@ permalink: /app/polls/new/
 noindex: true
 excludeFromSitemap: true
 eleventyExcludeFromCollections: true
-appTab: new
 seoTitle: 'New poll | AI Safety for Italy'
+tool: polls
+tab: new
 ---
-{% extends "base.njk" %}
-{% block content %}
-<section class="page-hero meet-hero">
-  <div class="container">
-    <span class="eyebrow">Meeting polls</span>
-    <h1>New poll</h1>
-  </div>
-</section>
-
-<section class="meet-main">
-  <div class="container">
-    {% include "app-bar.njk" %}
+{% extends "app.njk" %}
+{% block page %}
 
     <form id="pollForm" novalidate>
       <div class="create-layout">
@@ -102,8 +93,6 @@ seoTitle: 'New poll | AI Safety for Italy'
         <button class="btn btn-primary" type="submit" id="createBtn">Create poll</button>
       </div>
     </form>
-  </div>
-</section>
 
 <script src="/assets/js/meet/common.js" defer></script>
 <script src="/assets/js/meet/app-common.js" defer></script>

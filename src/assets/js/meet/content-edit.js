@@ -112,12 +112,12 @@
 
     if (item) {
       fill(item.form);
-      document.getElementById('pageTitle').textContent = item.title;
+      setTitle(item.title);
       document.title = 'Edit: ' + item.title + ' | AI Safety for Italy';
       document.getElementById('deletedNotice').hidden = !item.deleted;
       deleteBtn.hidden = item.deleted;
       saveBtn.textContent = item.deleted ? 'Publish again' : 'Save changes';
-      document.querySelectorAll('.admin-tabs a[aria-current]').forEach(function (a) {
+      document.querySelectorAll('.ap-tabs a[aria-current]').forEach(function (a) {
         a.removeAttribute('aria-current');
       });
       showHistory(item);
@@ -128,12 +128,16 @@
         time: '18:30',
         details: [PRESETS.where],
       });
-      document.getElementById('pageTitle').textContent =
-        type === 'event' ? 'New event' : 'New seminar';
+      setTitle(type === 'event' ? 'New event' : 'New seminar');
     }
     form.hidden = false;
     dirty = false;
     updatePreview();
+  }
+
+  function setTitle(text) {
+    var h = document.getElementById('apTitle');
+    if (h) h.textContent = text;
   }
 
   function fill(f) {

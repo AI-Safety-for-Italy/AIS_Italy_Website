@@ -1,0 +1,96 @@
+{#- The frame of every page of the personal area (/app/): the sidebar with the
+    tools, the top bar with the page's title, its tool's tabs and the search,
+    and the page itself. A page uses it with
+
+      {% extends "app.njk" %}
+      front matter:  tool: <key in src/data/tools.js>   tab: <tab key>
+                     pageTitle: …       (optional; else the tool's title)
+                     bare: true         (optional; no top bar: the page draws its own)
+      {% block actions %}…{% endblock %}   buttons on the right of the top bar
+      {% block page %}…{% endblock %}      the page
+
+    Tools are hidden until app-common.js knows the member's areas (and shows
+    them at once from last visit's cache); the server checks every call
+    anyway: hiding is only tidiness. -#}
+{% extends "base.njk" %}
+{% block content %}
+{%- set current = tools | where("key", tool) | first %}
+<div class="ap-shell" id="apShell">
+  <nav class="ap-nav" id="apNav" aria-label="Personal area">
+    <div class="ap-nav-top">
+      <a class="ap-brand" href="/app/">
+        <img src="/assets/img/ais4i-logo.svg" alt="" width="28" height="28">
+        <span>AI Safety <span class="ap-brand-accent">for Italy</span></span>
+      </a>
+      <button type="button" class="ap-icon-button ap-nav-close" id="apNavClose" aria-label="Close the menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+
+    <a class="ap-link" href="/app/"{% if not tool %} aria-current="page"{% endif %}>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+      <span class="ap-link-label">Home</span>
+    </a>
+
+    <p class="ap-nav-heading">Tools</p>
+    {%- for t in tools %}
+    <a class="ap-link" href="{{ t.url }}" data-tool="{{ t.key }}"{% if t.area %} data-area="{{ t.area }}" hidden{% endif %}{% if t.key == tool %} aria-current="page"{% endif %}>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{{ t.icon | safe }}</svg>
+      <span class="ap-link-label">{{ t.title }}</span>
+      <span class="ap-count" data-ap-count="{{ t.key }}" hidden></span>
+    </a>
+    {%- endfor %}
+
+    <div class="ap-nav-bottom">
+      <a class="ap-link" href="/app/settings/"{% if tool == "settings" %} aria-current="page"{% endif %}>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>
+        <span class="ap-link-label">My settings</span>
+      </a>
+      <div class="app-user ap-user" id="appUser"></div>
+    </div>
+  </nav>
+  <div class="ap-scrim" id="apScrim" hidden></div>
+
+  <div class="ap-main">
+    {%- if not bare %}
+    <header class="ap-top">
+      <button type="button" class="ap-icon-button ap-menu" id="apMenu" aria-label="Open the menu" aria-controls="apNav" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      </button>
+      <div class="ap-title">
+        {#- The crumb back to the tool, on its inner pages only. -#}
+        {%- if current and pageTitle and pageTitle != current.title %}<span class="ap-crumb"><a href="{{ current.url }}">{{ current.title }}</a></span>{% endif %}
+        <h1 id="apTitle">{{ pageTitle or (current.title if current else title) }}</h1>
+      </div>
+      <div class="ap-top-actions">
+        {% block actions %}{% endblock %}
+        <button type="button" class="ap-search" id="apSearchOpen" aria-haspopup="dialog" aria-keyshortcuts="Control+K Meta+K">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+          <span class="ap-search-label">Search</span>
+          <kbd>Ctrl K</kbd>
+        </button>
+      </div>
+      {%- if current and current.tabs.length %}
+      <nav class="ap-tabs" aria-label="{{ current.title }}">
+        {%- for tb in current.tabs %}
+        <a href="{{ tb.url }}" data-tab="{{ tb.key }}"{% if tb.needs %} data-needs="{{ tb.needs }}" hidden{% endif %}{% if tb.admin %} class="admin-only"{% endif %}{% if tb.key == tab %} aria-current="page"{% endif %}>{{ tb.label }}</a>
+        {%- endfor %}
+      </nav>
+      {%- endif %}
+    </header>
+    {%- else %}
+    <button type="button" class="ap-icon-button ap-menu ap-menu-floating" id="apMenu" aria-label="Open the menu" aria-controls="apNav" aria-expanded="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    {%- endif %}
+
+    <div class="ap-page{% if wide %} is-wide{% endif %}{% if bare %} is-bare{% endif %}">
+      {% block page %}{% endblock %}
+    </div>
+  </div>
+</div>
+
+{#- What the search (Ctrl+K) can open: the tools, their tabs and their actions.
+    app-common.js keeps those the member may use. -#}
+<script type="application/json" id="apTools">{{ tools | dump | safe }}</script>
+{% endblock %}

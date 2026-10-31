@@ -4,36 +4,19 @@ title: Member applications
 # emails a link that adds the person to the Discord server with their role
 # (server/members.js). Needs the `members` permission.
 permalink: /app/members/
+tool: members
 noindex: true
 excludeFromSitemap: true
 eleventyExcludeFromCollections: true
 seoTitle: 'Member applications | AI Safety for Italy'
 ---
-{% extends "base.njk" %}
-{% block content %}
-<section class="page-hero meet-hero">
-  <div class="container">
-    <span class="eyebrow">Personal area</span>
-    <h1>Member applications</h1>
-  </div>
-</section>
-
-<section class="meet-main">
-  <div class="container">
-    <div class="admin-bar">
-      <nav class="crumbs" aria-label="Breadcrumb">
-        <a href="/app/">Tools</a>
-        <span aria-hidden="true">/</span>
-        <span>Member applications</span>
-      </nav>
-    </div>
+{% extends "app.njk" %}
+{% block page %}
     <div class="notice" id="setupNote" hidden style="margin-bottom:1.5rem"><span id="setupText"></span></div>
     <div class="panel-head">
       <div class="choice-group" role="radiogroup" aria-label="Show" id="filters"></div>
     </div>
     <div id="memberList"></div>
-  </div>
-</section>
 
 <script src="/assets/js/meet/common.js" defer></script>
 <script src="/assets/js/meet/app-common.js" defer></script>
