@@ -10,6 +10,7 @@
 
 const crypto = require('crypto');
 const db = require('./db');
+const { isEmail } = require('./email');
 const { HttpError } = require('./http');
 
 const KEY = 'smtp';
@@ -61,8 +62,6 @@ async function isConfigured() {
   return Boolean(s && s.host && s.fromEmail && s.password);
 }
 
-const EMAIL = /^[^\s@<>(),;:"]+@[^\s@<>(),;:"]+\.[^\s@<>(),;:"]+$/;
-
 /** Saves SMTP settings. An empty password keeps the one already stored. */
 async function saveSettings(body) {
   const current = (await readSettings()) || {};
@@ -73,7 +72,7 @@ async function saveSettings(body) {
     .toLowerCase();
   if (!host || host.length > 200) throw new HttpError(400, 'Enter the SMTP server');
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new HttpError(400, 'Invalid port');
-  if (!EMAIL.test(fromEmail)) throw new HttpError(400, 'Enter a valid sender address');
+  if (!isEmail(fromEmail)) throw new HttpError(400, 'Enter a valid sender address');
   const value = {
     host,
     port,

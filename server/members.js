@@ -15,6 +15,7 @@
 
 const crypto = require('crypto');
 const db = require('./db');
+const { isEmail } = require('./email');
 const mail = require('./mail');
 const permissions = require('./permissions');
 const discord = require('./discord');
@@ -45,7 +46,6 @@ const JOIN_DAYS = 30;
 // surname; 254-character emails; 150 questions; 8000-character texts, and
 // choices of up to 60 options of 200 characters).
 const LIMITS = { name: 700, email: 254, answers: 200, label: 500, value: 20000 };
-const EMAIL = /^[^\s@<>(),;:"]+@[^\s@<>(),;:"]+\.[^\s@<>(),;:"]+$/;
 
 function devMode() {
   return permissions.devLogin() && !permissions.botConfigured();
@@ -83,7 +83,7 @@ async function createApplication(fields, { source, q = db } = {}) {
   const f = fields || {};
   const name = text(f.name, 'Name', LIMITS.name, true);
   const email = text(f.email, 'Email', LIMITS.email, true).toLowerCase();
-  if (!EMAIL.test(email)) throw new HttpError(400, 'Enter a valid email');
+  if (!isEmail(email)) throw new HttpError(400, 'Enter a valid email');
   const requestedRole = f.requestedRole || null;
   if (requestedRole && !ROLES.some((r) => r.key === requestedRole)) {
     throw new HttpError(400, 'Unknown role');

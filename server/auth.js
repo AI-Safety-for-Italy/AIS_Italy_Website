@@ -14,6 +14,7 @@
 const crypto = require('crypto');
 const { HttpError, getCookie, clientIp } = require('./http');
 const db = require('./db');
+const { isEmail } = require('./email');
 
 const COOKIE = 'ais_session';
 const SESSION_DAYS = 7;
@@ -140,7 +141,6 @@ async function upsertDiscordUser({ discordId, name, avatarUrl, email, roles }) {
 }
 
 const CHANNELS = ['email', 'discord', 'both', 'none'];
-const EMAIL = /^[^\s@<>(),;:"]+@[^\s@<>(),;:"]+\.[^\s@<>(),;:"]+$/;
 
 /** A user's notification preferences, for their settings page. */
 async function getProfile(userId) {
@@ -161,7 +161,7 @@ async function updateProfile(userId, body) {
   const address = String(body.notifyEmail || '')
     .trim()
     .toLowerCase();
-  if (address && !EMAIL.test(address)) throw new HttpError(400, 'Enter a valid email');
+  if (address && !isEmail(address)) throw new HttpError(400, 'Enter a valid email');
   await db.query('update app_users set notify_channel = $2, notify_email = $3 where id = $1', [
     userId,
     channel,

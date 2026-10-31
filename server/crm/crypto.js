@@ -21,6 +21,7 @@
 // The local server (scripts/meet-dev.js) sets throwaway development values.
 
 const crypto = require('crypto');
+const { isEmail, normalizeEmail } = require('../email');
 
 const VERSION = 'v1';
 
@@ -54,16 +55,10 @@ function configured() {
   }
 }
 
-function normalizeEmail(email) {
-  return String(email || '')
-    .trim()
-    .toLowerCase();
-}
-
 /** The opaque key for an email, or null when there is no usable address. */
 function personKey(email) {
   const normalized = normalizeEmail(email);
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) return null;
+  if (!isEmail(normalized)) return null;
   return crypto
     .createHmac('sha256', keySecret())
     .update(`person:${normalized}`)

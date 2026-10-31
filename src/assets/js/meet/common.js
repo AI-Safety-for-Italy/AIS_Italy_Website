@@ -560,7 +560,14 @@
     };
   }
 
+  // The one email rule; the server twin is server/email.js.
+  var EMAIL = /^[^\s@<>()",;:]+@[^\s@<>()",;:]+\.[^\s@<>()",;:]{2,}$/;
+  function isEmail(text) {
+    return typeof text === 'string' && text.length <= 254 && EMAIL.test(text);
+  }
+
   window.Meet = {
+    isEmail: isEmail,
     recurrenceText: recurrenceText,
     recurrenceFields: recurrenceFields,
     h: h,

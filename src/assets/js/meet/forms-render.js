@@ -182,7 +182,6 @@
     return ROMAN[n - 1] || String(n);
   }
 
-  var EMAIL = /^[^\s@<>()",;:]+@[^\s@<>()",;:]+\.[^\s@<>()",;:]{2,}$/;
   var HTTPS = /^https:\/\/[^\s<>"]{3,}$/i;
 
   function md(text, cls) {
@@ -545,7 +544,7 @@
         (typeof v === 'object' && v.selected && !v.selected.length && !(v.other && v.other.trim()));
       if (empty) return item.required ? (item.type === 'consent' ? S.consent : S.required) : null;
       var text = typeof v === 'string' ? v.trim() : '';
-      if (item.type === 'email' && !EMAIL.test(text)) return S.email;
+      if (item.type === 'email' && !M.isEmail(text)) return S.email;
       if (item.type === 'url' && !HTTPS.test(text)) return S.url;
       if (item.type === 'number') {
         var n = Number(String(v).replace(',', '.'));

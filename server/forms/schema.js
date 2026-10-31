@@ -21,6 +21,7 @@
 
 const crypto = require('crypto');
 const { HttpError } = require('../http');
+const { isEmail } = require('../email');
 
 const TYPES = {
   short_text: { answer: true, label: 'Short answer' },
@@ -44,7 +45,6 @@ const MAX_ITEMS = 150;
 const MAX_OPTIONS = 60;
 const LIMITS = { label: 500, help: 3000, option: 200, title: 200, description: 6000 };
 const TEXT_MAX = { short_text: 300, long_text: 8000 };
-const EMAIL = /^[^\s@<>()",;:]+@[^\s@<>()",;:]+\.[^\s@<>()",;:]{2,}$/;
 const HTTPS = /^https:\/\/[^\s<>"]{3,}$/i;
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -226,7 +226,7 @@ function cleanOne(item, raw) {
       if (typeof raw !== 'string') return { error: 'Expected an email' };
       const email = raw.trim().toLowerCase();
       if (!email) return { empty: true };
-      if (email.length > 254 || !EMAIL.test(email)) return { error: 'Enter a valid email' };
+      if (!isEmail(email)) return { error: 'Enter a valid email' };
       return { value: email };
     }
     case 'url': {
