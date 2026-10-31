@@ -16,7 +16,7 @@ const schemaLib = require('./forms/schema');
 const guard = require('./forms/guard');
 const forms = require('./forms/forms');
 const publicApi = require('../api/form');
-const appApi = require('../api/app/forms');
+const appApi = require('./routes/app/forms');
 
 let clock = Date.now();
 beforeEach(() => {

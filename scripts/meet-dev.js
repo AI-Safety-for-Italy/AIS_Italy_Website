@@ -98,7 +98,9 @@ function serveStatic(req, res) {
 const server = http.createServer((req, res) => {
   const { pathname } = new URL(req.url, 'http://localhost');
   if (pathname.startsWith('/api/')) {
-    const file = path.join(ROOT, `${pathname.replace(/\/$/, '')}.js`);
+    // /api/app/* is one function on Vercel (api/app.js routes inside it).
+    const route = pathname.startsWith('/api/app/') ? '/api/app' : pathname.replace(/\/$/, '');
+    const file = path.join(ROOT, `${route}.js`);
     if (!file.startsWith(path.join(ROOT, 'api')) || !fs.existsSync(file)) {
       res.statusCode = 404;
       return res.end();

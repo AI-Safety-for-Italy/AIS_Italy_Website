@@ -87,7 +87,7 @@ test('on Vercel the stand-ins stay off, whatever MEET_DEV_LOGIN says', async () 
 
 // ── 2. `manage` hands out content keys only ─────────────────────────────────
 
-const contentApi = require('../api/app/content');
+const contentApi = require('./routes/app/content');
 
 async function admin() {
   await db.query('select 1');
@@ -225,7 +225,7 @@ test('links in emails use SITE_URL when set, whatever host the request names', (
 
 test('an approval email points to SITE_URL, not to the host of the request', async () => {
   const mail = require('./mail');
-  const membersApi = require('../api/app/members');
+  const membersApi = require('./routes/app/members');
   const sent = [];
   const fakeMail = process.env.MEET_FAKE_MAIL;
   process.env.MEET_FAKE_MAIL = '0';
@@ -306,4 +306,32 @@ test('leaving the Discord server ends the sessions too', async () => {
     delete process.env.DISCORD_BOT_TOKEN_AIS_TEAM_AREA;
     delete process.env.DISCORD_GUILD_ID;
   }
+});
+
+// ── One function for the whole /api/app/ (the hosting plan counts them) ─────
+
+test('/api/app/* reaches each handler through one function, on Vercel and locally', async () => {
+  const router = require('../api/app');
+  const { routeOf } = router;
+  // Locally: the path. On Vercel: the rewrite's __route (vercel.json).
+  assert.equal(routeOf({ url: '/api/app/forms?id=1' }), 'forms');
+  assert.equal(routeOf({ url: '/api/app?__route=crm/mentorship&id=2' }), 'crm/mentorship');
+  assert.equal(routeOf({ url: '/api/app/settings/' }), 'settings');
+  // Every handler of server/routes/app/ is routed, and nothing else.
+  const fs = require('fs');
+  const path = require('path');
+  const files = [];
+  (function walk(dir, prefix) {
+    for (const name of fs.readdirSync(dir)) {
+      const full = path.join(dir, name);
+      if (fs.statSync(full).isDirectory()) walk(full, `${prefix}${name}/`);
+      else files.push(prefix + name.replace(/\.js$/, ''));
+    }
+  })(path.join(__dirname, 'routes', 'app'), '');
+  assert.deepEqual(Object.keys(router.ROUTES).sort(), files.sort());
+  // An unknown route is a 404, not a crash.
+  const res = await call(router, { url: '/api/app/nope' });
+  assert.equal(res.statusCode, 404);
+  const vercel = require('../vercel.json');
+  assert.ok(vercel.rewrites.some((r) => r.source === '/api/app/:route*'));
 });

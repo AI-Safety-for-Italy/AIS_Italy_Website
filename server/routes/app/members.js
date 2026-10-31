@@ -4,9 +4,9 @@
 //                                         -> { application, invite }
 //   POST ?action=resend&id=…              -> a fresh join link by email
 // Needs the `members` permission (server/permissions.js).
-const { route, sendJson, readJson, getQuery, siteUrl, HttpError } = require('../../server/http');
-const { requireUser } = require('../../server/auth');
-const members = require('../../server/members');
+const { route, sendJson, readJson, getQuery, siteUrl, HttpError } = require('../../http');
+const { requireUser } = require('../../auth');
+const members = require('../../members');
 
 module.exports = route({
   async GET(req, res) {

@@ -16,7 +16,7 @@ const cryptoCrm = require('./crm/crypto');
 const audit = require('./crm/audit');
 const access = require('./access');
 const sources = require('./crm/sources');
-const contentApi = require('../api/app/content');
+const contentApi = require('./routes/app/content');
 const authApi = require('../api/auth');
 
 const KEY_A = Buffer.alloc(32, 1).toString('base64');

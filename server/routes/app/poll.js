@@ -17,11 +17,11 @@
 //                                              emailed invite, if any)
 //   POST   &action=invite { emails }        -> invites more guests
 //   POST   &action=resend&invite=<invite id> -> emails a guest's link again
-const { route, sendJson, readJson, getQuery, siteUrl, HttpError } = require('../../server/http');
-const { requireUser } = require('../../server/auth');
-const polls = require('../../server/polls');
-const notify = require('../../server/notify');
-const ics = require('../../server/ics');
+const { route, sendJson, readJson, getQuery, siteUrl, HttpError } = require('../../http');
+const { requireUser } = require('../../auth');
+const polls = require('../../polls');
+const notify = require('../../notify');
+const ics = require('../../ics');
 
 module.exports = route({
   async GET(req, res) {

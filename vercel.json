@@ -115,12 +115,18 @@
     }
   ],
   "functions": {
-    "api/app/*.js": {
+    "api/app.js": {
       "maxDuration": 60,
       "includeFiles": "data/events.yaml"
     },
     "api/poll.js": {
       "maxDuration": 30
     }
-  }
+  },
+  "rewrites": [
+    {
+      "source": "/api/app/:route*",
+      "destination": "/api/app?__route=:route*"
+    }
+  ]
 }

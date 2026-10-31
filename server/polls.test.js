@@ -436,7 +436,7 @@ test('each user sees and changes only their own polls', async () => {
 });
 
 test('poll endpoints refuse requests without a session', async () => {
-  for (const file of ['../api/app/polls', '../api/app/poll']) {
+  for (const file of ['./routes/app/polls', './routes/app/poll']) {
     const res = fakeResponse();
     await require(file)(fakeRequest({ method: 'GET', url: '/x?id=1' }), res);
     assert.equal(res.statusCode, 401);
@@ -794,7 +794,7 @@ test('answering through the API notifies the owner of a new answer only', async 
 });
 
 test('only the admin can change email settings', async () => {
-  const handler = require('../api/app/settings');
+  const handler = require('./routes/app/settings');
   const user = await auth.upsertDiscordUser({ discordId: '9', name: 'Member' });
   const res = fakeResponse();
   await handler(
@@ -842,7 +842,7 @@ test('choosing a time can email the invite, and changing it sends the cancellati
   await polls.submitResponse(token, { name: 'Giulia', email: 'g@example.org' });
   await polls.submitResponse(token, { name: 'Marco', email: 'm@example.org' });
 
-  const handler = require('../api/app/poll');
+  const handler = require('./routes/app/poll');
   const cookie = `${auth.COOKIE}=${auth.makeSession(me)}`;
   const call = async (method, query, body) => {
     const res = fakeResponse();
@@ -1086,7 +1086,7 @@ test('a recurring poll keeps its rule and sends a recurring invitation', async (
   await polls.submitResponse(token, { name: 'Giulia', email: 'g@example.org' });
   const [slot] = (await polls.getPollAdmin(id, me)).slots;
 
-  const handler = require('../api/app/poll');
+  const handler = require('./routes/app/poll');
   const cookie = `${auth.COOKIE}=${auth.makeSession(me)}`;
   const res = fakeResponse();
   await handler(

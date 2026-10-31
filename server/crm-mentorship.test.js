@@ -16,7 +16,7 @@ const sheets = require('./sheets');
 const crm = require('./crm/crypto');
 const audit = require('./crm/audit');
 const mentorship = require('./crm/mentorship');
-const api = require('../api/app/crm/mentorship');
+const api = require('./routes/app/crm/mentorship');
 
 beforeEach(() => {
   db.setDb(new PGlite());

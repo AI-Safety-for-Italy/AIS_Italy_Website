@@ -7,11 +7,11 @@
 //   POST ?action=note    { key, kind, body }
 //   POST ?action=match   { mentorKey, menteeKey, track }
 //   POST ?action=end-match { id }
-const { route, sendJson, readJson, getQuery, HttpError } = require('../../../server/http');
-const { requireUser } = require('../../../server/auth');
-const access = require('../../../server/access');
-const crypto = require('../../../server/crm/crypto');
-const mentorship = require('../../../server/crm/mentorship');
+const { route, sendJson, readJson, getQuery, HttpError } = require('../../../http');
+const { requireUser } = require('../../../auth');
+const access = require('../../../access');
+const crypto = require('../../../crm/crypto');
+const mentorship = require('../../../crm/mentorship');
 
 /** Signed in, CRM set up, and allowed: returns { user, perms }. */
 async function door(req, { write = false } = {}) {

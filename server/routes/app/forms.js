@@ -11,10 +11,10 @@
 //   DELETE ?id=…                -> deletes it (drafts without answers, or forms_admin)
 //   DELETE ?id=…&response=…     -> deletes one answer for good (managers)
 // Who may do what is decided in server/forms/forms.js, on every call.
-const { route, sendJson, readJson, getQuery, HttpError } = require('../../server/http');
-const { requireUser } = require('../../server/auth');
-const crypto = require('../../server/crm/crypto');
-const forms = require('../../server/forms/forms');
+const { route, sendJson, readJson, getQuery, HttpError } = require('../../http');
+const { requireUser } = require('../../auth');
+const crypto = require('../../crm/crypto');
+const forms = require('../../forms/forms');
 
 async function signedIn(req) {
   const user = await requireUser(req);
