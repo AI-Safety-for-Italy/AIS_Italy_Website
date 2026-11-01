@@ -121,6 +121,35 @@ function context(id) {
   return `member:${id}`;
 }
 
+/**
+ * Drops the answers to the sign-up questions of approved applications older
+ * than `months`: name and email stay (the record of who is a member). Returns
+ * how many applications were trimmed.
+ */
+async function dropOldAnswers(months) {
+  const { rows } = await db.query(
+    `select id, details_encrypted from member_applications
+     where status = 'approved' and details_encrypted is not null
+       and created_at < now() - make_interval(months => $1)`,
+    [months]
+  );
+  let trimmed = 0;
+  for (const row of rows) {
+    const who = details({ id: row.id, details_encrypted: row.details_encrypted });
+    // Unreadable with the current key, or already without answers: leave it.
+    if (!who || !who.answers || !who.answers.length) continue;
+    await db.query('update member_applications set details_encrypted = $2 where id = $1', [
+      row.id,
+      crm.encrypt(
+        JSON.stringify({ name: who.name, email: who.email, answers: [] }),
+        context(row.id)
+      ),
+    ]);
+    trimmed++;
+  }
+  return trimmed;
+}
+
 /** Who applied: { name, email, answers }, or null when it cannot be opened. */
 function details(row) {
   const text = row.details_encrypted ? crm.decrypt(row.details_encrypted, context(row.id)) : null;
@@ -416,5 +445,6 @@ module.exports = {
   checkJoinToken,
   completeJoin,
   completeJoinDev,
+  dropOldAnswers,
   devMode,
 };
