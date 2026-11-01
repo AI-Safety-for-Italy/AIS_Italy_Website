@@ -141,6 +141,21 @@ async function list(user) {
     );
 }
 
+/** Who can read a form's answers today besides the roles ticked on it (names only). */
+async function readersOf(form) {
+  let owner = null;
+  if (form.owner_id) {
+    const { rows } = await db.query('select name from app_users where id = $1', [form.owner_id]);
+    owner = rows.length ? rows[0].name : null;
+  }
+  const has = (p) => p.permissions.includes('forms_admin');
+  return {
+    owner,
+    allFormsRoles: (await permissions.listRolePermissions()).filter(has).map((r) => r.roleName),
+    allFormsPeople: (await permissions.listUserPermissions()).filter(has).map((p) => p.name),
+  };
+}
+
 /** One form for the editor: its settings and the current questions. */
 async function get(user, id) {
   const { form, who } = await formFor(user, id, 'read');
@@ -154,6 +169,8 @@ async function get(user, id) {
     schema: await schemaOf(form.id, form.current_version),
     settings: { ...DEFAULT_SETTINGS, ...form.settings },
     accessRoles: form.access_roles,
+    // Only for those who change the form: the people who read it are theirs to know.
+    ...(canManage(user, who, form) ? { readers: await readersOf(form) } : {}),
   };
 }
 
@@ -220,6 +237,9 @@ async function create(user, body) {
 async function saveSchema(user, id, input) {
   const { form } = await formFor(user, id, 'manage', { fresh: true });
   const schema = schemaLib.cleanSchema(input);
+  // The registration form keeps its link to the member applications only
+  // while its name, email and role questions still fit (./membership.js).
+  if (form.settings && form.settings.membership) membership.clean(schema, form.settings.membership);
   const { rows } = await db.query(
     'select count(*)::int as n from form_responses where form_id = $1 and version = $2',
     [form.id, form.current_version]
@@ -290,7 +310,7 @@ async function updateSettings(user, id, body) {
       if (!who.perms.includes('forms_admin'))
         throw new HttpError(
           403,
-          'Only the forms admins can link a form to the member applications',
+          'Only whoever holds “Forms: all forms” can link a form to the member applications',
           {
             field: 'membership',
           }
@@ -343,7 +363,10 @@ async function remove(user, id) {
     [form.id]
   );
   if (rows[0].n && !who.perms.includes('forms_admin')) {
-    throw new HttpError(409, 'This form has answers: close it instead, or ask a forms admin');
+    throw new HttpError(
+      409,
+      'This form has answers: close it instead, or ask whoever holds “Forms: all forms”'
+    );
   }
   await db.query('delete from forms where id = $1', [form.id]);
   await audit.record(user, 'form-delete', form.id, { responses: rows[0].n });

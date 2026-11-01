@@ -130,6 +130,73 @@
     return -1;
   }
 
+  // ── "Show only if" ───────────────────────────────────────────────────────
+
+  var CONDITIONAL = ['single', 'dropdown', 'multi', 'yes_no'];
+
+  // The answers of a question a condition may test: [{ id, label }].
+  function conditionChoices(q) {
+    if (q.type === 'yes_no')
+      return [
+        { id: 'yes', label: 'Yes' },
+        { id: 'no', label: 'No' },
+      ];
+    return (q.options || []).map(function (o) {
+      return { id: o.id, label: txOrMain(o.label) || o.id };
+    });
+  }
+
+  // Drops the conditions that no longer make sense (the question they test was
+  // deleted, now comes after, or lost the option): the server would refuse the
+  // save otherwise. Says so with a toast; returns whether anything changed.
+  function fixConditions() {
+    var cleared = 0;
+    schema.items.forEach(function (item, index) {
+      var c = item.showIf;
+      if (!c) return;
+      var at = find(c.item);
+      var q = at !== -1 && at < index ? schema.items[at] : null;
+      var ok = q && CONDITIONAL.indexOf(q.type) !== -1;
+      if (ok) {
+        var known = conditionChoices(q).map(function (x) {
+          return x.id;
+        });
+        c.values = c.values.filter(function (v) {
+          return known.indexOf(v) !== -1;
+        });
+        ok = c.values.length > 0;
+      }
+      if (!ok) {
+        delete item.showIf;
+        cleared++;
+      }
+    });
+    if (cleared)
+      M.toast(
+        cleared === 1
+          ? 'A “show only if” condition was removed: its question moved or changed'
+          : cleared + ' “show only if” conditions were removed: their questions moved or changed',
+        true
+      );
+    return cleared > 0;
+  }
+
+  // "Only if: <question> = <answers>" for the list.
+  function conditionText(item) {
+    var c = item.showIf;
+    var at = c ? find(c.item) : -1;
+    if (at === -1) return '';
+    var q = schema.items[at];
+    var names = conditionChoices(q)
+      .filter(function (x) {
+        return c.values.indexOf(x.id) !== -1;
+      })
+      .map(function (x) {
+        return x.label;
+      });
+    return 'Only if: ' + (txOrMain(q.label) || 'Untitled') + ' = ' + names.join(', ');
+  }
+
   // Help texts on the canvas: plain words, without the markdown marks.
   function plain(text) {
     return String(text || '')
@@ -426,7 +493,9 @@
     var item = schema.items.splice(from, 1)[0];
     schema.items.splice(to, 0, item);
     markDirty();
+    fixConditions();
     renderCanvas();
+    renderProps();
     var card = canvas.querySelector('[data-id="' + item.id + '"]');
     if (card) card.focus({ preventScroll: true });
   }
@@ -769,6 +838,8 @@
         mock(item),
       ];
     }
+    if (item.showIf && conditionText(item))
+      body.push(h('p', { class: 'fe-only-if' }, conditionText(item)));
     var card = h('div', attrs, isSel ? toolbar(item, index) : null, body);
     card.addEventListener('dragstart', function (e) {
       e.dataTransfer.setData('application/x-fe', String(index));
@@ -821,6 +892,7 @@
           schema.items.splice(index, 1);
           if (selected === item.id) selected = '__form';
           markDirty();
+          fixConditions();
           renderCanvas();
           renderProps();
         },
@@ -1233,10 +1305,71 @@
     }
     if (CHOICE.indexOf(item.type) !== -1) optionsEditor(item);
 
+    // The privacy consent is asked of everyone (the server refuses it hidden).
+    if (item.type !== 'consent') showIfEditor(item, at);
+
     var note = translationNote(item);
     if (note) props.appendChild(note);
 
     props.appendChild(h('p', { class: 'fe-id' }, 'Question id: ', h('code', null, item.id)));
+  }
+
+  // "Show only if…": one of the questions before this one, then its answers.
+  function showIfEditor(item, at) {
+    var pick = h('select', { class: 'form-select' }, h('option', { value: '' }, 'Always shown'));
+    schema.items.slice(0, at).forEach(function (q) {
+      if (CONDITIONAL.indexOf(q.type) === -1) return;
+      pick.appendChild(h('option', { value: q.id }, txOrMain(q.label) || 'Untitled'));
+    });
+    pick.value = item.showIf ? item.showIf.item : '';
+    var values = h('div', { class: 'fe-showif-values' });
+    function drawValues() {
+      M.clear(values);
+      var q = item.showIf ? schema.items[find(item.showIf.item)] : null;
+      if (!q) return;
+      conditionChoices(q).forEach(function (x) {
+        var box = h('input', { type: 'checkbox' });
+        box.checked = item.showIf.values.indexOf(x.id) !== -1;
+        box.addEventListener('change', function () {
+          var now = item.showIf.values.filter(function (v) {
+            return v !== x.id;
+          });
+          if (box.checked) now.push(x.id);
+          // At least one answer: the last tick cannot be removed.
+          if (!now.length) {
+            box.checked = true;
+            return;
+          }
+          item.showIf.values = now;
+          markDirty();
+          redraw(item.id);
+        });
+        values.appendChild(h('label', { class: 'fe-showif-value' }, box, h('span', null, x.label)));
+      });
+    }
+    pick.addEventListener('change', function () {
+      if (!pick.value) delete item.showIf;
+      else {
+        var q = schema.items[find(pick.value)];
+        item.showIf = { item: q.id, values: [conditionChoices(q)[0].id] };
+      }
+      markDirty();
+      drawValues();
+      redraw(item.id);
+    });
+    drawValues();
+    props.appendChild(
+      sec(
+        field(
+          'Show only if…',
+          pick,
+          item.type === 'section'
+            ? 'On a page, it decides whether the whole page appears.'
+            : 'The question is hidden unless the person gives one of these answers.'
+        ),
+        values
+      )
+    );
   }
 
   function optionsEditor(item) {
@@ -1443,6 +1576,10 @@
   // ── Saving ───────────────────────────────────────────────────────────────
 
   saveBtn.addEventListener('click', function () {
+    if (fixConditions()) {
+      renderCanvas();
+      renderProps();
+    }
     saveBtn.disabled = true;
     var willBump = form.responses > 0;
     M.api('PUT', '/api/app/forms?id=' + encodeURIComponent(id) + '&part=schema', { schema: schema })
@@ -1608,7 +1745,7 @@
         settings: {
           oneResponsePerEmail: once.checked,
           notifyOwner: notify.checked,
-          // Only the forms admins may change the link to the board.
+          // Only whoever holds “Forms: all forms” may change the link to the board.
           membership: join.editable() ? join.value() : undefined,
         },
         accessRoles: Array.prototype.map.call(
@@ -1716,8 +1853,9 @@
           h(
             'p',
             { class: 'panel-note', style: 'margin:0' },
-            'You and the forms admins always can. Add the Discord roles of the team that reviews them: they can read the answers, not change the form.'
+            'Always: you, as the form’s owner, and whoever holds the “Forms: all forms” permission. Tick the Discord roles of the team that reviews them: they can read the answers, not change the form.'
           ),
+          readersNote(),
           roles.length || form.accessRoles.length
             ? roleBox
             : h(
@@ -1732,8 +1870,27 @@
     );
   }
 
+  // Who can read the answers today besides the ticked roles (names only).
+  function readersNote() {
+    var r = form.readers;
+    if (!r) return null;
+    var all = r.allFormsRoles.concat(r.allFormsPeople);
+    return h(
+      'ul',
+      { class: 'form-note', style: 'margin:0' },
+      h('li', null, r.owner ? 'Owner: ' + r.owner : 'No owner (made with the admin password)'),
+      h(
+        'li',
+        null,
+        all.length
+          ? 'Hold “Forms: all forms”: ' + all.join(', ')
+          : 'Nobody else holds “Forms: all forms”'
+      )
+    );
+  }
+
   // The registration form: each answer also goes to the member applications
-  // board. Only the forms admins can change it; the others see what it does.
+  // board. Only whoever holds “Forms: all forms” can change it; the others see what it does.
   function joinPanel() {
     var panel = h('div', { class: 'panel form-grid' });
     var link = form.settings.membership
@@ -1805,7 +1962,9 @@
         )
       );
       if (!admin)
-        panel.appendChild(h('p', { class: 'form-note' }, 'Only the forms admins can change this.'));
+        panel.appendChild(
+          h('p', { class: 'form-note' }, 'Only whoever holds “Forms: all forms” can change this.')
+        );
       if (!link) return;
       panel.appendChild(
         h(

@@ -235,6 +235,35 @@
     return item.type !== 'info' && item.type !== 'section';
   }
 
+  // "Show only if", the same rules as visibleIds() in server/forms/schema.js
+  // (which is what counts): a section's condition covers the items up to the
+  // next section; a condition on a hidden question does not hold. -> {id: true}
+  function visibleItems(schema, values) {
+    var visible = {};
+    var byId = {};
+    schema.items.forEach(function (i) {
+      byId[i.id] = i;
+    });
+    function holds(c) {
+      if (!c) return true;
+      var target = byId[c.item];
+      var v = values[c.item];
+      if (!visible[c.item] || !target || v === undefined || v === null) return false;
+      if (target.type === 'yes_no') return c.values.indexOf(v) !== -1;
+      return (v.selected || []).some(function (id) {
+        return c.values.indexOf(id) !== -1;
+      });
+    }
+    var sectionOk = true;
+    schema.items.forEach(function (item) {
+      if (item.type === 'section') {
+        sectionOk = holds(item.showIf);
+        if (sectionOk) visible[item.id] = true;
+      } else if (sectionOk && holds(item.showIf)) visible[item.id] = true;
+    });
+    return visible;
+  }
+
   M.formRender = function (root, schema, opts) {
     opts = opts || {};
     var lang = pickLang(schema, opts.lang);
@@ -258,7 +287,10 @@
     });
 
     var saveTimer = null;
+    var shown = visibleItems(schema, values);
+    var cards = {};
     function changed() {
+      applyVisibility();
       if (opts.preview || !opts.draftKey) return;
       clearTimeout(saveTimer);
       saveTimer = setTimeout(function () {
@@ -472,6 +504,12 @@
     }
 
     function build(item) {
+      var el = buildItem(item);
+      if (el) cards[item.id] = el;
+      return el;
+    }
+
+    function buildItem(item) {
       if (item.type === 'info') {
         return h(
           'div',
@@ -579,7 +617,7 @@
     function checkPage(index) {
       var firstBad = null;
       pages[index].items.forEach(function (item) {
-        if (!fields[item.id]) return;
+        if (!fields[item.id] || !shown[item.id]) return;
         var message = check(item);
         show(item.id, message);
         if (message && !firstBad) firstBad = item.id;
@@ -603,7 +641,7 @@
     function answersOut() {
       var out = {};
       schema.items.forEach(function (item) {
-        if (!fields[item.id] || values[item.id] === undefined) return;
+        if (!fields[item.id] || !shown[item.id] || values[item.id] === undefined) return;
         var v = values[item.id];
         if (item.type === 'number' && v !== '') v = Number(String(v).replace(',', '.'));
         out[item.id] = v;
@@ -670,7 +708,7 @@
           ? h(
               'header',
               { class: 'fm-section' },
-              pages.length > 1 ? h('p', { class: 'fm-part' }, S.step(i + 1, pages.length)) : null,
+              pages.length > 1 ? h('p', { class: 'fm-part' }) : null,
               p.section ? h('h2', null, t(p.section.label)) : null,
               p.section && p.section.help ? md(t(p.section.help), 'fm-section-help') : null
             )
@@ -681,25 +719,82 @@
       return el;
     });
 
+    // A page whose section (or every question) is hidden is skipped.
+    function pageShown(i) {
+      var sec = pages[i].section;
+      if (sec && !shown[sec.id]) return false;
+      return (
+        !pages[i].items.length ||
+        pages[i].items.some(function (it) {
+          return shown[it.id];
+        })
+      );
+    }
+
+    function shownPages() {
+      var out = [];
+      pages.forEach(function (p, i) {
+        if (pageShown(i)) out.push(i);
+      });
+      return out;
+    }
+
+    // The nearest shown page in a direction (-1 / 1), or -1.
+    function neighbour(dir) {
+      for (var i = page + dir; i >= 0 && i < pages.length; i += dir) {
+        if (pageShown(i)) return i;
+      }
+      return -1;
+    }
+
+    // The texts that depend on which pages are shown.
+    function refreshNav() {
+      var list = shownPages();
+      var pos = Math.max(0, list.indexOf(page));
+      var after = neighbour(1);
+      back.hidden = neighbour(-1) === -1;
+      nextText.textContent =
+        after === -1
+          ? S.send
+          : pages[after].section
+          ? S.nextTo(t(pages[after].section.label))
+          : S.next;
+      next.classList.toggle('is-send', after === -1);
+      progress.hidden = list.length < 2;
+      progress.querySelector('.fm-progress-bar').style.width =
+        ((pos + 1) / list.length) * 100 + '%';
+      progress.querySelector('.fm-progress-text').textContent =
+        S.step(pos + 1, list.length) + ' · ' + partName(page);
+      pageEls.forEach(function (el, i) {
+        var part = el.querySelector('.fm-part');
+        if (part) part.textContent = S.step(Math.max(0, list.indexOf(i)) + 1, list.length);
+      });
+    }
+
+    // Hides what the answers so far say to hide, and renumbers the rest.
+    function applyVisibility() {
+      shown = visibleItems(schema, values);
+      var n = 0;
+      schema.items.forEach(function (item) {
+        var card = cards[item.id];
+        if (card) card.hidden = !shown[item.id];
+        if (card && shown[item.id] && isQuestion(item) && item.type !== 'consent') {
+          n++;
+          var num = card.querySelector('.fm-num');
+          if (num) num.textContent = n < 10 ? '0' + n : String(n);
+        }
+      });
+      refreshNav();
+      if (opts.onPage) opts.onPage(page);
+    }
+
     function go(index) {
       page = Math.max(0, Math.min(pages.length - 1, index));
       opts.page = page;
       pageEls.forEach(function (el, i) {
         el.hidden = i !== page;
       });
-      back.hidden = page === 0;
-      var last = page === pages.length - 1;
-      nextText.textContent = last
-        ? S.send
-        : pages[page + 1].section
-        ? S.nextTo(t(pages[page + 1].section.label))
-        : S.next;
-      next.classList.toggle('is-send', last);
-      progress.querySelector('.fm-progress-bar').style.width =
-        ((page + 1) / pages.length) * 100 + '%';
-      progress.querySelector('.fm-progress-text').textContent =
-        S.step(page + 1, pages.length) + ' · ' + partName(page);
-      if (opts.onPage) opts.onPage(page);
+      applyVisibility();
     }
 
     function toTop() {
@@ -716,7 +811,7 @@
 
     back.addEventListener('click', function () {
       formError.hidden = true;
-      go(page - 1);
+      go(neighbour(-1));
       toTop();
     });
 
@@ -728,13 +823,14 @@
         focusQuestion(bad);
         return;
       }
-      if (page < pages.length - 1) {
-        go(page + 1);
+      if (neighbour(1) !== -1) {
+        go(neighbour(1));
         toTop();
         return;
       }
       // The last page: check everything, then send.
       for (var i = 0; i < pages.length; i++) {
+        if (!pageShown(i)) continue;
         var wrong = checkPage(i);
         if (wrong) {
           go(i);
@@ -815,9 +911,18 @@
     go(opts.page || 0);
     return {
       lang: lang,
-      pages: pages.map(function (p, i) {
-        return { label: partName(i), count: p.items.filter(isQuestion).length };
-      }),
+      // The parts in play, with their place in the form (hidden ones left out).
+      get pages() {
+        return shownPages().map(function (i) {
+          return {
+            index: i,
+            label: partName(i),
+            count: pages[i].items.filter(function (it) {
+              return isQuestion(it) && shown[it.id];
+            }).length,
+          };
+        });
+      },
       goTo: function (index) {
         // Only back: the parts ahead are reached through their checks.
         if (index < page) {
@@ -927,7 +1032,8 @@
       if (!form) return;
       M.clear(steps);
       steps.hidden = form.pages.length < 2;
-      form.pages.forEach(function (p, i) {
+      form.pages.forEach(function (p) {
+        var i = p.index;
         var state = finished || i < current ? 'done' : i === current ? 'now' : 'next';
         var label = h(
           'span',
