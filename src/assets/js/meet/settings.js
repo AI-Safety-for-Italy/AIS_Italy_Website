@@ -56,11 +56,9 @@
     );
   }
 
-  M.me
-    .then(function () {
-      return M.api('GET', '/api/app/settings');
-    })
-    .then(function (d) {
+  Promise.all([M.me, M.api('GET', '/api/app/settings')])
+    .then(function (r) {
+      var d = r[1];
       data = d;
       if (notifyForm) {
         var p = d.profile;

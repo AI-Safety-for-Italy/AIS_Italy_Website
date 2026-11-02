@@ -32,11 +32,9 @@
 
   roleBox.appendChild(M.loading());
 
-  M.me
-    .then(function () {
-      return M.api('GET', '/api/app/permissions');
-    })
-    .then(function (data) {
+  Promise.all([M.me, M.api('GET', '/api/app/permissions')])
+    .then(function (r) {
+      var data = r[1];
       keys = data.keys;
       grantable = data.grantable || null;
       document.getElementById('permLocked').hidden = !grantable || grantable.length === keys.length;

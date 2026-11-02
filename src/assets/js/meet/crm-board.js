@@ -39,6 +39,7 @@
     open: null,
     mode: 'list',
     stage: '',
+    auto: true, // the next list view may open its first person by itself
   };
   try {
     if (localStorage.getItem('crm-view') === 'board') view.mode = 'board';
@@ -52,19 +53,41 @@
     mentees_interest: 'Expression of interest',
   };
 
+  // Lookups built once per load. Cards are changed in place by change(), so the
+  // maps keep pointing at the live objects.
+  var lookup = { card: { mentor: new Map(), mentee: new Map() }, track: new Map(), status: {} };
+
+  function index(data) {
+    ['mentor', 'mentee'].forEach(function (kind) {
+      var cards = new Map();
+      (kind === 'mentor' ? data.mentors : data.mentees).forEach(function (c) {
+        cards.set(c.key, c);
+      });
+      lookup.card[kind] = cards;
+      lookup.status[kind] = new Map();
+      data.statuses[kind].forEach(function (s) {
+        lookup.status[kind].set(s.key, s.label);
+      });
+    });
+    lookup.track = new Map();
+    data.tracks.forEach(function (t) {
+      lookup.track.set(t.key, t.label);
+    });
+  }
+
+  function setData(data) {
+    view.data = data;
+    index(data);
+    render();
+  }
+
   function trackLabel(key) {
     if (!view.data) return key;
-    var t = view.data.tracks.filter(function (x) {
-      return x.key === key;
-    })[0];
-    return t ? t.label : 'No track yet';
+    return lookup.track.has(key) ? lookup.track.get(key) : 'No track yet';
   }
 
   function statusLabel(kind, key) {
-    var s = view.data.statuses[kind].filter(function (x) {
-      return x.key === key;
-    })[0];
-    return s ? s.label : key;
+    return lookup.status[kind].has(key) ? lookup.status[kind].get(key) : key;
   }
 
   function fold(text) {
@@ -95,20 +118,26 @@
   }
 
   function load() {
-    return M.api('GET', API).then(function (data) {
-      view.data = data;
-      render();
-    });
+    return M.api('GET', API).then(setData);
   }
 
   board.appendChild(M.loading());
-  M.me.then(load).catch(fail);
+  // The board is asked for while the session check is still running.
+  Promise.all([M.me, M.api('GET', API)])
+    .then(function (r) {
+      setData(r[1]);
+    })
+    .catch(fail);
 
   // ── Tabs and filters ─────────────────────────────────────────────────────
 
   function setTab(tab) {
     view.tab = ['mentors', 'mentees', 'pairs'].indexOf(tab) === -1 ? 'mentors' : tab;
     view.stage = '';
+    // A new tab is a new list: forget the person shown and open the first one.
+    view.open = null;
+    view.shown = null;
+    view.auto = true;
     document.querySelectorAll('.ap-tabs a[data-tab]').forEach(function (a) {
       if (a.getAttribute('data-tab') === view.tab) a.setAttribute('aria-current', 'page');
       else a.removeAttribute('aria-current');
@@ -124,9 +153,14 @@
     view.track = e.target.value;
     render();
   });
+  var searchTimer = null;
   document.getElementById('crmSearch').addEventListener('input', function (e) {
-    view.q = fold(e.target.value.trim());
-    render();
+    var value = e.target.value;
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(function () {
+      view.q = fold(value.trim());
+      if (view.data) render();
+    }, 150);
   });
   var modeBtns = document.querySelectorAll('#crmViews button');
   function markMode() {
@@ -289,9 +323,7 @@
   }
 
   function findCard(key, kind) {
-    return (kind === 'mentor' ? view.data.mentors : view.data.mentees).filter(function (c) {
-      return c.key === key;
-    })[0];
+    return lookup.card[kind].get(key);
   }
 
   function dot(status) {
@@ -543,16 +575,16 @@
       });
     board.appendChild(chips);
     if (!rows.length) {
+      view.auto = false;
       board.appendChild(h('p', { class: 'panel-note' }, 'Nobody here with these filters.'));
       return;
     }
     var withAside = inAside();
-    var sel =
-      withAside &&
-      (rows.filter(function (c) {
-        return view.open && view.open.key === c.key && view.open.kind === c.kind;
-      })[0] ||
-        rows[0]);
+    // Typing or filtering never opens anyone: the person already shown stays, even
+    // if filtered out. Only the first load (and a click) opens one.
+    var first = withAside && view.auto && !view.shown ? rows[0] : null;
+    if (withAside) view.auto = false;
+    var picked = withAside ? (first ? first.kind + ':' + first.key : view.shown) : null;
     var list = h(
       'div',
       { class: 'crm-list' },
@@ -566,15 +598,16 @@
         h('span', null, 'Notes')
       ),
       rows.map(function (c) {
+        var on = c.kind + ':' + c.key === picked;
         return h(
           'div',
-          { class: 'crm-row' + (c === sel ? ' is-selected' : ''), 'data-id': c.kind + ':' + c.key },
+          { class: 'crm-row' + (on ? ' is-selected' : ''), 'data-id': c.kind + ':' + c.key },
           h(
             'button',
             {
               type: 'button',
               class: 'crm-pick',
-              'aria-current': c === sel ? 'true' : null,
+              'aria-current': on ? 'true' : null,
               onclick: function () {
                 openPerson(c.key, c.kind);
               },
@@ -596,8 +629,12 @@
       return;
     }
     board.appendChild(h('div', { class: 'crm-split' }, list, aside));
-    // The aside is kept between renders; only fetch when the person changed.
-    if (view.shown !== sel.kind + ':' + sel.key) openPerson(sel.key, sel.kind);
+    // The aside is kept between renders; nothing is fetched here except the first person.
+    if (first) openPerson(first.key, first.kind);
+    else if (!view.shown) {
+      M.clear(asideBody);
+      asideBody.appendChild(h('p', { class: 'panel-note' }, 'Select someone'));
+    }
   }
 
   function markSelected() {

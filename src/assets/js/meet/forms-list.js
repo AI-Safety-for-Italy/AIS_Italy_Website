@@ -73,12 +73,10 @@
     );
   }
 
-  Promise.all([M.me, M.areas])
+  Promise.all([M.me, M.areas, M.api('GET', '/api/app/forms')])
     .then(function (r) {
+      var data = r[2];
       newBtn.hidden = !r[1].forms;
-      return M.api('GET', '/api/app/forms');
-    })
-    .then(function (data) {
       M.clear(list);
       if (!data.forms.length) {
         list.appendChild(

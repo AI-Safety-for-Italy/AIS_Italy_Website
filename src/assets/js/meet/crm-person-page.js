@@ -37,20 +37,19 @@
   }
 
   out.appendChild(M.loading());
-  M.me
-    .then(function (me) {
-      return M.api(
-        'GET',
-        API + '?key=' + encodeURIComponent(key) + '&kind=' + encodeURIComponent(kind)
-      ).then(function (p) {
-        document.title = p.name + ' | Mentorship board';
-        window.CrmPerson.render(p, out, {
-          layout: 'page',
-          me: me.id,
-          onRemoved: function () {
-            window.location.href = '/app/crm/#' + kind + 's';
-          },
-        });
+  Promise.all([
+    M.me,
+    M.api('GET', API + '?key=' + encodeURIComponent(key) + '&kind=' + encodeURIComponent(kind)),
+  ])
+    .then(function (r) {
+      var p = r[1];
+      document.title = p.name + ' | Mentorship board';
+      window.CrmPerson.render(p, out, {
+        layout: 'page',
+        me: r[0].id,
+        onRemoved: function () {
+          window.location.href = '/app/crm/#' + kind + 's';
+        },
       });
     })
     .catch(fail);
