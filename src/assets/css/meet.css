@@ -8362,16 +8362,6 @@ textarea.fm-input.fm-other-input {
   letter-spacing: -0.01em;
 }
 
-.hub-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.hub-actions [hidden] {
-  display: none;
-}
-
 .hub-todo {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
