@@ -74,9 +74,10 @@ const first = (...values) => values.find((v) => v && String(v).trim()) || '';
 
 /**
  * Everyone in the lists: { people: Map("kind:key" -> person), unlinked: rows
- * without an email, problems: records the current key cannot open }.
+ * without an email, problems: records the current key cannot open }. With
+ * `personKey`, only that person's records are read and decrypted.
  */
-async function gather() {
+async function gather(personKey) {
   const people = new Map();
   const unlinked = [];
   const problems = [];
@@ -96,7 +97,7 @@ async function gather() {
     people.get(id).records[sourceId] = record;
   };
 
-  const { bySource, unreadable } = await records.list();
+  const { bySource, unreadable } = await records.list({ personKey });
   for (const sourceId of Object.keys(sources.SOURCES)) {
     for (const record of bySource[sourceId] || []) {
       if (sourceId === 'mentees_interest') {
@@ -173,6 +174,17 @@ async function states() {
   return new Map(rows.map((r) => [`${r.kind}:${r.person_key}`, r]));
 }
 
+/** One person's row of crm_people_state, or undefined. */
+async function stateOf(key, kind) {
+  const { rows } = await db.query(
+    `select s.*, u.name as owner_name from crm_people_state s
+     left join app_users u on u.id = s.owner_id
+     where s.person_key = $1 and s.kind = $2`,
+    [key, kind]
+  );
+  return rows[0];
+}
+
 async function noteCounts() {
   const { rows } = await db.query(
     'select person_key, count(*)::int as n from crm_notes group by person_key'
@@ -239,7 +251,7 @@ function checkKey(key, kind) {
 
 async function find(key, kind) {
   checkKey(key, kind);
-  const { people } = await gather();
+  const { people } = await gather(key);
   const person = people.get(`${kind}:${key}`);
   if (!person) throw new HttpError(404, 'Not on the board (any more)');
   return person;
@@ -248,7 +260,7 @@ async function find(key, kind) {
 /** Everything about one person, with fields cut to what `perms` may read. */
 async function person(user, perms, key, kind) {
   const found = await find(key, kind);
-  const state = (await states()).get(`${kind}:${key}`);
+  const state = await stateOf(key, kind);
   const card_ = card(found, state, {});
   const sheetsView = Object.entries(found.records).map(([sourceId, record]) => {
     // The key and the record's id are dropped on purpose: lookup ids, not
@@ -314,8 +326,7 @@ async function person(user, perms, key, kind) {
 async function update(user, key, kind, changes) {
   const found = await find(key, kind);
   const c = changes || {};
-  const all = await states();
-  const current = all.get(`${kind}:${key}`);
+  const current = await stateOf(key, kind);
   const before = card(found, current, {});
 
   let status = before.status;
@@ -355,7 +366,9 @@ async function update(user, key, kind, changes) {
   if (c.track !== undefined) detail.track = track;
   if (c.owner !== undefined) detail.owner = c.owner;
   await audit.record(user, 'set-status', key, detail);
-  return { status, track };
+  // What the board's card needs, so the page updates it without reloading.
+  const after = card(found, await stateOf(key, kind), {});
+  return { status: after.status, track: after.track, owner: after.owner, ownerId: after.ownerId };
 }
 
 async function addNote(user, key, kind, body) {

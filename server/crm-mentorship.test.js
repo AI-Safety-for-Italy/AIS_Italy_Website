@@ -207,16 +207,24 @@ test('moving someone along is stored by key, audited, and validated', async () =
     404
   );
 
-  // Clearing the track falls back to what the sheets say.
-  await mentorship.update(me, BRUNO(), 'mentor', { track: null });
+  // Clearing the track falls back to what the sheets say; the answer says so
+  // too, since the page updates the card from it without reloading.
+  const answer = await mentorship.update(me, BRUNO(), 'mentor', { track: null });
   bruno = byName((await mentorship.board(me)).mentors, 'Bruno Prova');
   assert.equal(bruno.track, 'orientation');
+  assert.deepEqual(answer, {
+    status: 'contacted',
+    track: 'orientation',
+    owner: null,
+    ownerId: null,
+  });
 });
 
 test('a team member can take someone on, and drop them', async () => {
   await setRoles();
   const maria = await member('Maria', ['r-mentors']);
-  await mentorship.update(maria, ELENA(), 'mentor', { owner: 'me' });
+  const taken = await mentorship.update(maria, ELENA(), 'mentor', { owner: 'me' });
+  assert.equal(taken.owner, 'Maria');
   assert.equal(byName((await mentorship.board(maria)).mentors, 'Elena Campione').owner, 'Maria');
   await mentorship.update(maria, ELENA(), 'mentor', { owner: 'none' });
   assert.equal(byName((await mentorship.board(maria)).mentors, 'Elena Campione').owner, null);

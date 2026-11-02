@@ -27,7 +27,21 @@
     board: 'Added on the board',
   };
 
-  var view = { data: null, tab: 'mentors', track: '', q: '', mine: false, open: null };
+  var view = {
+    data: null,
+    tab: 'mentors',
+    track: '',
+    q: '',
+    mine: false,
+    open: null,
+    mode: 'list',
+    stage: '',
+  };
+  try {
+    if (localStorage.getItem('crm-view') === 'board') view.mode = 'board';
+  } catch (e) {
+    /* private window: the default is fine */
+  }
 
   var SOURCE_LABELS = {
     mentors_prospective: 'List to contact',
@@ -145,6 +159,7 @@
 
   function setTab(tab) {
     view.tab = ['mentors', 'mentees', 'pairs'].indexOf(tab) === -1 ? 'mentors' : tab;
+    view.stage = '';
     document.querySelectorAll('.ap-tabs a[data-tab]').forEach(function (a) {
       if (a.getAttribute('data-tab') === view.tab) a.setAttribute('aria-current', 'page');
       else a.removeAttribute('aria-current');
@@ -168,6 +183,25 @@
   document.getElementById('crmSearch').addEventListener('input', function (e) {
     view.q = fold(e.target.value.trim());
     render();
+  });
+  var modeBtns = document.querySelectorAll('#crmViews button');
+  function markMode() {
+    modeBtns.forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.getAttribute('data-mode') === view.mode));
+    });
+  }
+  markMode();
+  modeBtns.forEach(function (b) {
+    b.addEventListener('click', function () {
+      view.mode = b.getAttribute('data-mode');
+      try {
+        localStorage.setItem('crm-view', view.mode);
+      } catch (e) {
+        /* not remembered, still works */
+      }
+      markMode();
+      render();
+    });
   });
   document.getElementById('onlyMine').addEventListener('change', function (e) {
     view.mine = e.target.checked;
@@ -290,7 +324,205 @@
     toolbar.hidden = view.tab === 'pairs';
     addBtn.hidden = view.tab !== 'mentors';
     if (view.tab === 'pairs') renderPairs();
-    else renderKanban(view.tab === 'mentees' ? 'mentee' : 'mentor');
+    else if (view.mode === 'board') renderKanban(view.tab === 'mentees' ? 'mentee' : 'mentor');
+    else renderList(view.tab === 'mentees' ? 'mentee' : 'mentor');
+  }
+
+  // ── The stage pill: one button, one menu, used everywhere ────────────────
+
+  var openMenu = null;
+  function closeMenu(refocus) {
+    if (!openMenu) return;
+    var m = openMenu;
+    openMenu = null;
+    m.menu.remove();
+    m.btn.setAttribute('aria-expanded', 'false');
+    document.removeEventListener('click', m.away, true);
+    document.removeEventListener('keydown', m.key, true);
+    window.removeEventListener('scroll', m.away, true);
+    if (refocus) m.btn.focus();
+  }
+
+  function findCard(key, kind) {
+    return (kind === 'mentor' ? view.data.mentors : view.data.mentees).filter(function (c) {
+      return c.key === key;
+    })[0];
+  }
+
+  function dot(status) {
+    return h('span', {
+      class: 'crm-dot',
+      'aria-hidden': 'true',
+      style: '--crm-dot:var(--crm-st-' + status + ')',
+    });
+  }
+
+  function stagePill(key, kind) {
+    var c = findCard(key, kind);
+    var locked = c.status === 'matched';
+    var wrap = h('span', { class: 'crm-stage-pill' });
+    var btn = h(
+      'button',
+      {
+        type: 'button',
+        class: 'crm-stage-btn',
+        'aria-haspopup': 'true',
+        'aria-expanded': 'false',
+        'aria-label': 'Stage: ' + statusLabel(kind, c.status) + '. Change',
+        title: locked ? 'End the pairing first' : null,
+        disabled: locked ? true : null,
+      },
+      dot(c.status),
+      h('span', null, statusLabel(kind, c.status)),
+      h('span', { 'aria-hidden': 'true' }, '▾')
+    );
+    btn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      if (openMenu && openMenu.btn === btn) return closeMenu(true);
+      closeMenu();
+      var menu = h(
+        'div',
+        { class: 'crm-stage-menu' },
+        view.data.statuses[kind].map(function (s) {
+          return h(
+            'button',
+            {
+              type: 'button',
+              'aria-current': s.key === c.status ? 'true' : null,
+              disabled: s.key === 'matched' ? true : null,
+              onclick: function () {
+                closeMenu(true);
+                if (s.key !== c.status) change(key, kind, { status: s.key });
+              },
+            },
+            dot(s.key),
+            s.label
+          );
+        })
+      );
+      wrap.appendChild(menu);
+      var r = btn.getBoundingClientRect();
+      var below = window.innerHeight - r.bottom > menu.offsetHeight + 8;
+      menu.style.left =
+        Math.max(4, Math.min(r.left, window.innerWidth - menu.offsetWidth - 4)) + 'px';
+      menu.style.top = (below ? r.bottom + 4 : Math.max(4, r.top - menu.offsetHeight - 4)) + 'px';
+      btn.setAttribute('aria-expanded', 'true');
+      openMenu = {
+        btn: btn,
+        menu: menu,
+        away: function (ev) {
+          if (ev.type === 'scroll' && menu.contains(ev.target)) return;
+          if (ev.type === 'click' && wrap.contains(ev.target)) return;
+          closeMenu();
+        },
+        key: function (ev) {
+          if (ev.key === 'Escape') {
+            ev.preventDefault();
+            ev.stopPropagation();
+            closeMenu(true);
+          }
+        },
+      };
+      document.addEventListener('click', openMenu.away, true);
+      document.addEventListener('keydown', openMenu.key, true);
+      window.addEventListener('scroll', openMenu.away, true);
+      var first = menu.querySelector('button[aria-current="true"]') || menu.querySelector('button');
+      if (first) first.focus();
+    });
+    wrap.appendChild(btn);
+    return wrap;
+  }
+
+  // ── List view ────────────────────────────────────────────────────────────
+
+  function renderList(kind) {
+    var all = (kind === 'mentor' ? view.data.mentors : view.data.mentees).filter(visible);
+    var chips = h('div', {
+      class: 'chip-group crm-stage-chips',
+      role: 'group',
+      'aria-label': 'Stage',
+    });
+    function chip(key, label, count) {
+      chips.appendChild(
+        h(
+          'button',
+          {
+            type: 'button',
+            class: 'chip',
+            'aria-pressed': String(view.stage === key),
+            onclick: function () {
+              view.stage = key;
+              render();
+            },
+          },
+          key ? dot(key) : null,
+          label + ' ' + count
+        )
+      );
+    }
+    chip('', 'All', all.length);
+    view.data.statuses[kind].forEach(function (s) {
+      chip(
+        s.key,
+        s.label,
+        all.filter(function (c) {
+          return c.status === s.key;
+        }).length
+      );
+    });
+    var rows = all
+      .filter(function (c) {
+        return !view.stage || c.status === view.stage;
+      })
+      .sort(function (a, b) {
+        return a.name.localeCompare(b.name);
+      });
+    board.appendChild(chips);
+    if (!rows.length) {
+      board.appendChild(h('p', { class: 'panel-note' }, 'Nobody here with these filters.'));
+      return;
+    }
+    board.appendChild(
+      h(
+        'div',
+        { class: 'crm-list' },
+        h(
+          'div',
+          { class: 'crm-row crm-row-head' },
+          h('span', null, 'Name'),
+          h('span', null, 'Track'),
+          h('span', null, 'Stage'),
+          h('span', null, 'Owner'),
+          h('span', null, 'Notes')
+        ),
+        rows.map(function (c) {
+          return h(
+            'div',
+            { class: 'crm-row' },
+            h(
+              'span',
+              null,
+              h(
+                'button',
+                {
+                  type: 'button',
+                  class: 'crm-name',
+                  onclick: function () {
+                    openPerson(c.key, c.kind);
+                  },
+                },
+                c.name
+              ),
+              c.org ? h('small', null, c.org) : null
+            ),
+            h('span', null, trackLabel(c.track)),
+            stagePill(c.key, c.kind),
+            h('span', null, c.owner || ''),
+            h('span', null, c.notes ? String(c.notes) : '')
+          );
+        })
+      )
+    );
   }
 
   function renderNotices() {
@@ -375,16 +607,22 @@
   function cardEl(c) {
     var used = c.capacity ? c.matches + '/' + c.capacity + ' mentees' : null;
     var el = h(
-      'button',
+      'div',
       {
-        type: 'button',
         class: 'crm-card' + (c.status === 'matched' ? ' is-locked' : ''),
         draggable: c.status === 'matched' ? 'false' : 'true',
-        onclick: function () {
-          openPerson(c.key, c.kind);
-        },
       },
-      h('strong', null, c.name),
+      h(
+        'button',
+        {
+          type: 'button',
+          class: 'crm-name',
+          onclick: function () {
+            openPerson(c.key, c.kind);
+          },
+        },
+        c.name
+      ),
       c.org ? h('span', { class: 'crm-card-org' }, c.org) : null,
       c.project ? h('span', { class: 'crm-card-project' }, c.project) : null,
       h(
@@ -396,7 +634,8 @@
           ? h('span', { class: 'crm-tag' }, c.notes + (c.notes === 1 ? ' note' : ' notes'))
           : null,
         c.owner ? h('span', { class: 'crm-tag crm-owner' }, '● ' + c.owner) : null
-      )
+      ),
+      stagePill(c.key, c.kind)
     );
     el.addEventListener('dragstart', function (e) {
       e.dataTransfer.setData(
@@ -410,16 +649,51 @@
 
   // ── Changes ──────────────────────────────────────────────────────────────
 
-  function change(key, kind, changes) {
-    var body = Object.assign({ key: key, kind: kind }, changes);
-    return M.api('POST', API + '?action=update', body)
-      .then(function () {
-        return load();
+  // Optimistic: the card moves at once, the server catches up in the background.
+  function change(key, kind, changes, quiet) {
+    var card = findCard(key, kind);
+    if (!card) return Promise.resolve();
+    var before = Object.assign({}, card);
+    if (changes.status) card.status = changes.status;
+    if (changes.track) card.track = changes.track;
+    if (changes.owner) card.ownerId = changes.owner === 'me' ? view.data.me : null;
+    if (changes.owner === 'none') card.owner = null;
+    closeMenu();
+    render();
+    syncPanel(card);
+    return M.api('POST', API + '?action=update', Object.assign({ key: key, kind: kind }, changes))
+      .then(function (r) {
+        if (r) {
+          card.status = r.status;
+          card.track = r.track;
+          card.ownerId = r.ownerId;
+          card.owner = r.owner;
+        }
+        render();
+        syncPanel(card);
+        if (changes.status && !quiet) {
+          M.toast(card.name + ' moved to ' + statusLabel(kind, card.status), false, {
+            label: 'Undo',
+            onclick: function () {
+              change(key, kind, { status: before.status }, true);
+            },
+          });
+        }
       })
-      .then(function () {
-        if (view.open && view.open.key === key && view.open.kind === kind) openPerson(key, kind);
-      })
-      .catch(fail);
+      .catch(function (err) {
+        Object.assign(card, before);
+        render();
+        syncPanel(card);
+        if (err.status === 401) fail(err);
+        else M.toast(err.message, true);
+      });
+  }
+
+  /** The open person panel follows the card, without asking the server again. */
+  function syncPanel(card) {
+    if (view.open && view.open.key === card.key && view.open.kind === card.kind && view.open.sync) {
+      view.open.sync(card);
+    }
   }
 
   // ── One person ───────────────────────────────────────────────────────────
@@ -447,19 +721,7 @@
       ? h('a', { href: 'mailto:' + encodeURIComponent(p.email).replace(/%40/g, '@') }, p.email)
       : null;
 
-    var statusSelect = h(
-      'select',
-      { class: 'form-input is-compact', 'aria-label': 'Stage' },
-      view.data.statuses[p.kind].map(function (s) {
-        var o = h('option', { value: s.key }, s.label);
-        if (s.key === p.status) o.selected = true;
-        if (s.key === 'matched' && p.status !== 'matched') o.disabled = true;
-        return o;
-      })
-    );
-    statusSelect.addEventListener('change', function () {
-      change(p.key, p.kind, { status: statusSelect.value });
-    });
+    var stageSlot = h('div', null, stagePill(p.key, p.kind));
 
     var trackSelect = h(
       'select',
@@ -486,8 +748,24 @@
           change(p.key, p.kind, { owner: mine ? 'none' : 'me' });
         },
       },
-      mine ? 'Drop' : 'Take on'
+      'Take on'
     );
+    var ownerName = h('span', null);
+    function syncOwner() {
+      mine = p.ownerId && p.ownerId === view.data.me;
+      ownerName.textContent = p.owner || 'Nobody yet';
+      ownerBtn.textContent = mine ? 'Drop' : 'Take on';
+    }
+    syncOwner();
+    view.open.sync = function (card) {
+      p.status = card.status;
+      p.track = card.track;
+      p.ownerId = card.ownerId;
+      p.owner = card.owner;
+      M.clear(stageSlot).appendChild(stagePill(p.key, p.kind));
+      trackSelect.value = card.track || '';
+      syncOwner();
+    };
 
     panelBody.appendChild(
       h(
@@ -520,13 +798,13 @@
       h(
         'div',
         { class: 'crm-person-controls' },
-        h('label', null, h('span', { class: 'form-label' }, 'Stage'), statusSelect),
+        h('div', null, h('span', { class: 'form-label' }, 'Stage'), stageSlot),
         h('label', null, h('span', { class: 'form-label' }, 'Track'), trackSelect),
         h(
           'div',
           null,
           h('span', { class: 'form-label' }, 'Followed by'),
-          h('div', { class: 'crm-owner-row' }, h('span', null, p.owner || 'Nobody yet'), ownerBtn)
+          h('div', { class: 'crm-owner-row' }, ownerName, ownerBtn)
         )
       )
     );

@@ -1527,6 +1527,22 @@ dialog.meet-dialog::backdrop {
   transform: translate(-50%, 0);
 }
 
+.toast.has-action.is-visible {
+  pointer-events: auto;
+}
+
+.toast-action {
+  margin-left: 0.9rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 .toast.is-error {
   background: var(--secondary-600);
   color: #fff;
@@ -2250,6 +2266,204 @@ div.poll-item {
   max-width: 340px;
 }
 
+/* Stage dots: identity only, the words stay in ink colours. */
+:root {
+  --crm-st-to_contact: #7c8a81;
+  --crm-st-contacted: #2a78d6;
+  --crm-st-replied: #8a5cd1;
+  --crm-st-interested: #8a5cd1;
+  --crm-st-applied: #c98500;
+  --crm-st-selected: #00703a;
+  --crm-st-matched: #0a3d22;
+  --crm-st-declined: #a81a22;
+}
+
+[data-theme='dark'] {
+  --crm-st-to_contact: #9aa89f;
+  --crm-st-contacted: #5a9be8;
+  --crm-st-replied: #b08ae6;
+  --crm-st-interested: #b08ae6;
+  --crm-st-applied: #e0a21f;
+  --crm-st-selected: #3cc27f;
+  --crm-st-matched: #6fd6a0;
+  --crm-st-declined: #ee6a72;
+}
+
+.crm-dot {
+  flex: none;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: var(--crm-dot, var(--text-tertiary));
+}
+
+.crm-views {
+  display: inline-flex;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.crm-views button {
+  padding: 0.35rem 0.85rem;
+  border: 0;
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.crm-views button[aria-pressed='true'] {
+  background: var(--accent);
+  color: var(--text-on-accent);
+}
+
+[data-theme='dark'] .crm-views button[aria-pressed='true'] {
+  color: #062015;
+}
+
+.crm-stage-pill {
+  position: relative;
+  display: inline-block;
+}
+
+.crm-stage-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.2rem 0.55rem;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-full);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.crm-stage-btn:disabled {
+  cursor: default;
+  opacity: 0.85;
+}
+
+.crm-stage-btn svg {
+  width: 0.7rem;
+  height: 0.7rem;
+  color: var(--text-tertiary);
+}
+
+.crm-stage-menu {
+  position: fixed;
+  z-index: 60;
+  min-width: 11rem;
+  padding: 0.3rem;
+  background: var(--card-bg);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+}
+
+.crm-stage-menu button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.45rem 0.55rem;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 0.875rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.crm-stage-menu button:hover:not(:disabled),
+.crm-stage-menu button:focus-visible {
+  background: var(--bg-tertiary);
+}
+
+.crm-stage-menu button:disabled {
+  color: var(--text-tertiary);
+  cursor: not-allowed;
+}
+
+.crm-stage-menu button[aria-current='true'] {
+  font-weight: 700;
+}
+
+.crm-stage-menu button[aria-current='true']::after {
+  content: '\2713';
+  margin-left: auto;
+}
+
+.crm-stage-chips {
+  margin-bottom: 0.75rem;
+}
+
+.crm-stage-chips .chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.crm-list {
+  overflow-x: auto;
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius);
+  background: var(--card-bg);
+}
+
+.crm-row {
+  display: grid;
+  grid-template-columns: 2.5fr 1fr 1.2fr 1fr 70px;
+  gap: 0.75rem;
+  align-items: center;
+  min-width: 700px;
+  padding: 0.5rem 0.75rem;
+  border-top: 1px solid var(--border-muted);
+  font-size: 0.88rem;
+}
+
+.crm-row:first-child {
+  border-top: 0;
+}
+
+.crm-row-head {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+}
+
+.crm-name {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-primary);
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.crm-name:hover,
+.crm-name:focus-visible {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.crm-row small {
+  display: block;
+  color: var(--text-secondary);
+}
+
 .crm-kanban {
   display: grid;
   grid-auto-flow: column;
@@ -2313,7 +2527,7 @@ div.poll-item {
 }
 
 .crm-card:hover,
-.crm-card:focus-visible {
+.crm-card:focus-within {
   border-color: var(--accent);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
@@ -2322,8 +2536,12 @@ div.poll-item {
   cursor: pointer;
 }
 
-.crm-card strong {
+.crm-card .crm-name {
   font-size: 0.95rem;
+}
+
+.crm-card .crm-stage-pill {
+  margin-top: 0.2rem;
 }
 
 .crm-card-org {
