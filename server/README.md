@@ -390,6 +390,49 @@ data.
 
 Locally (`npm run dev:meet`, no Discord) the link joins at once.
 
+# The community: members and working groups (`/app/members/people/`, `/groups/`)
+
+The directory of members and the working groups, kept in the database instead
+of the old members sheet (`scripts/update-members.py`, `data/members.yaml`).
+Tabs of Member applications, with the `members` permission.
+
+| Where                         | What                                                                 |
+| ----------------------------- | -------------------------------------------------------------------- |
+| `/app/members/`               | Applications: approve with a role and the working groups as tags     |
+| `/app/members/people/`        | Members: tags in bulk (add, remove, move), details, Discord, import  |
+| `/app/members/groups/`        | Working groups: names, descriptions, order, the Discord role of each |
+| `/app/organizer/`             | A participant asks to become an organizer (an upgrade on the board)  |
+| `server/community.js`         | Groups, members, tags, Discord roles, the import, publishing         |
+| `server/community-build.js`   | What the site's build takes: the published copy, or the YAML         |
+| `/api/content?part=community` | The published copy, for the build (public, consented members only)   |
+
+- **Working groups are tags.** Each is a Discord role (`work_groups`, the
+  eight first ones seeded with their role ids). Being in a group gives its role
+  on Discord, leaving it takes it away; here it opens nothing. A new group
+  needs its role made on Discord first (and the bot's role above it). The
+  sign-up form's group questions take their options from this table
+  (`optionsFrom: 'work_groups'`), so the form follows the groups.
+- **Levels.** Coordination and stable participation give the tag (occasional
+  does not). Who coordinates is set on Members only: approving puts everyone
+  in as taking part, and shows who asked to coordinate.
+- **Members** (`community_members`, `member_groups`): someone approved on the
+  board joins the list when they enter Discord, with their tags and their
+  consent to be shown; the old sheet is imported once (CSV, preview first,
+  the rules of `update-members.py`), matching people to their Discord account
+  by the email of a sign-in here. Details are encrypted like an application's.
+- **The site changes only on "Publish to the site".** That stores a copy of
+  what the site may show (consented members, their public fields, the groups)
+  and starts a build; another build (a seminar) shows the same copy. Never
+  published, the YAML stays the site; "Back to the old directory" undoes it.
+- **Becoming an organizer.** A participant (Participant role, not Organizer)
+  answers the organizers' part from `/app/organizer/`; it reaches the board
+  flagged as an upgrade. Approving gives the Organizer role and the tags at
+  once (no join link) and tells them.
+
+Once the directory is published from the dashboard, the scheduled job that
+rebuilt `data/members.yaml` from the sheet (`update-members.yml`) only changes
+the fallback: it can be switched off.
+
 # Keeping time of personal data
 
 Answers to forms and member applications that were never approved are deleted

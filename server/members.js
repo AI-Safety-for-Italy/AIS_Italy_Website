@@ -24,6 +24,7 @@ const access = require('./access');
 const audit = require('./crm/audit');
 const { HttpError } = require('./http');
 const follows = require('./follows');
+const community = require('./community');
 const notify = require('./notify');
 
 const ROLES = [
@@ -77,6 +78,10 @@ function text(value, label, max, required) {
  *   requestedRole        'participant' | 'organizer' (optional)
  *   answers              [{ label, value }]: every question and answer, as
  *                        the board should show them (value: text or list)
+ *   tags                 [{ group, level }]: the working groups asked for,
+ *                        which whoever approves can change (optional)
+ *   profile, location, areas, publish   what the community directory takes
+ *                        once the person is in (optional; server/community.js)
  * `source` names the form it came from. Returns { id }.
  */
 async function createApplication(fields, { source, responseId = null, q = db } = {}) {
@@ -103,19 +108,32 @@ async function createApplication(fields, { source, responseId = null, q = db } =
     ),
   }));
   const id = crypto.randomUUID();
+  const directory = {
+    profile: /^https?:\/\//i.test(String(f.profile || ''))
+      ? text(f.profile, 'Profile', 500, false)
+      : '',
+    location: text(f.location, 'Place', 200, false),
+    areas: text(f.areas, 'Areas', 1000, false),
+    publish: Boolean(f.publish),
+  };
   // `q`: the caller's transaction, so the form's answer and the application
   // are kept together or not at all.
   await q.query(
     `insert into member_applications
-       (id, requested_role, source, details_encrypted, email_key, response_id)
-     values ($1, $2, $3, $4, $5, $6)`,
+       (id, requested_role, source, details_encrypted, email_key, response_id, tags, kind,
+        discord_id, discord_name)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
     [
       id,
       requestedRole,
       source ? String(source).slice(0, 100) : null,
-      crm.encrypt(JSON.stringify({ name, email, answers }), context(id)),
+      crm.encrypt(JSON.stringify({ name, email, answers, ...directory }), context(id)),
       crm.personKey(email),
       responseId,
+      JSON.stringify(cleanTagShape(f.tags)),
+      f.kind === 'upgrade' ? 'upgrade' : 'join',
+      f.discordId || null,
+      f.discordName || null,
     ]
   );
   return { id };
@@ -123,6 +141,14 @@ async function createApplication(fields, { source, responseId = null, q = db } =
 
 function context(id) {
   return `member:${id}`;
+}
+
+/** Tags in their shape only ([{ group, level }]); which groups exist is checked on deciding. */
+function cleanTagShape(tags) {
+  return (Array.isArray(tags) ? tags : [])
+    .filter((t) => t && /^[\w-]{1,40}$/.test(String(t.group)) && community.LEVELS.includes(t.level))
+    .slice(0, 50)
+    .map((t) => ({ group: String(t.group), level: t.level }));
 }
 
 /** Who applied: { name, email, answers }, or null when it cannot be opened. */
@@ -148,6 +174,10 @@ function summary(r) {
     email: d.email,
     requestedRole: r.requested_role,
     answers: d.answers,
+    // The working groups: asked for on the form, then as decided.
+    tags: r.tags || [],
+    // 'join', or 'upgrade': a participant asking to become an organizer.
+    kind: r.kind || 'join',
     source: r.source,
     status: r.status,
     role: r.role,
@@ -183,6 +213,8 @@ async function listApplications(user) {
     applications: rows.map(summary),
     roles: boardRoles(),
     mailReady: await mail.isConfigured(),
+    // The working groups, for the tags under the role (server/community.js).
+    groups: (await community.listGroups()).map((g) => ({ id: g.id, title: g.titleEn })),
     following: user.kind === 'discord' ? await follows.isFollowing(user.id, 'members') : null,
   };
 }
@@ -323,7 +355,13 @@ async function decide(user, id, body, { siteOrigin }) {
   await access.authorize(user, 'members', { fresh: true });
   const b = body || {};
   const note = text(b.note, 'Note', 2000, false);
-  await loadRow(id);
+  const row = await loadRow(id);
+  // The working groups chosen (the form's, unless changed): known ones only,
+  // all as taking part. Who coordinates is set later, on Members.
+  const tags = community
+    .cleanTags(b.tags === undefined ? row.tags : b.tags, await community.listGroups())
+    .map((t) => ({ group: t.group, level: 'stable' }));
+  if (row.kind === 'upgrade') return decideUpgrade(user, row, b, { note, tags });
   let updated;
   const token = newToken();
   if (b.decision === 'approve') {
@@ -335,9 +373,9 @@ async function decide(user, id, body, { siteOrigin }) {
     updated = await db.query(
       `update member_applications set status = 'approved', role = $2, note = $3,
          decided_by = $4, decided_at = now(), join_token = $5,
-         join_expires_at = now() + make_interval(days => $6)
+         join_expires_at = now() + make_interval(days => $6), tags = $7
        where id = $1 and status in ('pending', 'rejected') returning *`,
-      [id, b.role, note, user.id, tokenHash(token), JOIN_DAYS]
+      [id, b.role, note, user.id, tokenHash(token), JOIN_DAYS, JSON.stringify(tags)]
     );
   } else if (b.decision === 'reject') {
     updated = await db.query(
@@ -359,6 +397,193 @@ async function decide(user, id, body, { siteOrigin }) {
   const invite =
     b.decision === 'approve' ? await sendInvite(updated.rows[0], siteOrigin, token) : undefined;
   return { application: summary(await loadRow(id)), invite };
+}
+
+/**
+ * A participant asking to become an organizer: they are on Discord already,
+ * so approving gives them the Organizer role and their tags at once (no join
+ * link), and tells them. Rejecting changes nothing.
+ */
+async function decideUpgrade(user, row, b, { note, tags }) {
+  let updated;
+  if (b.decision === 'approve') {
+    const organizer = roleId('organizer');
+    if (!organizer) throw new HttpError(503, 'The Discord id of the organizer role is not set');
+    updated = await db.query(
+      `update member_applications set status = 'approved', role = 'organizer', note = $2,
+         decided_by = $3, decided_at = now(), joined_at = now(), tags = $4
+       where id = $1 and status in ('pending', 'rejected') returning *`,
+      [row.id, note, user.id, JSON.stringify(tags)]
+    );
+    if (!updated.rows.length)
+      throw new HttpError(409, 'Someone already decided on this application');
+    if (permissions.botConfigured()) {
+      const give = await permissions.bot(
+        `/guilds/${process.env.DISCORD_GUILD_ID}/members/${row.discord_id}/roles/${organizer}`,
+        { method: 'PUT' }
+      );
+      if (!give.ok) {
+        await db.query('update member_applications set join_error = $2 where id = $1', [
+          row.id,
+          `Giving the organizer role failed (${give.status})`,
+        ]);
+      }
+    }
+    const who = details(row) || {};
+    await community.fromApplication({
+      email: who.email,
+      name: who.name,
+      role: 'organizer',
+      tags,
+      discordId: row.discord_id,
+    });
+    const { rows: users } = await db.query('select id from app_users where discord_id = $1', [
+      row.discord_id,
+    ]);
+    if (users[0]) {
+      await notify
+        .notifyUser(users[0].id, {
+          subject: 'You are now an organizer',
+          lines: [
+            'Your request to join the organizers of AI Safety for Italy was approved: you have the Organizer role on Discord, with your working groups.',
+          ],
+        })
+        .catch((err) => console.error('Notification failed', err.message));
+    }
+  } else if (b.decision === 'reject') {
+    updated = await db.query(
+      `update member_applications set status = 'rejected', note = $2, decided_by = $3,
+         decided_at = now() where id = $1 and status = 'pending' returning *`,
+      [row.id, note, user.id]
+    );
+    if (!updated.rows.length)
+      throw new HttpError(409, 'Someone already decided on this application');
+  } else {
+    throw new HttpError(400, 'Approve or reject?');
+  }
+  await audit.record(user, 'member-decide', row.id, { decision: b.decision, upgrade: true });
+  return { application: summary(await loadRow(row.id)) };
+}
+
+// ── Becoming an organizer ────────────────────────────────────────────────────
+// A participant fills in the organizers' part of the sign-up form from the
+// dashboard (/app/organizer/); it reaches the board flagged as an upgrade.
+
+/** The organizers' questions, the working groups as they are now. */
+async function upgradeSchema() {
+  const schemaLib = require('./forms/schema');
+  const groups = await community.listGroups();
+  const options = groups.map((g) => ({ id: g.id, label: { it: g.titleIt, en: g.titleEn } }));
+  const q = (id, type, it, en, extra = {}) => ({ id, type, label: { it, en }, ...extra });
+  const schema = schemaLib.cleanSchema({
+    languages: ['it', 'en'],
+    title: { it: 'Diventa organizzatore', en: 'Become an organizer' },
+    confirmation: {
+      it: 'Grazie! Il team valuterà la tua richiesta e ti avviserà.',
+      en: 'Thank you! The team will review your request and let you know.',
+    },
+    items: [
+      q(
+        'groups',
+        'multi',
+        'In quali gruppi di lavoro vorresti partecipare stabilmente?',
+        'Which working groups would you like to take part in regularly?',
+        { optionsFrom: 'work_groups', required: true }
+      ),
+      q(
+        'coordinate',
+        'multi',
+        'Vorresti coordinare (o co-coordinare) qualcuno di questi gruppi?',
+        'Would you like to coordinate (or co-coordinate) any of these groups?',
+        { optionsFrom: 'work_groups' }
+      ),
+      q(
+        'hours',
+        'number',
+        'Quante ore vuoi dedicare ad AI Safety Italy ogni mese?',
+        'How many hours a month would you like to give AI Safety Italy?',
+        { min: 0, max: 200, required: true }
+      ),
+      q(
+        'experience',
+        'long_text',
+        'Hai esperienza pregressa rilevante che vuoi segnalare?',
+        'Any relevant experience you would like to mention?'
+      ),
+      q(
+        'initiative',
+        'long_text',
+        "Hai già in mente un'iniziativa specifica che vorresti proporre o supportare?",
+        'Do you have a specific initiative in mind you would like to propose or support?'
+      ),
+    ],
+  });
+  return {
+    ...schema,
+    items: schema.items.map((i) => (i.optionsFrom === 'work_groups' ? { ...i, options } : i)),
+  };
+}
+
+/**
+ * Whether this member may ask to become an organizer: a participant on
+ * Discord, not an organizer yet, with no request waiting. { can, pending }.
+ */
+async function upgradeState(user) {
+  if (!user || user.kind !== 'discord') return { can: false, pending: false };
+  const roles = await permissions.rolesOf(user);
+  const participant = roleId('participant');
+  const organizer = roleId('organizer');
+  if (!participant || !roles.includes(participant) || (organizer && roles.includes(organizer)))
+    return { can: false, pending: false };
+  const { rows: me } = await db.query('select discord_id from app_users where id = $1', [user.id]);
+  const { rows } = await db.query(
+    `select 1 from member_applications where kind = 'upgrade' and discord_id = $1 and status = 'pending'`,
+    [me[0] && me[0].discord_id]
+  );
+  return { can: !rows.length, pending: rows.length > 0 };
+}
+
+/** The organizers' part, answered: a request on the board, flagged as an upgrade. */
+async function requestUpgrade(user, answersIn, { siteOrigin } = {}) {
+  const state = await upgradeState(user);
+  if (state.pending) throw new HttpError(409, 'Your request is already waiting for the team');
+  if (!state.can) throw new HttpError(403, 'Only participants can ask to become organizers');
+  const schemaLib = require('./forms/schema');
+  const schema = await upgradeSchema();
+  const { answers } = schemaLib.cleanAnswers(schema, answersIn);
+  const { rows } = await db.query('select * from app_users where id = $1', [user.id]);
+  const me = rows[0];
+  const tags = ((answers.coordinate && answers.coordinate.selected) || []).map((group) => ({
+    group,
+    level: 'coordination',
+  }));
+  ((answers.groups && answers.groups.selected) || []).forEach((group) => {
+    if (!tags.some((t) => t.group === group)) tags.push({ group, level: 'stable' });
+  });
+  const lang = schema.languages[0];
+  const list = schemaLib
+    .answerable(schema)
+    .filter((it) => answers[it.id] !== undefined)
+    .map((it) => ({
+      label: schemaLib.textIn(schema, it.label, lang),
+      value: schemaLib.answerText(schema, it, answers[it.id]),
+    }));
+  const created = await createApplication(
+    {
+      name: me.name,
+      // The Discord account's email; a placeholder when Discord gave none.
+      email: me.email || `${me.discord_id}@discord.invalid`,
+      requestedRole: 'organizer',
+      answers: list,
+      tags,
+      kind: 'upgrade',
+      discordId: me.discord_id,
+      discordName: me.name,
+    },
+    { source: 'upgrade' }
+  );
+  if (siteOrigin) await notifyFollowers(siteOrigin).catch(() => 0);
+  return { id: created.id, confirmation: schema.confirmation };
 }
 
 /** A fresh link for an approved person who has not joined yet. */
@@ -473,12 +698,35 @@ async function completeJoin(token, { code, redirectUri }, fetchImpl) {
     throw new JoinError('failed', err.message);
   }
   await markJoined(row, user.id, user.global_name || user.username, sameEmail(row, user));
+  await joinCommunity(row, user.id);
+}
+
+/** The person who just joined, in the community directory with their tags. */
+async function joinCommunity(row, discordId) {
+  const who = details(row) || {};
+  try {
+    await community.fromApplication({
+      email: who.email,
+      name: who.name,
+      profile: who.profile,
+      location: who.location,
+      areas: who.areas,
+      publish: who.publish,
+      role: row.role || 'participant',
+      tags: row.tags || [],
+      discordId,
+    });
+  } catch (err) {
+    // They are in: a failure here is fixed from Members, not by failing the join.
+    console.error('Adding to the community failed', err.message);
+  }
 }
 
 /** Local development, without Discord: the link joins at once. */
 async function completeJoinDev(token) {
   const row = await claim(await checkJoinToken(token));
   await markJoined(row, `dev-${row.id.slice(0, 8)}`, (details(row) || {}).name || 'Dev', null);
+  await joinCommunity(row, `dev-${row.id.slice(0, 8)}`);
 }
 
 module.exports = {
@@ -487,6 +735,9 @@ module.exports = {
   boardRoles,
   createApplication,
   listApplications,
+  upgradeSchema,
+  upgradeState,
+  requestUpgrade,
   setFollowing,
   notifyFollowers,
   decide,
@@ -494,5 +745,6 @@ module.exports = {
   checkJoinToken,
   completeJoin,
   completeJoinDev,
+  joinCommunity,
   devMode,
 };

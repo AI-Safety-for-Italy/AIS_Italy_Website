@@ -1584,3 +1584,50 @@ test('the registration form keeps its name, email and role questions always show
     400
   );
 });
+
+test('the sign-up form offers the working groups as they are, and its answers become tags', async () => {
+  const root = await admin();
+  const { id, slug } = await forms.create(root, {
+    title: 'Iscrizione',
+    template: 'community_signup',
+  });
+  await forms.updateSettings(root, id, { status: 'open' });
+  // The options are the community's groups, read when the form is.
+  const view = await forms.publicView(slug);
+  const groups = view.schema.items.find((i) => i.id === 'groups');
+  assert.equal(groups.options.length, 8);
+  assert.equal(groups.options[0].id, 'mentorship');
+  // Stored without them: they follow the groups.
+  const { rows } = await db.query('select schema from form_versions where form_id = $1', [id]);
+  assert.deepEqual(rows[0].schema.items.find((i) => i.id === 'groups').options, []);
+  await db.query(`update work_groups set title_it = 'Mentoring' where id = 'mentorship'`);
+  assert.equal(
+    (await forms.publicView(slug)).schema.items.find((i) => i.id === 'groups').options[0].label.it,
+    'Mentoring'
+  );
+
+  await answer(
+    slug,
+    signupAnswers({
+      groups: { selected: ['events', 'seminars'] },
+      coordinate: { selected: ['events'] },
+      city: 'Torino',
+      country: 'Italia',
+      profile: 'https://giulia.example',
+    })
+  );
+  // A group that does not exist is refused, like any unknown option.
+  await assert.rejects(
+    answer(slug, signupAnswers({ email: 'x@example.org', groups: { selected: ['nope'] } }))
+  );
+  const [app] = await applications();
+  assert.deepEqual(app.tags, [
+    { group: 'events', level: 'coordination' },
+    { group: 'seminars', level: 'stable' },
+  ]);
+  const { rows: stored } = await db.query('select details_encrypted from member_applications');
+  const details = JSON.parse(crm.decrypt(stored[0].details_encrypted, `member:${app.id}`));
+  assert.equal(details.location, 'Torino, Italia');
+  assert.equal(details.profile, 'https://giulia.example');
+  assert.equal(details.publish, true);
+});

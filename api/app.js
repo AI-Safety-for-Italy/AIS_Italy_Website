@@ -13,6 +13,7 @@ const { sendJson } = require('../server/http');
 const { withTiming } = require('../server/timing');
 
 const ROUTES = {
+  community: require('../server/routes/app/community'),
   content: require('../server/routes/app/content'),
   'crm/mentorship': require('../server/routes/app/crm/mentorship'),
   forms: require('../server/routes/app/forms'),

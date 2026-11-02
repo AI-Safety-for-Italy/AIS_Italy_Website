@@ -130,7 +130,9 @@
 
   function row(a) {
     var meta = [a.email, 'Applied ' + when(a.createdAt)];
-    if (a.requestedRole) meta.push('Asks: ' + roleLabel(a.requestedRole));
+    if (a.kind === 'upgrade')
+      meta = ['On Discord as ' + (a.discordName || a.name), 'Asked ' + when(a.createdAt)];
+    else if (a.requestedRole) meta.push('Asks: ' + roleLabel(a.requestedRole));
     var head = h(
       'button',
       {
@@ -158,7 +160,17 @@
       h(
         'div',
         { class: 'poll-item-side' },
-        a.duplicates
+        a.kind === 'upgrade'
+          ? h(
+              'span',
+              {
+                class: 'badge badge-upgrade',
+                title: 'A participant asking to become an organizer',
+              },
+              'Upgrade'
+            )
+          : null,
+        a.duplicates && a.kind !== 'upgrade'
           ? h('span', { class: 'panel-note' }, 'Applied ' + (a.duplicates + 1) + ' times')
           : null,
         badge(a)
@@ -184,7 +196,52 @@
     return box;
   }
 
+  // The working groups as tags, under the role: each click puts the person
+  // in the group or takes them out. Precompiled from the form; who
+  // coordinates is set on Members. On Discord the groups become roles, never
+  // permissions here.
+  function tagPicker(start) {
+    var tags = {};
+    (start || []).forEach(function (t) {
+      tags[t.group] = true;
+    });
+    var box = h('div', { class: 'tag-picker', role: 'group', 'aria-label': 'Working groups' });
+    function draw() {
+      M.clear(box);
+      (data.groups || []).forEach(function (g) {
+        var on = Boolean(tags[g.id]);
+        box.appendChild(
+          h(
+            'button',
+            {
+              type: 'button',
+              class: 'tag-chip' + (on ? ' is-stable' : ''),
+              'aria-pressed': String(on),
+              onclick: function () {
+                if (on) delete tags[g.id];
+                else tags[g.id] = true;
+                draw();
+              },
+            },
+            g.title
+          )
+        );
+      });
+    }
+    draw();
+    return {
+      node: box,
+      value: function () {
+        return Object.keys(tags).map(function (group) {
+          return { group: group, level: 'stable' };
+        });
+      },
+    };
+  }
+
   function decideForm(a) {
+    var tags = tagPicker(a.tags);
+    var upgrade = a.kind === 'upgrade';
     var group = h('div', {
       class: 'choice-group',
       role: 'radiogroup',
@@ -204,7 +261,7 @@
     var approve = h(
       'button',
       { type: 'button', class: 'btn btn-primary btn-sm' },
-      'Approve and send the Discord link'
+      upgrade ? 'Approve: make them an organizer' : 'Approve and send the Discord link'
     );
     var reject = h('button', { type: 'button', class: 'btn btn-outline btn-sm' }, 'Reject');
 
@@ -215,7 +272,8 @@
       approve.disabled = reject.disabled = true;
       M.api('POST', '/api/app/members?action=decide&id=' + encodeURIComponent(a.id), {
         decision: decision,
-        role: picked && picked.value,
+        role: upgrade ? 'organizer' : picked && picked.value,
+        tags: tags.value(),
         note: note.value,
       })
         .then(function (r) {
@@ -223,12 +281,14 @@
           M.toast(
             decision === 'reject'
               ? 'Rejected.'
+              : upgrade
+              ? a.name + ' is now an organizer.'
               : r.invite.sent
               ? 'Approved: the link is on its way to ' + a.email + '.'
               : 'Approved, but the email was not sent (' +
                 r.invite.detail +
                 '). Use “Send the link again”.',
-            decision === 'approve' && !r.invite.sent
+            decision === 'approve' && !upgrade && !r.invite.sent
           );
         })
         .catch(function (err) {
@@ -246,8 +306,15 @@
     return h(
       'div',
       null,
-      h('p', { class: 'form-label' }, 'Discord role'),
-      group,
+      upgrade ? null : h('p', { class: 'form-label' }, 'Discord role'),
+      upgrade ? null : group,
+      h(
+        'p',
+        { class: 'form-label', style: 'margin-top:.9rem' },
+        'Working groups',
+        h('span', { class: 'panel-note' }, ' · tags on Discord, not permissions here')
+      ),
+      tags.node,
       h('div', { style: 'margin:.75rem 0' }, note),
       h('div', { class: 'wk-nav' }, approve, a.status === 'pending' ? reject : null)
     );

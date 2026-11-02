@@ -38,6 +38,8 @@ function isLocal() {
 async function triggerBuild() {
   if (isLocal()) {
     contentBuild.writeSnapshot(await content.exportForBuild());
+    // The community directory too, as last published (server/community.js).
+    require('./community-build').writeSnapshot(await require('./community').publicExport());
     return { started: true, detail: 'local: snapshot written, Eleventy rebuilds' };
   }
   const token = process.env.CONTENT_BUILD_TOKEN;

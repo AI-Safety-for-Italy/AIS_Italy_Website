@@ -22,10 +22,8 @@ module.exports = [
     area: null,
     text: 'Find the time that works for everyone.',
     icon: '<rect x="3" y="4.5" width="18" height="16" rx="2.5"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4M8 14h3"/>',
-    tabs: [
-      { key: 'polls', label: 'My polls', url: '/app/polls/' },
-      { key: 'new', label: 'New poll', url: '/app/polls/new/' },
-    ],
+    // No tabs: the green "New poll" button is the way to a new one.
+    tabs: [],
     actions: [{ label: 'New poll', url: '/app/polls/new/' }],
   },
   {
@@ -35,10 +33,8 @@ module.exports = [
     area: 'content',
     text: 'Seminars and events on the website.',
     icon: '<path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/>',
-    tabs: [
-      { key: 'content', label: 'Seminars & events', url: '/app/content/' },
-      { key: 'content-new', label: 'New', url: '/app/content/edit/' },
-    ],
+    // No tabs: the green buttons start a new seminar or event.
+    tabs: [],
     actions: [
       { label: 'New seminar', url: '/app/content/edit/?type=seminar', needs: 'seminar' },
       { label: 'New event', url: '/app/content/edit/?type=event', needs: 'event' },
@@ -74,8 +70,25 @@ module.exports = [
     title: 'Member applications',
     url: '/app/members/',
     area: 'members',
-    text: 'Who asked to join, and let them into Discord.',
+    text: 'Who asked to join, the community and its working groups.',
     icon: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 11l2 2 4-4"/>',
+    tabs: [
+      { key: 'applications', label: 'Applications', url: '/app/members/' },
+      { key: 'people', label: 'Members', url: '/app/members/people/' },
+      { key: 'groups', label: 'Working groups', url: '/app/members/groups/' },
+    ],
+    actions: [],
+  },
+  // For a participant on Discord, not an organizer yet: the organizers' part
+  // of the sign-up form, sent to the board (server/members.js, upgrade).
+  // Its area, 'upgrade', is not a permission: /api/auth works it out.
+  {
+    key: 'organizer',
+    title: 'Become an organizer',
+    url: '/app/organizer/',
+    area: 'upgrade',
+    text: 'Join a working group and help run the community.',
+    icon: '<path d="M12 3l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.4 6.8 19.1l1-5.8-4.3-4.1 5.9-.9z"/>',
     tabs: [],
     actions: [],
   },

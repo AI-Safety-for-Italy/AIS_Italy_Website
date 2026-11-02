@@ -441,6 +441,61 @@ create table if not exists app_follows (
   primary key (user_id, topic)
 );
 
+-- The community (server/community.js): the working groups, each with its
+-- Discord role, which are tags on people and never permissions here; the
+-- members (approved on the board, or imported once from the old sheet), their
+-- details encrypted like an application's; and which group each is in, with
+-- the level they take part at. The site's directory and its working groups
+-- are built from these (/api/community), once switched on.
+create table if not exists work_groups (
+  id text primary key,
+  title_en text not null,
+  title_it text not null,
+  description_en text not null default '',
+  description_it text not null default '',
+  discord_role_id text not null,
+  sheet_column text,
+  position integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+insert into work_groups (id, title_en, title_it, description_en, description_it, discord_role_id, sheet_column, position) values
+  ('mentorship', 'Mentorship', 'Mentorship', 'Runs the mentorship program: matches newcomers with experienced members and supports each cohort.', 'Gestisce il programma di mentorship: abbina chi inizia a membri esperti e segue ogni gruppo.', '1566885628547960922', 'Programma di mentorship', 1),
+  ('governance-and-funding', 'Governance & funding', 'Governance e fundraising', 'Legal structure, finances, grants and relationships with funders.', 'Struttura legale, finanze, bandi e rapporti con i finanziatori.', '1566885774173933578', 'Governance, fundraising e finanze', 2),
+  ('seminars', 'Seminars', 'Seminari', 'The research seminar series: speakers, schedule and streaming.', 'Il ciclo di seminari di ricerca: relatori, calendario e streaming.', '1566885852347633766', 'Seminari', 3),
+  ('technical', 'Technical infrastructure', 'Infrastruttura tecnica', 'The website, internal tools and the Discord server.', 'Il sito, gli strumenti interni e il server Discord.', '1566885921062658079', 'Infrastruttura tecnica', 4),
+  ('education', 'Education & outreach', 'Didattica e divulgazione', 'Courses, reading groups and learning materials on AI safety.', 'Corsi, gruppi di lettura e materiali didattici sull''AI safety.', '1566886054810615918', 'Didattica e divulgazione', 5),
+  ('communications', 'Communications', 'Comunicazione', 'Newsletter, social media, press and the public voice of the organisation.', 'Newsletter, social, stampa e la voce pubblica dell''associazione.', '1566886132887724132', 'Comunicazione', 6),
+  ('community', 'Community & networking', 'Comunità e networking', 'Welcomes new members and keeps the community connected, online and in the city groups.', 'Accoglie i nuovi membri e tiene unita la community, online e nei gruppi cittadini.', '1566887710659051550', 'Comunità e networking', 7),
+  ('events', 'Events', 'Eventi', 'Organises meetups and events across Italy.', 'Organizza meetup ed eventi in tutta Italia.', '1566887735308845169', 'Eventi', 8)
+on conflict (id) do nothing;
+
+create table if not exists community_members (
+  id uuid primary key,
+  person_key text unique,
+  discord_id text unique,
+  role text not null default 'participant' check (role in ('participant', 'organizer')),
+  publish boolean not null default false,
+  details_encrypted text not null,
+  source text not null check (source in ('sheet', 'application', 'board')),
+  joined_on date,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists member_groups (
+  member_id uuid not null references community_members(id) on delete cascade,
+  group_id text not null references work_groups(id) on delete cascade,
+  level text not null check (level in ('coordination', 'stable')),
+  primary key (member_id, group_id)
+);
+
+-- On an application: the tags chosen for the person ([{ group, level }]), and
+-- whether it asks to join or, from a participant, to become an organizer.
+alter table member_applications add column if not exists tags jsonb not null default '[]';
+alter table member_applications add column if not exists kind text not null default 'join';
+
 -- The form answer an application came from, so the board's decision shows
 -- as the answer's tag (Approved, Rejected).
 alter table member_applications add column if not exists response_id uuid;

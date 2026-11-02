@@ -4,7 +4,6 @@ title: Site content
 # members whose Discord roles allow it (server/content.js).
 permalink: /app/content/
 tool: content
-tab: content
 noindex: true
 excludeFromSitemap: true
 eleventyExcludeFromCollections: true
@@ -13,7 +12,7 @@ seoTitle: 'Site content | AI Safety for Italy'
 {% extends "app.njk" %}
 {% block actions %}
 <a class="btn btn-primary btn-sm" href="/app/content/edit/?type=seminar" data-needs="seminar" hidden>+ New seminar</a>
-<a class="btn btn-outline btn-sm" href="/app/content/edit/?type=event" data-needs="event" hidden>+ New event</a>
+<a class="btn btn-primary btn-sm" href="/app/content/edit/?type=event" data-needs="event" hidden>+ New event</a>
 {% endblock %}
 {% block page %}
     {# One <span>: .notice lays out its children side by side (icon + text). #}
