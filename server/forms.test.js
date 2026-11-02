@@ -912,6 +912,10 @@ test('when the form asks, the person gets a copy of their answers, and only then
       assert.ok(copy.text.includes(said), said);
     }
     assert.ok(copy.text.includes('Acconsento al trattamento dei dati\nAccettato'));
+    // The HTML: the site's logo, the form's title, the answers.
+    assert.match(copy.html, /\/assets\/img\/ais4i-logo-512\.png/);
+    assert.match(copy.html, /<h1[^>]*>Candidatura di prova<\/h1>/);
+    assert.ok(copy.html.includes('Ada Esempio'));
     // Questions left empty are not listed; answers are escaped in the HTML.
     assert.ok(!copy.text.includes('Chi sei'));
     assert.ok(!copy.text.includes('Link al CV'));

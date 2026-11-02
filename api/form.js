@@ -42,7 +42,9 @@ module.exports = route({
           forms
             .notifyOwner(result.formId, siteUrl(req))
             .catch((err) => console.error('Notification failed', err)),
-          forms.sendCopy(result.copy).catch((err) => console.error('Copy failed', err)),
+          forms
+            .sendCopy(result.copy, siteUrl(req))
+            .catch((err) => console.error('Copy failed', err)),
         ]),
         new Promise((resolve) => (timer = setTimeout(resolve, NOTIFY_BUDGET_MS))),
       ]);

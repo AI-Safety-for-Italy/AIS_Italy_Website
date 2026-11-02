@@ -29,6 +29,7 @@ const sources = require('../crm/sources');
 const members = require('../members');
 const notify = require('../notify');
 const mail = require('../mail');
+const copyEmail = require('./copy-email');
 
 const STATUSES = ['draft', 'open', 'closed'];
 // Where the team is with one answer (form_responses.status).
@@ -516,44 +517,18 @@ async function submit(slug, body, ip) {
   });
   // The copy is built here, from the cleaned answers, and only sent by the
   // caller (api/form.js): it never travels back to the page.
-  const copy = settings.sendCopy && email ? respondentCopy(schema, answers, email) : null;
+  const copy = settings.sendCopy && email ? copyEmail.copyOf(schema, answers, email) : null;
   return { ok: true, confirmation, responseId: id, formId: form.id, copy };
 }
 
 /**
- * The email with a copy of someone's answers: { to, subject, lines }, in the
- * form's main language. Only the questions they answered, as plain text.
+ * Sends the copy from submit(), if the mailbox is set up; `origin` is the
+ * site, for the logo (server/forms/copy-email.js). Returns whether it went.
  */
-function respondentCopy(schema, answers, to) {
-  const lang = schema.languages[0];
-  const en = lang === 'en';
-  const title = schemaLib.textIn(schema, schema.title, lang);
-  const lines = [
-    en
-      ? `Thank you for filling in “${title}”. Here is a copy of your answers.`
-      : `Grazie per aver compilato “${title}”. Ecco una copia delle tue risposte.`,
-  ];
-  for (const item of schemaLib.answerable(schema)) {
-    if (answers[item.id] === undefined) continue;
-    const label = schemaLib.textIn(schema, item.label, lang);
-    lines.push(`${label}\n${schemaLib.answerText(schema, item, answers[item.id])}`);
-  }
-  lines.push(
-    en
-      ? 'You got this email because this address was given in the form. If it was not you, you can ignore it.'
-      : 'Hai ricevuto questa email perché questo indirizzo è stato inserito nel modulo. Se non sei stato tu, puoi ignorarla.'
-  );
-  return { to, subject: en ? `Your answers: ${title}` : `Le tue risposte: ${title}`, lines };
-}
-
-/** Sends the copy from submit(), if the mailbox is set up. Returns whether it went. */
-async function sendCopy(copy) {
+async function sendCopy(copy, origin) {
   if (!copy || !(await mail.isConfigured())) return false;
-  await mail.send({
-    to: copy.to,
-    subject: copy.subject,
-    ...notify.render(copy.lines, { noReply: true }),
-  });
+  const email = copyEmail.render(copy, origin);
+  await mail.send({ to: copy.to, ...email });
   return true;
 }
 
