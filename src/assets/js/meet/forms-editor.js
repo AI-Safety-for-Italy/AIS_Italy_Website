@@ -1704,6 +1704,11 @@
     once.checked = s.oneResponsePerEmail;
     var notify = h('input', { type: 'checkbox', role: 'switch', class: 'fe-switch-input' });
     notify.checked = s.notifyOwner;
+    var copy = h('input', { type: 'checkbox', role: 'switch', class: 'fe-switch-input' });
+    copy.checked = Boolean(s.sendCopy);
+    var hasEmail = ((schema && schema.items) || []).some(function (i) {
+      return i.type === 'email';
+    });
 
     var roles = (meta && meta.roles) || [];
     var roleBox = h('div', { class: 'fe-roles' });
@@ -1746,6 +1751,7 @@
         settings: {
           oneResponsePerEmail: once.checked,
           notifyOwner: notify.checked,
+          sendCopy: copy.checked,
           // Only whoever holds “Forms: all forms” may change the link to the board.
           membership: join.editable() ? join.value() : undefined,
           crm: board.editable() ? board.value() : undefined,
@@ -1824,6 +1830,19 @@
           ),
           h('label', { class: 'fe-switch' }, h('span', null, 'One answer per email address'), once),
           h('label', { class: 'fe-switch' }, h('span', null, 'Tell me about new answers'), notify),
+          h(
+            'label',
+            { class: 'fe-switch' },
+            h('span', null, 'Email each person a copy of their answers'),
+            copy
+          ),
+          h(
+            'p',
+            { class: 'form-note', style: 'margin:0' },
+            hasEmail
+              ? 'The copy goes to the address given in the first email question, from the mailbox in General settings.'
+              : 'Add an email question for the copy to have somewhere to go.'
+          ),
           h(
             'p',
             { class: 'form-note', style: 'margin:0' },

@@ -861,6 +861,82 @@ test('the owner hears that someone answered, never what, and only if they asked'
   }
 });
 
+test('when the form asks, the person gets a copy of their answers, and only then', async () => {
+  const mail = require('./mail');
+  const sent = [];
+  process.env.MEET_FAKE_MAIL = '0';
+  mail.setTransportFactory(() => ({ sendMail: async (m) => sent.push(m), close() {} }));
+  try {
+    await setRoles();
+    const mara = await member('Mara', ['r-forms']);
+    const { id, slug } = await openForm(mara);
+    const send = async (answers) => {
+      const view = (await call(publicApi, { url: `/api/form?f=${slug}` })).body;
+      later(5000);
+      return call(publicApi, {
+        method: 'POST',
+        url: `/api/form?f=${slug}`,
+        body: { version: view.version, token: view.token, answers },
+      });
+    };
+    const copies = () => sent.filter((m) => m.to === 'ada@example.org');
+
+    // Off by default.
+    assert.equal((await send(goodAnswers())).statusCode, 201);
+    assert.equal(copies().length, 0);
+
+    // On, but no mailbox set up yet: the answer is kept, no copy.
+    await forms.updateSettings(mara, id, { settings: { sendCopy: true } });
+    assert.equal((await forms.get(mara, id)).settings.sendCopy, true);
+    assert.equal((await send(goodAnswers())).statusCode, 201);
+    assert.equal(copies().length, 0);
+
+    await mail.saveSettings({
+      host: 'smtp.x',
+      port: 465,
+      fromEmail: 'tech@ais4i.it',
+      password: 'p',
+    });
+    const res = await send(goodAnswers({ bio: undefined, cv: '' }));
+    assert.equal(res.statusCode, 201);
+    // The page gets the confirmation only, never the copy.
+    assert.deepEqual(res.body, { ok: true, confirmation: { it: 'Grazie!' } });
+    assert.equal(copies().length, 1);
+    const copy = copies()[0];
+    assert.equal(copy.subject, 'Le tue risposte: Candidatura di prova');
+    for (const said of [
+      'Nome\nAda Esempio',
+      'Percorso\nProgetti',
+      'Aree\nInterpretabilità, Governance',
+    ]) {
+      assert.ok(copy.text.includes(said), said);
+    }
+    assert.ok(copy.text.includes('Acconsento al trattamento dei dati\nAccettato'));
+    // Questions left empty are not listed; answers are escaped in the HTML.
+    assert.ok(!copy.text.includes('Chi sei'));
+    assert.ok(!copy.text.includes('Link al CV'));
+    await send(goodAnswers({ name: '<b>Ada</b>' }));
+    assert.ok(copies()[1].html.includes('&lt;b&gt;Ada&lt;/b&gt;'));
+
+    // A form without an email question has nowhere to send it.
+    const plain = await openForm(mara, {
+      schema: { items: [{ id: 'name', type: 'short_text', label: { it: 'Nome' } }] },
+      settings: { settings: { sendCopy: true } },
+    });
+    const view = await forms.publicView(plain.slug);
+    later(5000);
+    const r = await forms.submit(plain.slug, {
+      version: view.version,
+      token: view.token,
+      answers: { name: 'Ada' },
+    });
+    assert.equal(r.copy, null);
+    assert.equal(await forms.sendCopy(r.copy), false);
+  } finally {
+    process.env.MEET_FAKE_MAIL = '1';
+  }
+});
+
 test('with a shared address set, every form tells that address, not the owner', async () => {
   const mail = require('./mail');
   const sent = [];

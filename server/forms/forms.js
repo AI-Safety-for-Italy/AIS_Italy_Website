@@ -39,6 +39,8 @@ const ROLE = /^[\w-]{1,40}$/;
 const DEFAULT_SETTINGS = {
   oneResponsePerEmail: false,
   notifyOwner: true,
+  // Email the person a copy of their answers, at the form's first email question.
+  sendCopy: false,
   // The community's registration form: see ./membership.js. null for any other.
   membership: null,
   // The mentorship board list the answers also go to (server/crm/sources.js), or null.
@@ -316,6 +318,7 @@ async function updateSettings(user, id, body) {
   if (s.oneResponsePerEmail !== undefined)
     settings.oneResponsePerEmail = Boolean(s.oneResponsePerEmail);
   if (s.notifyOwner !== undefined) settings.notifyOwner = Boolean(s.notifyOwner);
+  if (s.sendCopy !== undefined) settings.sendCopy = Boolean(s.sendCopy);
   if (s.membership !== undefined) {
     // Sending answers to the members board is for the forms admins: it is a
     // door into who may be let into the Discord server.
@@ -511,7 +514,47 @@ async function submit(slug, body, ip) {
     await toBoard(form, schema, settings, answers, tx);
     if (settings.crm) await toMentorship(settings.crm, schema, answers, id, tx);
   });
-  return { ok: true, confirmation, responseId: id, formId: form.id };
+  // The copy is built here, from the cleaned answers, and only sent by the
+  // caller (api/form.js): it never travels back to the page.
+  const copy = settings.sendCopy && email ? respondentCopy(schema, answers, email) : null;
+  return { ok: true, confirmation, responseId: id, formId: form.id, copy };
+}
+
+/**
+ * The email with a copy of someone's answers: { to, subject, lines }, in the
+ * form's main language. Only the questions they answered, as plain text.
+ */
+function respondentCopy(schema, answers, to) {
+  const lang = schema.languages[0];
+  const en = lang === 'en';
+  const title = schemaLib.textIn(schema, schema.title, lang);
+  const lines = [
+    en
+      ? `Thank you for filling in “${title}”. Here is a copy of your answers.`
+      : `Grazie per aver compilato “${title}”. Ecco una copia delle tue risposte.`,
+  ];
+  for (const item of schemaLib.answerable(schema)) {
+    if (answers[item.id] === undefined) continue;
+    const label = schemaLib.textIn(schema, item.label, lang);
+    lines.push(`${label}\n${schemaLib.answerText(schema, item, answers[item.id])}`);
+  }
+  lines.push(
+    en
+      ? 'You got this email because this address was given in the form. If it was not you, you can ignore it.'
+      : 'Hai ricevuto questa email perché questo indirizzo è stato inserito nel modulo. Se non sei stato tu, puoi ignorarla.'
+  );
+  return { to, subject: en ? `Your answers: ${title}` : `Le tue risposte: ${title}`, lines };
+}
+
+/** Sends the copy from submit(), if the mailbox is set up. Returns whether it went. */
+async function sendCopy(copy) {
+  if (!copy || !(await mail.isConfigured())) return false;
+  await mail.send({
+    to: copy.to,
+    subject: copy.subject,
+    ...notify.render(copy.lines, { noReply: true }),
+  });
+  return true;
 }
 
 /**
@@ -711,6 +754,7 @@ module.exports = {
   publicView,
   submit,
   notifyOwner,
+  sendCopy,
   responses,
   requireForms,
   meta,
