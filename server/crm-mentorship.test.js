@@ -630,3 +630,111 @@ test('a file of another list, or with no one in it, is refused and the list is k
   }
   assert.equal(await count(), before);
 });
+
+// ── The page of a person: draft for the site, emails ─────────────────────────
+
+// The smallest JPEG start the server checks for, padded: enough for the tests.
+const JPEG =
+  'data:image/jpeg;base64,' + Buffer.from([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3]).toString('base64');
+
+test('a person comes with the stages and tracks, and a mentor with their draft for the site', async () => {
+  const me = await admin();
+  const ada = await mentorship.person(me, ['mentorship'], ADA(), 'mentor');
+  assert.ok(ada.statuses.some((s) => s.key === 'to_contact'));
+  assert.ok(ada.tracks.some((t) => t.key === 'projects'));
+  assert.deepEqual(
+    { ...ada.site, updatedAt: null },
+    { bio: '', photo: null, updatedAt: null, updatedBy: null, consent: null, entry: null }
+  );
+  const gino = await mentorship.person(me, ['mentorship'], GINO(), 'mentee');
+  assert.equal(gino.site, null);
+});
+
+test('the draft for the site is checked, encrypted, audited, and only for mentors', async () => {
+  const me = await admin();
+  const site = await mentorship.saveSite(me, ADA(), 'mentor', {
+    bio: 'Ricercatrice di prova.',
+    photo: JPEG,
+  });
+  assert.equal(site.bio, 'Ricercatrice di prova.');
+  assert.equal(site.photo, JPEG);
+  // Only what is sent changes.
+  assert.equal(
+    (await mentorship.saveSite(me, ADA(), 'mentor', { photo: null })).bio,
+    'Ricercatrice di prova.'
+  );
+  const { rows } = await db.query('select data_encrypted from crm_site_profiles');
+  assert.ok(!rows[0].data_encrypted.includes('Ricercatrice'));
+  await rejects(
+    mentorship.saveSite(me, ADA(), 'mentor', { photo: 'data:image/png;base64,iVBORw0KGgo=' }),
+    400
+  );
+  await rejects(
+    mentorship.saveSite(me, ADA(), 'mentor', {
+      photo: 'data:image/jpeg;base64,' + Buffer.from('<svg>').toString('base64'),
+    }),
+    400
+  );
+  await rejects(mentorship.saveSite(me, ADA(), 'mentor', { bio: 'x'.repeat(1201) }), 400);
+  await rejects(mentorship.saveSite(me, GINO(), 'mentee', { bio: 'x' }), 400);
+  const [line] = await audit.recent({ subjectKey: ADA() });
+  assert.equal(line.action, 'site-draft');
+  assert.ok(!JSON.stringify(line.detail).includes('Ricercatrice'));
+});
+
+test('a mentor on the site is found by name in data/mentors.yaml', () => {
+  const yaml = require('js-yaml');
+  const fs = require('fs');
+  const listed = yaml.load(
+    fs.readFileSync(require('path').join(__dirname, '..', 'data', 'mentors.yaml'), 'utf8')
+  ).mentors;
+  const one = listed.find((m) => m.id && m.name);
+  assert.deepEqual(mentorship.siteEntry(one.name.toUpperCase()), {
+    id: one.id,
+    url: `/mentorship/#${one.id}`,
+  });
+  assert.equal(mentorship.siteEntry('Nessuno Inventato'), null);
+});
+
+test('emails are given for the people asked, in order, and the copy is on the audit trail', async () => {
+  const me = await admin();
+  const { people } = await mentorship.emails(me, 'mentor', [
+    BRUNO(),
+    ADA(),
+    crm.personKey('ghost@example.org'),
+  ]);
+  assert.deepEqual(people, [
+    { name: 'Bruno Prova', email: 'bruno@example.org' },
+    { name: 'Ada Esempio', email: 'ada@example.org' },
+  ]);
+  const [line] = await audit.recent();
+  assert.equal(line.action, 'export');
+  assert.deepEqual(line.detail, { kind: 'mentor', asked: 3, copied: 2 });
+  await rejects(mentorship.emails(me, 'mentor', ['not a key']), 400);
+  await rejects(mentorship.emails(me, 'mentor', 'all'), 400);
+});
+
+test('the API copies emails and saves the draft only for the mentorship team', async () => {
+  await setRoles();
+  const maria = await member('Maria', ['r-mentors']);
+  const nico = await member('Nico', ['r-other']);
+  const ask = (user) =>
+    call({
+      method: 'POST',
+      url: '/api/app/crm/mentorship?action=emails',
+      user,
+      body: { kind: 'mentor', keys: [ADA()] },
+    });
+  assert.deepEqual((await ask(maria)).body.people, [
+    { name: 'Ada Esempio', email: 'ada@example.org' },
+  ]);
+  assert.equal((await ask(nico)).statusCode, 403);
+  const saved = await call({
+    method: 'POST',
+    url: '/api/app/crm/mentorship?action=site',
+    user: maria,
+    body: { key: ADA(), kind: 'mentor', bio: 'Bio di prova' },
+  });
+  assert.equal(saved.statusCode, 200);
+  assert.equal(saved.body.updatedBy, 'Maria');
+});

@@ -9,6 +9,9 @@
 // Every function here assumes access.authorize(user, 'mentorship')
 // has already been called by the API.
 
+const fs = require('fs');
+const path = require('path');
+const yaml = require('js-yaml');
 const db = require('../db');
 const { HttpError } = require('../http');
 const sources = require('./sources');
@@ -322,7 +325,127 @@ async function person(user, perms, key, kind) {
       otherKey: m.mentor_key === key ? m.mentee_key : m.mentor_key,
     })),
     history: await audit.recent({ subjectKey: key, limit: 40 }),
+    // So a page of its own can show the stage buttons and the track select.
+    statuses: STATUSES[kind],
+    tracks: TRACKS,
+    site: kind === 'mentor' ? await siteOf(key, found, card_.name) : null,
   };
+}
+
+// ── The draft for the public site (mentors only) ─────────────────────────────
+
+const MAX_BIO = 1200;
+const MAX_PHOTO_BYTES = 200_000;
+const MENTORS_YAML = path.join(__dirname, '..', '..', 'data', 'mentors.yaml');
+
+/** Their entry on /mentorship/ (data/mentors.yaml), matched by name, or null. */
+function siteEntry(name) {
+  let mentors;
+  try {
+    mentors = yaml.load(fs.readFileSync(MENTORS_YAML, 'utf8')).mentors || [];
+  } catch {
+    return null;
+  }
+  const want = sources.norm(name);
+  const hit = mentors.find((m) => m && m.id && sources.norm(m.name) === want);
+  return hit ? { id: hit.id, url: `/mentorship/#${hit.id}` } : null;
+}
+
+async function siteOf(key, found, name) {
+  const { rows } = await db.query(
+    'select data_encrypted, updated_by_name, updated_at from crm_site_profiles where person_key = $1',
+    [key]
+  );
+  let draft = {};
+  if (rows[0]) {
+    try {
+      draft = JSON.parse(crm.decrypt(rows[0].data_encrypted, `crm-site:${key}`)) || {};
+    } catch {
+      draft = {};
+    }
+  }
+  const answer = found.records.mentors_applications && found.records.mentors_applications.publish;
+  return {
+    bio: draft.bio || '',
+    photo: draft.photo || null,
+    updatedAt: rows[0] ? rows[0].updated_at : null,
+    updatedBy: rows[0] ? rows[0].updated_by_name : null,
+    consent: answer ? (yes(answer) ? 'yes' : 'no') : null,
+    entry: siteEntry(name),
+  };
+}
+
+/** A photo as the page sends it: a JPEG data URL, small, really a JPEG. */
+function cleanPhoto(photo) {
+  if (photo === null) return null;
+  const m = /^data:image\/jpeg;base64,([A-Za-z0-9+/]+={0,2})$/.exec(String(photo || ''));
+  if (!m) throw new HttpError(400, 'The photo must be a JPEG');
+  const bytes = Buffer.from(m[1], 'base64');
+  if (bytes.length > MAX_PHOTO_BYTES) throw new HttpError(413, 'The photo is too large');
+  if (bytes[0] !== 0xff || bytes[1] !== 0xd8 || bytes[2] !== 0xff)
+    throw new HttpError(400, 'The photo must be a JPEG');
+  return photo;
+}
+
+/**
+ * Saves a mentor's bio and/or photo for the site (`photo: null` removes it).
+ * Returns the draft as person() shows it.
+ */
+async function saveSite(user, key, kind, body) {
+  if (kind !== 'mentor') throw new HttpError(400, 'Only mentors are on the site');
+  const found = await find(key, kind);
+  const name = card(found, await stateOf(key, kind), {}).name;
+  const current = await siteOf(key, found, name);
+  const draft = { bio: current.bio, photo: current.photo };
+  if (body.bio !== undefined) {
+    const bio = String(body.bio || '').trim();
+    if (bio.length > MAX_BIO)
+      throw new HttpError(400, `The bio is longer than ${MAX_BIO} characters`);
+    draft.bio = bio;
+  }
+  if (body.photo !== undefined) draft.photo = cleanPhoto(body.photo);
+  await db.query(
+    `insert into crm_site_profiles (person_key, data_encrypted, updated_by, updated_by_name, updated_at)
+     values ($1, $2, $3, $4, now())
+     on conflict (person_key) do update set data_encrypted = excluded.data_encrypted,
+       updated_by = excluded.updated_by, updated_by_name = excluded.updated_by_name, updated_at = now()`,
+    [
+      key,
+      crm.encrypt(JSON.stringify(draft), `crm-site:${key}`),
+      user.kind === 'admin' ? null : user.id,
+      user.name,
+    ]
+  );
+  await audit.record(user, 'site-draft', key, {
+    bio: body.bio !== undefined,
+    photo: body.photo === undefined ? undefined : body.photo === null ? 'removed' : 'set',
+  });
+  return siteOf(key, found, name);
+}
+
+// ── Emails ───────────────────────────────────────────────────────────────────
+
+const MAX_EMAILS = 1000;
+
+/**
+ * The names and emails of these people, for the team to write to them:
+ * { people: [{ name, email }] } in the given order, without those who have
+ * none. One line on the audit trail with how many, never who.
+ */
+async function emails(user, kind, keys) {
+  if (!KINDS.includes(kind)) throw new HttpError(400, 'Invalid kind');
+  if (!Array.isArray(keys) || keys.length > MAX_EMAILS) throw new HttpError(400, 'Invalid list');
+  keys.forEach((k) => checkKey(k, kind));
+  const { people } = await gather();
+  const out = [];
+  for (const key of new Set(keys)) {
+    const person = people.get(`${kind}:${key}`);
+    if (!person) continue;
+    const email = first(...Object.values(person.records).map((r) => r.email));
+    if (email) out.push({ name: card(person, null, {}).name, email });
+  }
+  await audit.record(user, 'export', null, { kind, asked: keys.length, copied: out.length });
+  return { people: out };
 }
 
 // ── Changes ──────────────────────────────────────────────────────────────────
@@ -539,4 +662,7 @@ module.exports = {
   addNote,
   createMatch,
   endMatch,
+  saveSite,
+  siteEntry,
+  emails,
 };

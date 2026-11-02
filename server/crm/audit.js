@@ -21,6 +21,7 @@ const ACTIONS = new Set([
   'crm-import',
   'crm-add',
   'crm-remove',
+  'site-draft',
   'denied',
   // Forms (server/forms/): subject_key is the form or response id.
   'form-create',

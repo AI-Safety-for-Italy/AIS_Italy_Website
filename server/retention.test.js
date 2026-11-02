@@ -82,7 +82,12 @@ async function seed() {
 
 test('after 24 months answers and applications never approved are deleted; members stay', async () => {
   await seed();
-  assert.deepEqual(await retention.cleanup(), { answers: 2, applications: 2, boardRecords: 2 });
+  assert.deepEqual(await retention.cleanup(), {
+    answers: 2,
+    applications: 2,
+    boardRecords: 2,
+    siteDrafts: 0,
+  });
   const left = await db.query('select count(*)::int as n from form_responses');
   assert.equal(left.rows[0].n, 2);
   const apps = await db.query('select status from member_applications order by status');
@@ -97,7 +102,13 @@ test('after 24 months answers and applications never approved are deleted; membe
   );
   const [line] = await audit.recent();
   assert.equal(line.action, 'retention-cleanup');
-  assert.deepEqual(line.detail, { months: 24, answers: 2, applications: 2, boardRecords: 2 });
+  assert.deepEqual(line.detail, {
+    months: 24,
+    answers: 2,
+    applications: 2,
+    boardRecords: 2,
+    siteDrafts: 0,
+  });
 });
 
 test('the cleanup runs only with the secret, and not at all without one set', async () => {
@@ -106,7 +117,25 @@ test('the cleanup runs only with the secret, and not at all without one set', as
   assert.equal((await call({ authorization: 'Bearer wrong' })).statusCode, 401);
   const ok = await call({ authorization: `Bearer ${SECRET}` });
   assert.equal(ok.statusCode, 200);
-  assert.deepEqual(ok.body, { answers: 2, applications: 2, boardRecords: 2 });
+  assert.deepEqual(ok.body, { answers: 2, applications: 2, boardRecords: 2, siteDrafts: 0 });
   delete process.env.CRON_SECRET;
   assert.equal((await call({ authorization: 'Bearer ' })).statusCode, 503);
+});
+
+test("a mentor's draft for the site goes with their last record, not before the first import", async () => {
+  await db.query(`insert into crm_site_profiles (person_key, data_encrypted) values ('gone', 'x')`);
+  // Nothing imported yet: the draft stays.
+  await retention.cleanup();
+  assert.equal((await db.query('select 1 from crm_site_profiles')).rows.length, 1);
+  await db.query(`insert into crm_site_profiles (person_key, data_encrypted) values ('kept', 'x')`);
+  await db.query(
+    `insert into crm_records (id, source, person_key, origin, data_encrypted)
+     values (gen_random_uuid(), 'mentors_prospective', 'kept', 'board', 'x')`
+  );
+  assert.equal((await retention.cleanup()).siteDrafts, 1);
+  const { rows } = await db.query('select person_key from crm_site_profiles');
+  assert.deepEqual(
+    rows.map((r) => r.person_key),
+    ['kept']
+  );
 });
