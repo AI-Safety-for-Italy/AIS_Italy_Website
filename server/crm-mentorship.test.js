@@ -279,6 +279,15 @@ test('only selected people on the same track can be paired, a mentee only once',
   assert.equal(board.matches.length, 1);
   assert.equal(board.matches[0].mentor.name, 'Ada Esempio');
   assert.equal(board.matches[0].mentee.name, 'Gino Mentee');
+  // Each one's page names the other.
+  assert.equal(
+    (await mentorship.person(me, ['mentorship'], ADA(), 'mentor')).matches[0].otherName,
+    'Gino Mentee'
+  );
+  assert.equal(
+    (await mentorship.person(me, ['mentorship'], GINO(), 'mentee')).matches[0].otherName,
+    'Ada Esempio'
+  );
 
   // Gino already has a mentor.
   await mentorship.update(me, ELENA(), 'mentor', { status: 'selected' });

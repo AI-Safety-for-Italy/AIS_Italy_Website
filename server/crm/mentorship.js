@@ -301,11 +301,31 @@ async function person(user, perms, key, kind) {
     createdAt: n.created_at,
     body: crm.decrypt(n.body_encrypted, key) ?? '(this note cannot be opened with the current key)',
   }));
+  // Only the pairs of this role: someone can be a mentor and a mentee.
+  const side = kind === 'mentor' ? 'mentor_key' : 'mentee_key';
   const { rows: matchRows } = await db.query(
     `select id, mentor_key, mentee_key, track, status, created_at, ended_at from crm_matches
-     where mentor_key = $1 or mentee_key = $1 order by created_at desc`,
+     where ${side} = $1 order by created_at desc`,
     [key]
   );
+  const otherKind = kind === 'mentor' ? 'mentee' : 'mentor';
+  const otherName = async (otherKey) => {
+    const other = (await gather(otherKey)).people.get(`${otherKind}:${otherKey}`);
+    return other ? card(other, null, {}).name : null;
+  };
+  const matches = [];
+  for (const m of matchRows) {
+    const otherKey = kind === 'mentor' ? m.mentee_key : m.mentor_key;
+    matches.push({
+      id: m.id,
+      track: m.track,
+      status: m.status,
+      createdAt: m.created_at,
+      endedAt: m.ended_at,
+      otherKey,
+      otherName: await otherName(otherKey),
+    });
+  }
   await audit.record(user, 'view-person', key, { kind });
   if (notes.length) await audit.record(user, 'view-note', key, { count: notes.length });
   return {
@@ -316,14 +336,7 @@ async function person(user, perms, key, kind) {
     ).email,
     sheets: sheetsView,
     notes,
-    matches: matchRows.map((m) => ({
-      id: m.id,
-      track: m.track,
-      status: m.status,
-      createdAt: m.created_at,
-      endedAt: m.ended_at,
-      otherKey: m.mentor_key === key ? m.mentee_key : m.mentor_key,
-    })),
+    matches,
     history: await audit.recent({ subjectKey: key, limit: 40 }),
     // So a page of its own can show the stage buttons and the track select.
     statuses: STATUSES[kind],
