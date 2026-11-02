@@ -286,8 +286,11 @@ only a forms admin can give a form those links.
   chosen one on the right; texts in Italian and English; a preview drawn by
   the public page's own code; settings (draft / open / closed, dates, link,
   one answer per email, telling the owner about new answers (by email or
-  Discord DM, as on their settings page; never what the answer says), which
-  Discord roles read the answers) and the public link. Answers are deleted
+  Discord DM, as on their settings page; never what the answer says),
+  emailing each person a copy of their answers (to the form's first email
+  question, from the General settings mailbox; off by default), which
+  Discord roles read the answers) and the public link, which the forms list
+  also copies straight from each card. Answers are deleted
   24 months after they were sent (see "Keeping time of personal data").
 - **Answers** (the editor's Answers tab; also the only tab for the Discord
   roles a form lets read its answers): a summary with a chart per question
