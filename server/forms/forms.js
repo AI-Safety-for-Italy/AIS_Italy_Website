@@ -40,8 +40,9 @@ const ROLE = /^[\w-]{1,40}$/;
 const DEFAULT_SETTINGS = {
   oneResponsePerEmail: false,
   notifyOwner: true,
-  // Email the person a copy of their answers, at the form's first email question.
-  sendCopy: false,
+  // Email the person a copy of their answers, at the form's first email
+  // question. On unless the form's managers switch it off.
+  sendCopy: true,
   // The community's registration form: see ./membership.js. null for any other.
   membership: null,
   // The mentorship board list the answers also go to (server/crm/sources.js), or null.

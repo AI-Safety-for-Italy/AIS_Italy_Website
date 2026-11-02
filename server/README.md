@@ -288,7 +288,7 @@ only a forms admin can give a form those links.
   one answer per email, telling the owner about new answers (by email or
   Discord DM, as on their settings page; never what the answer says),
   emailing each person a copy of their answers (to the form's first email
-  question, from the General settings mailbox; off by default), which
+  question, from the General settings mailbox; on by default), which
   Discord roles read the answers) and the public link, which the forms list
   also copies straight from each card. Answers are deleted
   24 months after they were sent (see "Keeping time of personal data").

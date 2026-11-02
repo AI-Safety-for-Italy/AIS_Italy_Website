@@ -822,7 +822,8 @@ test('the owner hears that someone answered, never what, and only if they asked'
     await setRoles();
     const mara = await member('Mara', ['r-forms']);
     await auth.updateProfile(mara.id, { notifyChannel: 'email', notifyEmail: 'mara@example.org' });
-    const { id, slug } = await openForm(mara);
+    // Without the copy to the person: this test counts the owner's emails.
+    const { id, slug } = await openForm(mara, { settings: { settings: { sendCopy: false } } });
     const send = async (answers, extra = {}) => {
       const view = (await call(publicApi, { url: `/api/form?f=${slug}` })).body;
       later(5000);
@@ -861,7 +862,7 @@ test('the owner hears that someone answered, never what, and only if they asked'
   }
 });
 
-test('when the form asks, the person gets a copy of their answers, and only then', async () => {
+test('the person gets a copy of their answers unless the form switches it off', async () => {
   const mail = require('./mail');
   const sent = [];
   process.env.MEET_FAKE_MAIL = '0';
@@ -881,22 +882,23 @@ test('when the form asks, the person gets a copy of their answers, and only then
     };
     const copies = () => sent.filter((m) => m.to === 'ada@example.org');
 
-    // Off by default.
-    assert.equal((await send(goodAnswers())).statusCode, 201);
-    assert.equal(copies().length, 0);
-
-    // On, but no mailbox set up yet: the answer is kept, no copy.
-    await forms.updateSettings(mara, id, { settings: { sendCopy: true } });
+    // On by default, but no mailbox set up yet: the answer is kept, no copy.
     assert.equal((await forms.get(mara, id)).settings.sendCopy, true);
     assert.equal((await send(goodAnswers())).statusCode, 201);
     assert.equal(copies().length, 0);
 
+    // Switched off: no copy, even with a mailbox.
     await mail.saveSettings({
       host: 'smtp.x',
       port: 465,
       fromEmail: 'tech@ais4i.it',
       password: 'p',
     });
+    await forms.updateSettings(mara, id, { settings: { sendCopy: false } });
+    assert.equal((await send(goodAnswers())).statusCode, 201);
+    assert.equal(copies().length, 0);
+    await forms.updateSettings(mara, id, { settings: { sendCopy: true } });
+
     const res = await send(goodAnswers({ bio: undefined, cv: '' }));
     assert.equal(res.statusCode, 201);
     // The page gets the confirmation only, never the copy.
