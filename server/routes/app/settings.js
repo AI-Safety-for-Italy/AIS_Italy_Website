@@ -2,7 +2,7 @@
 //   GET                         -> { profile, discordBot, mail: { configured, smtp? } }
 //                                  (smtp only for the admin)
 //   PATCH { notifyChannel, notifyEmail }  -> the user's own notification choices
-//   PUT   { host, port, user, password, fromEmail, fromName }  -> SMTP (admin)
+//   PUT   { host, port, user, password, fromEmail, fromName, formsEmail }  -> SMTP (admin)
 //   POST  ?action=test { to }   -> sends a test email (admin)
 const { route, sendJson, readJson, getQuery, HttpError } = require('../../http');
 const auth = require('../../auth');

@@ -42,6 +42,7 @@
     document.getElementById('smtpPort').value = smtp.port || 465;
     document.getElementById('fromEmail').value = smtp.fromEmail || '';
     document.getElementById('fromName').value = smtp.fromName || '';
+    document.getElementById('formsEmail').value = smtp.formsEmail || '';
     document.getElementById('smtpUser').value = smtp.user || '';
     var pw = document.getElementById('smtpPassword');
     pw.value = '';
@@ -109,6 +110,7 @@
         port: Number(document.getElementById('smtpPort').value),
         fromEmail: document.getElementById('fromEmail').value,
         fromName: document.getElementById('fromName').value,
+        formsEmail: document.getElementById('formsEmail').value,
         user: document.getElementById('smtpUser').value,
         password: document.getElementById('smtpPassword').value,
       })

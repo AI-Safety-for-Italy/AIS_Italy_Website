@@ -28,6 +28,7 @@ const records = require('../crm/records');
 const sources = require('../crm/sources');
 const members = require('../members');
 const notify = require('../notify');
+const mail = require('../mail');
 
 const STATUSES = ['draft', 'open', 'closed'];
 // Where the team is with one answer (form_responses.status).
@@ -541,9 +542,15 @@ async function notifyOwner(formId, origin) {
     formId,
   ]);
   const form = rows[0];
-  if (!form || !form.owner_id) return [];
-  if (!{ ...DEFAULT_SETTINGS, ...form.settings }.notifyOwner) return [];
-  return notify.notifyUser(form.owner_id, notify.newFormAnswerMessage({ form, origin }));
+  if (!form || !{ ...DEFAULT_SETTINGS, ...form.settings }.notifyOwner) return [];
+  const message = notify.newFormAnswerMessage({ form, origin });
+  // One shared address (General settings) when set, whoever owns the form.
+  const shared = await mail.formsAddress();
+  if (shared && (await mail.isConfigured())) {
+    await mail.send({ to: shared, subject: message.subject, ...notify.render(message.lines) });
+    return ['email'];
+  }
+  return form.owner_id ? notify.notifyUser(form.owner_id, message) : [];
 }
 
 // ── Answers ──────────────────────────────────────────────────────────────────
