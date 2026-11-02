@@ -7,11 +7,33 @@
 //   POST ?action=note    { key, kind, body }
 //   POST ?action=match   { mentorKey, menteeKey, track }
 //   POST ?action=end-match { id }
+//   POST ?action=add { first_name, last_name, email, … }  -> a mentor to contact, by hand
+//   POST ?action=remove { recordId }      -> removes someone added by hand
+//   POST ?action=import&source=… [{ csv }] -> copies that sheet (or its CSV) onto the board (crm_admin)
+//        replacing an earlier import also needs { replace: true, adminPassword }; without
+//        them -> 409 { code: 'confirm_overwrite', existing }
+//   GET  ?action=sources                  -> { sources, serviceAccount } (crm_admin)
+//   PUT  ?action=sources { <source>: { spreadsheetId, tab } }  -> the same, saved (crm_admin)
 const { route, sendJson, readJson, getQuery, HttpError } = require('../../../http');
-const { requireUser } = require('../../../auth');
+const { requireUser, checkAdminPassword } = require('../../../auth');
 const access = require('../../../access');
 const crypto = require('../../../crm/crypto');
 const mentorship = require('../../../crm/mentorship');
+const sources = require('../../../crm/sources');
+const records = require('../../../crm/records');
+
+/** The sheets the board reads, for the settings page: [{ id, label, spreadsheetId, tab }]. */
+async function sourceList() {
+  const config = await sources.getConfig();
+  return {
+    sources: sources.SHEET_SOURCES.map((id) => ({
+      id,
+      label: sources.SOURCES[id].label,
+      ...config[id],
+    })),
+    serviceAccount: sources.serviceAccountEmail(),
+  };
+}
 
 /** Signed in, CRM set up, and allowed: returns { user, perms }. */
 async function door(req, { write = false } = {}) {
@@ -25,6 +47,12 @@ async function door(req, { write = false } = {}) {
 
 module.exports = route({
   async GET(req, res) {
+    if (getQuery(req).action === 'sources') {
+      const user = await requireUser(req);
+      await access.authorize(user, 'crm_admin');
+      sendJson(res, 200, await sourceList());
+      return;
+    }
     const { user, perms } = await door(req);
     const { key, kind } = getQuery(req);
     if (key) {
@@ -34,10 +62,55 @@ module.exports = route({
     sendJson(res, 200, await mentorship.board(user));
   },
 
+  async PUT(req, res) {
+    const user = await requireUser(req);
+    if (getQuery(req).action !== 'sources') throw new HttpError(400, 'Unknown action');
+    await access.authorize(user, 'crm_admin', { fresh: true });
+    await sources.saveConfig(user, await readJson(req));
+    sendJson(res, 200, await sourceList());
+  },
+
   async POST(req, res) {
+    const query = getQuery(req);
+    if (query.action === 'import') {
+      const user = await requireUser(req);
+      if (!crypto.configured())
+        throw new HttpError(503, 'The CRM is not set up here yet (encryption keys)');
+      await access.authorize(user, 'crm_admin', { fresh: true });
+      // A downloaded sheet can be a few megabytes of long answers.
+      const body = (await readJson(req, { max: 5_000_000 })) || {};
+      const csv = typeof body.csv === 'string' ? body.csv : undefined;
+      // Replacing an import already on the board takes both confirmations of
+      // the page and the admin password: a wrong file would wipe the list.
+      const confirmOverwrite = async (existing) => {
+        if (body.replace !== true)
+          throw new HttpError(409, 'This list was already imported', {
+            code: 'confirm_overwrite',
+            existing,
+          });
+        const password = typeof body.adminPassword === 'string' ? body.adminPassword : '';
+        if (!(await checkAdminPassword(req, password)))
+          throw new HttpError(403, 'Wrong admin password', { code: 'wrong_password' });
+      };
+      sendJson(
+        res,
+        200,
+        await records.importSource(user, String(query.source || ''), { csv, confirmOverwrite })
+      );
+      return;
+    }
     const { user } = await door(req, { write: true });
-    const { action } = getQuery(req);
+    const { action } = query;
     const body = await readJson(req);
+    if (action === 'add') {
+      sendJson(res, 201, await mentorship.addProspect(user, body));
+      return;
+    }
+    if (action === 'remove') {
+      await records.remove(user, body.recordId);
+      sendJson(res, 200, { ok: true });
+      return;
+    }
     if (action === 'update') {
       const { key, kind, ...changes } = body;
       const allowed = {};

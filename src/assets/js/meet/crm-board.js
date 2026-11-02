@@ -17,6 +17,16 @@
   var panel = document.getElementById('personPanel');
   var panelBody = document.getElementById('personBody');
 
+  var addBtn = document.getElementById('addMentor');
+  var addPanel = document.getElementById('addPanel');
+  var addForm = document.getElementById('addForm');
+
+  var ORIGIN_LABELS = {
+    import: 'Imported from the sheet',
+    form: 'From the form',
+    board: 'Added on the board',
+  };
+
   var view = { data: null, tab: 'mentors', track: '', q: '', mine: false, open: null };
 
   var SOURCE_LABELS = {
@@ -164,6 +174,104 @@
     render();
   });
 
+  // ── Adding a mentor to contact ───────────────────────────────────────────
+
+  function field(name, label, required, input) {
+    input = input || h('input', { class: 'form-input is-compact', autocomplete: 'off' });
+    input.id = 'add-' + name;
+    input.name = name;
+    if (required) input.required = true;
+    return h(
+      'div',
+      null,
+      h('label', { class: 'form-label', for: input.id }, label + (required ? ' *' : '')),
+      input
+    );
+  }
+
+  function openAdd() {
+    M.clear(addForm);
+    // The server reads the track from these Italian words.
+    var track = h(
+      'select',
+      { class: 'form-input is-compact' },
+      [
+        ['', 'Not decided'],
+        ['Progetti', 'AI safety projects'],
+        ['Orientamento', 'Career orientation'],
+        ['Entrambi', 'Both'],
+      ].map(function (t) {
+        return h('option', { value: t[0] }, t[1]);
+      })
+    );
+    var errorEl = h('div', { class: 'form-error', role: 'alert', hidden: true });
+    var save = h('button', { class: 'btn btn-primary btn-sm', type: 'submit' }, 'Save');
+    addForm.appendChild(h('h2', { id: 'addTitle' }, 'Add a mentor to contact'));
+    [
+      field('first_name', 'First name', true),
+      field('last_name', 'Last name', true),
+      field('email', 'Email', true, h('input', { class: 'form-input is-compact', type: 'email' })),
+      field('social', 'Social or website'),
+      field('org', 'Affiliation'),
+      field('career', 'Career stage'),
+      field('track', 'Track', false, track),
+      field('referrer', 'Recommended by'),
+      field(
+        'notes',
+        'Area / notes',
+        false,
+        h('textarea', { class: 'form-input is-compact', rows: '3', maxlength: '4000' })
+      ),
+    ].forEach(function (f) {
+      addForm.appendChild(f);
+    });
+    addForm.appendChild(errorEl);
+    addForm.appendChild(
+      h(
+        'div',
+        { style: 'display:flex;justify-content:flex-end;gap:0.6rem' },
+        h(
+          'button',
+          {
+            class: 'btn btn-outline btn-sm',
+            type: 'button',
+            onclick: function () {
+              addPanel.close();
+            },
+          },
+          'Cancel'
+        ),
+        save
+      )
+    );
+    addForm.onsubmit = function (e) {
+      e.preventDefault();
+      var body = {};
+      Array.prototype.forEach.call(addForm.elements, function (el) {
+        if (el.name) body[el.name] = el.value.trim();
+      });
+      errorEl.hidden = true;
+      save.disabled = true;
+      M.api('POST', API + '?action=add', body)
+        .then(function (r) {
+          addPanel.close();
+          M.toast('Added');
+          return load().then(function () {
+            openPerson(r.key, r.kind);
+          });
+        })
+        .catch(function (err) {
+          save.disabled = false;
+          if (err.status === 401) return M.appError(err);
+          errorEl.textContent = err.message;
+          errorEl.hidden = false;
+        });
+    };
+    addPanel.showModal();
+    document.getElementById('add-first_name').focus();
+  }
+  addBtn.addEventListener('click', openAdd);
+
   function visible(card) {
     if (view.track && card.track !== view.track && card.track !== 'both') return false;
     if (view.mine && card.ownerId !== view.data.me) return false;
@@ -180,6 +288,7 @@
     renderNotices();
     M.clear(board);
     toolbar.hidden = view.tab === 'pairs';
+    addBtn.hidden = view.tab !== 'mentors';
     if (view.tab === 'pairs') renderPairs();
     else renderKanban(view.tab === 'mentees' ? 'mentee' : 'mentor');
   }
@@ -488,12 +597,39 @@
       h(
         'section',
         { class: 'crm-section' },
-        h('h3', null, 'From the sheets'),
+        h('h3', null, 'What they told us'),
         p.sheets.map(function (s) {
+          var removeBtn =
+            s.origin === 'board' && s.recordId
+              ? h(
+                  'button',
+                  {
+                    type: 'button',
+                    class: 'btn btn-outline btn-sm',
+                    onclick: function () {
+                      if (!window.confirm('Remove ' + p.name + ' from the board?')) return;
+                      M.api('POST', API + '?action=remove', { recordId: s.recordId })
+                        .then(function () {
+                          panel.close();
+                          return load();
+                        })
+                        .catch(fail);
+                    },
+                  },
+                  'Remove from the board'
+                )
+              : null;
           return h(
             'details',
             { class: 'crm-sheet', open: p.sheets.length === 1 ? true : null },
-            h('summary', null, (SOURCE_LABELS[s.source] || s.label) + ' · row ' + s.row),
+            h(
+              'summary',
+              null,
+              (SOURCE_LABELS[s.source] || s.label) +
+                (s.row ? ' · row ' + s.row : '') +
+                (ORIGIN_LABELS[s.origin] ? ' · ' + ORIGIN_LABELS[s.origin] : '')
+            ),
+            removeBtn,
             h(
               'dl',
               null,

@@ -1,8 +1,9 @@
 // The mentorship board: mentors and mentees, where each is in the selection,
 // the team's notes, and who is paired with whom.
 //
-// Who people are comes from the sheets (server/crm/sources.js), read each time
-// and never stored; the three lists are joined by the opaque person key, so
+// Who people are comes from the board's records (server/crm/records.js):
+// copied once from the Google sheets, then from the site's forms and from the
+// board itself, encrypted. The lists are joined by the opaque person key, so
 // someone who appears in two of them is one card. What the team decides
 // (status, track, who follows them, notes, pairs) is stored by key only.
 // Every function here assumes access.authorize(user, 'mentorship')
@@ -11,6 +12,7 @@
 const db = require('../db');
 const { HttpError } = require('../http');
 const sources = require('./sources');
+const records = require('./records');
 const crm = require('./crypto');
 const audit = require('./audit');
 const access = require('../access');
@@ -68,12 +70,11 @@ function kindsOf(applyingAs) {
 
 const first = (...values) => values.find((v) => v && String(v).trim()) || '';
 
-// ── Reading the sheets into people ───────────────────────────────────────────
+// ── Reading the records into people ──────────────────────────────────────────
 
 /**
- * Everyone in the three lists: { people: Map("kind:key" -> person),
- * unlinked: rows without an email, problems: sources that could not be read
- * or lost a column }.
+ * Everyone in the lists: { people: Map("kind:key" -> person), unlinked: rows
+ * without an email, problems: records the current key cannot open }.
  */
 async function gather() {
   const people = new Map();
@@ -95,38 +96,27 @@ async function gather() {
     people.get(id).records[sourceId] = record;
   };
 
+  const { bySource, unreadable } = await records.list();
   for (const sourceId of Object.keys(sources.SOURCES)) {
-    let loaded;
-    try {
-      loaded = await sources.load(sourceId);
-    } catch (err) {
-      if (!(err instanceof HttpError)) throw err;
-      problems.push({
-        source: sourceId,
-        label: sources.SOURCES[sourceId].label,
-        message: err.message,
-      });
-      continue;
-    }
-    if (loaded.missing.length) {
-      problems.push({
-        source: sourceId,
-        label: sources.SOURCES[sourceId].label,
-        message: `Columns not found: ${loaded.missing.join(', ')}`,
-      });
-    }
-    for (const record of loaded.records) {
+    for (const record of bySource[sourceId] || []) {
       if (sourceId === 'mentees_interest') {
         kindsOf(record.applying_as).forEach((kind) => add(kind, sourceId, record));
       } else {
-        add('mentor', sourceId, record);
+        add(sources.SOURCES[sourceId].kind === 'mentee' ? 'mentee' : 'mentor', sourceId, record);
       }
     }
+  }
+  if (unreadable) {
+    problems.push({
+      source: null,
+      label: 'Board',
+      message: `${unreadable} records cannot be opened with the current key`,
+    });
   }
   return { people, unlinked, problems };
 }
 
-/** What the sheets alone say about where someone is. */
+/** What the records alone say about where someone is. */
 function derivedStatus(person) {
   const r = person.records;
   if (person.kind === 'mentor') {
@@ -136,6 +126,7 @@ function derivedStatus(person) {
     if (r.mentors_prospective && yes(r.mentors_prospective.contacted)) return 'contacted';
     return 'to_contact';
   }
+  if (r.mentees_applications) return 'applied';
   if (r.mentees_interest && yes(r.mentees_interest.contacted)) return 'contacted';
   return 'interested';
 }
@@ -146,17 +137,21 @@ function card(person, state, extra) {
   const app = r.mentors_applications || {};
   const prospect = r.mentors_prospective || {};
   const interest = r.mentees_interest || {};
+  const mentee = r.mentees_applications || {};
   return {
     key: person.key,
     kind: person.kind,
-    name: first(app.name, interest.name, prospect.name) || '(no name)',
+    name: first(app.name, mentee.name, interest.name, prospect.name) || '(no name)',
     org: first(
       app.role,
       prospect.org,
+      [mentee.role, mentee.affiliation].filter(Boolean).join(', '),
       [interest.role, interest.affiliation].filter(Boolean).join(', ')
     ),
-    track: (state && state.track) || trackOf(first(app.tracks, prospect.track, interest.tracks)),
-    areas: first(app.areas, interest.areas, prospect.notes),
+    track:
+      (state && state.track) ||
+      trackOf(first(app.tracks, mentee.tracks, prospect.track, interest.tracks)),
+    areas: first(app.areas, mentee.areas, interest.areas, prospect.notes),
     project: app.project_title || '',
     capacity: Number(app.mentees) > 0 ? Number(app.mentees) : null,
     referrer: prospect.referrer || '',
@@ -222,11 +217,11 @@ async function board(user) {
       createdAt: m.created_at,
       mentor: {
         key: m.mentor_key,
-        name: names.get(`mentor:${m.mentor_key}`) || '(no longer in the sheets)',
+        name: names.get(`mentor:${m.mentor_key}`) || '(no longer on the board)',
       },
       mentee: {
         key: m.mentee_key,
-        name: names.get(`mentee:${m.mentee_key}`) || '(no longer in the sheets)',
+        name: names.get(`mentee:${m.mentee_key}`) || '(no longer on the board)',
       },
     })),
     unlinked,
@@ -246,7 +241,7 @@ async function find(key, kind) {
   checkKey(key, kind);
   const { people } = await gather();
   const person = people.get(`${kind}:${key}`);
-  if (!person) throw new HttpError(404, 'Not in the sheets (any more)');
+  if (!person) throw new HttpError(404, 'Not on the board (any more)');
   return person;
 }
 
@@ -256,13 +251,22 @@ async function person(user, perms, key, kind) {
   const state = (await states()).get(`${kind}:${key}`);
   const card_ = card(found, state, {});
   const sheetsView = Object.entries(found.records).map(([sourceId, record]) => {
-    // The key is dropped on purpose: it is the lookup id, not a field to show.
+    // The key and the record's id are dropped on purpose: lookup ids, not
+    // fields to show.
     // eslint-disable-next-line no-unused-vars
-    const { key: _key, row, ...fields } = record;
+    const { key: _key, recordId, origin, row, ...fields } = record;
     const shown = access.redact(fields, perms);
     // Only what has an answer.
     Object.keys(shown).forEach((f) => !shown[f] && delete shown[f]);
-    return { source: sourceId, label: sources.SOURCES[sourceId].label, row, fields: shown };
+    return {
+      source: sourceId,
+      label: sources.SOURCES[sourceId].label,
+      row,
+      origin,
+      // Only those added by hand can be removed from the board.
+      recordId: origin === 'board' ? recordId : undefined,
+      fields: shown,
+    };
   });
   const { rows: noteRows } = await db.query(
     'select id, body_encrypted, author_name, created_at from crm_notes where person_key = $1 order by created_at desc',
@@ -376,7 +380,7 @@ async function createMatch(user, mentorKey, menteeKey, trackKey) {
   const all = await states();
   const mentor = people.get(`mentor:${mentorKey}`);
   const mentee = people.get(`mentee:${menteeKey}`);
-  if (!mentor || !mentee) throw new HttpError(404, 'Not in the sheets (any more)');
+  if (!mentor || !mentee) throw new HttpError(404, 'Not on the board (any more)');
   const m = card(mentor, all.get(`mentor:${mentorKey}`), {});
   const e = card(mentee, all.get(`mentee:${menteeKey}`), {});
   if (!['selected', 'matched'].includes(m.status))
@@ -470,8 +474,40 @@ async function endMatch(user, matchId) {
   });
 }
 
+// The fields of a mentor to contact the board's "Add" takes (sources.js).
+const PROSPECT_FIELDS = [
+  'first_name',
+  'last_name',
+  'email',
+  'social',
+  'org',
+  'career',
+  'track',
+  'referrer',
+  'notes',
+];
+
+/** Adds a mentor to contact, by hand. Returns { key, kind }. */
+async function addProspect(user, body) {
+  const b = body || {};
+  const fields = {};
+  for (const f of PROSPECT_FIELDS) {
+    const value = String(b[f] == null ? '' : b[f]).trim();
+    if (value.length > 500) throw new HttpError(400, `${f}: at most 500 characters`);
+    fields[f] = value;
+  }
+  if (!fields.first_name && !fields.last_name) throw new HttpError(400, 'Write the name');
+  const record = sources.toRecord('mentors_prospective', fields);
+  if (!record.key) throw new HttpError(400, 'Enter a valid email: the board finds people by it');
+  await records.add('mentors_prospective', fields, { origin: 'board', user });
+  await audit.record(user, 'crm-add', record.key, { source: 'mentors_prospective' });
+  return { key: record.key, kind: 'mentor' };
+}
+
 module.exports = {
   STATUSES,
+  PROSPECT_FIELDS,
+  addProspect,
   TRACKS,
   trackOf,
   kindsOf,

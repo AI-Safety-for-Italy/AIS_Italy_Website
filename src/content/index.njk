@@ -122,7 +122,12 @@ seoDescription_it: "AI Safety for Italy è la community italiana che lavora per 
                     <p data-en="{{ call.mentee }}" data-it="{{ call.mentee_it }}">{{ call.mentee }}</p>
                     <div class="call-role-actions">
                         <a href="/mentorship/#mentors" class="btn btn-primary" data-en="Explore the mentors" data-it="Scopri i mentor">Explore the mentors</a>
+                        {#- During a call mentees apply on the site's own form; otherwise they leave their interest. -#}
+                        {% if mentorship.call_open %}
+                        <a href="{{ mentorship.links.mentee_form }}" class="btn btn-secondary" data-en="{{ mentorship.interest.mentee_button }}" data-it="{{ mentorship.interest.mentee_button_it }}">{{ mentorship.interest.mentee_button }}</a>
+                        {% else %}
                         <a href="{{ mentorship.links.interest_form }}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary" data-en="{{ mentorship.mentee.button }}" data-it="{{ mentorship.mentee.button_it }}">{{ mentorship.mentee.button }}</a>
+                        {% endif %}
                     </div>
                 </div>
             </div>

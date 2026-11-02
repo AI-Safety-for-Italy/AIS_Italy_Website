@@ -102,6 +102,43 @@ async function accessToken() {
 }
 
 /** The API's list of rows as header → value objects. Short rows are padded. */
+/**
+ * A CSV file (as Google Sheets exports it: commas, double quotes, line breaks
+ * inside quoted answers) -> rows of cells, the shape the Sheets API returns.
+ */
+function parseCsv(text) {
+  const s = String(text || '').replace(/^\uFEFF/, '');
+  const rows = [];
+  let row = [];
+  let field = '';
+  let quoted = false;
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (quoted) {
+      if (c !== '"') field += c;
+      else if (s[i + 1] === '"') {
+        field += '"';
+        i++;
+      } else quoted = false;
+    } else if (c === '"') quoted = true;
+    else if (c === ',') {
+      row.push(field);
+      field = '';
+    } else if (c === '\n' || c === '\r') {
+      if (c === '\r' && s[i + 1] === '\n') i++;
+      row.push(field);
+      rows.push(row);
+      row = [];
+      field = '';
+    } else field += c;
+  }
+  if (field !== '' || row.length) {
+    row.push(field);
+    rows.push(row);
+  }
+  return rows;
+}
+
 function rowsFromValues(values) {
   if (!Array.isArray(values) || !values.length) return [];
   const header = values[0].map((h) => String(h || '').trim());
@@ -169,4 +206,12 @@ async function readRows(ref) {
   return rows;
 }
 
-module.exports = { SCOPE, SHEET_ID, rowsFromValues, readRows, clearCache, setForTests };
+module.exports = {
+  SCOPE,
+  SHEET_ID,
+  parseCsv,
+  rowsFromValues,
+  readRows,
+  clearCache,
+  setForTests,
+};

@@ -17,6 +17,10 @@ const ACTIONS = new Set([
   'export',
   'read-sheet',
   'change-settings',
+  // The board's records (server/crm/records.js): detail has counts, never who.
+  'crm-import',
+  'crm-add',
+  'crm-remove',
   'denied',
   // Forms (server/forms/): subject_key is the form or response id.
   'form-create',
