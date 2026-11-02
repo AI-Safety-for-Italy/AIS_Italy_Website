@@ -24,12 +24,18 @@
     error.hidden = !message;
   }
   if (params.get('error')) showError(ERRORS[params.get('error')] || ERRORS.failed);
+  // Sent here by a tool that wants a sign-in from the last 24 hours: the
+  // session is still valid, so going on to `next` would only come back here.
+  var reauth = params.get('reauth') === '1';
+  if (reauth && !params.get('error')) {
+    showError('This tool holds personal data: please sign in again (once a day).');
+  }
 
   var discord = document.getElementById('discordLogin');
   discord.href = '/api/discord?next=' + encodeURIComponent(next);
 
   M.api('GET', '/api/auth').then(function (info) {
-    if (info.user) {
+    if (info.user && !reauth) {
       window.location.replace(next);
       return;
     }

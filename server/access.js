@@ -31,7 +31,9 @@ async function requireRecentLogin(user, now = Date.now()) {
   const { rows } = await db.query('select last_login_at from app_users where id = $1', [user.id]);
   const last = rows[0] && rows[0].last_login_at;
   if (!last || now - new Date(last).getTime() > MAX_SESSION_AGE_MS) {
-    throw new HttpError(401, 'Please sign in again to use this tool');
+    // `reauth` tells the login page not to send a still-valid session straight
+    // back here, which would loop between the two pages.
+    throw new HttpError(401, 'Please sign in again to use this tool', { code: 'reauth' });
   }
 }
 
