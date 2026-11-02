@@ -653,7 +653,16 @@ test('a person comes with the stages and tracks, and a mentor with their draft f
   assert.ok(ada.tracks.some((t) => t.key === 'projects'));
   assert.deepEqual(
     { ...ada.site, updatedAt: null },
-    { bio: '', photo: null, updatedAt: null, updatedBy: null, consent: null, entry: null }
+    {
+      bio: '',
+      photo: null,
+      updatedAt: null,
+      updatedBy: null,
+      consent: null,
+      consentFrom: null,
+      consentInForm: null,
+      entry: null,
+    }
   );
   const gino = await mentorship.person(me, ['mentorship'], GINO(), 'mentee');
   assert.equal(gino.site, null);
@@ -689,6 +698,37 @@ test('the draft for the site is checked, encrypted, audited, and only for mentor
   const [line] = await audit.recent({ subjectKey: ADA() });
   assert.equal(line.action, 'site-draft');
   assert.ok(!JSON.stringify(line.detail).includes('Ricercatrice'));
+});
+
+test('a consent given by email is recorded by hand, with how it was given, and can be undone', async () => {
+  const me = await admin();
+  await rejects(mentorship.saveSite(me, ADA(), 'mentor', { consent: { value: 'yes' } }), 400);
+  await rejects(mentorship.saveSite(me, ADA(), 'mentor', { consent: { value: 'maybe' } }), 400);
+  await mentorship.saveSite(me, ADA(), 'mentor', { bio: 'Bio di prova.' });
+  const site = await mentorship.saveSite(me, ADA(), 'mentor', {
+    consent: { value: 'yes', note: 'Email del 2 novembre' },
+  });
+  assert.equal(site.consent, 'yes');
+  assert.equal(site.consentFrom.note, 'Email del 2 novembre');
+  assert.equal(site.consentFrom.by, me.name);
+  // Saving the bio keeps the consent.
+  assert.equal(
+    (await mentorship.saveSite(me, ADA(), 'mentor', { bio: 'Altra bio.' })).consent,
+    'yes'
+  );
+  const { rows } = await db.query('select data_encrypted from crm_site_profiles');
+  assert.ok(!rows[0].data_encrypted.includes('novembre'));
+  const [line] = await audit.recent({ subjectKey: ADA() });
+  assert.ok(!JSON.stringify(line.detail).includes('novembre'));
+  // A withdrawal needs no note; null goes back to the form's answer.
+  assert.equal(
+    (await mentorship.saveSite(me, ADA(), 'mentor', { consent: { value: 'no' } })).consent,
+    'no'
+  );
+  const back = await mentorship.saveSite(me, ADA(), 'mentor', { consent: null });
+  assert.equal(back.consent, null);
+  assert.equal(back.consentFrom, null);
+  assert.equal(back.bio, 'Altra bio.');
 });
 
 test('a mentor on the site is found by name in data/mentors.yaml', () => {

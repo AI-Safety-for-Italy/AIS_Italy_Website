@@ -10,7 +10,8 @@
 //   POST ?action=end-match { id }
 //   POST ?action=add { first_name, last_name, email, … }  -> a mentor to contact, by hand
 //   POST ?action=remove { recordId }      -> removes someone added by hand
-//   POST ?action=site { key, kind: 'mentor', bio?, photo?: JPEG data URL | null }
+//   POST ?action=site { key, kind: 'mentor', bio?, photo?: JPEG data URL | null,
+//        consent?: { value: 'yes' | 'no', note } | null }
 //        -> the mentor's draft for the public site (encrypted; publishing is still
 //           data/mentors.yaml)
 //   POST ?action=emails { kind, keys }    -> { people: [{ name, email }] }, to copy

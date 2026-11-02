@@ -3601,6 +3601,30 @@ dialog.crm-panel {
   color: var(--text-secondary);
 }
 
+.crm-consent {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12.5px;
+}
+
+.crm-consent-edit {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+
+.crm-consent-edit select {
+  width: auto;
+}
+
+.crm-consent-edit input {
+  flex: 1 1 180px;
+}
+
 .crm-warn {
   padding: 8px 10px;
   border-radius: 8px;
