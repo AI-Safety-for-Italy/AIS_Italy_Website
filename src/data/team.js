@@ -195,7 +195,7 @@ const teamData = [
     tier: 'team',
     groups: ['tech'],
     role: 'Website & Technical Infrastructure',
-    photo: '/assets/img/team/luca-mattiazzi.png',
+    photo: '/assets/img/team/luca-mattiazzi.jpg',
     bio: 'An AI Engineer with several years of Software and ML Engineering experience and a biotechnology degree. Currently interested in mechanistic interpretability and generally in interpretable machine learning.',
     bio_it:
       'Un AI Engineer con diversi anni di esperienza in Software e ML Engineering e una laurea in biotecnologie. Attualmente interessato all’interpretabilità meccanicistica e in generale al machine learning interpretabile.',
