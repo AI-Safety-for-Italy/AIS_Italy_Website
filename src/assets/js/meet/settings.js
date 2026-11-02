@@ -142,4 +142,61 @@
           button.disabled = false;
         });
     });
+  // The forms that tell this member about answers, one switch each
+  // (/api/app/forms?mine=notifications). Hidden when there are none.
+  var formNotify = document.getElementById('formNotify');
+  if (formNotify) {
+    M.me
+      .then(function () {
+        return M.api('GET', '/api/app/forms?mine=notifications');
+      })
+      .then(function (data) {
+        var list = document.getElementById('formNotifyList');
+        data.forms.forEach(function (f) {
+          var input = h('input', {
+            type: 'checkbox',
+            role: 'switch',
+            class: 'fe-switch-input',
+            'aria-label': 'Notify me about answers to ' + f.title,
+            onchange: function () {
+              input.disabled = true;
+              M.api('PUT', '/api/app/forms?id=' + encodeURIComponent(f.id) + '&part=notify-me', {
+                on: input.checked,
+              })
+                .then(function (r) {
+                  f.on = r.on;
+                  M.toast(
+                    r.on ? 'You will hear about new answers' : 'Notifications off for this form'
+                  );
+                })
+                .catch(function (err) {
+                  input.checked = f.on;
+                  M.appError(err);
+                })
+                .then(function () {
+                  input.disabled = false;
+                });
+            },
+          });
+          input.checked = f.on;
+          list.appendChild(
+            h(
+              'label',
+              { class: 'my-form' },
+              h(
+                'span',
+                { class: 'my-form-text' },
+                h('strong', null, f.title),
+                h('small', null, f.as === 'owner' ? 'Your form' : 'Added by the team')
+              ),
+              input
+            )
+          );
+        });
+        formNotify.hidden = !data.forms.length;
+      })
+      .catch(function () {
+        /* forms not set up here: nothing to show */
+      });
+  }
 })();

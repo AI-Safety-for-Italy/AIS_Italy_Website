@@ -790,7 +790,7 @@
         if (changes.status && !quiet) {
           M.toast(card.name + ' moved to ' + statusLabel(kind, card.status), false, {
             label: 'Undo',
-            onclick: function () {
+            run: function () {
               change(key, kind, { status: before.status }, true);
             },
           });

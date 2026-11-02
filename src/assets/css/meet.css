@@ -1504,6 +1504,20 @@ dialog.meet-dialog::backdrop {
 
 /* ── Toast & loading ─────────────────────────────────────────────────────── */
 
+/* The login page's stand-ins: one button per Discord role */
+.dev-personas {
+  display: grid;
+  gap: 0.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border-default);
+}
+
+.dev-persona-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
 .toast {
   position: fixed;
   left: 50%;
@@ -1530,37 +1544,23 @@ dialog.meet-dialog::backdrop {
 .toast.has-action {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 12px 12px 12px 18px;
-  border-radius: 10px;
-  font-weight: 500;
-}
-
-.toast.has-action.is-visible {
+  gap: 1rem;
   pointer-events: auto;
 }
 
 .toast-action {
-  margin-left: 0.9rem;
-  padding: 0;
+  padding: 0.2rem 0.5rem;
+  margin: -0.2rem -0.4rem -0.2rem 0;
   border: 0;
+  border-radius: var(--radius-sm);
   background: none;
-  color: inherit;
+  color: var(--accent-300, #86efac);
   font: inherit;
-  font-weight: 700;
-  text-decoration: underline;
   cursor: pointer;
 }
 
-.toast.has-action .toast-action {
-  height: 32px;
-  margin: 0;
-  padding: 0 12px;
-  border: 1px solid currentColor;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 600;
-  text-decoration: none;
+.toast-action:hover {
+  text-decoration: underline;
 }
 
 .toast.is-error {
@@ -2157,42 +2157,8 @@ div.poll-item {
   font-variant-numeric: tabular-nums;
 }
 
-.perm-table td {
-  text-align: center;
-}
-
-.perm-table input {
-  width: 1.1rem;
-  height: 1.1rem;
-  accent-color: var(--accent);
-}
-
-/* /app/settings/permissions/: the two tables, and a person's row head.
-   Column names wrap, so the thirteen columns fit a laptop screen. */
-.perm-table th.r-name {
-  min-width: 8rem;
-}
-
-.perm-table th:not(.r-name),
-.perm-table td {
-  padding-left: 0.3rem;
-  padding-right: 0.3rem;
-}
-
-.perm-table .r-time th:not(.r-name) {
-  min-width: 3.5rem;
-  max-width: 5.5rem;
-  font-size: 0.78rem;
-  white-space: normal;
-  line-height: 1.25;
-}
-
-.perm-table .r-date th + th {
-  border-left: 1px solid var(--border-muted);
-  white-space: normal;
-  line-height: 1.3;
-}
-
+/* /app/settings/permissions/: the roles and people on the left, the one
+   picked on the right with a switch per permission, grouped by tool. */
 .perm-page {
   display: flex;
   flex-direction: column;
@@ -2203,42 +2169,265 @@ div.poll-item {
   margin: 0;
 }
 
-.perm-person {
-  display: inline-flex;
-  align-items: center;
+.perm-layout {
+  display: grid;
+  grid-template-columns: minmax(15rem, 19rem) minmax(0, 1fr);
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.perm-nav {
+  position: sticky;
+  top: 1rem;
+  display: flex;
+  flex-direction: column;
   gap: 0.5rem;
-  max-width: 100%;
+  padding: 1rem;
 }
 
-.perm-person > span:not(.app-avatar) {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.perm-remove {
-  flex: none;
-  width: 1.5rem;
-  height: 1.5rem;
-  border: 0;
-  border-radius: 999px;
-  background: transparent;
+.perm-nav-title {
+  margin: 0.5rem 0 0;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
   color: var(--text-tertiary);
-  font-size: 1rem;
-  line-height: 1;
+}
+
+.perm-nav-title:first-child {
+  margin-top: 0;
+}
+
+.perm-nav-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.perm-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  width: 100%;
+  padding: 0.55rem 0.6rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-primary);
+  font: inherit;
+  text-align: left;
   cursor: pointer;
 }
 
-.perm-remove:hover,
-.perm-remove:focus-visible {
-  background: var(--border-muted);
-  color: var(--text-primary);
+.perm-nav-item:hover {
+  background: var(--bg-secondary, var(--accent-50));
+}
+
+.perm-nav-item.is-selected {
+  border-color: var(--accent-100);
+  background: var(--accent-50);
+}
+
+.perm-nav-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.perm-nav-text strong {
+  font-size: 0.95rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.perm-nav-text small {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.perm-count {
+  min-width: 1.6rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: var(--border-muted, var(--border-default));
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.perm-nav-item.is-selected .perm-count {
+  background: var(--accent);
+  color: #fff;
+}
+
+.perm-role-dot {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent-500, #16a34a), var(--accent-700, #006f38));
+  box-shadow: inset 0 0 0 7px var(--card-bg);
+  outline: 1px solid var(--border-default);
+}
+
+.perm-role-dot.is-big {
+  width: 40px;
+  height: 40px;
+  box-shadow: inset 0 0 0 11px var(--card-bg);
+}
+
+.perm-add {
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 0.3rem;
+}
+
+.perm-add .form-input {
+  min-width: 0;
+  flex: 1;
 }
 
 .perm-empty {
   margin: 0;
-  padding: 1rem;
-  font-size: 0.875rem;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.85rem;
+  color: var(--text-tertiary);
+}
+
+.perm-detail {
+  padding: 1.5rem;
+}
+
+.perm-head {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--border-default);
+}
+
+.perm-head h2 {
+  margin: 0 0 0.2rem;
+  font-size: 1.35rem;
+}
+
+.perm-head > div {
+  flex: 1;
+}
+
+.perm-remove-btn {
+  flex: none;
+}
+
+.perm-group {
+  padding-top: 1.25rem;
+}
+
+.perm-group-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 0.4rem;
+}
+
+.perm-group-head h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.perm-group-count {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+}
+
+.perm-group-count.is-on {
+  color: var(--accent-700);
+  font-weight: 600;
+}
+
+.perm-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--border-default);
+  border-bottom-width: 0;
+  background: var(--card-bg);
+  cursor: pointer;
+}
+
+.perm-row:first-of-type {
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+}
+
+.perm-row:last-child {
+  border-bottom-width: 1px;
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+}
+
+.perm-row:only-of-type {
+  border-radius: var(--radius-sm);
+}
+
+.perm-row:hover {
+  background: var(--accent-50);
+}
+
+.perm-row.is-locked {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.perm-row.is-locked:hover {
+  background: var(--card-bg);
+}
+
+.perm-row-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.perm-row-text strong {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.perm-row-text small {
+  font-size: 0.82rem;
   color: var(--text-secondary);
+}
+
+.perm-lock {
+  font-size: 0.8rem;
+}
+
+#permStatus.is-dirty {
+  color: var(--secondary-600);
+  font-weight: 600;
+}
+
+@media (max-width: 900px) {
+  .perm-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .perm-nav {
+    position: static;
+  }
+
+  .perm-head {
+    flex-wrap: wrap;
+  }
 }
 
 /* Stand-in Discord roles on the local login page */
@@ -3553,6 +3742,50 @@ dialog.crm-panel {
   box-sizing: border-box;
 }
 
+/* The logo on the green panel, in place of a header bar. */
+.fm-brand,
+.fm-aside a.fm-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  align-self: flex-start;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: #fff;
+  text-decoration: none;
+}
+
+.fm-brand img {
+  width: 40px;
+  height: 40px;
+  /* the mark's dark green leaf needs a light ground on the panel */
+  padding: 3px;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.fm-brand .fm-brand-accent {
+  color: #7fd6a2;
+}
+
+a.fm-brand:hover {
+  opacity: 0.9;
+}
+
+/* Without the header bar the page fills the window (side by side only: in
+   one column the panel keeps its own height). */
+@container (min-width: 881px) {
+  .fm-root.is-bare .fm-shell {
+    min-height: 100vh;
+  }
+
+  .fm-root.is-bare .fm-aside-inner {
+    min-height: min(100%, 100vh);
+  }
+}
+
 .fm-eyebrow {
   margin: 0;
   font-family: var(--font-mono);
@@ -3579,7 +3812,12 @@ dialog.crm-panel {
   font-family: var(--font-display);
   font-size: 1.13rem;
   line-height: 1.6;
-  color: rgba(232, 242, 236, 0.82);
+  color: rgba(240, 247, 243, 0.92);
+}
+
+/* The site's grey for paragraphs would vanish on the green. */
+.fm-aside .fm-intro p {
+  color: inherit;
 }
 
 .fm-intro p {
@@ -3698,23 +3936,37 @@ dialog.crm-panel {
   color: #6fdc9f;
 }
 
-.fm-privacy {
-  display: flex;
-  gap: 0.55rem;
-  margin: auto 0 0;
-  font-size: 0.85rem;
-  line-height: 1.5;
-  color: #9fbcac;
-}
-
-.fm-privacy .fm-icon {
-  margin-top: 0.2rem;
-}
-
 /* The questions */
 
 .fm-body {
   padding: clamp(2rem, 4vw, 4rem) clamp(1.25rem, 5vw, 5rem) 5rem;
+}
+
+/* The form's column: the form, then the site's footer line at the bottom. */
+.fm-body {
+  display: flex;
+  flex-direction: column;
+}
+
+.fm-main {
+  flex: 1;
+}
+
+.fm-root.is-bare .fm-body {
+  padding-bottom: 1.5rem;
+}
+
+.fm-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  max-width: 44rem;
+  margin-top: 4rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border-default);
+  font-size: 0.8rem;
+  color: var(--text-tertiary);
 }
 
 .fm-topline,
@@ -3912,6 +4164,30 @@ textarea.fm-input:focus {
   box-shadow: var(--ring);
 }
 
+/* A short answer (and "Other") looks like a one-line field, and grows when
+   Shift+Enter adds a line (forms-render.js, multiline()). */
+textarea.fm-input.fm-short {
+  min-height: 0;
+  padding: 0.55rem 0 0.6rem;
+  border: 0;
+  border-bottom: 1.5px solid var(--border-strong);
+  border-radius: 0;
+  background: transparent;
+  font-size: 1.18rem;
+  line-height: 1.45;
+  resize: none;
+  overflow: hidden;
+}
+
+textarea.fm-input.fm-short:focus {
+  border-bottom-color: var(--accent);
+  box-shadow: 0 1.5px 0 var(--accent);
+}
+
+textarea.fm-input.fm-other-input {
+  font-size: 1.06rem;
+}
+
 .fm-select {
   appearance: none;
   padding-right: 2rem;
@@ -3934,6 +4210,11 @@ textarea.fm-input:focus {
   font-family: var(--font-mono);
   font-size: 0.72rem;
   color: var(--text-tertiary);
+}
+
+.fm-counter.is-over {
+  color: var(--secondary-600);
+  font-weight: 600;
 }
 
 /* One choice, or long options: a list between hairlines */
@@ -3974,22 +4255,25 @@ textarea.fm-input:focus {
   accent-color: var(--accent);
 }
 
-.fm-choice-other {
-  flex-wrap: wrap;
+/* "Other": once ticked, a full-width line below it to write the answer,
+   on the same tint as the ticked row. */
+.fm-other-box {
+  padding: 0.25rem 0.6rem 1rem 3.05rem;
+  border-bottom: 1px solid var(--border-default);
+  background: var(--accent-50);
 }
 
-.fm-choice-other .fm-choice-text {
-  flex: none;
+/* One line under the pair, not two. */
+.fm-choice-other:has(+ .fm-other-box:not([hidden])) {
+  border-bottom-color: transparent;
+}
+
+.fm-other-box[hidden] {
+  display: none;
 }
 
 .fm-other-input {
-  flex: 1 1 200px;
-  padding: 0.25rem 0;
-  font-size: 1rem;
-}
-
-.fm-other-input:disabled {
-  opacity: 0.45;
+  font-size: 1.06rem;
 }
 
 /* Several short options: chips */
@@ -4353,8 +4637,7 @@ textarea.fm-input:focus {
     font-size: 1.02rem;
   }
 
-  .fm-steps,
-  .fm-privacy {
+  .fm-steps {
     display: none;
   }
 
@@ -5600,6 +5883,92 @@ textarea.fm-input:focus {
   min-height: 0;
 }
 
+/* Who else hears about new answers: chips, and a search below */
+.fe-people {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.fe-person {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.25rem 0.35rem 0.25rem 0.3rem;
+  border: 1px solid var(--border-default);
+  border-radius: 999px;
+  background: var(--bg-secondary, var(--card-bg));
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.fe-person-x {
+  width: 1.4rem;
+  height: 1.4rem;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--text-tertiary);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.fe-person-x:hover {
+  background: var(--secondary-50, #fdecec);
+  color: var(--secondary-600);
+}
+
+.fe-people-search {
+  position: relative;
+}
+
+.fe-people-results {
+  position: absolute;
+  z-index: 5;
+  left: 0;
+  right: 0;
+  top: calc(100% + 4px);
+  max-height: 16rem;
+  overflow: auto;
+  padding: 0.3rem;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--card-bg);
+  box-shadow: var(--shadow-lg);
+}
+
+.fe-people-results[hidden] {
+  display: none;
+}
+
+.fe-people-hit {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.45rem 0.55rem;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.fe-people-hit:hover,
+.fe-people-hit:focus-visible {
+  background: var(--accent-50);
+}
+
+.fe-people-none {
+  margin: 0;
+  padding: 0.45rem 0.55rem;
+  color: var(--text-tertiary);
+  font-size: 0.9rem;
+}
+
 /* Settings and sharing */
 
 .fe-settings {
@@ -6821,6 +7190,10 @@ textarea.fm-input:focus {
   overflow-wrap: anywhere;
 }
 
+.fr-a {
+  white-space: pre-line;
+}
+
 .fr-a.is-long {
   white-space: pre-wrap;
 }
@@ -7011,6 +7384,57 @@ textarea.fm-input:focus {
   margin: -0.35rem -0.6rem;
   border-radius: var(--radius-sm);
   text-decoration: none;
+}
+
+/* Settings: the forms that tell this member about answers */
+.my-forms {
+  display: flex;
+  flex-direction: column;
+}
+
+.my-form {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.7rem 0;
+  border-top: 1px solid var(--border-default);
+  cursor: pointer;
+}
+
+.my-form-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.my-form-text small {
+  color: var(--text-tertiary);
+  font-size: 0.8rem;
+}
+
+/* "Notify me" on a form that tells this member about answers */
+.fl-notify {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.fe-person.is-muted {
+  opacity: 0.6;
+  border-style: dashed;
+}
+
+/* Above the card's link, like the count. */
+.fl-copy {
+  position: relative;
+  z-index: 1;
+  white-space: nowrap;
 }
 
 .fl-answers:hover {

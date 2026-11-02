@@ -46,6 +46,13 @@ const MAX_ITEMS = 150;
 const MAX_OPTIONS = 60;
 const LIMITS = { label: 500, help: 3000, option: 200, title: 200, description: 6000 };
 const TEXT_MAX = { short_text: 300, long_text: 8000 };
+// The most a paragraph's word limit may be set to.
+const WORDS_MAX = 2000;
+
+/** Words in a text: runs of anything but spaces. */
+function wordCount(text) {
+  return (String(text).match(/\S+/g) || []).length;
+}
 const HTTPS = /^https:\/\/[^\s<>"]{3,}$/i;
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -104,6 +111,8 @@ function cleanItem(raw, languages, seen) {
     const min = int(it.minLength, 0, TEXT_MAX[type], where);
     item.maxLength = max || TEXT_MAX[type];
     if (min) item.minLength = Math.min(min, item.maxLength);
+    const words = type === 'long_text' ? int(it.maxWords, 1, WORDS_MAX, where) : undefined;
+    if (words) item.maxWords = words;
   }
   if (type === 'number') {
     const min =
@@ -264,7 +273,8 @@ function cleanChoice(item, raw) {
   if (!item.other && typeof value.other === 'string' && value.other.trim()) {
     return { error: 'Choose one of the options' };
   }
-  let other = item.other && typeof value.other === 'string' ? value.other.trim() : '';
+  let other =
+    item.other && typeof value.other === 'string' ? value.other.replace(/\r\n?/g, '\n').trim() : '';
   if (other.length > 300) return { error: 'At most 300 characters' };
   if (item.type !== 'multi' && picked.length + (other ? 1 : 0) > 1)
     return { error: 'Choose only one' };
@@ -284,6 +294,7 @@ function cleanOne(item, raw) {
     case 'short_text':
     case 'long_text': {
       if (typeof raw !== 'string') return { error: 'Expected text' };
+      // A short answer is one line; a paragraph keeps its line breaks.
       const text =
         item.type === 'short_text'
           ? raw.replace(/\s+/g, ' ').trim()
@@ -292,6 +303,8 @@ function cleanOne(item, raw) {
       if (text.length > item.maxLength) return { error: `At most ${item.maxLength} characters` };
       if (item.minLength && text.length < item.minLength)
         return { error: `At least ${item.minLength} characters` };
+      if (item.maxWords && wordCount(text) > item.maxWords)
+        return { error: `At most ${item.maxWords} words` };
       return { value: text };
     }
     case 'email': {
@@ -423,4 +436,5 @@ module.exports = {
   consentVersion,
   textIn,
   answerText,
+  wordCount,
 };

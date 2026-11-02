@@ -27,13 +27,18 @@
   }
 
   var leaving = false;
-  function toLogin() {
+  // `reauth`: the session is valid but too old for a tool holding personal
+  // data (server/access.js), so the login page must ask again rather than
+  // send it straight back here.
+  function toLogin(reauth) {
     // Several requests can answer 401 together: go to the login once.
     if (!leaving) {
       leaving = true;
       remember(null);
       window.location.replace(
-        '/app/login/?next=' + encodeURIComponent(window.location.pathname + window.location.search)
+        '/app/login/?next=' +
+          encodeURIComponent(window.location.pathname + window.location.search) +
+          (reauth ? '&reauth=1' : '')
       );
     }
     return new Promise(function () {});
@@ -149,7 +154,7 @@
 
   /** Shared handling for an API call that failed. */
   M.appError = function (err) {
-    if (err.status === 401) return toLogin();
+    if (err.status === 401) return toLogin(err.code === 'reauth');
     M.toast(err.message, true);
   };
 

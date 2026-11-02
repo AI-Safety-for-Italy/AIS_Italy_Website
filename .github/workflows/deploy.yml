@@ -64,6 +64,12 @@ jobs:
       group: deploy-${{ github.ref }}
       cancel-in-progress: true
 
+    # Vercel's own Git deploys are switched off for these branches in
+    # vercel.json (`git.deploymentEnabled`): otherwise each push to main would
+    # also go live through a dashboard build without CONTENT_SOURCE, showing the
+    # YAML's seminars and events until this job replaced it. Other branches
+    # keep Vercel's preview per push.
+    #
     # The Vercel CLI reads these from the environment to know which account and
     # project it is acting on, so no `.vercel` directory is committed.
     env:

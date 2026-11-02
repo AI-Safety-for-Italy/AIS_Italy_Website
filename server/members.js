@@ -199,11 +199,12 @@ async function sendInvite(row, siteOrigin, token) {
   if (!who) return { sent: false, detail: 'The application cannot be opened with the current key' };
   const role = ROLES.find((r) => r.key === row.role);
   const link = `${siteOrigin}/api/join?t=${token}`;
-  const until = new Date(row.join_expires_at).toLocaleDateString('it-IT', {
-    day: 'numeric',
-    month: 'long',
-    timeZone: 'Europe/Rome',
-  });
+  const until = (locale) =>
+    new Date(row.join_expires_at).toLocaleDateString(locale, {
+      day: 'numeric',
+      month: 'long',
+      timeZone: 'Europe/Rome',
+    });
   try {
     await mail.send({
       to: who.email,
@@ -214,8 +215,12 @@ async function sendInvite(row, siteOrigin, token) {
         'Per entrare nel nostro server Discord apri questo link. Ti chiederà di accedere con Discord ' +
         `(se non hai un account puoi crearlo lì) e ti aggiungerà al server come ${role.labelIt}.\n\n` +
         `${link}\n\n` +
-        `Il link è personale, vale una volta sola e scade il ${until}.\n\n` +
-        'A presto,\nil team di AI Safety for Italy\n',
+        `Il link è personale, vale una volta sola e scade il ${until('it-IT')}.\n\n` +
+        'A presto,\nil team di AI Safety for Italy\n\n' +
+        '---\n\n' +
+        `Hi ${firstName(who.name)}, your request to join AI Safety for Italy has been accepted. ` +
+        `Open the link above to join our Discord server as ${role.label}: ` +
+        `it is personal, works once and expires on ${until('en-GB')}.\n`,
     });
     await db.query(
       'update member_applications set invite_sent_at = now(), invite_error = null where id = $1',
