@@ -362,6 +362,7 @@
       });
       var otherInput = null;
       var otherBox = null;
+      var otherWrap = null;
       function sync() {
         var selected = [];
         group.querySelectorAll('input[data-option]').forEach(function (i) {
@@ -370,7 +371,13 @@
         var value = { selected: selected };
         if (otherBox && otherBox.checked) value.other = otherInput.value;
         values[item.id] = value;
-        if (otherInput) otherInput.disabled = !otherBox.checked;
+        if (otherInput) {
+          // "Other" ticked: a full line to write on opens below it.
+          var opening = otherWrap.hidden && otherBox.checked;
+          otherWrap.hidden = !otherBox.checked;
+          otherInput.disabled = !otherBox.checked;
+          if (opening) otherInput.focus();
+        }
         changed();
       }
       item.options.forEach(function (o) {
@@ -414,15 +421,17 @@
         otherBox.checked = Boolean(current.other);
         otherInput.value = current.other || '';
         otherInput.disabled = !otherBox.checked;
+        otherWrap = h('div', { class: 'fm-other-box' }, otherInput);
+        otherWrap.hidden = !otherBox.checked;
         group.appendChild(
           h(
             'label',
             { class: 'fm-choice fm-choice-other' },
             otherBox,
-            h('span', { class: 'fm-choice-text' }, S.other),
-            otherInput
+            h('span', { class: 'fm-choice-text' }, S.other)
           )
         );
+        group.appendChild(otherWrap);
       }
       return { control: group, focus: group.querySelector('input') };
     }
@@ -953,7 +962,30 @@
     );
   }
 
-  function frame(root, aside, main) {
+  // The site's footer line, at the bottom of the form's column, on the
+  // public page only (form.njk's #fmFooter; the editor's preview has none).
+  function footer(lang) {
+    var source = document.getElementById('fmFooter');
+    if (!source) return null;
+    return h(
+      'footer',
+      { class: 'fm-foot' },
+      h(
+        'span',
+        null,
+        source.getAttribute('data-copy-' + lang) || source.getAttribute('data-copy-it')
+      ),
+      h(
+        'span',
+        { class: 'footer-flag', 'aria-hidden': 'true' },
+        h('i', null),
+        h('i', null),
+        h('i', null)
+      )
+    );
+  }
+
+  function frame(root, aside, main, lang) {
     M.clear(root);
     root.classList.add('fm-root');
     root.appendChild(
@@ -961,7 +993,7 @@
         'div',
         { class: 'fm-shell' },
         h('aside', { class: 'fm-aside' }, h('div', { class: 'fm-aside-inner' }, aside)),
-        h('div', { class: 'fm-body' }, main)
+        h('div', { class: 'fm-body' }, h('div', { class: 'fm-main' }, main), footer(lang))
       )
     );
   }
@@ -1035,7 +1067,8 @@
         steps,
         h('p', { class: 'fm-privacy' }, icon('lock'), h('span', null, S.privacy)),
       ],
-      [langToggle ? h('div', { class: 'fm-topline' }, langToggle) : null, view]
+      [langToggle ? h('div', { class: 'fm-topline' }, langToggle) : null, view],
+      lang
     );
 
     var current = opts.page || 0;
@@ -1122,7 +1155,8 @@
           { class: 'btn btn-outline', href: '/' },
           lang === 'en' ? 'Go to the site' : 'Vai al sito'
         )
-      )
+      ),
+      lang
     );
   };
 

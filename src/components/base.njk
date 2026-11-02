@@ -276,7 +276,7 @@
         {% block content %}{% endblock %}
     </main>
 
-    {% if appShell %}{% elif meetHead %}{% include "meet-footer.njk" %}{% else %}{% include "footer.njk" %}{% endif %}
+    {% if appShell %}{% elif noFooter %}{# the page draws its own line #}{% elif meetHead %}{% include "meet-footer.njk" %}{% else %}{% include "footer.njk" %}{% endif %}
 
     {# Cookie consent for GA4. Rendered only when site.analytics.gaId is set
        (production). main.js shows it until the visitor picks, and gtag.js is

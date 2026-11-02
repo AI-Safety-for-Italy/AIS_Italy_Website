@@ -10,6 +10,8 @@ eleventyExcludeFromCollections: true
 meetHead: true
 # No bar on top: the green panel carries the logo (forms-render.js, brand()).
 noHeader: true
+# Nor a footer bar: its line sits at the bottom of the form's column (#fmFooter).
+noFooter: true
 seoTitle: 'Form | AI Safety for Italy'
 ---
 {% extends "base.njk" %}
@@ -25,6 +27,8 @@ seoTitle: 'Form | AI Safety for Italy'
     <div class="fm-body" aria-busy="true"></div>
   </div>
 </div>
+
+<span hidden id="fmFooter" data-copy-en="{{ translations.en.footer.copyright }}" data-copy-it="{{ translations.it.footer.copyright }}"></span>
 
 <script src="/assets/js/meet/common.js" defer></script>
 <script src="/assets/js/meet/markdown-lite.js" defer></script>

@@ -2796,6 +2796,33 @@ a.fm-brand:hover {
   padding: clamp(2rem, 4vw, 4rem) clamp(1.25rem, 5vw, 5rem) 5rem;
 }
 
+/* The form's column: the form, then the site's footer line at the bottom. */
+.fm-body {
+  display: flex;
+  flex-direction: column;
+}
+
+.fm-main {
+  flex: 1;
+}
+
+.fm-root.is-bare .fm-body {
+  padding-bottom: 1.5rem;
+}
+
+.fm-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  max-width: 44rem;
+  margin-top: 4rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border-default);
+  font-size: 0.8rem;
+  color: var(--text-tertiary);
+}
+
 .fm-topline,
 .fm-view {
   max-width: 44rem;
@@ -3053,22 +3080,25 @@ textarea.fm-input:focus {
   accent-color: var(--accent);
 }
 
-.fm-choice-other {
-  flex-wrap: wrap;
+/* "Other": once ticked, a full-width line below it to write the answer,
+   on the same tint as the ticked row. */
+.fm-other-box {
+  padding: 0.25rem 0.6rem 1rem 3.05rem;
+  border-bottom: 1px solid var(--border-default);
+  background: var(--accent-50);
 }
 
-.fm-choice-other .fm-choice-text {
-  flex: none;
+/* One line under the pair, not two. */
+.fm-choice-other:has(+ .fm-other-box:not([hidden])) {
+  border-bottom-color: transparent;
+}
+
+.fm-other-box[hidden] {
+  display: none;
 }
 
 .fm-other-input {
-  flex: 1 1 200px;
-  padding: 0.25rem 0;
-  font-size: 1rem;
-}
-
-.fm-other-input:disabled {
-  opacity: 0.45;
+  font-size: 1.06rem;
 }
 
 /* Several short options: chips */
