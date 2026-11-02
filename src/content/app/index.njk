@@ -1,7 +1,8 @@
 ---
 title: Home
 # Landing page after sign-in: what waits for the member in each tool, the
-# tools their roles open, and quick actions. Tools come from src/data/tools.js;
+# tools their roles open. Tools come from src/data/tools.js (their actions
+# are offered by the search, Ctrl+K);
 # the counts from /api/app/overview (hub.js).
 permalink: /app/
 noindex: true
@@ -26,11 +27,6 @@ pageTitle: Home
           } catch (e) {}
         })();
       </script>
-    </div>
-    <div class="hub-actions" id="hubActions">
-      {%- for t in tools %}{% for a in t.actions %}
-      <a class="btn {% if t.key == 'polls' %}btn-primary{% else %}btn-outline{% endif %} btn-sm" href="{{ a.url }}"{% if a.needs %} data-needs="{{ a.needs }}" hidden{% elif t.area %} data-area="{{ t.area }}" hidden{% endif %}>{{ a.label }}</a>
-      {%- endfor %}{% endfor %}
     </div>
   </div>
 
