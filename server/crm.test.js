@@ -294,7 +294,13 @@ test('a sign-in older than a day has to be done again', async () => {
   await db.query(`update app_users set last_login_at = now() - interval '25 hours' where id = $1`, [
     mentor.id,
   ]);
-  await rejects(access.authorize(mentor, 'mentorship'), 401);
+  // Marked `reauth`, so the login page asks again instead of sending the
+  // still-valid session straight back (which looped between the two pages).
+  await assert.rejects(access.authorize(mentor, 'mentorship'), (err) => {
+    assert.equal(err.status, 401);
+    assert.equal(err.details.code, 'reauth');
+    return true;
+  });
   // Signing in again (which stamps last_login_at) lets them back in.
   const again = await member('Maria', ['r-mentors']);
   await access.authorize(again, 'mentorship');

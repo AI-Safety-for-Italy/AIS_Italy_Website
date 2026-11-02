@@ -1,6 +1,14 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": "_site",
+  "git": {
+    "deploymentEnabled": {
+      "main": false,
+      "dev": false,
+      "design-improvements": false
+    }
+  },
+  "regions": ["fra1"],
   "headers": [
     {
       "source": "/robots.txt",

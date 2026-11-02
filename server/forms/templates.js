@@ -338,6 +338,14 @@ function slugFor(key) {
   return (TEMPLATES[key] && TEMPLATES[key].slug) || null;
 }
 
+/** The addresses the site links to (the templates' own): only forms admins
+ * may give them to a form, so nobody else can catch those answers. */
+function reservedSlugs() {
+  return Object.values(TEMPLATES)
+    .map((t) => t.slug)
+    .filter(Boolean);
+}
+
 function list() {
   return Object.entries(TEMPLATES).map(([key, t]) => ({ key, label: t.label }));
 }
@@ -347,4 +355,4 @@ function schemaFor(key, title) {
   return template.schema(title);
 }
 
-module.exports = { list, schemaFor, membershipFor, crmFor, slugFor };
+module.exports = { list, schemaFor, membershipFor, crmFor, slugFor, reservedSlugs };

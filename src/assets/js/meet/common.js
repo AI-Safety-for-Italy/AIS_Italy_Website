@@ -78,7 +78,8 @@
   }
 
   var toastTimer;
-  // action ({ label, onclick }) adds one button, e.g. Undo; the toast then stays longer.
+  /** A short message at the bottom. `action` ({ label, run }) adds a button,
+   * e.g. Undo, and keeps the message up a little longer. */
   function toast(message, isError, action) {
     var el = document.querySelector('.toast');
     if (!el) {
@@ -86,6 +87,8 @@
       document.body.appendChild(el);
     }
     el.textContent = message;
+    el.classList.toggle('is-error', Boolean(isError));
+    el.classList.toggle('has-action', Boolean(action));
     if (action) {
       el.appendChild(
         h(
@@ -95,15 +98,13 @@
             class: 'toast-action',
             onclick: function () {
               el.classList.remove('is-visible');
-              action.onclick();
+              action.run();
             },
           },
           action.label
         )
       );
     }
-    el.classList.toggle('has-action', Boolean(action));
-    el.classList.toggle('is-error', Boolean(isError));
     el.classList.add('is-visible');
     clearTimeout(toastTimer);
     toastTimer = setTimeout(

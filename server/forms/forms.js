@@ -29,6 +29,7 @@ const sources = require('../crm/sources');
 const members = require('../members');
 const notify = require('../notify');
 const mail = require('../mail');
+const copyEmail = require('./copy-email');
 
 const STATUSES = ['draft', 'open', 'closed'];
 // Where the team is with one answer (form_responses.status).
@@ -39,6 +40,12 @@ const ROLE = /^[\w-]{1,40}$/;
 const DEFAULT_SETTINGS = {
   oneResponsePerEmail: false,
   notifyOwner: true,
+  // Email the person a copy of their answers, at the form's first email
+  // question. On unless the form's managers switch it off.
+  sendCopy: true,
+  // Members of the Discord server also told about new answers, besides the
+  // owner: [{ discordId, name }]. Chosen by whoever holds `forms_notify`.
+  notifyPeople: [],
   // The community's registration form: see ./membership.js. null for any other.
   membership: null,
   // The mentorship board list the answers also go to (server/crm/sources.js), or null.
@@ -46,6 +53,32 @@ const DEFAULT_SETTINGS = {
 };
 
 const CRM_LISTS = ['mentors_applications', 'mentees_interest', 'mentees_applications'];
+const MAX_NOTIFIED = 25;
+const DISCORD_ID = /^[\w-]{1,40}$/;
+
+/** A list of people to tell, as sent by the editor: checked and capped. */
+function cleanNotifyPeople(list) {
+  if (!Array.isArray(list))
+    throw new HttpError(400, 'Expected a list of people', { field: 'notifyPeople' });
+  const seen = new Set();
+  const out = [];
+  for (const p of list) {
+    const discordId = String((p && p.discordId) || '');
+    if (!DISCORD_ID.test(discordId))
+      throw new HttpError(400, 'Unknown person', { field: 'notifyPeople' });
+    if (seen.has(discordId)) continue;
+    seen.add(discordId);
+    out.push({
+      discordId,
+      name: String((p && p.name) || discordId)
+        .trim()
+        .slice(0, 100),
+    });
+  }
+  if (out.length > MAX_NOTIFIED)
+    throw new HttpError(400, `At most ${MAX_NOTIFIED} people`, { field: 'notifyPeople' });
+  return out;
+}
 
 // ── Who is asking ────────────────────────────────────────────────────────────
 
@@ -178,6 +211,7 @@ async function get(user, id) {
     accessRoles: form.access_roles,
     // Only for those who change the form: the people who read it are theirs to know.
     ...(canManage(user, who, form) ? { readers: await readersOf(form) } : {}),
+    canChooseNotified: canManage(user, who, form) && who.perms.includes('forms_notify'),
   };
 }
 
@@ -211,7 +245,9 @@ async function create(user, body) {
   if (wiring && who.perms.includes('forms_admin')) settings.membership = wiring;
   const crmList = b.schema ? null : templates.crmFor(b.template);
   if (crmList && who.perms.includes('forms_admin')) settings.crm = crmList;
-  const ownSlug = b.schema ? null : templates.slugFor(b.template);
+  // A template's own address is one the site links to: forms admins only.
+  const ownSlug =
+    b.schema || !who.perms.includes('forms_admin') ? null : templates.slugFor(b.template);
   for (let n = 0; n < 10; n++) {
     // A short random tail: links are not guessable from the title alone. The
     // registration form first tries the address the site's join buttons open.
@@ -281,7 +317,7 @@ function when(value, field) {
 
 /** Status, dates, link, who reads the answers, and the rest of the settings. */
 async function updateSettings(user, id, body) {
-  const { form } = await formFor(user, id, 'manage', { fresh: true });
+  const { form, who } = await formFor(user, id, 'manage', { fresh: true });
   const b = body || {};
   const status = b.status === undefined ? form.status : b.status;
   if (!STATUSES.includes(status)) throw new HttpError(400, 'Unknown status', { field: 'status' });
@@ -301,6 +337,11 @@ async function updateSettings(user, id, body) {
       });
     if (!SLUG.test(String(b.slug)))
       throw new HttpError(400, 'Use lower-case letters, digits and dashes', { field: 'slug' });
+    // The addresses the site's buttons open: whoever took one would collect
+    // the sign-ups or the applications in a form only they can read.
+    const reserved = [membership.JOIN_SLUG, ...templates.reservedSlugs()];
+    if (reserved.includes(b.slug) && !who.perms.includes('forms_admin'))
+      throw new HttpError(403, 'Only a forms admin can give a form this link', { field: 'slug' });
     slug = b.slug;
   }
 
@@ -309,6 +350,31 @@ async function updateSettings(user, id, body) {
   if (s.oneResponsePerEmail !== undefined)
     settings.oneResponsePerEmail = Boolean(s.oneResponsePerEmail);
   if (s.notifyOwner !== undefined) settings.notifyOwner = Boolean(s.notifyOwner);
+  if (s.sendCopy !== undefined) settings.sendCopy = Boolean(s.sendCopy);
+  if (s.notifyPeople !== undefined) {
+    const next = cleanNotifyPeople(s.notifyPeople);
+    const ids = (list) =>
+      (list || [])
+        .map((p) => p.discordId)
+        .sort()
+        .join(',');
+    // Who switched it off for themselves stays so (setMyNotification).
+    const muted = new Set(
+      (settings.notifyPeople || []).filter((p) => p.muted).map((p) => p.discordId)
+    );
+    next.forEach((p) => {
+      if (muted.has(p.discordId)) p.muted = true;
+    });
+    if (ids(next) !== ids(settings.notifyPeople)) {
+      // Who hears about the answers is decided by whoever holds the key.
+      const fresh = await whoIs(user, { fresh: true });
+      if (!fresh.perms.includes('forms_notify'))
+        throw new HttpError(403, 'Your roles do not let you choose who is notified', {
+          field: 'notifyPeople',
+        });
+    }
+    settings.notifyPeople = next;
+  }
   if (s.membership !== undefined) {
     // Sending answers to the members board is for the forms admins: it is a
     // door into who may be let into the Discord server.
@@ -504,7 +570,21 @@ async function submit(slug, body, ip) {
     await toBoard(form, schema, settings, answers, tx);
     if (settings.crm) await toMentorship(settings.crm, schema, answers, id, tx);
   });
-  return { ok: true, confirmation, responseId: id, formId: form.id };
+  // The copy is built here, from the cleaned answers, and only sent by the
+  // caller (api/form.js): it never travels back to the page.
+  const copy = settings.sendCopy && email ? copyEmail.copyOf(schema, answers, email) : null;
+  return { ok: true, confirmation, responseId: id, formId: form.id, copy };
+}
+
+/**
+ * Sends the copy from submit(), if the mailbox is set up; `origin` is the
+ * site, for the logo (server/forms/copy-email.js). Returns whether it went.
+ */
+async function sendCopy(copy, origin) {
+  if (!copy || !(await mail.isConfigured())) return false;
+  const email = copyEmail.render(copy, origin);
+  await mail.send({ to: copy.to, ...email });
+  return true;
 }
 
 /**
@@ -542,15 +622,97 @@ async function notifyOwner(formId, origin) {
     formId,
   ]);
   const form = rows[0];
-  if (!form || !{ ...DEFAULT_SETTINGS, ...form.settings }.notifyOwner) return [];
+  if (!form) return [];
+  const settings = { ...DEFAULT_SETTINGS, ...form.settings };
   const message = notify.newFormAnswerMessage({ form, origin });
-  // One shared address (General settings) when set, whoever owns the form.
-  const shared = await mail.formsAddress();
-  if (shared && (await mail.isConfigured())) {
-    await mail.send({ to: shared, subject: message.subject, ...notify.render(message.lines) });
-    return ['email'];
+  const used = new Set();
+  if (settings.notifyOwner) {
+    // One shared address (General settings) when set, whoever owns the form.
+    const shared = await mail.formsAddress();
+    if (shared && (await mail.isConfigured())) {
+      await mail.send({ to: shared, subject: message.subject, ...notify.render(message.lines) });
+      used.add('email');
+    } else if (form.owner_id) {
+      (await notify.notifyUser(form.owner_id, message)).forEach((c) => used.add(c));
+    }
   }
-  return form.owner_id ? notify.notifyUser(form.owner_id, message) : [];
+  // The people added to the form, each on their own channels (the owner,
+  // if added too, is told once).
+  let ownerDiscord = null;
+  if (form.owner_id) {
+    const owner = await db.query('select discord_id from app_users where id = $1', [form.owner_id]);
+    ownerDiscord = owner.rows[0] && owner.rows[0].discord_id;
+  }
+  for (const person of settings.notifyPeople || []) {
+    if (person.muted) continue;
+    if (settings.notifyOwner && person.discordId === ownerDiscord) continue;
+    try {
+      (await notify.notifyMember(person.discordId, message)).forEach((c) => used.add(c));
+    } catch (err) {
+      console.error('Notification failed', err.message);
+    }
+  }
+  return [...used];
+}
+
+/**
+ * The forms that tell this user about new answers, as owner or added by
+ * someone: [{ id, title, slug, status, as: 'owner' | 'added', on }]. Only
+ * their titles: it needs no permission on the forms themselves.
+ */
+async function myNotifications(user) {
+  if (user.kind !== 'discord') return [];
+  const { rows: me } = await db.query('select discord_id from app_users where id = $1', [user.id]);
+  const discordId = me[0] && me[0].discord_id;
+  const { rows } = await db.query(
+    `select id, title, slug, status, owner_id, settings from forms
+     where owner_id = $1 or settings -> 'notifyPeople' @> $2::jsonb
+     order by lower(title)`,
+    [user.id, JSON.stringify([{ discordId: discordId || '' }])]
+  );
+  return rows.map((f) => {
+    const settings = { ...DEFAULT_SETTINGS, ...f.settings };
+    const added = (settings.notifyPeople || []).find((p) => p.discordId === discordId);
+    const owner = f.owner_id === user.id;
+    return {
+      id: f.id,
+      title: f.title,
+      slug: f.slug,
+      status: f.status,
+      as: owner ? 'owner' : 'added',
+      on: owner ? Boolean(settings.notifyOwner) || Boolean(added && !added.muted) : !added.muted,
+    };
+  });
+}
+
+/** Switches this user's own notifications for one form on or off. */
+async function setMyNotification(user, id, on) {
+  const mine = (await myNotifications(user)).find((f) => f.id === id);
+  if (!mine) throw new HttpError(404, 'No such form');
+  const { rows } = await db.query('select settings from forms where id = $1', [id]);
+  const settings = { ...DEFAULT_SETTINGS, ...rows[0].settings };
+  const { rows: me } = await db.query('select discord_id from app_users where id = $1', [user.id]);
+  const discordId = me[0] && me[0].discord_id;
+  if (mine.as === 'owner') settings.notifyOwner = Boolean(on);
+  settings.notifyPeople = (settings.notifyPeople || []).map((p) =>
+    p.discordId === discordId ? { ...p, muted: !on } : p
+  );
+  await db.query('update forms set settings = $2, updated_at = now() where id = $1', [
+    id,
+    settings,
+  ]);
+  await audit.record(user, 'form-notify-me', id, { on: Boolean(on) });
+  return { ...mine, on: Boolean(on) };
+}
+
+/** Members of the Discord server to add to a form's notifications. */
+async function searchPeople(user, id, query) {
+  const { form, who } = await formFor(user, id, 'manage');
+  if (!who.perms.includes('forms_notify')) {
+    await audit.record(user, 'denied', form.id, { needs: 'forms_notify' });
+    throw new HttpError(403, 'Your roles do not let you choose who is notified');
+  }
+  return { people: await permissions.searchMembers(query) };
 }
 
 // ── Answers ──────────────────────────────────────────────────────────────────
@@ -704,6 +866,10 @@ module.exports = {
   publicView,
   submit,
   notifyOwner,
+  searchPeople,
+  myNotifications,
+  setMyNotification,
+  sendCopy,
   responses,
   requireForms,
   meta,

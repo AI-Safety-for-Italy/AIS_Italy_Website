@@ -243,7 +243,7 @@
           if (changes.status && !quiet) {
             M.toast(p.name + ' moved to ' + statusLabel(p.status), false, {
               label: 'Undo',
-              onclick: function () {
+              run: function () {
                 localUpdate({ status: before.status }, true);
               },
             });

@@ -42,6 +42,7 @@ async function setRoles() {
     { roleId: 'r-forms', roleName: 'forms makers', permissions: ['forms'] },
     { roleId: 'r-forms-admin', roleName: 'forms admins', permissions: ['forms_admin'] },
     { roleId: 'r-mentors', roleName: 'mentorship', permissions: ['mentorship'] },
+    { roleId: 'r-notify', roleName: 'direttivo', permissions: ['forms', 'forms_notify'] },
   ]);
 }
 
@@ -247,6 +248,19 @@ test('good answers come out clean, in the shape of their questions', () => {
     goodAnswers({ track: { selected: [], other: 'Entrambi' } })
   ).answers;
   assert.deepEqual(other.track, { selected: [], other: 'Entrambi' });
+  // A short answer is one line; a paragraph and "Other" (Shift+Enter) keep
+  // their line breaks.
+  const lines = schemaLib.cleanAnswers(
+    s,
+    goodAnswers({
+      name: '  Ada \r\n\n\n  Esempio   Seconda  ',
+      bio: 'Riga uno\r\n\r\nRiga due',
+      track: { selected: [], other: 'Uno\r\nDue' },
+    })
+  ).answers;
+  assert.equal(lines.name, 'Ada Esempio Seconda');
+  assert.equal(lines.bio, 'Riga uno\n\nRiga due');
+  assert.equal(lines.track.other, 'Uno\nDue');
   // Optional questions left empty are simply absent.
   const short = schemaLib.cleanAnswers(s, {
     name: 'Ada',
@@ -255,6 +269,36 @@ test('good answers come out clean, in the shape of their questions', () => {
     privacy: true,
   }).answers;
   assert.deepEqual(Object.keys(short).sort(), ['email', 'name', 'privacy', 'track']);
+});
+
+test('a paragraph can take at most a number of words, checked on the server', () => {
+  const s = schemaLib.cleanSchema(
+    fullSchema({
+      items: [
+        { id: 'bio', type: 'long_text', label: { it: 'Chi sei' }, maxWords: 5 },
+        { id: 'name', type: 'short_text', label: { it: 'Nome' }, maxWords: 5 },
+      ],
+    })
+  );
+  assert.equal(s.items[0].maxWords, 5);
+  // Only a paragraph has a word limit.
+  assert.equal(s.items[1].maxWords, undefined);
+  assert.equal(schemaLib.wordCount('  uno\n due   tre '), 3);
+  assert.equal(
+    schemaLib.cleanAnswers(s, { bio: 'uno due tre quattro\ncinque' }).answers.bio,
+    'uno due tre quattro\ncinque'
+  );
+  assert.throws(
+    () => schemaLib.cleanAnswers(s, { bio: 'uno due tre quattro cinque sei' }),
+    (err) => err.status === 400 && /At most 5 words/.test(err.details.errors.bio)
+  );
+  for (const maxWords of [0, -3, 2.5, 2001, 'tanti']) {
+    assert.throws(() =>
+      schemaLib.cleanSchema(
+        fullSchema({ items: [{ id: 'bio', type: 'long_text', label: { it: 'B' }, maxWords }] })
+      )
+    );
+  }
 });
 
 test('each wrong answer is refused with a message on its own question', () => {
@@ -381,6 +425,17 @@ test('making forms needs the forms permission; each maker sees their own', async
   await rejects(forms.updateSettings(luca, id, { status: 'open' }), 404);
   // The forms admin may change it.
   await forms.updateSettings(boss, id, { status: 'open' });
+
+  // The addresses the site links to are the forms admins' to give.
+  for (const reserved of ['iscrizione', 'candidatura-mentee']) {
+    await rejects(forms.updateSettings(mara, id, { slug: reserved }), 403);
+  }
+  const fromTemplate = await forms.create(mara, {
+    title: 'Candidatura',
+    template: 'mentee_application',
+  });
+  assert.notEqual(fromTemplate.slug, 'candidatura-mentee');
+  await forms.updateSettings(boss, id, { slug: 'candidatura-mentee' });
 });
 
 test('a role on the form lets its holders read the answers, but not change the form', async () => {
@@ -811,7 +866,8 @@ test('the owner hears that someone answered, never what, and only if they asked'
     await setRoles();
     const mara = await member('Mara', ['r-forms']);
     await auth.updateProfile(mara.id, { notifyChannel: 'email', notifyEmail: 'mara@example.org' });
-    const { id, slug } = await openForm(mara);
+    // Without the copy to the person: this test counts the owner's emails.
+    const { id, slug } = await openForm(mara, { settings: { settings: { sendCopy: false } } });
     const send = async (answers, extra = {}) => {
       const view = (await call(publicApi, { url: `/api/form?f=${slug}` })).body;
       later(5000);
@@ -847,6 +903,254 @@ test('the owner hears that someone answered, never what, and only if they asked'
     assert.deepEqual(await forms.notifyOwner(made.id, 'https://x'), []);
   } finally {
     process.env.MEET_FAKE_MAIL = '1';
+  }
+});
+
+test('the person gets a copy of their answers unless the form switches it off', async () => {
+  const mail = require('./mail');
+  const sent = [];
+  process.env.MEET_FAKE_MAIL = '0';
+  mail.setTransportFactory(() => ({ sendMail: async (m) => sent.push(m), close() {} }));
+  try {
+    await setRoles();
+    const mara = await member('Mara', ['r-forms']);
+    const { id, slug } = await openForm(mara);
+    const send = async (answers) => {
+      const view = (await call(publicApi, { url: `/api/form?f=${slug}` })).body;
+      later(5000);
+      return call(publicApi, {
+        method: 'POST',
+        url: `/api/form?f=${slug}`,
+        body: { version: view.version, token: view.token, answers },
+      });
+    };
+    const copies = () => sent.filter((m) => m.to === 'ada@example.org');
+
+    // On by default, but no mailbox set up yet: the answer is kept, no copy.
+    assert.equal((await forms.get(mara, id)).settings.sendCopy, true);
+    assert.equal((await send(goodAnswers())).statusCode, 201);
+    assert.equal(copies().length, 0);
+
+    // Switched off: no copy, even with a mailbox.
+    await mail.saveSettings({
+      host: 'smtp.x',
+      port: 465,
+      fromEmail: 'tech@ais4i.it',
+      password: 'p',
+    });
+    await forms.updateSettings(mara, id, { settings: { sendCopy: false } });
+    assert.equal((await send(goodAnswers())).statusCode, 201);
+    assert.equal(copies().length, 0);
+    await forms.updateSettings(mara, id, { settings: { sendCopy: true } });
+
+    const res = await send(goodAnswers({ bio: undefined, cv: '' }));
+    assert.equal(res.statusCode, 201);
+    // The page gets the confirmation only, never the copy.
+    assert.deepEqual(res.body, { ok: true, confirmation: { it: 'Grazie!' } });
+    assert.equal(copies().length, 1);
+    const copy = copies()[0];
+    assert.equal(copy.subject, 'Le tue risposte: Candidatura di prova');
+    for (const said of [
+      'Nome\nAda Esempio',
+      'Percorso\nProgetti',
+      'Aree\nInterpretabilità, Governance',
+    ]) {
+      assert.ok(copy.text.includes(said), said);
+    }
+    assert.ok(copy.text.includes('Acconsento al trattamento dei dati\nAccettato'));
+    // The HTML: the site's logo, the form's title, the answers.
+    assert.match(copy.html, /\/assets\/img\/ais4i-logo-512\.png/);
+    assert.match(copy.html, /<h1[^>]*>Candidatura di prova<\/h1>/);
+    assert.ok(copy.html.includes('Ada Esempio'));
+    // Questions left empty are not listed; answers are escaped in the HTML.
+    assert.ok(!copy.text.includes('Chi sei'));
+    assert.ok(!copy.text.includes('Link al CV'));
+    await send(goodAnswers({ name: '<b>Ada</b>' }));
+    assert.ok(copies()[1].html.includes('&lt;b&gt;Ada&lt;/b&gt;'));
+
+    // A form without an email question has nowhere to send it.
+    const plain = await openForm(mara, {
+      schema: { items: [{ id: 'name', type: 'short_text', label: { it: 'Nome' } }] },
+      settings: { settings: { sendCopy: true } },
+    });
+    const view = await forms.publicView(plain.slug);
+    later(5000);
+    const r = await forms.submit(plain.slug, {
+      version: view.version,
+      token: view.token,
+      answers: { name: 'Ada' },
+    });
+    assert.equal(r.copy, null);
+    assert.equal(await forms.sendCopy(r.copy), false);
+  } finally {
+    process.env.MEET_FAKE_MAIL = '1';
+  }
+});
+
+test('members of the Discord server are found by name, signed in here or not', async () => {
+  await member('Giulia', []);
+  process.env.DISCORD_BOT_TOKEN_AIS_TEAM_AREA = 'bot';
+  process.env.DISCORD_GUILD_ID = 'g1';
+  let asked = null;
+  permissions.setFetch(async (url) => {
+    asked = url;
+    return {
+      ok: true,
+      status: 200,
+      json: async () => [
+        { user: { id: 'test-Giulia', username: 'giulia' } },
+        { user: { id: '555000111', username: 'giuliano', global_name: 'Giuliano V.' } },
+        { user: { id: '555000112', username: 'giubot', bot: true } },
+        { nick: 'Giu R.', user: { id: '555000113', username: 'rossi', avatar: 'abc' } },
+      ],
+    };
+  });
+  try {
+    const found = await permissions.searchMembers('Giu');
+    assert.match(asked, /\/guilds\/g1\/members\/search\?limit=10&query=Giu$/);
+    assert.deepEqual(
+      found.map((p) => [p.discordId, p.name]),
+      [
+        ['test-Giulia', 'Giulia'],
+        ['555000111', 'Giuliano V.'],
+        ['555000113', 'Giu R.'],
+      ]
+    );
+    assert.match(found[2].avatarUrl, /avatars\/555000113\/abc\.png/);
+    // Too short to search.
+    assert.deepEqual(await permissions.searchMembers('G'), []);
+  } finally {
+    delete process.env.DISCORD_BOT_TOKEN_AIS_TEAM_AREA;
+    delete process.env.DISCORD_GUILD_ID;
+    permissions.setFetch(() => {
+      throw new Error('no network in tests');
+    });
+  }
+});
+
+test('people added to a form hear about answers on their own channels', async () => {
+  const mail = require('./mail');
+  const notify = require('./notify');
+  const sent = [];
+  const dms = [];
+  process.env.MEET_FAKE_MAIL = '0';
+  process.env.DISCORD_BOT_TOKEN_AIS_TEAM_AREA = 'bot';
+  mail.setTransportFactory(() => ({ sendMail: async (m) => sent.push(m), close() {} }));
+  notify.setFetch(async (url, opts) => {
+    if (url.endsWith('/users/@me/channels')) {
+      const { recipient_id: to } = JSON.parse(opts.body);
+      dms.push(to);
+      return { ok: true, json: async () => ({ id: `ch-${to}` }) };
+    }
+    return { ok: true, json: async () => ({}) };
+  });
+  await mail.saveSettings({ host: 'smtp.x', port: 465, fromEmail: 'tech@ais4i.it', password: 'p' });
+  try {
+    await setRoles();
+    const mara = await member('Mara', ['r-forms']);
+    const dora = await member('Dora', ['r-notify']);
+    const ugo = await member('Ugo', []);
+    await auth.updateProfile(ugo.id, { notifyChannel: 'email', notifyEmail: 'ugo@example.org' });
+    const { id } = await openForm(dora, { settings: { settings: { notifyOwner: false } } });
+
+    // Choosing who is told needs forms_notify, even for a form one manages.
+    const mine = await openForm(mara);
+    await rejects(
+      forms.updateSettings(mara, mine.id, {
+        settings: { notifyPeople: [{ discordId: 'test-Ugo', name: 'Ugo' }] },
+      }),
+      403
+    );
+    await rejects(forms.searchPeople(mara, mine.id, 'Ug'), 403);
+    assert.equal((await forms.get(mara, mine.id)).canChooseNotified, false);
+    // …and saving the other settings unchanged is still fine.
+    await forms.updateSettings(mara, mine.id, { settings: { notifyPeople: [] } });
+
+    // Dora holds it: she finds Ugo and adds him, and someone who never signed in.
+    assert.equal((await forms.get(dora, id)).canChooseNotified, true);
+    const found = (await forms.searchPeople(dora, id, 'ug')).people;
+    assert.deepEqual(
+      found.map((p) => p.discordId),
+      ['test-Ugo']
+    );
+    assert.deepEqual(await forms.searchPeople(dora, id, 'u'), { people: [] });
+    await forms.updateSettings(dora, id, {
+      settings: {
+        notifyPeople: [
+          { discordId: 'test-Ugo', name: 'Ugo' },
+          { discordId: '123456789012', name: 'Nuovo' },
+          { discordId: 'test-Ugo', name: 'Ugo again' },
+        ],
+      },
+    });
+    assert.deepEqual(
+      (await forms.get(dora, id)).settings.notifyPeople.map((p) => p.discordId),
+      ['test-Ugo', '123456789012']
+    );
+    await rejects(
+      forms.updateSettings(dora, id, {
+        settings: { notifyPeople: [{ discordId: 'no spaces!', name: 'x' }] },
+      }),
+      400
+    );
+
+    // An answer: Ugo by email (his choice), the newcomer by a Discord message.
+    const channels = await forms.notifyOwner(id, 'https://x');
+    assert.deepEqual(channels.sort(), ['discord', 'email']);
+    assert.deepEqual(
+      sent.map((m) => m.to),
+      ['ugo@example.org']
+    );
+    assert.deepEqual(dms, ['123456789012']);
+
+    // Ugo sees the form among those that tell him, and switches it off for
+    // himself: no permission needed, and a later save of the list keeps it off.
+    const ugoForms = await forms.myNotifications(ugo);
+    assert.deepEqual(
+      ugoForms.map((f) => [f.id, f.as, f.on]),
+      [[id, 'added', true]]
+    );
+    assert.deepEqual(
+      (await forms.myNotifications(mara)).map((f) => [f.id, f.as]),
+      [[mine.id, 'owner']]
+    );
+    await forms.setMyNotification(ugo, id, false);
+    await forms.updateSettings(dora, id, {
+      settings: {
+        notifyPeople: [
+          { discordId: 'test-Ugo', name: 'Ugo' },
+          { discordId: '123456789012', name: 'Nuovo' },
+        ],
+      },
+    });
+    assert.equal((await forms.myNotifications(ugo))[0].on, false);
+    sent.length = 0;
+    dms.length = 0;
+    await forms.notifyOwner(id, 'https://x');
+    assert.equal(sent.length, 0);
+    assert.deepEqual(dms, ['123456789012']);
+    await rejects(forms.setMyNotification(ugo, mine.id, true), 404);
+    await forms.setMyNotification(ugo, id, true);
+    await forms.notifyOwner(id, 'https://x');
+    assert.deepEqual(
+      sent.map((m) => m.to),
+      ['ugo@example.org']
+    );
+    // The owner's switch is the form's "Tell me about new answers".
+    await forms.setMyNotification(mara, mine.id, false);
+    assert.equal((await forms.get(mara, mine.id)).settings.notifyOwner, false);
+
+    // Ugo switches his notifications off: he is not told any more.
+    await auth.updateProfile(ugo.id, { notifyChannel: 'none' });
+    sent.length = 0;
+    dms.length = 0;
+    await forms.notifyOwner(id, 'https://x');
+    assert.equal(sent.length, 0);
+    assert.deepEqual(dms, ['123456789012']);
+  } finally {
+    process.env.MEET_FAKE_MAIL = '1';
+    delete process.env.DISCORD_BOT_TOKEN_AIS_TEAM_AREA;
+    notify.setFetch((...args) => fetch(...args));
   }
 });
 
