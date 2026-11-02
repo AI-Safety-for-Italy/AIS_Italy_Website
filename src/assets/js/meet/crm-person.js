@@ -15,6 +15,7 @@
   var SOURCE_LABELS = {
     mentors_prospective: 'List to contact',
     mentors_applications: 'Mentor application',
+    mentees_applications: 'Mentee application',
     mentees_interest: 'Expression of interest',
   };
 
@@ -42,7 +43,7 @@
     referrer: 'Recommended by',
     notes: 'Area / notes',
     contacted: 'Contacted',
-    replied: 'Replied',
+    replied: 'Reply',
     reply_note: 'What they said',
     cv: 'CV',
     profile: 'Profile',
