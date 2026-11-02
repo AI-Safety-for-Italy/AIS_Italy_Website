@@ -47,11 +47,19 @@ the terminal instead of sent. Set `DATABASE_URL`, the `DISCORD_*` variables or
 | `DISCORD_ROLES_IDS`     | Roles allowed in, comma-separated (Server Settings → Roles → Copy ID)         |
 | `SITE_URL`              | **Production only**: `https://www.ais4i.it`, for the links in emails          |
 
+The CRM, the forms and the member applications need more, each set on
+**both** Production and Preview, with different values on each:
+`CRM_ENCRYPTION_KEY`, `CRM_KEY_SECRET` (without them the public forms answer
+503), `DISCORD_ROLE_PARTICIPANT`, `DISCORD_ROLE_ORGANIZER`,
+`GOOGLE_SERVICE_ACCOUNT_JSON`, and on Production `CRON_SECRET`; see their
+sections below.
+
 Never set `MEET_DEV_LOGIN` on Vercel: it is ignored there anyway (the stand-in
-sign-in works only off Vercel), but it has no business in a deployment. In
-production the shared admin password opens the site's content and the
-permissions table only; the CRM, form answers and member applications need a
-Discord sign-in.
+sign-in works only off Vercel), but it has no business in a deployment. On
+every deployment (production and the previews, which are public) the shared
+admin password opens the site's content and the permissions table only; the
+CRM, form answers and member applications need a Discord sign-in. Only on a
+developer machine does it open everything.
 
 On the Discord application, add a redirect for every host the site runs on:
 `https://www.ais4i.it/api/discord`, `https://ais4i-dev.vercel.app/api/discord`
@@ -224,13 +232,15 @@ The foundations it stands on:
 
 The rules, which later phases must keep:
 
-- **Personal data stays in the Google Sheets the forms write to.** The board
-  reads them (`server/sheets.js`, read-only scope, fixed in the code) and never
-  copies emails, CVs or answers into the database. Reads are cached in memory
-  for two minutes, never on disk.
-- **The database holds only what is operational**, pointing at a person by an
-  opaque key (`personKey` in `server/crm/crypto.js`: an HMAC of the email, not
-  the email). Free notes are encrypted with AES-256-GCM, bound to their person.
+- **Personal data in the database is always encrypted.** The board keeps its
+  own copy of each person (`crm_records`, `server/crm/records.js`): imported
+  once from the Google Sheets (`server/sheets.js`, read-only scope, fixed in
+  the code), added by hand, or sent by a form. Each record, emails and answers
+  included, is stored encrypted with AES-256-GCM (`data_encrypted`), bound to
+  its row; so are form answers and member applications.
+- **What is operational points at a person by an opaque key** (`personKey` in
+  `server/crm/crypto.js`: an HMAC of the email, not the email): stages,
+  pairs, followers. Free notes are encrypted too, bound to their person.
 - **Permissions per part**, checked on the server on every request
   (`server/access.js`): `mentorship`, `people`, `finance`, `crm_admin`,
   set on the same Permissions page as the content tool's. A CRM permission
@@ -260,11 +270,14 @@ edited by `crm_admin`; the sheets are shared, as Viewer, with the service
 account one at a time. `server/crm/sources.js` maps the sheets' columns to
 fields by header text, so a form that gains a question does not break the board.
 
-# Forms (`/app/forms/`, `/form/?f=…`, in progress)
+# Forms (`/app/forms/`, `/form/?f=…`)
 
-Forms made and answered on the platform instead of Google Forms. **F0 (the
-engine) and F1 (the editor and the public page) are here**; answers review,
-analysis and the linked Google Sheet come next.
+Forms made and answered on the platform instead of Google Forms: the engine,
+the editor, the public page and the answers (review, charts, CSV export) are
+here; a linked Google Sheet is not. The site's join buttons open the form with
+the link `iscrizione`, and "Apply as a mentee" the one with
+`candidatura-mentee`: both must exist and be open on each environment, and
+only a forms admin can give a form those links.
 
 - **The editor** (`/app/forms/`, permission `forms`, or `forms_admin` for all
   forms): start blank or from a template modelled on the current Google
@@ -274,9 +287,8 @@ analysis and the linked Google Sheet come next.
   the public page's own code; settings (draft / open / closed, dates, link,
   one answer per email, telling the owner about new answers (by email or
   Discord DM, as on their settings page; never what the answer says), which
-  Discord roles read the answers) and the public link. How long answers are
-  kept is not set yet: deleting them on a schedule needs a job, which comes
-  later.
+  Discord roles read the answers) and the public link. Answers are deleted
+  24 months after they were sent (see "Keeping time of personal data").
 - **Answers** (the editor's Answers tab; also the only tab for the Discord
   roles a form lets read its answers): a summary with a chart per question
   (bars, columns or donut, sortable, the choice remembered per form), numbers
