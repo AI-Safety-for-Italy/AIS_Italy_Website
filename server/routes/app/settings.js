@@ -16,13 +16,15 @@ function requireAdmin(user) {
 module.exports = route({
   async GET(req, res) {
     const user = await auth.requireUser(req);
+    const [profile, configured, smtp] = await Promise.all([
+      auth.getProfile(user.id),
+      mail.isConfigured(),
+      user.kind === 'admin' ? mail.publicSettings() : undefined,
+    ]);
     sendJson(res, 200, {
-      profile: await auth.getProfile(user.id),
+      profile,
       discordBot: notify.discordAvailable(),
-      mail: {
-        configured: await mail.isConfigured(),
-        smtp: user.kind === 'admin' ? await mail.publicSettings() : undefined,
-      },
+      mail: { configured, smtp },
     });
   },
   async PATCH(req, res) {

@@ -88,7 +88,12 @@ function devLogin() {
 let fetchImpl = (...args) => fetch(...args);
 function setFetch(fn) {
   fetchImpl = fn;
+  rolesCache = null;
 }
+
+// Discord is asked on the request path: a slow answer must not hold the page
+// (the stored roles stand when it does not answer, see refreshRoles).
+const DISCORD_TIMEOUT_MS = 4000;
 
 function botConfigured() {
   return Boolean(process.env.DISCORD_BOT_TOKEN_AIS_TEAM_AREA && process.env.DISCORD_GUILD_ID);
@@ -101,6 +106,7 @@ async function bot(path, { method = 'GET', json } = {}) {
     method,
     headers,
     body: json ? JSON.stringify(json) : undefined,
+    signal: AbortSignal.timeout(DISCORD_TIMEOUT_MS),
   });
   const body = await res.json().catch(() => ({}));
   return { status: res.status, ok: res.ok, body };
@@ -136,6 +142,16 @@ const CONTENT_ONLY = PERMISSIONS.filter((p) => p.area === 'content').map((p) => 
  * person. Locally and on the previews it opens everything.
  */
 async function forUser(user) {
+  // Once per request: a user from auth.currentUser carries its row and lives
+  // only for this request (dropped again when the roles are refreshed).
+  if (user.row && user.perms) return user.perms.slice();
+  const perms = await readPermissions(user);
+  if (user.row)
+    Object.defineProperty(user, 'perms', { value: perms, writable: true, configurable: true });
+  return perms.slice();
+}
+
+async function readPermissions(user) {
   if (user.kind === 'admin') {
     return process.env.VERCEL_ENV === 'production' ? CONTENT_ONLY.slice() : KEYS.slice();
   }
@@ -155,8 +171,8 @@ async function forUser(user) {
  */
 async function refreshRoles(user) {
   if (user.kind === 'admin' || !botConfigured()) return;
-  const { rows } = await db.query('select discord_id from app_users where id = $1', [user.id]);
-  const discordId = rows[0] && rows[0].discord_id;
+  const row = await rowOf(user);
+  const discordId = row && row.discord_id;
   if (!discordId || discordId.startsWith('dev-')) return;
   let res;
   try {
@@ -172,11 +188,13 @@ async function refreshRoles(user) {
          session_version = session_version + 1 where id = $1`,
       [user.id]
     );
+    remember(user, []);
   } else if (res.ok) {
     await db.query('update app_users set roles = $2, roles_checked_at = now() where id = $1', [
       user.id,
       res.body.roles || [],
     ]);
+    remember(user, res.body.roles || []);
   } else {
     console.error('Reading Discord roles failed', res.status);
   }
@@ -204,21 +222,37 @@ async function requireRecent(user, key, { maxAgeMs = 5 * 60 * 1000 } = {}) {
   return require_(user, key);
 }
 
+/**
+ * The user's row of app_users: the one auth.currentUser read for this request
+ * when there is one, else read now. Null when the user no longer exists.
+ */
+async function rowOf(user) {
+  if (user.row) return user.row;
+  const { rows } = await db.query('select * from app_users where id = $1', [user.id]);
+  return rows[0] || null;
+}
+
+/** After reading the roles from Discord: the request goes on with them. */
+function remember(user, roles) {
+  if (!user.row) return;
+  user.row.roles = roles;
+  user.row.roles_checked_at = new Date();
+  if ('perms' in user) user.perms = undefined;
+}
+
 /** Re-reads the Discord roles when the last read is older than `maxAgeMs`. */
 async function refreshIfStale(user, { maxAgeMs = 5 * 60 * 1000 } = {}) {
   if (user.kind === 'admin') return;
-  const { rows } = await db.query('select roles_checked_at from app_users where id = $1', [
-    user.id,
-  ]);
-  const checked = rows[0] && rows[0].roles_checked_at;
+  const row = await rowOf(user);
+  const checked = row && row.roles_checked_at;
   if (!checked || Date.now() - new Date(checked).getTime() > maxAgeMs) await refreshRoles(user);
 }
 
 /** The Discord role ids stored for a user (none for the shared admin). */
 async function rolesOf(user) {
   if (user.kind === 'admin') return [];
-  const { rows } = await db.query('select roles from app_users where id = $1', [user.id]);
-  return rows.length ? rows[0].roles : [];
+  const row = await rowOf(user);
+  return (row && row.roles) || [];
 }
 
 /**
@@ -237,15 +271,27 @@ async function anyContentRole(roleIds, discordId) {
 }
 
 /** The server's roles, for the permissions table: [{ id, name }]. */
+// The server's roles (not who holds them) change rarely: kept 5 minutes.
+const ROLES_CACHE_MS = 5 * 60 * 1000;
+let rolesCache = null;
+
 async function guildRoles() {
   if (devLogin() && !botConfigured()) return DEV_ROLES;
   if (!botConfigured()) return [];
-  const res = await bot(`/guilds/${process.env.DISCORD_GUILD_ID}/roles`);
+  if (rolesCache && Date.now() - rolesCache.at < ROLES_CACHE_MS) return rolesCache.roles;
+  let res;
+  try {
+    res = await bot(`/guilds/${process.env.DISCORD_GUILD_ID}/roles`);
+  } catch {
+    throw new HttpError(502, 'Discord did not answer: try again in a moment');
+  }
   if (!res.ok) throw new HttpError(502, `Discord did not list the roles (${res.status})`);
-  return res.body
+  const roles = res.body
     .filter((r) => r.name !== '@everyone' && !r.managed)
     .sort((a, b) => b.position - a.position)
     .map((r) => ({ id: r.id, name: r.name }));
+  rolesCache = { at: Date.now(), roles };
+  return roles;
 }
 
 /** Rows of the permissions table: [{ roleId, roleName, permissions }]. */
@@ -431,6 +477,7 @@ module.exports = {
   requireRecent,
   refreshIfStale,
   rolesOf,
+  rowOf,
   anyContentRole,
   guildRoles,
   listRolePermissions,

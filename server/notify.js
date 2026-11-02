@@ -54,7 +54,10 @@ function render(lines, { noReply = false } = {}) {
 
 // ── Discord ─────────────────────────────────────────────────────────────────
 
-let fetchImpl = (...args) => fetch(...args);
+// Outside services answer within 10 seconds or the call fails (no request
+// waits on them for the function's whole time limit).
+const timed = (url, opts = {}) => fetch(url, { signal: AbortSignal.timeout(10_000), ...opts });
+let fetchImpl = timed;
 function setFetch(fn) {
   fetchImpl = fn;
 }

@@ -24,14 +24,17 @@ const API = 'https://sheets.googleapis.com/v4/spreadsheets';
 const SHEET_ID = /^[A-Za-z0-9_-]{20,100}$/;
 const CACHE_MS = 2 * 60 * 1000;
 
-let fetchImpl = (...args) => fetch(...args);
+// Outside services answer within 10 seconds or the call fails (no request
+// waits on them for the function's whole time limit).
+const timed = (url, opts = {}) => fetch(url, { signal: AbortSignal.timeout(10_000), ...opts });
+let fetchImpl = timed;
 let now = () => Date.now();
 let token = null; // { value, expires }
 const cache = new Map(); // `${id}\n${tab}` -> { at, rows }
 
 /** For the tests: the network and the clock. */
 function setForTests({ fetch: f, clock } = {}) {
-  fetchImpl = f || ((...args) => fetch(...args));
+  fetchImpl = f || timed;
   now = clock || (() => Date.now());
   token = null;
   cache.clear();

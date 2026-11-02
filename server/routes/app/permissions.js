@@ -15,12 +15,18 @@ module.exports = route({
   async GET(req, res) {
     const user = await requireUser(req);
     const perms = await access.authorize(user, 'manage');
+    const [roles, table, people, candidates] = await Promise.all([
+      permissions.guildRoles(),
+      permissions.listRolePermissions(),
+      permissions.listUserPermissions(),
+      permissions.discordPeople(),
+    ]);
     sendJson(res, 200, {
       keys: permissions.PERMISSIONS,
-      roles: await permissions.guildRoles(),
-      table: await permissions.listRolePermissions(),
-      people: await permissions.listUserPermissions(),
-      candidates: await permissions.discordPeople(),
+      roles,
+      table,
+      people,
+      candidates,
       grantable: permissions.grantable(user, perms),
       canGrantAll: permissions.canGrantAll(user),
     });

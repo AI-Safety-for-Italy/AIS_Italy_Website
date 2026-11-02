@@ -11,8 +11,9 @@ const { route, sendJson, readJson, getQuery, HttpError } = require('../server/ht
 const auth = require('../server/auth');
 const discord = require('../server/discord');
 const permissions = require('../server/permissions');
+const { withTiming } = require('../server/timing');
 
-module.exports = route({
+const handler = route({
   async GET(req, res) {
     const user = await auth.currentUser(req);
     const devLogin = permissions.devLogin();
@@ -63,3 +64,5 @@ module.exports = route({
     sendJson(res, 200, { user: null });
   },
 });
+
+module.exports = withTiming(handler);

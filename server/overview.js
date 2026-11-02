@@ -59,13 +59,14 @@ const COUNTS = {
 
 /** { tools: { <key>: { count, label, url, … } } } for the tools this user may open. */
 async function overview(user) {
-  const perms = await permissions.forUser(user);
-  const ctx = { perms, areas: permissions.areas(perms), roles: await permissions.rolesOf(user) };
+  const [perms, roles] = await Promise.all([permissions.forUser(user), permissions.rolesOf(user)]);
+  const ctx = { perms, areas: permissions.areas(perms), roles };
+  // The counts do not depend on each other: all at once.
+  const results = await Promise.all(Object.values(COUNTS).map((count) => count(user, ctx)));
   const tools = {};
-  for (const [key, count] of Object.entries(COUNTS)) {
-    const result = await count(user, ctx);
-    if (result) tools[key] = result;
-  }
+  Object.keys(COUNTS).forEach((key, i) => {
+    if (results[i]) tools[key] = results[i];
+  });
   return { tools };
 }
 

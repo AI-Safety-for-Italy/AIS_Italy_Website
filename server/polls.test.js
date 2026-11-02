@@ -410,7 +410,9 @@ test('polls from before accounts existed belong to the admin', async () => {
   await pglite.query(
     `insert into polls (token, title, duration_minutes) values ('old', 'Old poll', 60)`
   );
-  db.setDb(pglite); // re-runs the schema, as a new deployment would
+  // A database from before has no schema version yet: the schema runs.
+  await pglite.query('delete from schema_version');
+  db.setDb(pglite);
   await db.ensureSchema();
   const { rows } = await pglite.query(
     `select u.kind from polls p join app_users u on u.id = p.owner_id where p.token = 'old'`
@@ -1113,4 +1115,25 @@ test('a recurring poll keeps its rule and sends a recurring invitation', async (
   // Switching it off through an edit makes later invitations one-off.
   const off = await polls.updatePoll(id, { recurrence: null }, me);
   assert.equal(off.recurrence, null);
+});
+
+test('the schema runs again only when schema.js has changed', async () => {
+  const pglite = new PGlite();
+  db.setDb(pglite);
+  await db.ensureSchema();
+  const version = async () => (await pglite.query('select version from schema_version')).rows;
+  assert.deepEqual(await version(), [{ version: db.SCHEMA_VERSION }]);
+  // Same version: a new instance does not run the DDL (a dropped index stays dropped).
+  await pglite.query('drop index polls_owner');
+  db.setDb(pglite);
+  await db.ensureSchema();
+  const index = async () =>
+    (await pglite.query(`select 1 from pg_indexes where indexname = 'polls_owner'`)).rows.length;
+  assert.equal(await index(), 0);
+  // Another version (schema.js changed): it runs and records the new one.
+  await pglite.query(`update schema_version set version = 'older'`);
+  db.setDb(pglite);
+  await db.ensureSchema();
+  assert.equal(await index(), 1);
+  assert.deepEqual(await version(), [{ version: db.SCHEMA_VERSION }]);
 });
