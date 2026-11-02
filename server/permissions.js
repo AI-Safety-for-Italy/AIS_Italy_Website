@@ -6,7 +6,8 @@
 // user_permissions gives keys to one person. A member gets the union of the
 // permissions of all their roles and their own. Nothing takes a key away:
 // a person's own keys only add to their roles'. The shared-password admin
-// account has every permission, so there is always a way in to set things up.
+// account holds the content keys and `manage` (every key only on a developer
+// machine), so there is always a way in to set things up.
 //
 // Roles are stored on sign-in (auth.upsertDiscordUser) and checked again with
 // the bot just before anything is published (refreshRoles), so someone who
@@ -130,14 +131,16 @@ const CONTENT_ONLY = PERMISSIONS.filter((p) => p.area === 'content').map((p) => 
 
 /**
  * The permission keys of a signed-in user (from auth.currentUser).
- * In production the shared admin password opens the site's content and the
- * permissions table, never the personal data (CRM, form answers, member
- * applications): those need a Discord sign-in, so the audit trail names a
- * person. Locally and on the previews it opens everything.
+ * On every deployment (production and the previews) the shared admin password
+ * opens the site's content and the permissions table, never the personal data
+ * (CRM, form answers, member applications): those need a Discord sign-in, so
+ * the audit trail names a person. The previews are public and their database
+ * branch started as a copy of production's, so they are no exception. Only on
+ * a developer machine (no VERCEL) does it open everything.
  */
 async function forUser(user) {
   if (user.kind === 'admin') {
-    return process.env.VERCEL_ENV === 'production' ? CONTENT_ONLY.slice() : KEYS.slice();
+    return process.env.VERCEL ? CONTENT_ONLY.slice() : KEYS.slice();
   }
   const { rows } = await db.query(
     `select r.permissions from app_users u
