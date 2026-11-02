@@ -523,10 +523,12 @@
             h('span', { class: 'crm-pick-name' }, c.name),
             c.org ? h('span', { class: 'crm-pick-org' }, c.org) : null
           ),
-          h('span', null, trackLabel(c.track)),
+          c.track
+            ? h('span', null, trackLabel(c.track))
+            : h('span', { class: 'crm-muted', 'aria-label': 'No track yet' }, '—'),
           stagePill(c.key, c.kind),
-          h('span', null, c.owner || ''),
-          h('span', null, c.notes ? String(c.notes) : '')
+          c.owner ? h('span', null, c.owner) : h('span', { class: 'crm-muted' }, '—'),
+          h('span', { class: 'crm-num' }, c.notes ? String(c.notes) : '')
         );
       })
     );
@@ -650,7 +652,7 @@
       h(
         'span',
         { class: 'crm-card-meta' },
-        h('span', { class: 'crm-tag crm-track-' + (c.track || 'none') }, trackLabel(c.track)),
+        c.track ? h('span', { class: 'crm-tag crm-track-' + c.track }, trackLabel(c.track)) : null,
         used ? h('span', { class: 'crm-tag' }, used) : null,
         c.notes
           ? h('span', { class: 'crm-tag' }, c.notes + (c.notes === 1 ? ' note' : ' notes'))
@@ -750,24 +752,17 @@
 
   /** One button per stage; the pairing owns "Matched". */
   function stepper(p) {
-    var list = view.data.statuses[p.kind];
-    var at = list
-      .map(function (s) {
-        return s.key;
-      })
-      .indexOf(p.status);
     var locked = p.status === 'matched';
     return h(
       'div',
       { class: 'crm-steps', role: 'group', 'aria-label': 'Stage' },
-      list.map(function (s, i) {
+      view.data.statuses[p.kind].map(function (s) {
         var off = locked || (s.key === 'matched' && s.key !== p.status);
-        var past = i < at && s.key !== 'declined' && p.status !== 'declined';
         return h(
           'button',
           {
             type: 'button',
-            class: 'crm-step' + (past ? ' is-past' : ''),
+            class: 'crm-step',
             style: '--crm-dot:var(--crm-st-' + s.key + ')',
             'aria-pressed': String(s.key === p.status),
             disabled: off ? true : null,
