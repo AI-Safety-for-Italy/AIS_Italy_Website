@@ -6638,6 +6638,117 @@ textarea.fm-input.fm-other-input {
   text-decoration: none;
 }
 
+/* Settings → Notifications: a card per channel, then what is followed */
+.notify-channels {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr));
+  gap: 0.6rem;
+}
+
+.notify-channel {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  padding: 0.85rem 0.9rem;
+  border: 1.5px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--card-bg);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.notify-channel input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.notify-channel:hover {
+  border-color: var(--border-strong);
+}
+
+.notify-channel:has(input:checked) {
+  border-color: var(--accent);
+  background: var(--accent-50);
+}
+
+.notify-channel:has(input:focus-visible) {
+  box-shadow: var(--ring);
+}
+
+.notify-channel-icon {
+  display: inline-flex;
+  flex: none;
+  width: 2rem;
+  height: 2rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--border-muted, var(--border-default));
+  color: var(--text-secondary);
+}
+
+.notify-channel-icon svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.notify-channel:has(input:checked) .notify-channel-icon {
+  background: var(--accent);
+  color: #fff;
+}
+
+.notify-channel-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.notify-channel-text strong {
+  font-size: 0.95rem;
+}
+
+.notify-channel-text small {
+  font-size: 0.8rem;
+  color: var(--text-tertiary);
+  line-height: 1.35;
+}
+
+.follow-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.follow-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 0;
+  border-top: 1px solid var(--border-default);
+  cursor: pointer;
+}
+
+.follow-row:last-child {
+  border-bottom: 1px solid var(--border-default);
+}
+
+.follow-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.follow-text strong {
+  font-size: 0.95rem;
+}
+
+.follow-text small {
+  font-size: 0.8rem;
+  color: var(--text-tertiary);
+}
+
 /* The card's foot: who can see the answers on the left, the member's own
    "Notify me" on the right. Above the card's link, so both answer the mouse. */
 .fl-foot {

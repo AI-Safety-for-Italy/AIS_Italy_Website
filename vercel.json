@@ -80,6 +80,11 @@
   "devCommand": "npm start",
   "redirects": [
     {
+      "source": "/app/polls/settings/",
+      "destination": "/app/settings/general/",
+      "permanent": true
+    },
+    {
       "source": "/app/content/permissions/",
       "destination": "/app/settings/permissions/",
       "permanent": true

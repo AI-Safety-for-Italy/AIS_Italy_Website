@@ -819,6 +819,24 @@ async function followedNewAnswers(user) {
     .reduce((n, f) => n + f.fresh, 0);
 }
 
+/**
+ * The forms this user reads, with whether they follow each, for the
+ * Settings page: [{ id, title, notifyMe }]. Titles only, and no recent
+ * sign-in asked: switching one still asks for it.
+ */
+async function followable(user) {
+  if (!user || user.kind !== 'discord') return [];
+  const who = {
+    perms: await permissions.forUser(user),
+    roles: await permissions.rolesOf(user),
+    discordId: await discordIdOf(user),
+  };
+  const { rows } = await db.query('select * from forms order by lower(title)');
+  return rows
+    .filter((f) => canRead(user, who, f))
+    .map((f) => ({ id: f.id, title: f.title, notifyMe: notifyMeOf(f, user, who) }));
+}
+
 /** Switches this user's own notifications for one form they read on or off. */
 async function setNotifyMe(user, id, on) {
   const { form, who } = await formFor(user, id, 'read');
@@ -1044,6 +1062,7 @@ module.exports = {
   setNotifyMe,
   readsAny,
   followedNewAnswers,
+  followable,
   sendCopy,
   responses,
   requireForms,

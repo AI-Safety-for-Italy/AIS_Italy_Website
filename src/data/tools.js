@@ -25,7 +25,6 @@ module.exports = [
     tabs: [
       { key: 'polls', label: 'My polls', url: '/app/polls/' },
       { key: 'new', label: 'New poll', url: '/app/polls/new/' },
-      { key: 'settings', label: 'General settings', url: '/app/polls/settings/', admin: true },
     ],
     actions: [{ label: 'New poll', url: '/app/polls/new/' }],
   },

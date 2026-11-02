@@ -51,7 +51,7 @@
       .then(function (d) {
         data = d;
         var missing = [];
-        if (!d.mailReady) missing.push('email sending (admin → General settings)');
+        if (!d.mailReady) missing.push('email sending (admin → Settings → General)');
         d.roles.forEach(function (r) {
           if (!r.ready) missing.push('the Discord id of the ' + r.label + ' role');
         });
