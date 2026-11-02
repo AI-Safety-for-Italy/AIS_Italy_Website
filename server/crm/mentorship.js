@@ -59,9 +59,17 @@ function trackOf(text) {
   return projects ? 'projects' : orientation ? 'orientation' : null;
 }
 
-/** An expression of interest says "Mentor", "Mentee" or both. */
+/**
+ * An expression of interest says "Mentor", "Mentee" or both. Only the role
+ * itself counts, not what explains it: in "Mentee: vorrei essere affiancata
+ * da un mentor" the words after the colon (or in brackets) are left out.
+ * Several ticked answers come joined by commas.
+ */
 function kindsOf(applyingAs) {
-  const t = sources.norm(applyingAs);
+  const t = String(applyingAs || '')
+    .split(/[,;\n]/)
+    .map((part) => sources.norm(part.split(':')[0].replace(/\([^)]*\)/g, '')))
+    .join(' ');
   const kinds = [];
   if (/mentor/.test(t)) kinds.push('mentor');
   if (/mentee/.test(t) || !kinds.length) kinds.push('mentee');

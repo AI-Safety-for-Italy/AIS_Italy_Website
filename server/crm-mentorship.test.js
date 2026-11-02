@@ -147,6 +147,14 @@ test('the sheets’ free answers are read sensibly', () => {
   assert.deepEqual(mentorship.kindsOf('Mentee'), ['mentee']);
   assert.deepEqual(mentorship.kindsOf('Mentor e mentee'), ['mentor', 'mentee']);
   assert.deepEqual(mentorship.kindsOf(''), ['mentee']);
+  // The explanation after the role does not count, whatever word it uses.
+  assert.deepEqual(mentorship.kindsOf('Mentee: vorrei essere affiancat* da un mentor'), ['mentee']);
+  assert.deepEqual(mentorship.kindsOf('Mentor: vorrei seguire un mentee'), ['mentor']);
+  assert.deepEqual(mentorship.kindsOf('Mentee (cerco un mentor)'), ['mentee']);
+  assert.deepEqual(
+    mentorship.kindsOf('Mentor: vorrei seguire un mentee, Mentee: vorrei un mentor'),
+    ['mentor', 'mentee']
+  );
 });
 
 test('one person shows every sheet they are in, and contact details only to the mentorship team', async () => {
