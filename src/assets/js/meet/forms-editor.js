@@ -888,13 +888,26 @@
         'trash',
         'Delete',
         function () {
-          if (!window.confirm('Delete this question?')) return;
+          // No confirm(): nothing is lost until Save, and Undo puts it back
+          // (with the conditions that pointed at it, which fixConditions drops).
+          var before = JSON.parse(JSON.stringify(schema.items));
+          var wasSelected = selected;
           schema.items.splice(index, 1);
           if (selected === item.id) selected = '__form';
           markDirty();
           fixConditions();
           renderCanvas();
           renderProps();
+          M.toast('Question deleted', false, {
+            label: 'Undo',
+            run: function () {
+              schema.items = before;
+              selected = wasSelected;
+              markDirty();
+              renderCanvas();
+              renderProps();
+            },
+          });
         },
         'is-danger'
       )

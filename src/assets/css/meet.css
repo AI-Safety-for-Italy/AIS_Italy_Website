@@ -1527,6 +1527,28 @@ dialog.meet-dialog::backdrop {
   transform: translate(-50%, 0);
 }
 
+.toast.has-action {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  pointer-events: auto;
+}
+
+.toast-action {
+  padding: 0.2rem 0.5rem;
+  margin: -0.2rem -0.4rem -0.2rem 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--accent-300, #86efac);
+  font: inherit;
+  cursor: pointer;
+}
+
+.toast-action:hover {
+  text-decoration: underline;
+}
+
 .toast.is-error {
   background: var(--secondary-600);
   color: #fff;

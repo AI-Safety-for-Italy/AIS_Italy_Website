@@ -78,7 +78,9 @@
   }
 
   var toastTimer;
-  function toast(message, isError) {
+  /** A short message at the bottom. `action` ({ label, run }) adds a button,
+   * e.g. Undo, and keeps the message up a little longer. */
+  function toast(message, isError, action) {
     var el = document.querySelector('.toast');
     if (!el) {
       el = h('div', { class: 'toast', role: 'status', 'aria-live': 'polite' });
@@ -86,11 +88,31 @@
     }
     el.textContent = message;
     el.classList.toggle('is-error', Boolean(isError));
+    el.classList.toggle('has-action', Boolean(action));
+    if (action) {
+      el.appendChild(
+        h(
+          'button',
+          {
+            type: 'button',
+            class: 'toast-action',
+            onclick: function () {
+              el.classList.remove('is-visible');
+              action.run();
+            },
+          },
+          action.label
+        )
+      );
+    }
     el.classList.add('is-visible');
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(function () {
-      el.classList.remove('is-visible');
-    }, 2600);
+    toastTimer = setTimeout(
+      function () {
+        el.classList.remove('is-visible');
+      },
+      action ? 6000 : 2600
+    );
   }
 
   function loading(label) {
