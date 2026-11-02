@@ -429,6 +429,21 @@ In the sidebar: Members → Board, with its own permission, **Members board**
 before the split got `community` too, once (`migration_community_key` in
 `server/schema.js`).
 
+**Discord** (Members → Board → Discord): the old sheet has no Discord
+username, so most imported members are not linked. *To link* lists them, each
+with the server's accounts that may be them (the bot's member search by full
+name, then each word; best match first), a manual search, and "Not on
+Discord" (with a note) once checked. Linking keeps who they are there
+(username, display name; encrypted). *Roles and tags* reads everyone's roles
+on Discord (the member list in pages, or one by one without the Server
+Members intent) against their tags here: a tag without its role, or a working
+group's role without the tag, each settled either way or left as it is
+(`member_role_ok`, not listed again). Roles are only **given** when someone
+is linked, imported or approved, and a tag change touches its group's role
+only: a role given by hand on Discord is never taken away silently, it shows
+in the check. Without the bot (a developer's machine) nothing reaches
+Discord: the search is empty and the check says so.
+
 **The sidebar's groups.** Tools that belong together are listed under one
 entry that opens on them (`group` and `navLabel` in `src/data/tools.js`,
 the groups in `src/data/toolGroups.js`): Mentorship → Board, Selection;
@@ -458,9 +473,12 @@ each shown to who holds that part's key, with its own faces; each list
   needs its role made on Discord first (and the bot's role above it). The
   sign-up form's group questions take their options from this table
   (`optionsFrom: 'work_groups'`), so the form follows the groups.
-- **Levels.** Coordination and stable participation give the tag (occasional
-  does not). Who coordinates is set on Members only: approving puts everyone
-  in as taking part, and shows who asked to coordinate.
+- **Coordinators.** Chosen on Working groups only (each group's card: add,
+  take back). Forms no longer ask who would coordinate; the old sheet's
+  "Coordinamento", older forms' answers, applications and Members' tags all
+  mean taking part. Once on each database, the coordination declared before
+  became taking part (`migration_coordinators`). Stable participation gives
+  the tag (occasional does not).
 - **Members** (`community_members`, `member_groups`): someone approved on the
   board joins the list when they enter Discord, with their tags and their
   consent to be shown; the old sheet is imported once (CSV, preview first,

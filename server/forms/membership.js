@@ -14,9 +14,10 @@
 // and, all optional, what the community directory takes (server/community.js):
 // profileItem (link), cityItem / countryItem (short answers), areasItem
 // (choices), publishItem (yes/no: consent to show the profile), and the
-// working groups: groupsItem (stable participation) and coordItem
-// (coordination), choices whose options are the groups; they become the
-// person's tags, which whoever approves can change.
+// working groups: groupsItem (stable participation), choices whose options
+// are the groups; they become the person's tags, which whoever approves can
+// change. coordItem is read only on forms made before coordinators were
+// chosen on Working groups: it counts as taking part, like groupsItem.
 //
 // The answers are also kept, encrypted, with the form like any other form's.
 const { HttpError } = require('../http');
@@ -136,9 +137,10 @@ function toApplication(schema, mapping, answers) {
     mapping[key] && answers[mapping[key]] ? answers[mapping[key]].selected || [] : [];
   const textOf = (key) =>
     mapping[key] && typeof answers[mapping[key]] === 'string' ? answers[mapping[key]] : '';
-  // Coordination wins over stable participation in the same group.
-  const tags = pickedIds('coordItem').map((group) => ({ group, level: 'coordination' }));
-  pickedIds('groupsItem').forEach((group) => {
+  // Who coordinates is chosen on Working groups, never from a form: an
+  // older form's "coordinate" answer counts as taking part.
+  const tags = [];
+  [...pickedIds('groupsItem'), ...pickedIds('coordItem')].forEach((group) => {
     if (!tags.some((t) => t.group === group)) tags.push({ group, level: 'stable' });
   });
   const city = textOf('cityItem');

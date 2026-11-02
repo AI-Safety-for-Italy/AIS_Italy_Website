@@ -1,0 +1,21 @@
+---
+title: Discord
+# Linking the community's members to their Discord accounts, and their roles
+# there against their tags here (server/community.js). Needs `community`.
+permalink: /app/members/discord/
+tool: community
+tab: discord
+wide: true
+noindex: true
+excludeFromSitemap: true
+eleventyExcludeFromCollections: true
+seoTitle: 'Discord | Members board | AI Safety for Italy'
+---
+{% extends "app.njk" %}
+{% block page %}
+    <div id="discordView"></div>
+
+<script src="/assets/js/meet/common.js?v={{ build }}" defer></script>
+<script src="/assets/js/meet/app-common.js?v={{ build }}" defer></script>
+<script src="/assets/js/meet/community-discord.js?v={{ build }}" defer></script>
+{% endblock %}

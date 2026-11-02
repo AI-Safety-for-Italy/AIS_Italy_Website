@@ -31,6 +31,8 @@ const ACTIONS = new Set([
   'community-tags',
   'community-groups',
   'community-import',
+  // Linking members to Discord and checking their roles against their tags.
+  'community-discord',
   'form-tags',
   'form-edit',
   'form-settings',

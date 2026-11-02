@@ -540,4 +540,31 @@ begin
     insert into app_settings (key, value) values ('migration_community_key', 'true');
   end if;
 end $$;
+
+-- Linking the members to their Discord accounts (server/community.js): who
+-- they are there (username, display name) and a note, encrypted; and
+-- whether someone checked they are not on Discord at all.
+alter table community_members add column if not exists discord_info_encrypted text;
+alter table community_members add column if not exists discord_absent boolean not null default false;
+
+-- A difference between a member's tags and their roles on Discord that the
+-- team looked at and left as it is: a role without the tag (extra), or a tag
+-- without the role (missing). The check no longer lists it.
+create table if not exists member_role_ok (
+  member_id uuid not null references community_members(id) on delete cascade,
+  group_id text not null references work_groups(id) on delete cascade,
+  kind text not null check (kind in ('missing', 'extra')),
+  primary key (member_id, group_id, kind)
+);
+
+-- Who coordinates a working group is chosen on Working groups only. Once, on
+-- each database: the coordination people declared on the forms and the old
+-- sheet becomes taking part, so the coordinators are set from there.
+do $$
+begin
+  if not exists (select 1 from app_settings where key = 'migration_coordinators') then
+    update member_groups set level = 'stable' where level = 'coordination';
+    insert into app_settings (key, value) values ('migration_coordinators', 'true');
+  end if;
+end $$;
 `;

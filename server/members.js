@@ -143,12 +143,18 @@ function context(id) {
   return `member:${id}`;
 }
 
-/** Tags in their shape only ([{ group, level }]); which groups exist is checked on deciding. */
+/**
+ * Tags in their shape only ([{ group, level }]), each group once and taking
+ * part: who coordinates is chosen on Working groups. Which groups exist is
+ * checked on deciding.
+ */
 function cleanTagShape(tags) {
+  const seen = new Set();
   return (Array.isArray(tags) ? tags : [])
     .filter((t) => t && /^[\w-]{1,40}$/.test(String(t.group)) && community.LEVELS.includes(t.level))
+    .filter((t) => !seen.has(String(t.group)) && seen.add(String(t.group)))
     .slice(0, 50)
-    .map((t) => ({ group: String(t.group), level: t.level }));
+    .map((t) => ({ group: String(t.group), level: 'stable' }));
 }
 
 /** Who applied: { name, email, answers }, or null when it cannot be opened. */
@@ -357,7 +363,7 @@ async function decide(user, id, body, { siteOrigin }) {
   const note = text(b.note, 'Note', 2000, false);
   const row = await loadRow(id);
   // The working groups chosen (the form's, unless changed): known ones only,
-  // all as taking part. Who coordinates is set later, on Members.
+  // all as taking part. Who coordinates is set on Working groups.
   const tags = community
     .cleanTags(b.tags === undefined ? row.tags : b.tags, await community.listGroups())
     .map((t) => ({ group: t.group, level: 'stable' }));
@@ -491,13 +497,6 @@ async function upgradeSchema() {
         { optionsFrom: 'work_groups', required: true }
       ),
       q(
-        'coordinate',
-        'multi',
-        'Vorresti coordinare (o co-coordinare) qualcuno di questi gruppi?',
-        'Would you like to coordinate (or co-coordinate) any of these groups?',
-        { optionsFrom: 'work_groups' }
-      ),
-      q(
         'hours',
         'number',
         'Quante ore vuoi dedicare ad AI Safety Italy ogni mese?',
@@ -553,13 +552,11 @@ async function requestUpgrade(user, answersIn, { siteOrigin } = {}) {
   const { answers } = schemaLib.cleanAnswers(schema, answersIn);
   const { rows } = await db.query('select * from app_users where id = $1', [user.id]);
   const me = rows[0];
-  const tags = ((answers.coordinate && answers.coordinate.selected) || []).map((group) => ({
+  // Who coordinates is chosen on Working groups, not asked here.
+  const tags = ((answers.groups && answers.groups.selected) || []).map((group) => ({
     group,
-    level: 'coordination',
+    level: 'stable',
   }));
-  ((answers.groups && answers.groups.selected) || []).forEach((group) => {
-    if (!tags.some((t) => t.group === group)) tags.push({ group, level: 'stable' });
-  });
   const lang = schema.languages[0];
   const list = schemaLib
     .answerable(schema)

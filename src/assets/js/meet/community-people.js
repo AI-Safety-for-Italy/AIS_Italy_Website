@@ -13,7 +13,6 @@
   var data = null;
   var picked = {};
   var filter = { q: '', group: '' };
-  var LEVEL = { coordination: 'Coordinates', stable: 'Takes part' };
 
   view.appendChild(M.loading());
   load();
@@ -115,13 +114,7 @@
       { class: 'people-tools' },
       search,
       group,
-      h('span', { class: 'panel-note' }, data.members.length + ' members'),
-      h(
-        'span',
-        { class: 'people-legend people-tags' },
-        h('span', { class: 'tag-chip is-coordination' }, 'Coordinates'),
-        h('span', { class: 'tag-chip is-stable' }, 'Takes part')
-      )
+      h('span', { class: 'panel-note' }, data.members.length + ' members')
     );
   }
 
@@ -131,8 +124,8 @@
     });
   }
 
-  // Picked people: put them in a group (taking part or coordinating), take
-  // them out of one, or move them from one group to another.
+  // Picked people: put them in a group, take them out of one, or move them
+  // from one group to another. Who coordinates is chosen on Working groups.
   function bulkBar() {
     var ids = pickedIds();
     var bar = h('div', { class: 'bulk-bar', hidden: !ids.length });
@@ -140,8 +133,7 @@
     var action = h(
       'select',
       { class: 'form-input is-compact', 'aria-label': 'What to do' },
-      h('option', { value: 'add:stable' }, 'Put in the group, taking part'),
-      h('option', { value: 'add:coordination' }, 'Put in the group, coordinating'),
+      h('option', { value: 'add' }, 'Put in the group'),
       h('option', { value: 'remove' }, 'Take out of the group'),
       h('option', { value: 'move' }, 'Move from the group to…')
     );
@@ -164,12 +156,10 @@
     });
     var apply = h('button', { type: 'button', class: 'btn btn-primary btn-sm' }, 'Apply');
     apply.addEventListener('click', function () {
-      var parts = action.value.split(':');
       apply.disabled = true;
       M.api('POST', '/api/app/community?action=tags', {
         members: ids,
-        action: parts[0],
-        level: parts[1],
+        action: action.value,
         group: groupSel.value,
         to: toSel.value,
       })
@@ -312,14 +302,7 @@
                       'span',
                       { class: 'people-tags' },
                       m.groups.map(function (g) {
-                        return h(
-                          'span',
-                          {
-                            class: 'tag-chip is-' + g.level,
-                            title: LEVEL[g.level],
-                          },
-                          groupTitle(g.group)
-                        );
+                        return h('span', { class: 'tag-chip is-stable' }, groupTitle(g.group));
                       })
                     )
                   : h('span', { class: 'panel-note' }, '—')
@@ -545,7 +528,7 @@
                     'span',
                     { class: 'people-tags' },
                     p.tags.map(function (t) {
-                      return h('span', { class: 'tag-chip is-' + t.level }, groupTitle(t.group));
+                      return h('span', { class: 'tag-chip is-stable' }, groupTitle(t.group));
                     })
                   )
                 ),

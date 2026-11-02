@@ -152,6 +152,7 @@ module.exports = [
     tabs: [
       { key: 'people', label: 'Members', url: '/app/members/people/' },
       { key: 'groups', label: 'Working groups', url: '/app/members/groups/' },
+      { key: 'discord', label: 'Discord', url: '/app/members/discord/' },
     ],
     actions: [],
   },
