@@ -42,6 +42,7 @@ async function setRoles() {
     { roleId: 'r-forms', roleName: 'forms makers', permissions: ['forms'] },
     { roleId: 'r-forms-admin', roleName: 'forms admins', permissions: ['forms_admin'] },
     { roleId: 'r-mentors', roleName: 'mentorship', permissions: ['mentorship'] },
+    { roleId: 'r-notify', roleName: 'direttivo', permissions: ['forms', 'forms_notify'] },
   ]);
 }
 
@@ -983,6 +984,173 @@ test('the person gets a copy of their answers unless the form switches it off', 
     assert.equal(await forms.sendCopy(r.copy), false);
   } finally {
     process.env.MEET_FAKE_MAIL = '1';
+  }
+});
+
+test('members of the Discord server are found by name, signed in here or not', async () => {
+  await member('Giulia', []);
+  process.env.DISCORD_BOT_TOKEN_AIS_TEAM_AREA = 'bot';
+  process.env.DISCORD_GUILD_ID = 'g1';
+  let asked = null;
+  permissions.setFetch(async (url) => {
+    asked = url;
+    return {
+      ok: true,
+      status: 200,
+      json: async () => [
+        { user: { id: 'test-Giulia', username: 'giulia' } },
+        { user: { id: '555000111', username: 'giuliano', global_name: 'Giuliano V.' } },
+        { user: { id: '555000112', username: 'giubot', bot: true } },
+        { nick: 'Giu R.', user: { id: '555000113', username: 'rossi', avatar: 'abc' } },
+      ],
+    };
+  });
+  try {
+    const found = await permissions.searchMembers('Giu');
+    assert.match(asked, /\/guilds\/g1\/members\/search\?limit=10&query=Giu$/);
+    assert.deepEqual(
+      found.map((p) => [p.discordId, p.name]),
+      [
+        ['test-Giulia', 'Giulia'],
+        ['555000111', 'Giuliano V.'],
+        ['555000113', 'Giu R.'],
+      ]
+    );
+    assert.match(found[2].avatarUrl, /avatars\/555000113\/abc\.png/);
+    // Too short to search.
+    assert.deepEqual(await permissions.searchMembers('G'), []);
+  } finally {
+    delete process.env.DISCORD_BOT_TOKEN_AIS_TEAM_AREA;
+    delete process.env.DISCORD_GUILD_ID;
+    permissions.setFetch(() => {
+      throw new Error('no network in tests');
+    });
+  }
+});
+
+test('people added to a form hear about answers on their own channels', async () => {
+  const mail = require('./mail');
+  const notify = require('./notify');
+  const sent = [];
+  const dms = [];
+  process.env.MEET_FAKE_MAIL = '0';
+  process.env.DISCORD_BOT_TOKEN_AIS_TEAM_AREA = 'bot';
+  mail.setTransportFactory(() => ({ sendMail: async (m) => sent.push(m), close() {} }));
+  notify.setFetch(async (url, opts) => {
+    if (url.endsWith('/users/@me/channels')) {
+      const { recipient_id: to } = JSON.parse(opts.body);
+      dms.push(to);
+      return { ok: true, json: async () => ({ id: `ch-${to}` }) };
+    }
+    return { ok: true, json: async () => ({}) };
+  });
+  await mail.saveSettings({ host: 'smtp.x', port: 465, fromEmail: 'tech@ais4i.it', password: 'p' });
+  try {
+    await setRoles();
+    const mara = await member('Mara', ['r-forms']);
+    const dora = await member('Dora', ['r-notify']);
+    const ugo = await member('Ugo', []);
+    await auth.updateProfile(ugo.id, { notifyChannel: 'email', notifyEmail: 'ugo@example.org' });
+    const { id } = await openForm(dora, { settings: { settings: { notifyOwner: false } } });
+
+    // Choosing who is told needs forms_notify, even for a form one manages.
+    const mine = await openForm(mara);
+    await rejects(
+      forms.updateSettings(mara, mine.id, {
+        settings: { notifyPeople: [{ discordId: 'test-Ugo', name: 'Ugo' }] },
+      }),
+      403
+    );
+    await rejects(forms.searchPeople(mara, mine.id, 'Ug'), 403);
+    assert.equal((await forms.get(mara, mine.id)).canChooseNotified, false);
+    // …and saving the other settings unchanged is still fine.
+    await forms.updateSettings(mara, mine.id, { settings: { notifyPeople: [] } });
+
+    // Dora holds it: she finds Ugo and adds him, and someone who never signed in.
+    assert.equal((await forms.get(dora, id)).canChooseNotified, true);
+    const found = (await forms.searchPeople(dora, id, 'ug')).people;
+    assert.deepEqual(
+      found.map((p) => p.discordId),
+      ['test-Ugo']
+    );
+    assert.deepEqual(await forms.searchPeople(dora, id, 'u'), { people: [] });
+    await forms.updateSettings(dora, id, {
+      settings: {
+        notifyPeople: [
+          { discordId: 'test-Ugo', name: 'Ugo' },
+          { discordId: '123456789012', name: 'Nuovo' },
+          { discordId: 'test-Ugo', name: 'Ugo again' },
+        ],
+      },
+    });
+    assert.deepEqual(
+      (await forms.get(dora, id)).settings.notifyPeople.map((p) => p.discordId),
+      ['test-Ugo', '123456789012']
+    );
+    await rejects(
+      forms.updateSettings(dora, id, {
+        settings: { notifyPeople: [{ discordId: 'no spaces!', name: 'x' }] },
+      }),
+      400
+    );
+
+    // An answer: Ugo by email (his choice), the newcomer by a Discord message.
+    const channels = await forms.notifyOwner(id, 'https://x');
+    assert.deepEqual(channels.sort(), ['discord', 'email']);
+    assert.deepEqual(
+      sent.map((m) => m.to),
+      ['ugo@example.org']
+    );
+    assert.deepEqual(dms, ['123456789012']);
+
+    // Ugo sees the form among those that tell him, and switches it off for
+    // himself: no permission needed, and a later save of the list keeps it off.
+    const ugoForms = await forms.myNotifications(ugo);
+    assert.deepEqual(
+      ugoForms.map((f) => [f.id, f.as, f.on]),
+      [[id, 'added', true]]
+    );
+    assert.deepEqual(
+      (await forms.myNotifications(mara)).map((f) => [f.id, f.as]),
+      [[mine.id, 'owner']]
+    );
+    await forms.setMyNotification(ugo, id, false);
+    await forms.updateSettings(dora, id, {
+      settings: {
+        notifyPeople: [
+          { discordId: 'test-Ugo', name: 'Ugo' },
+          { discordId: '123456789012', name: 'Nuovo' },
+        ],
+      },
+    });
+    assert.equal((await forms.myNotifications(ugo))[0].on, false);
+    sent.length = 0;
+    dms.length = 0;
+    await forms.notifyOwner(id, 'https://x');
+    assert.equal(sent.length, 0);
+    assert.deepEqual(dms, ['123456789012']);
+    await rejects(forms.setMyNotification(ugo, mine.id, true), 404);
+    await forms.setMyNotification(ugo, id, true);
+    await forms.notifyOwner(id, 'https://x');
+    assert.deepEqual(
+      sent.map((m) => m.to),
+      ['ugo@example.org']
+    );
+    // The owner's switch is the form's "Tell me about new answers".
+    await forms.setMyNotification(mara, mine.id, false);
+    assert.equal((await forms.get(mara, mine.id)).settings.notifyOwner, false);
+
+    // Ugo switches his notifications off: he is not told any more.
+    await auth.updateProfile(ugo.id, { notifyChannel: 'none' });
+    sent.length = 0;
+    dms.length = 0;
+    await forms.notifyOwner(id, 'https://x');
+    assert.equal(sent.length, 0);
+    assert.deepEqual(dms, ['123456789012']);
+  } finally {
+    process.env.MEET_FAKE_MAIL = '1';
+    delete process.env.DISCORD_BOT_TOKEN_AIS_TEAM_AREA;
+    notify.setFetch((...args) => fetch(...args));
   }
 });
 
