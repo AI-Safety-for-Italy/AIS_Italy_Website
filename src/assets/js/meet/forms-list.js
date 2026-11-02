@@ -52,88 +52,24 @@
     );
   }
 
-  // This member's own switch: hear about the form's new answers or not
-  // (owner, readers by name or by role, forms admins). Null: no channel.
+  // This member's own switch, saved at once (app-common.js, followSwitch).
   function notifySwitch(f) {
-    if (f.notifyMe === null || f.notifyMe === undefined) return null;
-    var input = h('input', {
-      type: 'checkbox',
-      role: 'switch',
-      class: 'fe-switch-input',
-      'aria-label': 'Notify me about answers to ' + f.title,
-      onchange: function () {
-        input.disabled = true;
-        M.api('PUT', '/api/app/forms?id=' + encodeURIComponent(f.id) + '&part=notify-me', {
-          on: input.checked,
-        })
-          .then(function (r) {
-            f.notifyMe = r.notifyMe;
-            M.toast(
-              r.notifyMe ? 'You will hear about new answers' : 'Notifications off for this form'
-            );
-          })
-          .catch(function (err) {
-            input.checked = f.notifyMe;
-            if (err.status === 401) return M.appError(err);
-            M.toast(err.message, true);
-          })
-          .then(function () {
-            input.disabled = false;
-          });
+    return M.followSwitch({
+      on: f.notifyMe,
+      label: 'Notify me about answers to ' + f.title,
+      save: function (on) {
+        return M.api('PUT', '/api/app/forms?id=' + encodeURIComponent(f.id) + '&part=notify-me', {
+          on: on,
+        }).then(function (r) {
+          f.notifyMe = r.notifyMe;
+          return r.notifyMe;
+        });
       },
     });
-    input.checked = f.notifyMe;
-    return h(
-      'label',
-      { class: 'fl-notify', title: 'Hear about new answers, on your channel from Settings' },
-      h('span', null, 'Notify me'),
-      input
-    );
   }
 
-  // Who can see the answers: a face (or a role's initial) each, the name and
-  // why on hover. A few, then "+n".
   function faces(f) {
-    var who = f.access || [];
-    if (!who.length) return h('span');
-    var shown = who.slice(0, 6);
-    var row = h('div', { class: 'fl-faces', 'aria-label': 'Who can see the answers' });
-    shown.forEach(function (a) {
-      var label = a.name + ' — ' + a.what;
-      row.appendChild(
-        h(
-          'span',
-          {
-            class: 'fl-face' + (a.kind === 'role' ? ' is-role' : ''),
-            title: label,
-            tabindex: '0',
-            'aria-label': label,
-          },
-          a.kind === 'role'
-            ? h('span', { class: 'app-avatar is-initial' }, a.name.charAt(0).toUpperCase())
-            : M.avatar({ name: a.name, avatarUrl: a.avatarUrl }, 26)
-        )
-      );
-    });
-    if (who.length > shown.length) {
-      var rest = who.slice(shown.length);
-      row.appendChild(
-        h(
-          'span',
-          {
-            class: 'fl-face fl-more',
-            tabindex: '0',
-            title: rest
-              .map(function (a) {
-                return a.name + ' — ' + a.what;
-              })
-              .join('\n'),
-          },
-          '+' + rest.length
-        )
-      );
-    }
-    return row;
+    return M.accessFaces(f.access);
   }
 
   function card(f) {

@@ -106,6 +106,18 @@ downloadable file carry an RRULE with the times in the poll's time zone and a
 VTIMEZONE, so the meeting stays at the same local time across daylight-saving
 changes; "Change time" cancels the whole series. See `server/recurrence.js`.
 
+### Sharing a poll
+
+A poll is its owner's. On the poll's page ("Who sees the poll") they share it
+with Discord roles and with people by name (any member of the server, found
+through the bot): those see it in their list ("Shared with you") and on its
+page, with the answers but not the voters' emails, the guests or the voting
+link, and change nothing. Seeing is not following: each turns on "Notify me"
+(on the card, the poll's page, or Settings → Notifications) to hear about new
+answers; the owner follows their own poll until they switch it off. Each card
+shows, at the bottom, who sees the poll (name and why on hover). Columns
+`share_roles`, `share_people`, `notify_choices` of `polls`.
+
 ### Notifications
 
 Each member chooses on `/app/settings/` (Settings, at the bottom of the sidebar) how to hear about new answers to their
