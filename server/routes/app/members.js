@@ -3,6 +3,7 @@
 //   POST ?action=decide&id=… { decision: 'approve'|'reject', role, note }
 //                                         -> { application, invite }
 //   POST ?action=resend&id=…              -> a fresh join link by email
+//   POST ?action=follow { on }            -> told about new applications, or not
 // Needs the `members` permission (server/permissions.js).
 const { route, sendJson, readJson, getQuery, siteUrl, HttpError } = require('../../http');
 const { requireUser } = require('../../auth');
@@ -21,6 +22,8 @@ module.exports = route({
     const ctx = { siteOrigin: siteUrl(req) };
     if (query.action === 'decide') {
       sendJson(res, 200, await members.decide(user, query.id, body, ctx));
+    } else if (query.action === 'follow') {
+      sendJson(res, 200, await members.setFollowing(user, Boolean(body.on)));
     } else if (query.action === 'resend') {
       sendJson(res, 200, await members.resendInvite(user, query.id, ctx));
     } else {

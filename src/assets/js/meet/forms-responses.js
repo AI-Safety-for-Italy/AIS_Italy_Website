@@ -18,12 +18,6 @@
   var h = M.h;
   var C = M.charts;
 
-  var STATUS_LABEL = {
-    new: 'New',
-    reviewing: 'Reviewing',
-    accepted: 'Accepted',
-    rejected: 'Rejected',
-  };
   var RANGES = [
     ['all', 'All time'],
     ['7', 'Last 7 days'],
@@ -395,6 +389,133 @@
       );
     }
 
+    // ── Tags ─────────────────────────────────────────────────────────────
+    // data.statuses: the form's tags ([{ key, label }]; New and Seen until
+    // the team adds more), then any an answer still carries from before
+    // ({ old: true }).
+
+    // The answers already opened here: each is marked Seen only the first time.
+    var opened = {};
+
+    function tagOf(key) {
+      return (
+        data.statuses.filter(function (t) {
+          return t.key === key;
+        })[0] || { key: key, label: key, old: true }
+      );
+    }
+
+    /** A colour per tag: New its own blue, the others in turn. */
+    function tagClass(key) {
+      if (key === 'new') return 'fr-status-new';
+      var keys = data.statuses
+        .map(function (t) {
+          return t.key;
+        })
+        .filter(function (k) {
+          return k !== 'new';
+        });
+      var i = keys.indexOf(key);
+      return 'fr-tone-' + ((i < 0 ? 0 : i) % 6);
+    }
+
+    function editTags(body) {
+      return M.api('PUT', '/api/app/forms?id=' + encodeURIComponent(formId) + '&part=tags', body)
+        .then(function (r) {
+          data.statuses = r.tags.concat(
+            data.statuses.filter(function (t) {
+              return (
+                t.old &&
+                !r.tags.some(function (n) {
+                  return n.key === t.key;
+                })
+              );
+            })
+          );
+          if (body.remove && state.status === body.remove) state.status = 'all';
+          render();
+          var again = root.querySelector('.fr-tag-input');
+          if (again && body.add !== undefined) again.focus();
+        })
+        .catch(function (err) {
+          if (err.status === 401) return M.appError(err);
+          M.toast(err.message, true);
+        });
+    }
+
+    /** The tags, each removable but New, and a field to add one. */
+    function tagEditor(counts) {
+      var input = h('input', {
+        class: 'fr-tag-input',
+        maxlength: '30',
+        placeholder: 'New tag…',
+        'aria-label': 'Name of a new tag',
+      });
+      var add = function () {
+        var label = input.value.trim();
+        if (label) editTags({ add: label });
+      };
+      input.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          add();
+        }
+        if (e.key === 'Escape') (state.editTags = false), render();
+      });
+      return h(
+        'div',
+        { class: 'fr-tag-editor' },
+        data.statuses
+          .filter(function (t) {
+            return !t.old;
+          })
+          .map(function (t) {
+            return h(
+              'span',
+              { class: 'fr-tag-chip ' + tagClass(t.key) },
+              h('i', { class: 'fr-dot', 'aria-hidden': 'true' }),
+              t.label,
+              t.key === 'new'
+                ? null
+                : h(
+                    'button',
+                    {
+                      type: 'button',
+                      class: 'fr-tag-x',
+                      'aria-label': 'Remove the tag ' + t.label,
+                      title: counts[t.key]
+                        ? 'On ' + counts[t.key] + ' answer(s): move them first'
+                        : 'Remove',
+                      disabled: counts[t.key] ? true : null,
+                      onclick: function () {
+                        editTags({ remove: t.key });
+                      },
+                    },
+                    '×'
+                  )
+            );
+          }),
+        h(
+          'span',
+          { class: 'fr-tag-add' },
+          input,
+          h('button', { type: 'button', class: 'btn btn-outline btn-sm', onclick: add }, 'Add')
+        ),
+        h(
+          'button',
+          {
+            type: 'button',
+            class: 'fr-ghost',
+            onclick: function () {
+              state.editTags = false;
+              render();
+            },
+          },
+          'Done'
+        )
+      );
+    }
+
     function filters() {
       var counts = { all: 0 };
       data.responses.forEach(function (r) {
@@ -402,25 +523,31 @@
         counts[r.status] = (counts[r.status] || 0) + 1;
       });
       var chips = h('div', { class: 'fr-chips', role: 'group', 'aria-label': 'Status' });
-      ['all'].concat(data.statuses).forEach(function (s) {
-        chips.appendChild(
-          h(
-            'button',
-            {
-              type: 'button',
-              class: 'fr-chip' + (s !== 'all' ? ' fr-status-' + s : ''),
-              'aria-pressed': String(state.status === s),
-              onclick: function () {
-                state.status = s;
-                render();
+      ['all']
+        .concat(
+          data.statuses.map(function (t) {
+            return t.key;
+          })
+        )
+        .forEach(function (s) {
+          chips.appendChild(
+            h(
+              'button',
+              {
+                type: 'button',
+                class: 'fr-chip' + (s !== 'all' ? ' ' + tagClass(s) : ''),
+                'aria-pressed': String(state.status === s),
+                onclick: function () {
+                  state.status = s;
+                  render();
+                },
               },
-            },
-            s !== 'all' ? h('i', { class: 'fr-dot', 'aria-hidden': 'true' }) : null,
-            s === 'all' ? 'All' : STATUS_LABEL[s],
-            h('span', { class: 'fr-chip-n' }, String(counts[s] || 0))
-          )
-        );
-      });
+              s !== 'all' ? h('i', { class: 'fr-dot', 'aria-hidden': 'true' }) : null,
+              s === 'all' ? 'All' : tagOf(s).label,
+              h('span', { class: 'fr-chip-n' }, String(counts[s] || 0))
+            )
+          );
+        });
       var range = h('select', {
         class: 'fr-select',
         'aria-label': 'When',
@@ -476,12 +603,32 @@
           icon('close')
         );
       });
+      if (data.canEditTags) {
+        chips.appendChild(
+          h(
+            'button',
+            {
+              type: 'button',
+              class: 'fr-chip fr-chip-edit',
+              'aria-expanded': String(Boolean(state.editTags)),
+              onclick: function () {
+                state.editTags = !state.editTags;
+                render();
+                var input = root.querySelector('.fr-tag-input');
+                if (input) input.focus();
+              },
+            },
+            state.editTags ? 'Close' : '+ Tags'
+          )
+        );
+      }
       return h(
         'div',
         { class: 'fr-filters' },
         chips,
         range,
         search,
+        state.editTags ? tagEditor(counts) : null,
         active.length ? h('div', { class: 'fr-active' }, active) : null
       );
     }
@@ -1103,9 +1250,9 @@
     function statusPill(status) {
       return h(
         'span',
-        { class: 'fr-pill fr-status-' + status },
+        { class: 'fr-pill ' + tagClass(status) },
         h('i', { class: 'fr-dot', 'aria-hidden': 'true' }),
-        STATUS_LABEL[status] || status
+        tagOf(status).label
       );
     }
 
@@ -1125,24 +1272,35 @@
     }
 
     function detail(r, list) {
+      // Opening a new answer marks it Seen (while the form has that tag),
+      // once: putting New back by hand stays New.
+      if (r.status === 'new' && !opened[r.id] && tagOf('seen').old !== true) {
+        opened[r.id] = true;
+        setTimeout(function () {
+          if (r.status === 'new') setStatus(r, 'seen', true);
+        }, 0);
+      }
       var at = list.indexOf(r);
       var schema = data.versions[r.version] || data.versions[data.currentVersion];
       var seg = h('div', { class: 'fr-status-seg', role: 'group', 'aria-label': 'Status' });
-      data.statuses.forEach(function (s) {
+      data.statuses.forEach(function (t) {
+        if (t.old && r.status !== t.key) return;
+        var s = t.key;
         seg.appendChild(
           h(
             'button',
             {
               type: 'button',
-              class: 'fr-status-' + s,
+              class: tagClass(s),
               'aria-pressed': String(r.status === s),
+              disabled: t.old ? true : null,
               onclick: function () {
                 if (r.status === s) return;
                 setStatus(r, s);
               },
             },
             h('i', { class: 'fr-dot', 'aria-hidden': 'true' }),
-            STATUS_LABEL[s]
+            t.label
           )
         );
       });
@@ -1304,10 +1462,11 @@
       return h('p', { class: 'fr-a' + (q.type === 'long_text' ? ' is-long' : '') }, text(q, v));
     }
 
-    function setStatus(r, s) {
+    function setStatus(r, s, quiet) {
+      opened[r.id] = true;
       var before = r.status;
       r.status = s;
-      render();
+      if (!quiet) render();
       M.api(
         'PUT',
         '/api/app/forms?id=' +
@@ -1317,7 +1476,9 @@
         { status: s }
       )
         .then(function () {
-          M.toast('Marked ' + STATUS_LABEL[s].toLowerCase());
+          if (!quiet) M.toast('Tagged ' + tagOf(s).label);
+          // Marked Seen on opening: the counts and the list catch up.
+          else render();
         })
         .catch(function (err) {
           r.status = before;

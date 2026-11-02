@@ -72,9 +72,6 @@
       ),
       h('a', { href: '/app/', role: 'menuitem' }, 'Tools'),
       h('a', { href: '/app/settings/', role: 'menuitem' }, 'Settings'),
-      user.kind === 'admin'
-        ? h('a', { href: '/app/polls/settings/', role: 'menuitem' }, 'General settings')
-        : null,
       h(
         'button',
         {

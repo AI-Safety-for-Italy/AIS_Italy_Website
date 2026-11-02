@@ -1,5 +1,6 @@
 // /api/app/settings
-//   GET                         -> { profile, discordBot, mail: { configured, smtp? } }
+//   GET                         -> { profile, discordBot, mail: { configured, smtp? },
+//                                    follows: { members: { canFollow, following }, forms } }
 //                                  (smtp only for the admin)
 //   PATCH { notifyChannel, notifyEmail }  -> the user's own notification choices
 //   PUT   { host, port, user, password, fromEmail, fromName, formsEmail }  -> SMTP (admin)
@@ -8,6 +9,20 @@ const { route, sendJson, readJson, getQuery, HttpError } = require('../../http')
 const auth = require('../../auth');
 const mail = require('../../mail');
 const notify = require('../../notify');
+const permissions = require('../../permissions');
+const follows = require('../../follows');
+const forms = require('../../forms/forms');
+
+/** What this user follows, and could: the member applications, the forms they read. */
+async function followsOf(user) {
+  if (user.kind !== 'discord')
+    return { members: { canFollow: false, following: false }, forms: [] };
+  const canFollow = (await permissions.forUser(user)).includes('members');
+  return {
+    members: { canFollow, following: canFollow && (await follows.isFollowing(user.id, 'members')) },
+    forms: await forms.followable(user),
+  };
+}
 
 function requireAdmin(user) {
   if (user.kind !== 'admin') throw new HttpError(403, 'Only the admin can change this');
@@ -16,15 +31,17 @@ function requireAdmin(user) {
 module.exports = route({
   async GET(req, res) {
     const user = await auth.requireUser(req);
-    const [profile, configured, smtp] = await Promise.all([
+    const [profile, configured, smtp, followed] = await Promise.all([
       auth.getProfile(user.id),
       mail.isConfigured(),
       user.kind === 'admin' ? mail.publicSettings() : undefined,
+      followsOf(user),
     ]);
     sendJson(res, 200, {
       profile,
       discordBot: notify.discordAvailable(),
       mail: { configured, smtp },
+      follows: followed,
     });
   },
   async PATCH(req, res) {

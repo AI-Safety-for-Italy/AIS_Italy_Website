@@ -1518,6 +1518,68 @@ dialog.meet-dialog::backdrop {
   gap: 0.5rem;
 }
 
+/* Leaving with unsaved changes: the question, and the save button's shake */
+.leave-dialog {
+  max-width: 26rem;
+  padding: 1.5rem;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius);
+  background: var(--card-bg);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-lg);
+}
+
+.leave-dialog::backdrop {
+  background: rgba(10, 20, 14, 0.45);
+}
+
+.leave-dialog h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.25rem;
+}
+
+.leave-dialog p {
+  margin: 0 0 1.25rem;
+  color: var(--text-secondary);
+}
+
+.leave-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.btn-danger {
+  background: var(--secondary-600);
+  border-color: var(--secondary-600);
+  color: #fff;
+}
+
+.btn-danger:hover {
+  background: var(--secondary-700, var(--secondary-600));
+  color: #fff;
+}
+
+.is-shaking {
+  animation: shake 0.45s ease;
+  box-shadow: 0 0 0 3px var(--secondary-300, #f5a3a3);
+}
+
+@keyframes shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20%,
+  60% {
+    transform: translateX(-6px);
+  }
+  40%,
+  80% {
+    transform: translateX(6px);
+  }
+}
+
 .toast {
   position: fixed;
   left: 50%;
@@ -5883,7 +5945,57 @@ textarea.fm-input.fm-other-input {
   min-height: 0;
 }
 
-/* Who else hears about new answers: chips, and a search below */
+/* Settings: small headings inside a panel, and the folded integrations */
+.fe-subhead {
+  margin: 0.5rem 0 0;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.fe-integrations > summary {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 600;
+  list-style: none;
+  cursor: pointer;
+}
+
+.fe-integrations > summary::-webkit-details-marker {
+  display: none;
+}
+
+.fe-integrations > summary::after {
+  content: '';
+  width: 0.55rem;
+  height: 0.55rem;
+  margin-left: auto;
+  border-right: 2px solid var(--text-tertiary);
+  border-bottom: 2px solid var(--text-tertiary);
+  transform: rotate(45deg);
+  transition: transform 0.15s ease;
+}
+
+.fe-integrations[open] > summary::after {
+  transform: rotate(-135deg);
+}
+
+.fe-integrations[open] > summary {
+  margin-bottom: 1rem;
+}
+
+.fe-integrations .panel {
+  margin: 0;
+  box-shadow: none;
+}
+
+/* People who read the answers by name: chips, and a search below */
 .fe-people {
   display: flex;
   flex-wrap: wrap;
@@ -6330,6 +6442,97 @@ textarea.fm-input.fm-other-input {
 
 .fr-status-rejected {
   --fr-dot: var(--fr-rejected);
+}
+
+.fr-tone-0 {
+  --fr-dot: var(--fr-s3);
+}
+
+.fr-tone-1 {
+  --fr-dot: var(--fr-s4);
+}
+
+.fr-tone-2 {
+  --fr-dot: var(--fr-s5);
+}
+
+.fr-tone-3 {
+  --fr-dot: var(--fr-s2);
+}
+
+.fr-tone-4 {
+  --fr-dot: var(--fr-s6);
+}
+
+.fr-tone-5 {
+  --fr-dot: var(--fr-s1);
+}
+
+/* Editing the tags, under the filters */
+.fr-chip-edit {
+  border-style: dashed;
+  color: var(--text-secondary);
+}
+
+.fr-tag-editor {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--card-bg);
+}
+
+.fr-tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.3rem 0.25rem 0.6rem;
+  border: 1px solid var(--border-default);
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.fr-tag-x {
+  width: 1.3rem;
+  height: 1.3rem;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--text-tertiary);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.fr-tag-x:hover:not(:disabled) {
+  background: var(--secondary-50, #fdecec);
+  color: var(--secondary-600);
+}
+
+.fr-tag-x:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.fr-tag-add {
+  display: inline-flex;
+  gap: 0.35rem;
+}
+
+.fr-tag-input {
+  width: 10rem;
+  height: 2rem;
+  padding: 0 0.6rem;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--card-bg);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 0.85rem;
 }
 
 .fr-select {
@@ -7386,30 +7589,184 @@ textarea.fm-input.fm-other-input {
   text-decoration: none;
 }
 
-/* Settings: the forms that tell this member about answers */
-.my-forms {
+/* Settings → Notifications: a card per channel, then what is followed */
+.notify-channels {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr));
+  gap: 0.6rem;
+}
+
+.notify-channel {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  padding: 0.85rem 0.9rem;
+  border: 1.5px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--card-bg);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.notify-channel input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.notify-channel:hover {
+  border-color: var(--border-strong);
+}
+
+.notify-channel:has(input:checked) {
+  border-color: var(--accent);
+  background: var(--accent-50);
+}
+
+.notify-channel:has(input:focus-visible) {
+  box-shadow: var(--ring);
+}
+
+.notify-channel-icon {
+  display: inline-flex;
+  flex: none;
+  width: 2rem;
+  height: 2rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--border-muted, var(--border-default));
+  color: var(--text-secondary);
+}
+
+.notify-channel-icon svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.notify-channel:has(input:checked) .notify-channel-icon {
+  background: var(--accent);
+  color: #fff;
+}
+
+.notify-channel-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.notify-channel-text strong {
+  font-size: 0.95rem;
+}
+
+.notify-channel-text small {
+  font-size: 0.8rem;
+  color: var(--text-tertiary);
+  line-height: 1.35;
+}
+
+.follow-list {
   display: flex;
   flex-direction: column;
 }
 
-.my-form {
+.follow-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 0.7rem 0;
+  padding: 0.75rem 0;
   border-top: 1px solid var(--border-default);
   cursor: pointer;
 }
 
-.my-form-text {
-  display: flex;
-  flex-direction: column;
+.follow-row:last-child {
+  border-bottom: 1px solid var(--border-default);
 }
 
-.my-form-text small {
-  color: var(--text-tertiary);
+.follow-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.follow-text strong {
+  font-size: 0.95rem;
+}
+
+.follow-text small {
   font-size: 0.8rem;
+  color: var(--text-tertiary);
+}
+
+/* The card's foot: who can see the answers on the left, the member's own
+   "Notify me" on the right. Above the card's link, so both answer the mouse. */
+.fl-foot {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 0.25rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border-default);
+}
+
+.fl-faces {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+}
+
+.fl-face {
+  display: inline-flex;
+  margin-left: -6px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--card-bg);
+  cursor: default;
+}
+
+.fl-face:first-child {
+  margin-left: 0;
+}
+
+.fl-face:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--card-bg), var(--ring);
+}
+
+.fl-face .app-avatar {
+  width: 26px;
+  height: 26px;
+  font-size: 0.75rem;
+}
+
+.fl-face.is-role,
+.fl-face.is-role .app-avatar {
+  border-radius: 7px;
+}
+
+.fl-face.is-role .app-avatar {
+  background: var(--accent-100);
+  color: var(--accent-700);
+  font-weight: 700;
+}
+
+.fl-more {
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  background: var(--border-muted, var(--border-default));
+  color: var(--text-secondary);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.members-follow {
+  margin-left: auto;
 }
 
 /* "Notify me" on a form that tells this member about answers */
@@ -7423,11 +7780,6 @@ textarea.fm-input.fm-other-input {
   color: var(--text-secondary);
   white-space: nowrap;
   cursor: pointer;
-}
-
-.fe-person.is-muted {
-  opacity: 0.6;
-  border-style: dashed;
 }
 
 /* Above the card's link, like the count. */

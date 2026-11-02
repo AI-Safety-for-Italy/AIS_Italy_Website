@@ -1,20 +1,21 @@
 ---
-title: General settings
-# Settings that apply to every user of the meeting polls. Only the admin
-# account can see and change them; the API enforces it.
-permalink: /app/polls/settings/
+title: Mail settings
+# Settings for everyone (the mailbox every email is sent from), a tab of
+# Settings shown to the admin account only; the API enforces it.
+permalink: /app/settings/mail/
 noindex: true
 excludeFromSitemap: true
 eleventyExcludeFromCollections: true
-seoTitle: 'General settings | AI Safety for Italy'
-tool: polls
-tab: settings
+seoTitle: 'Mail settings | AI Safety for Italy'
+pageTitle: Settings
+tool: settings
+tab: mail
 ---
 {% extends "app.njk" %}
 {% block page %}
     <div class="settings">
       <div class="empty-state" id="adminOnly" hidden>
-        <p style="margin:0">Only the admin can change the general settings. Your own notifications are under Settings.</p>
+        <p style="margin:0">Only the admin can change the mail settings. Your own notifications are under Settings.</p>
       </div>
     <form class="panel form-grid" id="smtpForm" novalidate hidden>
       <div class="panel-head" style="margin:0">

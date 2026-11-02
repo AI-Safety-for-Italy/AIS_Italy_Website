@@ -1,5 +1,5 @@
 // Outgoing email (invites to invite-only polls, notifications to owners),
-// sent over SMTP with the settings the admin saves on /app/polls/settings/.
+// sent over SMTP with the settings the admin saves on /app/settings/mail/.
 //
 // The SMTP password is kept encrypted (AES-256-GCM, key derived from
 // SESSION_SECRET), so the database alone does not reveal it. Rotating

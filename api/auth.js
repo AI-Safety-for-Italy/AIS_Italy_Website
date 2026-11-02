@@ -11,6 +11,7 @@ const { route, sendJson, readJson, getQuery, HttpError } = require('../server/ht
 const auth = require('../server/auth');
 const discord = require('../server/discord');
 const permissions = require('../server/permissions');
+const forms = require('../server/forms/forms');
 const { withTiming } = require('../server/timing');
 
 const handler = route({
@@ -18,11 +19,15 @@ const handler = route({
     const user = await auth.currentUser(req);
     const devLogin = permissions.devLogin();
     const perms = user ? await permissions.forUser(user) : [];
+    const areas = permissions.areas(perms);
+    // Reading a form's answers (added by name, or by a role ticked on it)
+    // opens the forms tool too, on those forms only.
+    if (user && !areas.forms) areas.forms = await forms.readsAny(user).catch(() => false);
     sendJson(res, 200, {
       user,
       permissions: perms,
-      // Which tools these permissions open: { content, crm }.
-      areas: permissions.areas(perms),
+      // Which tools these permissions open: { content, crm, forms, members }.
+      areas,
       discord: discord.isConfigured(),
       // Setting names only, so a half-done setup says what it still needs.
       discordMissing: discord.isConfigured() ? undefined : discord.missingSettings(),

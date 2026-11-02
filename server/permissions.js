@@ -94,12 +94,6 @@ const PERMISSIONS = [
     area: 'forms',
     help: 'Manage every form and read all the answers.',
   },
-  {
-    key: 'forms_notify',
-    label: 'Forms: choose who is notified',
-    area: 'forms',
-    help: 'Add any member of the Discord server to the people told about new answers.',
-  },
   // The member applications board (server/members.js): an area of its own.
   {
     key: 'members',
@@ -143,7 +137,6 @@ const DEV_DEFAULTS = {
     'mentorship',
     'forms',
     'forms_admin',
-    'forms_notify',
     'members',
   ],
   'dev-organizzatori': ['seminar', 'event', 'forms', 'mentorship'],
@@ -376,10 +369,12 @@ async function listRolePermissions() {
   const { rows } = await db.query(
     'select role_id, role_name, permissions from content_role_permissions order by role_name'
   );
+  // A key since retired (e.g. forms_notify) is left out, so saving the
+  // table again does not trip over it.
   return rows.map((r) => ({
     roleId: r.role_id,
     roleName: r.role_name,
-    permissions: r.permissions,
+    permissions: r.permissions.filter((k) => KEYS.includes(k)),
   }));
 }
 
@@ -393,7 +388,7 @@ async function listUserPermissions() {
     userId: r.user_id,
     name: r.name,
     avatarUrl: r.avatar_url,
-    permissions: r.permissions,
+    permissions: r.permissions.filter((k) => KEYS.includes(k)),
   }));
 }
 

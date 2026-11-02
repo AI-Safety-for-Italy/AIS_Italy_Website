@@ -13,7 +13,7 @@ email to send the invite from their own calendar.
 | `/app/polls/`                                    | The member's own polls (not linked anywhere, not indexed)                            |
 | `/app/settings/`                                 | Settings: the member's own notifications                                             |
 | `/app/settings/permissions/`                     | Who may do what, per Discord role and per person (`manage`, and the admin)           |
-| `/app/polls/settings/`                           | General settings: the sending mailbox (admin only)                                   |
+| `/app/settings/mail/`                            | Mail settings: the sending mailbox (admin only)                                      |
 | `/meet/?p=…`, `/it/meet/?p=…`                    | The voting page people get the link to                                               |
 | `api/`                                           | Vercel Functions: `auth`, `discord`, `app/polls`, `app/poll`, `app/settings`, `poll` |
 | `server/`                                        | Shared server code: database, auth, Discord, polls, mail, calendar files             |
@@ -74,7 +74,7 @@ and lets in only members of `DISCORD_GUILD_ID` holding one of
 ### Email
 
 Invites to invite-only polls and owner notifications are sent over SMTP from
-the mailbox the admin sets up on `/app/polls/settings/` (General settings,
+the mailbox the admin sets up on `/app/settings/mail/` (Settings → Mail settings,
 signed in with the admin password). For `tech@ais4i.it` on register.it the server is the one in the
 mailbox's settings (e.g. `authsmtp.securemail.pro`, port 465), the username is
 the full address. "Send a test email" checks it. The password is stored
@@ -290,15 +290,21 @@ only a forms admin can give a form those links.
   one answer per email, telling the owner about new answers (by email or
   Discord DM, as on their settings page; never what the answer says),
   emailing each person a copy of their answers (to the form's first email
-  question, from the General settings mailbox; on by default), which
-  Discord roles read the answers), who else hears about new answers (any
-  member of the Discord server, found by name through the bot; each is told
-  on their own channel from their Settings, or by a Discord message if they
-  never signed in; chosen by whoever holds `forms_notify`, and each can
-  switch it off for themselves on the forms list or in Settings) and the
-  public link, which the forms list
+  question, from the mailbox in Mail settings; on by default), which
+  Discord roles and which people (any member of the Discord server, found
+  by name) read the answers) and the public link, which the forms list
   also copies straight from each card. Answers are deleted
   24 months after they were sent (see "Keeping time of personal data").
+- **Following**: seeing a form is not following it. Each person who reads
+  the answers turns "Notify me" on (the form's card, or the editor) to be
+  told about new answers on the channel from their Settings, and to have
+  them counted on their home page; the owner follows their own form until
+  they switch it off. The member applications board has the same switch
+  (`server/follows.js`).
+- **Tags** on answers: New and Seen to start (opening a new answer marks it
+  Seen, once); whoever reads the answers adds more, or removes one no answer
+  carries. On the sign-up form the board's decision shows as the answer's
+  tag (Approved, Rejected).
 - **Answers** (the editor's Answers tab; also the only tab for the Discord
   roles a form lets read its answers): a summary with a chart per question
   (bars, columns or donut, sortable, the choice remembered per form), numbers

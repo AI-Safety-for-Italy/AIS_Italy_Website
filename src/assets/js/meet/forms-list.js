@@ -52,12 +52,10 @@
     );
   }
 
-  // The forms that tell this member about new answers (as owner, or added
-  // by someone): a switch on their card turns it off or on for them only.
-  var mine = {};
+  // This member's own switch: hear about the form's new answers or not
+  // (owner, readers by name or by role, forms admins). Null: no channel.
   function notifySwitch(f) {
-    var n = mine[f.id];
-    if (!n) return null;
+    if (f.notifyMe === null || f.notifyMe === undefined) return null;
     var input = h('input', {
       type: 'checkbox',
       role: 'switch',
@@ -69,25 +67,73 @@
           on: input.checked,
         })
           .then(function (r) {
-            n.on = r.on;
-            M.toast(r.on ? 'You will hear about new answers' : 'Notifications off for this form');
+            f.notifyMe = r.notifyMe;
+            M.toast(
+              r.notifyMe ? 'You will hear about new answers' : 'Notifications off for this form'
+            );
           })
           .catch(function (err) {
-            input.checked = n.on;
-            fail(err);
+            input.checked = f.notifyMe;
+            if (err.status === 401) return M.appError(err);
+            M.toast(err.message, true);
           })
           .then(function () {
             input.disabled = false;
           });
       },
     });
-    input.checked = n.on;
+    input.checked = f.notifyMe;
     return h(
       'label',
-      { class: 'fl-notify', title: 'Notify me about answers' },
+      { class: 'fl-notify', title: 'Hear about new answers, on your channel from Settings' },
       h('span', null, 'Notify me'),
       input
     );
+  }
+
+  // Who can see the answers: a face (or a role's initial) each, the name and
+  // why on hover. A few, then "+n".
+  function faces(f) {
+    var who = f.access || [];
+    if (!who.length) return h('span');
+    var shown = who.slice(0, 6);
+    var row = h('div', { class: 'fl-faces', 'aria-label': 'Who can see the answers' });
+    shown.forEach(function (a) {
+      var label = a.name + ' — ' + a.what;
+      row.appendChild(
+        h(
+          'span',
+          {
+            class: 'fl-face' + (a.kind === 'role' ? ' is-role' : ''),
+            title: label,
+            tabindex: '0',
+            'aria-label': label,
+          },
+          a.kind === 'role'
+            ? h('span', { class: 'app-avatar is-initial' }, a.name.charAt(0).toUpperCase())
+            : M.avatar({ name: a.name, avatarUrl: a.avatarUrl }, 26)
+        )
+      );
+    });
+    if (who.length > shown.length) {
+      var rest = who.slice(shown.length);
+      row.appendChild(
+        h(
+          'span',
+          {
+            class: 'fl-face fl-more',
+            tabindex: '0',
+            title: rest
+              .map(function (a) {
+                return a.name + ' — ' + a.what;
+              })
+              .join('\n'),
+          },
+          '+' + rest.length
+        )
+      );
+    }
+    return row;
   }
 
   function card(f) {
@@ -119,7 +165,6 @@
         'div',
         { class: 'poll-item-side' },
         badge(f),
-        notifySwitch(f),
         copyButton(f),
         h(
           'a',
@@ -131,24 +176,17 @@
           h('strong', null, String(f.responses)),
           h('span', null, (f.responses === 1 ? 'answer' : 'answers') + ' →')
         )
-      )
+      ),
+      h('div', { class: 'fl-foot' }, faces(f), notifySwitch(f))
     );
   }
 
-  Promise.all([
-    M.me,
-    M.areas,
-    M.api('GET', '/api/app/forms'),
-    M.api('GET', '/api/app/forms?mine=notifications').catch(function () {
-      return { forms: [] };
-    }),
-  ])
+  // The list is asked for together with the sign-in, not after it.
+  Promise.all([M.me, M.permissions, M.api('GET', '/api/app/forms')])
     .then(function (r) {
       var data = r[2];
-      newBtn.hidden = !r[1].forms;
-      r[3].forms.forEach(function (n) {
-        mine[n.id] = n;
-      });
+      // Making forms needs a forms permission; reading some answers does not.
+      newBtn.hidden = r[1].indexOf('forms') === -1 && r[1].indexOf('forms_admin') === -1;
       M.clear(list);
       if (!data.forms.length) {
         list.appendChild(

@@ -49,13 +49,14 @@
         var d = r[1];
         data = d;
         var missing = [];
-        if (!d.mailReady) missing.push('email sending (admin → General settings)');
+        if (!d.mailReady) missing.push('email sending (admin → Settings → Mail settings)');
         d.roles.forEach(function (r) {
           if (!r.ready) missing.push('the Discord id of the ' + r.label + ' role');
         });
         document.getElementById('setupNote').hidden = !missing.length;
         document.getElementById('setupText').textContent =
           'Approving needs ' + missing.join(' and ') + ', which is not set up yet.';
+        follow(d.following);
         render();
       })
       .catch(function (err) {
@@ -319,4 +320,27 @@
   }
 
   load();
+  // "Notify me": told about new applications (and counted on the home
+  // page) only when following the board. Null: no channel of one's own.
+  function follow(on) {
+    var box = document.getElementById('followBoard');
+    var input = document.getElementById('followInput');
+    box.hidden = on === null || on === undefined;
+    input.checked = Boolean(on);
+    input.onchange = function () {
+      input.disabled = true;
+      M.api('POST', '/api/app/members?action=follow', { on: input.checked })
+        .then(function (r) {
+          M.toast(r.following ? 'You will hear about new applications' : 'Notifications off');
+        })
+        .catch(function (err) {
+          input.checked = !input.checked;
+          if (err.status === 401) return M.appError(err);
+          M.toast(err.message, true);
+        })
+        .then(function () {
+          input.disabled = false;
+        });
+    };
+  }
 })();

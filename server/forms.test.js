@@ -42,7 +42,6 @@ async function setRoles() {
     { roleId: 'r-forms', roleName: 'forms makers', permissions: ['forms'] },
     { roleId: 'r-forms-admin', roleName: 'forms admins', permissions: ['forms_admin'] },
     { roleId: 'r-mentors', roleName: 'mentorship', permissions: ['mentorship'] },
-    { roleId: 'r-notify', roleName: 'direttivo', permissions: ['forms', 'forms_notify'] },
   ]);
 }
 
@@ -805,6 +804,63 @@ test('an answer to the sign-up form also reaches the board, with the role asked 
   assert.equal(stored.responses.length, 2);
 });
 
+test("the board's decision shows as the answer's tag; followers hear of new applications", async () => {
+  const mail = require('./mail');
+  const members = require('./members');
+  const follows = require('./follows');
+  const sent = [];
+  process.env.MEET_FAKE_MAIL = '0';
+  mail.setTransportFactory(() => ({ sendMail: async (m) => sent.push(m), close() {} }));
+  await mail.saveSettings({ host: 'smtp.x', port: 465, fromEmail: 'tech@ais4i.it', password: 'p' });
+  try {
+    await permissions.saveRolePermissions([
+      { roleId: 'r-board', roleName: 'board', permissions: ['members'] },
+    ]);
+    const elisa = await member('Elisa', ['r-board']);
+    const sid = await member('Sid', []);
+    for (const [who, address] of [
+      [elisa, 'elisa@example.org'],
+      [sid, 'sid@example.org'],
+    ]) {
+      await auth.updateProfile(who.id, { notifyChannel: 'email', notifyEmail: address });
+    }
+    const root = await admin();
+    const { id, slug } = await forms.create(root, {
+      title: 'Iscrizione',
+      template: 'community_signup',
+    });
+    await forms.updateSettings(root, id, { status: 'open' });
+
+    // Nobody follows the board yet: an application tells nobody.
+    const first = await answer(slug, signupAnswers());
+    assert.equal(first.application, true);
+    assert.equal(await members.notifyFollowers('https://x'), 0);
+    // Elisa follows it; Sid "follows" it too but cannot open the board.
+    await members.setFollowing(elisa, true);
+    await follows.setFollowing(sid.id, 'members', true);
+    await rejects(members.setFollowing(sid, true), 403);
+    assert.equal((await members.listApplications(elisa)).following, true);
+    assert.equal(await members.notifyFollowers('https://x'), 1);
+    assert.deepEqual(
+      sent.map((m) => m.to),
+      ['elisa@example.org']
+    );
+    assert.ok(!JSON.stringify(sent[0]).includes('Giulia'));
+
+    // Rejecting it tags the answer Rejected, the tag added to the form's.
+    const [app] = (await members.listApplications(elisa)).applications;
+    await members.decide(elisa, app.id, { decision: 'reject' }, { siteOrigin: 'https://x' });
+    const stored = await forms.responses(root, id);
+    assert.equal(stored.responses[0].status, 'rejected');
+    assert.deepEqual(
+      stored.statuses.map((t) => t.key),
+      ['new', 'seen', 'rejected']
+    );
+  } finally {
+    process.env.MEET_FAKE_MAIL = '1';
+  }
+});
+
 test('a bot, a wrong answer or a form that is not wired sends nothing to the board', async () => {
   const root = await admin();
   const { id, slug } = await forms.create(root, {
@@ -1028,7 +1084,7 @@ test('members of the Discord server are found by name, signed in here or not', a
   }
 });
 
-test('people added to a form hear about answers on their own channels', async () => {
+test('readers added by name read the answers; only who follows a form hears of it', async () => {
   const mail = require('./mail');
   const notify = require('./notify');
   const sent = [];
@@ -1048,35 +1104,39 @@ test('people added to a form hear about answers on their own channels', async ()
   try {
     await setRoles();
     const mara = await member('Mara', ['r-forms']);
-    const dora = await member('Dora', ['r-notify']);
     const ugo = await member('Ugo', []);
-    await auth.updateProfile(ugo.id, { notifyChannel: 'email', notifyEmail: 'ugo@example.org' });
-    const { id } = await openForm(dora, { settings: { settings: { notifyOwner: false } } });
+    const tea = await member('Tea', ['r-mentors']);
+    for (const [who, address] of [
+      [mara, 'mara@example.org'],
+      [ugo, 'ugo@example.org'],
+      [tea, 'tea@example.org'],
+    ]) {
+      await auth.updateProfile(who.id, { notifyChannel: 'email', notifyEmail: address });
+    }
+    const { id } = await openForm(mara);
+    const tell = async () => {
+      sent.length = 0;
+      dms.length = 0;
+      await forms.notifyOwner(id, 'https://x');
+      return sent.map((m) => m.to).sort();
+    };
 
-    // Choosing who is told needs forms_notify, even for a form one manages.
-    const mine = await openForm(mara);
-    await rejects(
-      forms.updateSettings(mara, mine.id, {
-        settings: { notifyPeople: [{ discordId: 'test-Ugo', name: 'Ugo' }] },
-      }),
-      403
-    );
-    await rejects(forms.searchPeople(mara, mine.id, 'Ug'), 403);
-    assert.equal((await forms.get(mara, mine.id)).canChooseNotified, false);
-    // …and saving the other settings unchanged is still fine.
-    await forms.updateSettings(mara, mine.id, { settings: { notifyPeople: [] } });
+    // Before: Ugo cannot read the form; only the owner hears of answers.
+    await rejects(forms.get(ugo, id), 404);
+    assert.deepEqual(await tell(), ['mara@example.org']);
 
-    // Dora holds it: she finds Ugo and adds him, and someone who never signed in.
-    assert.equal((await forms.get(dora, id)).canChooseNotified, true);
-    const found = (await forms.searchPeople(dora, id, 'ug')).people;
+    // The owner adds Ugo by name, and someone who never signed in here;
+    // anyone managing the form may, no special permission needed.
+    const found = (await forms.searchPeople(mara, id, 'ug')).people;
     assert.deepEqual(
       found.map((p) => p.discordId),
       ['test-Ugo']
     );
-    assert.deepEqual(await forms.searchPeople(dora, id, 'u'), { people: [] });
-    await forms.updateSettings(dora, id, {
+    await rejects(forms.searchPeople(ugo, id, 'ug'), 404);
+    await forms.updateSettings(mara, id, {
+      accessRoles: ['r-mentors'],
       settings: {
-        notifyPeople: [
+        readers: [
           { discordId: 'test-Ugo', name: 'Ugo' },
           { discordId: '123456789012', name: 'Nuovo' },
           { discordId: 'test-Ugo', name: 'Ugo again' },
@@ -1084,69 +1144,61 @@ test('people added to a form hear about answers on their own channels', async ()
       },
     });
     assert.deepEqual(
-      (await forms.get(dora, id)).settings.notifyPeople.map((p) => p.discordId),
+      (await forms.get(mara, id)).settings.readers.map((p) => p.discordId),
       ['test-Ugo', '123456789012']
     );
     await rejects(
-      forms.updateSettings(dora, id, {
-        settings: { notifyPeople: [{ discordId: 'no spaces!', name: 'x' }] },
+      forms.updateSettings(mara, id, {
+        settings: { readers: [{ discordId: 'no spaces!', name: 'x' }] },
       }),
       400
     );
+    await rejects(forms.updateSettings(ugo, id, { settings: { readers: [] } }), 404);
 
-    // An answer: Ugo by email (his choice), the newcomer by a Discord message.
-    const channels = await forms.notifyOwner(id, 'https://x');
-    assert.deepEqual(channels.sort(), ['discord', 'email']);
-    assert.deepEqual(
-      sent.map((m) => m.to),
-      ['ugo@example.org']
-    );
-    assert.deepEqual(dms, ['123456789012']);
+    // Ugo now reads the answers, and the forms tool opens for him.
+    assert.equal((await forms.responses(ugo, id)).responses.length, 0);
+    assert.equal(await forms.readsAny(ugo), true);
+    assert.equal(await forms.readsAny(await member('Nico', [])), false);
 
-    // Ugo sees the form among those that tell him, and switches it off for
-    // himself: no permission needed, and a later save of the list keeps it off.
-    const ugoForms = await forms.myNotifications(ugo);
-    assert.deepEqual(
-      ugoForms.map((f) => [f.id, f.as, f.on]),
-      [[id, 'added', true]]
-    );
-    assert.deepEqual(
-      (await forms.myNotifications(mara)).map((f) => [f.id, f.as]),
-      [[mine.id, 'owner']]
-    );
-    await forms.setMyNotification(ugo, id, false);
-    await forms.updateSettings(dora, id, {
-      settings: {
-        notifyPeople: [
-          { discordId: 'test-Ugo', name: 'Ugo' },
-          { discordId: '123456789012', name: 'Nuovo' },
-        ],
-      },
+    // Seeing the answers is not following them: only the owner hears of one.
+    assert.deepEqual(await tell(), ['mara@example.org']);
+    assert.deepEqual(dms, []);
+    assert.equal((await forms.get(ugo, id)).notifyMe, false);
+    assert.equal((await forms.get(tea, id)).notifyMe, false);
+
+    // Each follows it for themselves: Tea and Ugo on, then Ugo off.
+    await forms.setNotifyMe(tea, id, true);
+    await forms.setNotifyMe(ugo, id, true);
+    assert.deepEqual(await tell(), ['mara@example.org', 'tea@example.org', 'ugo@example.org']);
+    await forms.setNotifyMe(ugo, id, false);
+    assert.deepEqual(await tell(), ['mara@example.org', 'tea@example.org']);
+    await forms.setNotifyMe(mara, id, false);
+    assert.equal((await forms.get(mara, id)).settings.notifyOwner, false);
+    assert.deepEqual(await tell(), ['tea@example.org']);
+    // Saving the readers again keeps their choices.
+    await forms.updateSettings(mara, id, {
+      settings: { readers: [{ discordId: 'test-Ugo', name: 'Ugo' }] },
     });
-    assert.equal((await forms.myNotifications(ugo))[0].on, false);
-    sent.length = 0;
-    dms.length = 0;
-    await forms.notifyOwner(id, 'https://x');
-    assert.equal(sent.length, 0);
-    assert.deepEqual(dms, ['123456789012']);
-    await rejects(forms.setMyNotification(ugo, mine.id, true), 404);
-    await forms.setMyNotification(ugo, id, true);
-    await forms.notifyOwner(id, 'https://x');
-    assert.deepEqual(
-      sent.map((m) => m.to),
-      ['ugo@example.org']
-    );
-    // The owner's switch is the form's "Tell me about new answers".
-    await forms.setMyNotification(mara, mine.id, false);
-    assert.equal((await forms.get(mara, mine.id)).settings.notifyOwner, false);
+    assert.deepEqual(await tell(), ['tea@example.org']);
+    // Tea loses the role: she is not told any more.
+    await forms.updateSettings(mara, id, { accessRoles: [] });
+    assert.deepEqual(await tell(), []);
+    // Someone who cannot read the form cannot switch anything.
+    await rejects(forms.setNotifyMe(await member('Sid', []), id, true), 404);
 
-    // Ugo switches his notifications off: he is not told any more.
-    await auth.updateProfile(ugo.id, { notifyChannel: 'none' });
-    sent.length = 0;
-    dms.length = 0;
-    await forms.notifyOwner(id, 'https://x');
-    assert.equal(sent.length, 0);
-    assert.deepEqual(dms, ['123456789012']);
+    // The list shows each form's faces and this user's switch.
+    const [card] = await forms.list(mara);
+    assert.equal(card.notifyMe, false);
+    assert.deepEqual(
+      card.access.map((a) => [a.kind, a.name]),
+      [
+        ['person', 'Mara'],
+        ['person', 'Ugo'],
+        ['role', 'forms admins'],
+      ]
+    );
+    assert.match(card.access[1].what, /Reads the answers/);
+    assert.equal(card.access[2].what, 'Role: manages every form');
   } finally {
     process.env.MEET_FAKE_MAIL = '1';
     delete process.env.DISCORD_BOT_TOKEN_AIS_TEAM_AREA;
@@ -1201,7 +1253,7 @@ test('with a shared address set, every form tells that address, not the owner', 
 
 // ── Reviewing the answers ────────────────────────────────────────────────────
 
-test('a reader moves an answer along; outsiders and odd statuses are refused', async () => {
+test('a reader tags an answer; the tags are New and Seen until the team adds more', async () => {
   await setRoles();
   const mara = await member('Mara', ['r-forms']);
   const team = await member('Tea', ['r-mentors']);
@@ -1212,18 +1264,43 @@ test('a reader moves an answer along; outsiders and odd statuses are refused', a
   const [first] = (await forms.responses(team, id)).responses;
   assert.equal(first.status, 'new');
 
-  await forms.setResponseStatus(team, id, first.id, 'accepted');
+  await forms.setResponseStatus(team, id, first.id, 'seen');
   const after = await forms.responses(mara, id);
-  assert.equal(after.responses[0].status, 'accepted');
-  assert.deepEqual(after.statuses, ['new', 'reviewing', 'accepted', 'rejected']);
+  assert.equal(after.responses[0].status, 'seen');
+  assert.deepEqual(
+    after.statuses.map((t) => t.key),
+    ['new', 'seen']
+  );
   assert.equal(after.canManage, true);
   assert.equal((await forms.responses(team, id)).canManage, false);
+  await rejects(forms.setResponseStatus(team, id, first.id, 'accepted'), 400);
 
-  await rejects(forms.setResponseStatus(team, id, first.id, 'starred'), 400);
-  await rejects(forms.setResponseStatus(stranger, id, first.id, 'rejected'), 404);
+  // The team adds a tag, uses it, and cannot remove it while it is on an answer.
+  const { tags } = await forms.editTags(team, id, { add: '  Da   ricontattare ' });
+  assert.deepEqual(tags[2], { key: 'da-ricontattare', label: 'Da ricontattare' });
+  await rejects(forms.editTags(team, id, { add: 'da ricontattare' }), 409);
+  await rejects(forms.editTags(team, id, { add: '   ' }), 400);
+  await forms.setResponseStatus(team, id, first.id, 'da-ricontattare');
+  await rejects(forms.editTags(mara, id, { remove: 'da-ricontattare' }), 409);
+  await rejects(forms.editTags(mara, id, { remove: 'new' }), 400);
+  await rejects(forms.editTags(stranger, id, { add: 'X' }), 404);
+  await forms.setResponseStatus(team, id, first.id, 'seen');
+  assert.deepEqual(
+    (await forms.editTags(mara, id, { remove: 'da-ricontattare' })).tags.map((t) => t.key),
+    ['new', 'seen']
+  );
+  // An answer still carrying an old tag shows it, marked.
+  await db.query(`update form_responses set status = 'reviewing' where id = $1`, [first.id]);
+  assert.deepEqual((await forms.responses(mara, id)).statuses[2], {
+    key: 'reviewing',
+    label: 'Reviewing',
+    old: true,
+  });
+
+  await rejects(forms.setResponseStatus(stranger, id, first.id, 'seen'), 404);
   await rejects(forms.setResponseStatus(team, id, crypto.randomUUID(), 'new'), 404);
   const trail = await audit.recent({ subjectKey: first.id });
-  assert.deepEqual(trail[0].detail, { status: 'accepted' });
+  assert.deepEqual(trail[0].detail, { status: 'seen' });
 });
 
 test('only a manager deletes an answer, and it is gone for good', async () => {
