@@ -135,19 +135,18 @@
     );
   }
 
-  Promise.all([M.me, M.areas])
+  Promise.all([
+    M.me,
+    M.areas,
+    M.api('GET', '/api/app/forms'),
+    M.api('GET', '/api/app/forms?mine=notifications').catch(function () {
+      return { forms: [] };
+    }),
+  ])
     .then(function (r) {
+      var data = r[2];
       newBtn.hidden = !r[1].forms;
-      return Promise.all([
-        M.api('GET', '/api/app/forms'),
-        M.api('GET', '/api/app/forms?mine=notifications').catch(function () {
-          return { forms: [] };
-        }),
-      ]);
-    })
-    .then(function (both) {
-      var data = both[0];
-      both[1].forms.forEach(function (n) {
+      r[3].forms.forEach(function (n) {
         mine[n.id] = n;
       });
       M.clear(list);

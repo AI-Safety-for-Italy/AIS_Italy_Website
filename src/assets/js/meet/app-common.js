@@ -26,16 +26,21 @@
     }
   }
 
+  var leaving = false;
   // `reauth`: the session is valid but too old for a tool holding personal
   // data (server/access.js), so the login page must ask again rather than
   // send it straight back here.
   function toLogin(reauth) {
-    remember(null);
-    window.location.replace(
-      '/app/login/?next=' +
-        encodeURIComponent(window.location.pathname + window.location.search) +
-        (reauth ? '&reauth=1' : '')
-    );
+    // Several requests can answer 401 together: go to the login once.
+    if (!leaving) {
+      leaving = true;
+      remember(null);
+      window.location.replace(
+        '/app/login/?next=' +
+          encodeURIComponent(window.location.pathname + window.location.search) +
+          (reauth ? '&reauth=1' : '')
+      );
+    }
     return new Promise(function () {});
   }
 
@@ -203,14 +208,17 @@
   }
 
   /** What waits for the member in each tool: { tools: { key: { count, label, url } } }. */
-  M.overview = shell
-    ? M.me
-        .then(function () {
-          return M.api('GET', '/api/app/overview');
-        })
-        .catch(function () {
-          return { tools: {} };
-        })
+  // Asked together with /api/auth, not after it; it only resolves once the
+  // session is confirmed, so a signed-out visitor is sent to the login first.
+  var overviewReq = shell
+    ? M.api('GET', '/api/app/overview').catch(function () {
+        return { tools: {} };
+      })
+    : null;
+  M.overview = overviewReq
+    ? M.me.then(function () {
+        return overviewReq;
+      })
     : Promise.resolve({ tools: {} });
 
   M.overview.then(function (data) {

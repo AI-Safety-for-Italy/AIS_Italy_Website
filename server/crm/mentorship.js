@@ -352,13 +352,18 @@ const MAX_PHOTO_BYTES = 200_000;
 const MENTORS_YAML = path.join(__dirname, '..', '..', 'data', 'mentors.yaml');
 
 /** Their entry on /mentorship/ (data/mentors.yaml), matched by name, or null. */
+// Read once per process: the file only changes with a deploy.
+let siteMentors = null;
+
 function siteEntry(name) {
-  let mentors;
-  try {
-    mentors = yaml.load(fs.readFileSync(MENTORS_YAML, 'utf8')).mentors || [];
-  } catch {
-    return null;
+  if (!siteMentors) {
+    try {
+      siteMentors = yaml.load(fs.readFileSync(MENTORS_YAML, 'utf8')).mentors || [];
+    } catch {
+      return null;
+    }
   }
+  const mentors = siteMentors;
   const want = sources.norm(name);
   const hit = mentors.find((m) => m && m.id && sources.norm(m.name) === want);
   return hit ? { id: hit.id, url: `/mentorship/#${hit.id}` } : null;

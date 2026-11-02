@@ -52,17 +52,13 @@
 
   state.appendChild(M.loading());
 
-  Promise.all([M.me, M.permissions])
+  Promise.all([
+    M.me,
+    M.permissions,
+    itemId ? M.api('GET', '/api/app/content?id=' + encodeURIComponent(itemId)) : null,
+  ])
     .then(function (r) {
-      var perms = r[1];
-      if (itemId) {
-        return M.api('GET', '/api/app/content?id=' + encodeURIComponent(itemId)).then(function (
-          item
-        ) {
-          start(perms, item);
-        });
-      }
-      start(perms, null);
+      start(r[1], r[2]);
     })
     .catch(function (err) {
       M.clear(state);

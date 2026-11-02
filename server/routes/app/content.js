@@ -43,12 +43,12 @@ module.exports = route({
       sendJson(res, 200, await content.getItem(query.id, user));
       return;
     }
-    const list = await content.listItems(user);
-    sendJson(res, 200, {
-      ...list,
-      activity: await content.recentActivity(),
-      live: await content.isLive(),
-    });
+    const [list, activity, live] = await Promise.all([
+      content.listItems(user),
+      content.recentActivity(),
+      content.isLive(),
+    ]);
+    sendJson(res, 200, { ...list, activity, live });
   },
 
   async POST(req, res) {

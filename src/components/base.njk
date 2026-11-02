@@ -106,7 +106,7 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600;8..60,700&family=Hanken+Grotesk:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" />
 
   {# ── CSS ─────────────────────────────────────────────────────── #}
-  <link rel="stylesheet" href="/assets/css/style.css" />
+  <link rel="stylesheet" href="/assets/css/style.css?v={{ build }}" />
 
   {# ══════════════════════════════════════════════════════════════
      STRUCTURED DATA (JSON-LD)
@@ -297,6 +297,6 @@
        External + deferred so it is fetched once and cached across pages
        instead of being re-parsed inline on every one. The only inline
        script is the pre-paint theme bootstrap in <head>. #}
-    <script src="/assets/js/main.js" defer></script>
+    {% if not meetHead %}<script src="/assets/js/main.js?v={{ build }}" defer></script>{% endif %}
 </body>
 </html>

@@ -736,9 +736,11 @@ async function responses(user, id, { record = true } = {}) {
     [form.id]
   );
   const versions = {};
-  for (const v of new Set(rows.map((r) => r.version).concat(form.current_version))) {
-    versions[v] = await schemaOf(form.id, v);
-  }
+  const wanted = [...new Set(rows.map((r) => r.version).concat(form.current_version))];
+  const schemas = await Promise.all(wanted.map((v) => schemaOf(form.id, v)));
+  wanted.forEach((v, i) => {
+    versions[v] = schemas[i];
+  });
   // An export reads the answers too, but writes its own line, not this one.
   if (record) await audit.record(user, 'form-view-responses', form.id, { count: rows.length });
   return {

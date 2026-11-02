@@ -421,4 +421,6 @@ create table if not exists crm_records (
 );
 
 create index if not exists crm_records_source on crm_records (source, origin);
+-- One person's records (opening them, changing their stage).
+create index if not exists crm_records_person on crm_records (person_key);
 `;

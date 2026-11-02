@@ -7,11 +7,9 @@
   var list = document.getElementById('pollList');
   list.appendChild(M.loading());
 
-  M.me
-    .then(function () {
-      return M.api('GET', '/api/app/polls');
-    })
-    .then(function (data) {
+  Promise.all([M.me, M.api('GET', '/api/app/polls')])
+    .then(function (r) {
+      var data = r[1];
       M.clear(list);
       if (!data.polls.length) {
         list.appendChild(
