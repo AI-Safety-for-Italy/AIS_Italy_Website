@@ -2040,7 +2040,7 @@
             'p',
             { class: 'form-note', style: 'margin:0' },
             hasEmail
-              ? 'The copy goes to the address given in the first email question, from the mailbox in Settings → General.'
+              ? 'The copy goes to the address given in the first email question, from the mailbox in Settings → Mail settings.'
               : 'Add an email question for the copy to have somewhere to go.'
           ),
           h(

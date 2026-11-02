@@ -705,10 +705,11 @@
     send.disabled = !mailReady;
     document.getElementById('sendInviteNote').textContent = mailReady
       ? 'From the team mailbox, with the event attached.'
-      : 'Needs email sending, which the admin sets up in Settings → General.';
+      : 'Needs email sending, which the admin sets up in Settings → Mail settings.';
     document.getElementById('inviteFields').hidden = !send.checked;
     if (sendOnly && !mailReady) {
-      finalizeError.textContent = 'Email sending isn’t set up yet (admin → Settings → General).';
+      finalizeError.textContent =
+        'Email sending isn’t set up yet (admin → Settings → Mail settings).';
       finalizeError.hidden = false;
     }
     submit.disabled = sendOnly && !mailReady;

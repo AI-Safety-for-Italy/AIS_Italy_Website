@@ -81,7 +81,7 @@
   "redirects": [
     {
       "source": "/app/polls/settings/",
-      "destination": "/app/settings/general/",
+      "destination": "/app/settings/mail/",
       "permanent": true
     },
     {

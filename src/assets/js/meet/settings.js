@@ -1,6 +1,6 @@
 /* Both settings pages:
  *   /app/settings/        a member's own notification choices;
- *   /app/settings/general/  general settings (the sending mailbox), admin only.
+ *   /app/settings/mail/  general settings (the sending mailbox), admin only.
  * Each page carries only its own form. */
 (function () {
   'use strict';

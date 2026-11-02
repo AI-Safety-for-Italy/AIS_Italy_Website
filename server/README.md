@@ -13,7 +13,7 @@ email to send the invite from their own calendar.
 | `/app/polls/`                                    | The member's own polls (not linked anywhere, not indexed)                            |
 | `/app/settings/`                                 | Settings: the member's own notifications                                             |
 | `/app/settings/permissions/`                     | Who may do what, per Discord role and per person (`manage`, and the admin)           |
-| `/app/settings/general/`                         | General settings: the sending mailbox (admin only)                                   |
+| `/app/settings/mail/`                            | Mail settings: the sending mailbox (admin only)                                      |
 | `/meet/?p=…`, `/it/meet/?p=…`                    | The voting page people get the link to                                               |
 | `api/`                                           | Vercel Functions: `auth`, `discord`, `app/polls`, `app/poll`, `app/settings`, `poll` |
 | `server/`                                        | Shared server code: database, auth, Discord, polls, mail, calendar files             |
@@ -74,7 +74,7 @@ and lets in only members of `DISCORD_GUILD_ID` holding one of
 ### Email
 
 Invites to invite-only polls and owner notifications are sent over SMTP from
-the mailbox the admin sets up on `/app/settings/general/` (General settings,
+the mailbox the admin sets up on `/app/settings/mail/` (Settings → Mail settings,
 signed in with the admin password). For `tech@ais4i.it` on register.it the server is the one in the
 mailbox's settings (e.g. `authsmtp.securemail.pro`, port 465), the username is
 the full address. "Send a test email" checks it. The password is stored
@@ -290,7 +290,7 @@ only a forms admin can give a form those links.
   one answer per email, telling the owner about new answers (by email or
   Discord DM, as on their settings page; never what the answer says),
   emailing each person a copy of their answers (to the form's first email
-  question, from the General settings mailbox; on by default), which
+  question, from the mailbox in Mail settings; on by default), which
   Discord roles and which people (any member of the Discord server, found
   by name) read the answers) and the public link, which the forms list
   also copies straight from each card. Answers are deleted

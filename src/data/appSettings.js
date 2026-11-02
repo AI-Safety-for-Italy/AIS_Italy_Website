@@ -17,6 +17,6 @@ module.exports = {
       url: '/app/settings/permissions/',
       needs: 'manage',
     },
-    { key: 'general', label: 'General', url: '/app/settings/general/', admin: true },
+    { key: 'mail', label: 'Mail settings', url: '/app/settings/mail/', admin: true },
   ],
 };
