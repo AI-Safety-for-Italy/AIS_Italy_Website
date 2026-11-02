@@ -17,16 +17,16 @@ seoTitle: 'Mentorship board | AI Safety for Italy'
     <div id="crmNotices"></div>
 
     <div class="crm-toolbar" id="crmToolbar" hidden>
-      <div class="chip-group" role="group" aria-label="Track" id="trackFilter">
-        <button type="button" class="chip" data-track="" aria-pressed="true">All tracks</button>
-        <button type="button" class="chip" data-track="projects" aria-pressed="false">AI safety projects</button>
-        <button type="button" class="chip" data-track="orientation" aria-pressed="false">Career orientation</button>
-      </div>
       <div class="crm-views" role="group" aria-label="View" id="crmViews">
         <button type="button" data-mode="list" aria-pressed="true">List</button>
         <button type="button" data-mode="board" aria-pressed="false">Board</button>
       </div>
       <input class="form-input is-compact crm-search" id="crmSearch" type="search" placeholder="Search name, affiliation, area…" aria-label="Search">
+      <select class="form-input is-compact crm-track-select" id="trackFilter" aria-label="Track">
+        <option value="">All tracks</option>
+        <option value="projects">AI safety projects</option>
+        <option value="orientation">Career orientation</option>
+      </select>
       <label class="check-row"><input type="checkbox" id="onlyMine"><span>Only mine</span></label>
       <button type="button" class="btn btn-outline btn-sm" id="addMentor">Add a mentor to contact</button>
     </div>

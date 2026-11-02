@@ -17,6 +17,14 @@
   var panel = document.getElementById('personPanel');
   var panelBody = document.getElementById('personBody');
 
+  // On a wide screen the list view shows the person beside it; elsewhere, in the dialog.
+  var wide = window.matchMedia('(min-width: 1100px)');
+  var asideBody = h('div', { class: 'crm-aside-body' });
+  var aside = h('aside', { class: 'crm-aside', 'aria-label': 'Selected person' }, asideBody);
+  function inAside() {
+    return wide.matches && view.mode === 'list' && view.tab !== 'pairs';
+  }
+
   var addBtn = document.getElementById('addMentor');
   var addPanel = document.getElementById('addPanel');
   var addForm = document.getElementById('addForm');
@@ -29,6 +37,7 @@
 
   var view = {
     data: null,
+    shown: null,
     tab: 'mentors',
     track: '',
     q: '',
@@ -171,14 +180,9 @@
   });
   setTab(location.hash.slice(1));
 
-  document.querySelectorAll('#trackFilter .chip').forEach(function (chip) {
-    chip.addEventListener('click', function () {
-      view.track = chip.getAttribute('data-track');
-      document.querySelectorAll('#trackFilter .chip').forEach(function (c) {
-        c.setAttribute('aria-pressed', String(c === chip));
-      });
-      render();
-    });
+  document.getElementById('trackFilter').addEventListener('change', function (e) {
+    view.track = e.target.value;
+    render();
   });
   document.getElementById('crmSearch').addEventListener('input', function (e) {
     view.q = fold(e.target.value.trim());
@@ -438,7 +442,7 @@
   function renderList(kind) {
     var all = (kind === 'mentor' ? view.data.mentors : view.data.mentees).filter(visible);
     var chips = h('div', {
-      class: 'chip-group crm-stage-chips',
+      class: 'crm-stage-chips',
       role: 'group',
       'aria-label': 'Stage',
     });
@@ -448,7 +452,7 @@
           'button',
           {
             type: 'button',
-            class: 'chip',
+            class: 'crm-chip',
             'aria-pressed': String(view.stage === key),
             onclick: function () {
               view.stage = key;
@@ -456,7 +460,8 @@
             },
           },
           key ? dot(key) : null,
-          label + ' ' + count
+          h('span', null, label),
+          h('span', { class: 'crm-chip-count' }, String(count))
         )
       );
     }
@@ -482,47 +487,64 @@
       board.appendChild(h('p', { class: 'panel-note' }, 'Nobody here with these filters.'));
       return;
     }
-    board.appendChild(
+    var withAside = inAside();
+    var sel =
+      withAside &&
+      (rows.filter(function (c) {
+        return view.open && view.open.key === c.key && view.open.kind === c.kind;
+      })[0] ||
+        rows[0]);
+    var list = h(
+      'div',
+      { class: 'crm-list' },
       h(
         'div',
-        { class: 'crm-list' },
-        h(
+        { class: 'crm-row crm-row-head' },
+        h('span', null, 'Name'),
+        h('span', null, 'Track'),
+        h('span', null, 'Stage'),
+        h('span', null, 'Owner'),
+        h('span', null, 'Notes')
+      ),
+      rows.map(function (c) {
+        return h(
           'div',
-          { class: 'crm-row crm-row-head' },
-          h('span', null, 'Name'),
-          h('span', null, 'Track'),
-          h('span', null, 'Stage'),
-          h('span', null, 'Owner'),
-          h('span', null, 'Notes')
-        ),
-        rows.map(function (c) {
-          return h(
-            'div',
-            { class: 'crm-row' },
-            h(
-              'span',
-              null,
-              h(
-                'button',
-                {
-                  type: 'button',
-                  class: 'crm-name',
-                  onclick: function () {
-                    openPerson(c.key, c.kind);
-                  },
-                },
-                c.name
-              ),
-              c.org ? h('small', null, c.org) : null
-            ),
-            h('span', null, trackLabel(c.track)),
-            stagePill(c.key, c.kind),
-            h('span', null, c.owner || ''),
-            h('span', null, c.notes ? String(c.notes) : '')
-          );
-        })
-      )
+          { class: 'crm-row' + (c === sel ? ' is-selected' : ''), 'data-id': c.kind + ':' + c.key },
+          h(
+            'button',
+            {
+              type: 'button',
+              class: 'crm-pick',
+              'aria-current': c === sel ? 'true' : null,
+              onclick: function () {
+                openPerson(c.key, c.kind);
+              },
+            },
+            h('span', { class: 'crm-pick-name' }, c.name),
+            c.org ? h('span', { class: 'crm-pick-org' }, c.org) : null
+          ),
+          h('span', null, trackLabel(c.track)),
+          stagePill(c.key, c.kind),
+          h('span', null, c.owner || ''),
+          h('span', null, c.notes ? String(c.notes) : '')
+        );
+      })
     );
+    if (!withAside) {
+      board.appendChild(list);
+      return;
+    }
+    board.appendChild(h('div', { class: 'crm-split' }, list, aside));
+    // The aside is kept between renders; only fetch when the person changed.
+    if (view.shown !== sel.kind + ':' + sel.key) openPerson(sel.key, sel.kind);
+  }
+
+  function markSelected() {
+    document.querySelectorAll('#crmBoard .crm-row[data-id]').forEach(function (row) {
+      var on = row.getAttribute('data-id') === view.shown;
+      row.classList.toggle('is-selected', on);
+      row.querySelector('.crm-pick').setAttribute('aria-current', on ? 'true' : 'false');
+    });
   }
 
   function renderNotices() {
@@ -699,29 +721,74 @@
   // ── One person ───────────────────────────────────────────────────────────
 
   function openPerson(key, kind) {
-    view.open = { key: key, kind: kind };
-    M.clear(panelBody);
-    panelBody.appendChild(M.loading());
-    if (!panel.open) panel.showModal();
+    var mine = { key: key, kind: kind };
+    var side = inAside();
+    var out = side ? asideBody : panelBody;
+    view.open = mine;
+    view.shown = kind + ':' + key;
+    M.clear(out);
+    out.appendChild(M.loading());
+    if (side) markSelected();
+    else if (!panel.open) panel.showModal();
     M.api('GET', API + '?key=' + encodeURIComponent(key) + '&kind=' + encodeURIComponent(kind))
-      .then(renderPerson)
+      .then(function (p) {
+        if (view.open === mine) renderPerson(p, out);
+      })
       .catch(function (err) {
-        panel.close();
+        if (!side) panel.close();
         fail(err);
       });
   }
 
   panel.addEventListener('close', function () {
     view.open = null;
+    view.shown = null;
+  });
+  wide.addEventListener('change', function () {
+    if (view.data) render();
   });
 
-  function renderPerson(p) {
+  /** One button per stage; the pairing owns "Matched". */
+  function stepper(p) {
+    var list = view.data.statuses[p.kind];
+    var at = list
+      .map(function (s) {
+        return s.key;
+      })
+      .indexOf(p.status);
+    var locked = p.status === 'matched';
+    return h(
+      'div',
+      { class: 'crm-steps', role: 'group', 'aria-label': 'Stage' },
+      list.map(function (s, i) {
+        var off = locked || (s.key === 'matched' && s.key !== p.status);
+        var past = i < at && s.key !== 'declined' && p.status !== 'declined';
+        return h(
+          'button',
+          {
+            type: 'button',
+            class: 'crm-step' + (past ? ' is-past' : ''),
+            style: '--crm-dot:var(--crm-st-' + s.key + ')',
+            'aria-pressed': String(s.key === p.status),
+            disabled: off ? true : null,
+            title: off ? (locked ? 'End the pairing first' : 'Set by pairing') : null,
+            onclick: function () {
+              if (s.key !== p.status) change(p.key, p.kind, { status: s.key });
+            },
+          },
+          s.label
+        );
+      })
+    );
+  }
+
+  function renderPerson(p, panelBody) {
     M.clear(panelBody);
     var email = p.email
       ? h('a', { href: 'mailto:' + encodeURIComponent(p.email).replace(/%40/g, '@') }, p.email)
       : null;
 
-    var stageSlot = h('div', null, stagePill(p.key, p.kind));
+    var stageSlot = h('div', null, stepper(p));
 
     var trackSelect = h(
       'select',
@@ -762,7 +829,7 @@
       p.track = card.track;
       p.ownerId = card.ownerId;
       p.owner = card.owner;
-      M.clear(stageSlot).appendChild(stagePill(p.key, p.kind));
+      M.clear(stageSlot).appendChild(stepper(p));
       trackSelect.value = card.track || '';
       syncOwner();
     };
@@ -798,7 +865,13 @@
       h(
         'div',
         { class: 'crm-person-controls' },
-        h('div', null, h('span', { class: 'form-label' }, 'Stage'), stageSlot),
+        h(
+          'div',
+          { class: 'crm-person-stage' },
+          h('span', { class: 'form-label' }, 'Stage'),
+          stageSlot,
+          h('small', null, 'One click saves. Matched is set by pairing.')
+        ),
         h('label', null, h('span', { class: 'form-label' }, 'Track'), trackSelect),
         h(
           'div',
@@ -889,6 +962,8 @@
                       M.api('POST', API + '?action=remove', { recordId: s.recordId })
                         .then(function () {
                           panel.close();
+                          view.open = null;
+                          view.shown = null;
                           return load();
                         })
                         .catch(fail);

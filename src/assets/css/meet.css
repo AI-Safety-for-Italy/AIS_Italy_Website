@@ -1527,6 +1527,15 @@ dialog.meet-dialog::backdrop {
   transform: translate(-50%, 0);
 }
 
+.toast.has-action {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 12px 12px 18px;
+  border-radius: 10px;
+  font-weight: 500;
+}
+
 .toast.has-action.is-visible {
   pointer-events: auto;
 }
@@ -1541,6 +1550,17 @@ dialog.meet-dialog::backdrop {
   font-weight: 700;
   text-decoration: underline;
   cursor: pointer;
+}
+
+.toast.has-action .toast-action {
+  height: 32px;
+  margin: 0;
+  padding: 0 12px;
+  border: 1px solid currentColor;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
 }
 
 .toast.is-error {
@@ -2263,7 +2283,16 @@ div.poll-item {
 
 .crm-search {
   flex: 1 1 220px;
-  max-width: 340px;
+  min-width: 0;
+}
+
+.crm-track-select {
+  flex: 0 0 auto;
+  width: auto;
+}
+
+#addMentor {
+  margin-left: auto;
 }
 
 /* Stage dots: identity only, the words stay in ink colours. */
@@ -2332,15 +2361,16 @@ div.poll-item {
 .crm-stage-btn {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
-  padding: 0.2rem 0.55rem;
+  gap: 8px;
+  height: 32px;
+  padding: 0 10px 0 12px;
   border: 1px solid var(--border-default);
   border-radius: var(--radius-full);
-  background: var(--bg-primary);
+  background: var(--card-bg);
   color: var(--text-primary);
   font: inherit;
-  font-size: 0.8rem;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
 }
 
@@ -2402,43 +2432,230 @@ div.poll-item {
 }
 
 .crm-stage-chips {
-  margin-bottom: 0.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 20px;
 }
 
-.crm-stage-chips .chip {
+.crm-chip {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 8px;
+  height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-full);
+  background: var(--card-bg);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.crm-chip .crm-dot {
+  width: 8px;
+  height: 8px;
+}
+
+.crm-chip-count {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.crm-chip[aria-pressed='true'] {
+  background: var(--accent-100);
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.crm-split {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+.crm-split .crm-list {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.crm-aside {
+  flex: 0 0 380px;
+  position: sticky;
+  top: 16px;
+  box-sizing: border-box;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  padding: 20px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+}
+
+.crm-aside .crm-person-controls {
+  grid-template-columns: 1fr;
+}
+
+.crm-aside .icon-btn {
+  display: none;
+}
+
+.crm-aside .crm-person-head h2 {
+  font-family: var(--font-display);
+  font-size: 22px;
 }
 
 .crm-list {
   overflow-x: auto;
-  border: 1px solid var(--border-muted);
-  border-radius: var(--radius);
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
   background: var(--card-bg);
 }
 
 .crm-row {
   display: grid;
-  grid-template-columns: 2.5fr 1fr 1.2fr 1fr 70px;
-  gap: 0.75rem;
+  grid-template-columns: minmax(0, 2.2fr) minmax(0, 1.1fr) minmax(0, 1.3fr) minmax(0, 1fr) 60px;
+  gap: 12px;
   align-items: center;
-  min-width: 700px;
-  padding: 0.5rem 0.75rem;
+  min-width: 640px;
+  padding: 12px 16px;
   border-top: 1px solid var(--border-muted);
-  font-size: 0.88rem;
+  font-size: 13px;
+  color: var(--text-secondary);
 }
 
 .crm-row:first-child {
   border-top: 0;
 }
 
+/* On a phone: name and stage only, the stage being what is changed most. */
+@media (max-width: 640px) {
+  .crm-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    min-width: 0;
+  }
+
+  .crm-row > :nth-child(2),
+  .crm-row > :nth-child(4),
+  .crm-row > :nth-child(5) {
+    display: none;
+  }
+}
+
+.crm-row:not(.crm-row-head):hover {
+  background: var(--bg-primary);
+}
+
+.crm-row.is-selected,
+.crm-row.is-selected:hover {
+  background: var(--accent-100);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
 .crm-row-head {
-  font-size: 0.75rem;
-  font-weight: 700;
+  padding: 10px 16px;
+  font-size: 12px;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+  color: var(--text-tertiary);
+}
+
+.crm-pick {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.crm-pick-name {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.crm-pick-org {
+  overflow: hidden;
+  font-size: 13px;
   color: var(--text-secondary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.crm-pick:hover .crm-pick-name,
+.crm-pick:focus-visible .crm-pick-name {
+  color: var(--accent);
+}
+
+.crm-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.crm-step {
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  background: var(--card-bg);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.crm-step.is-past {
+  background: var(--accent-100);
+  border-color: var(--border-default);
+  color: var(--accent);
+}
+
+.crm-step[aria-pressed='true'] {
+  background: var(--crm-dot);
+  border-color: var(--crm-dot);
+  color: #fff;
+}
+
+[data-theme='dark'] .crm-step[aria-pressed='true'] {
+  color: #062015;
+}
+
+.crm-step:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.crm-step[aria-pressed='true']:disabled {
+  opacity: 1;
+  cursor: default;
+}
+
+.crm-person-stage {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 8px;
+}
+
+.crm-person-stage small {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+@media (max-width: 1099px) {
+  .crm-aside {
+    display: none;
+  }
 }
 
 .crm-name {
@@ -2493,14 +2710,14 @@ div.poll-item {
   justify-content: space-between;
   align-items: baseline;
   padding: 0.2rem 0.3rem 0.6rem;
-  font-size: 0.82rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
 }
 
 .crm-count {
+  font-family: var(--font-mono);
+  font-size: 12px;
   font-variant-numeric: tabular-nums;
   color: var(--text-tertiary);
 }
