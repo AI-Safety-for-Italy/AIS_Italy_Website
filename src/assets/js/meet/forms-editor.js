@@ -1192,6 +1192,45 @@
       );
 
     if (item.type === 'short_text' || item.type === 'long_text') {
+      // The same question, as a one-line field or as a paragraph box.
+      var size = h('div', { class: 'seg fe-seg', role: 'radiogroup', 'aria-label': 'Box' });
+      [
+        ['short_text', 'Small: one line'],
+        ['long_text', 'Large: paragraph'],
+      ].forEach(function (pair) {
+        size.appendChild(
+          h(
+            'button',
+            {
+              type: 'button',
+              'aria-pressed': String(item.type === pair[0]),
+              onclick: function () {
+                if (item.type === pair[0]) return;
+                item.type = pair[0];
+                if (item.type === 'short_text') {
+                  if (item.maxLength > 300) item.maxLength = 300;
+                  delete item.maxWords;
+                }
+                markDirty();
+                renderCanvas();
+                renderProps();
+              },
+            },
+            pair[1]
+          )
+        );
+      });
+      props.appendChild(
+        sec(
+          field(
+            'Box',
+            size,
+            item.type === 'short_text'
+              ? 'For a name, a role, a city: one line.'
+              : 'For longer answers: a large box where Enter starts a new line.'
+          )
+        )
+      );
       props.appendChild(
         sec(
           h(
@@ -1219,6 +1258,24 @@
                 { type: 'number', min: '1', max: item.type === 'short_text' ? '300' : '8000' }
               )
             )
+          )
+        )
+      );
+    }
+    if (item.type === 'long_text') {
+      props.appendChild(
+        sec(
+          field(
+            'Max words',
+            textInput(
+              item.maxWords,
+              function (v) {
+                if (v) item.maxWords = Number(v);
+                else delete item.maxWords;
+              },
+              { type: 'number', min: '1', max: '2000', placeholder: 'No limit' }
+            ),
+            'The page counts the words as people write, and an answer over the limit is refused.'
           )
         )
       );

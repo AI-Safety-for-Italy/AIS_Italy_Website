@@ -247,6 +247,19 @@ test('good answers come out clean, in the shape of their questions', () => {
     goodAnswers({ track: { selected: [], other: 'Entrambi' } })
   ).answers;
   assert.deepEqual(other.track, { selected: [], other: 'Entrambi' });
+  // A short answer is one line; a paragraph and "Other" (Shift+Enter) keep
+  // their line breaks.
+  const lines = schemaLib.cleanAnswers(
+    s,
+    goodAnswers({
+      name: '  Ada \r\n\n\n  Esempio   Seconda  ',
+      bio: 'Riga uno\r\n\r\nRiga due',
+      track: { selected: [], other: 'Uno\r\nDue' },
+    })
+  ).answers;
+  assert.equal(lines.name, 'Ada Esempio Seconda');
+  assert.equal(lines.bio, 'Riga uno\n\nRiga due');
+  assert.equal(lines.track.other, 'Uno\nDue');
   // Optional questions left empty are simply absent.
   const short = schemaLib.cleanAnswers(s, {
     name: 'Ada',
@@ -255,6 +268,36 @@ test('good answers come out clean, in the shape of their questions', () => {
     privacy: true,
   }).answers;
   assert.deepEqual(Object.keys(short).sort(), ['email', 'name', 'privacy', 'track']);
+});
+
+test('a paragraph can take at most a number of words, checked on the server', () => {
+  const s = schemaLib.cleanSchema(
+    fullSchema({
+      items: [
+        { id: 'bio', type: 'long_text', label: { it: 'Chi sei' }, maxWords: 5 },
+        { id: 'name', type: 'short_text', label: { it: 'Nome' }, maxWords: 5 },
+      ],
+    })
+  );
+  assert.equal(s.items[0].maxWords, 5);
+  // Only a paragraph has a word limit.
+  assert.equal(s.items[1].maxWords, undefined);
+  assert.equal(schemaLib.wordCount('  uno\n due   tre '), 3);
+  assert.equal(
+    schemaLib.cleanAnswers(s, { bio: 'uno due tre quattro\ncinque' }).answers.bio,
+    'uno due tre quattro\ncinque'
+  );
+  assert.throws(
+    () => schemaLib.cleanAnswers(s, { bio: 'uno due tre quattro cinque sei' }),
+    (err) => err.status === 400 && /At most 5 words/.test(err.details.errors.bio)
+  );
+  for (const maxWords of [0, -3, 2.5, 2001, 'tanti']) {
+    assert.throws(() =>
+      schemaLib.cleanSchema(
+        fullSchema({ items: [{ id: 'bio', type: 'long_text', label: { it: 'B' }, maxWords }] })
+      )
+    );
+  }
 });
 
 test('each wrong answer is refused with a message on its own question', () => {

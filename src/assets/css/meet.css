@@ -2658,7 +2658,12 @@ a.fm-brand:hover {
   font-family: var(--font-display);
   font-size: 1.13rem;
   line-height: 1.6;
-  color: rgba(232, 242, 236, 0.82);
+  color: rgba(240, 247, 243, 0.92);
+}
+
+/* The site's grey for paragraphs would vanish on the green. */
+.fm-aside .fm-intro p {
+  color: inherit;
 }
 
 .fm-intro p {
@@ -2775,19 +2780,6 @@ a.fm-brand:hover {
   width: 1.05rem;
   height: 1.05rem;
   color: #6fdc9f;
-}
-
-.fm-privacy {
-  display: flex;
-  gap: 0.55rem;
-  margin: auto 0 0;
-  font-size: 0.85rem;
-  line-height: 1.5;
-  color: #9fbcac;
-}
-
-.fm-privacy .fm-icon {
-  margin-top: 0.2rem;
 }
 
 /* The questions */
@@ -3018,6 +3010,30 @@ textarea.fm-input:focus {
   box-shadow: var(--ring);
 }
 
+/* A short answer (and "Other") looks like a one-line field, and grows when
+   Shift+Enter adds a line (forms-render.js, multiline()). */
+textarea.fm-input.fm-short {
+  min-height: 0;
+  padding: 0.55rem 0 0.6rem;
+  border: 0;
+  border-bottom: 1.5px solid var(--border-strong);
+  border-radius: 0;
+  background: transparent;
+  font-size: 1.18rem;
+  line-height: 1.45;
+  resize: none;
+  overflow: hidden;
+}
+
+textarea.fm-input.fm-short:focus {
+  border-bottom-color: var(--accent);
+  box-shadow: 0 1.5px 0 var(--accent);
+}
+
+textarea.fm-input.fm-other-input {
+  font-size: 1.06rem;
+}
+
 .fm-select {
   appearance: none;
   padding-right: 2rem;
@@ -3040,6 +3056,11 @@ textarea.fm-input:focus {
   font-family: var(--font-mono);
   font-size: 0.72rem;
   color: var(--text-tertiary);
+}
+
+.fm-counter.is-over {
+  color: var(--secondary-600);
+  font-weight: 600;
 }
 
 /* One choice, or long options: a list between hairlines */
@@ -3462,8 +3483,7 @@ textarea.fm-input:focus {
     font-size: 1.02rem;
   }
 
-  .fm-steps,
-  .fm-privacy {
+  .fm-steps {
     display: none;
   }
 
@@ -5928,6 +5948,10 @@ textarea.fm-input:focus {
   line-height: 1.55;
   color: var(--text-primary);
   overflow-wrap: anywhere;
+}
+
+.fr-a {
+  white-space: pre-line;
 }
 
 .fr-a.is-long {
