@@ -211,7 +211,9 @@ async function create(user, body) {
   if (wiring && who.perms.includes('forms_admin')) settings.membership = wiring;
   const crmList = b.schema ? null : templates.crmFor(b.template);
   if (crmList && who.perms.includes('forms_admin')) settings.crm = crmList;
-  const ownSlug = b.schema ? null : templates.slugFor(b.template);
+  // A template's own address is one the site links to: forms admins only.
+  const ownSlug =
+    b.schema || !who.perms.includes('forms_admin') ? null : templates.slugFor(b.template);
   for (let n = 0; n < 10; n++) {
     // A short random tail: links are not guessable from the title alone. The
     // registration form first tries the address the site's join buttons open.
@@ -281,7 +283,7 @@ function when(value, field) {
 
 /** Status, dates, link, who reads the answers, and the rest of the settings. */
 async function updateSettings(user, id, body) {
-  const { form } = await formFor(user, id, 'manage', { fresh: true });
+  const { form, who } = await formFor(user, id, 'manage', { fresh: true });
   const b = body || {};
   const status = b.status === undefined ? form.status : b.status;
   if (!STATUSES.includes(status)) throw new HttpError(400, 'Unknown status', { field: 'status' });
@@ -301,6 +303,11 @@ async function updateSettings(user, id, body) {
       });
     if (!SLUG.test(String(b.slug)))
       throw new HttpError(400, 'Use lower-case letters, digits and dashes', { field: 'slug' });
+    // The addresses the site's buttons open: whoever took one would collect
+    // the sign-ups or the applications in a form only they can read.
+    const reserved = [membership.JOIN_SLUG, ...templates.reservedSlugs()];
+    if (reserved.includes(b.slug) && !who.perms.includes('forms_admin'))
+      throw new HttpError(403, 'Only a forms admin can give a form this link', { field: 'slug' });
     slug = b.slug;
   }
 

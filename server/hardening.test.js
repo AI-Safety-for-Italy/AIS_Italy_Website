@@ -307,28 +307,29 @@ test('without manage, the permissions page is refused', async () => {
 
 // ── 3. The admin password and personal data in production ──────────────────
 
-test('in production the admin password opens content and permissions, not personal data', async () => {
-  const root = await admin();
-  assert.ok((await permissions.forUser(root)).includes('forms_admin'));
-  process.env.VERCEL_ENV = 'preview';
-  assert.ok((await permissions.forUser(root)).includes('members'));
-  process.env.VERCEL_ENV = 'production';
-  const perms = await permissions.forUser(root);
-  assert.ok(perms.includes('manage'));
-  for (const key of [
-    'mentorship',
-    'people',
-    'finance',
-    'crm_admin',
-    'forms',
-    'forms_admin',
-    'members',
-  ]) {
-    assert.ok(!perms.includes(key), key);
-  }
-  const info = (await call(authApi, { url: '/api/auth', user: root })).body;
-  assert.deepEqual(info.areas, { content: true, crm: false, forms: false, members: false });
-});
+for (const env of ['production', 'preview']) {
+  test(`on Vercel (${env}) the admin password opens content and permissions, not personal data`, async () => {
+    const root = await admin();
+    assert.ok((await permissions.forUser(root)).includes('forms_admin'));
+    process.env.VERCEL = '1';
+    process.env.VERCEL_ENV = env;
+    const perms = await permissions.forUser(root);
+    assert.ok(perms.includes('manage'));
+    for (const key of [
+      'mentorship',
+      'people',
+      'finance',
+      'crm_admin',
+      'forms',
+      'forms_admin',
+      'members',
+    ]) {
+      assert.ok(!perms.includes(key), key);
+    }
+    const info = (await call(authApi, { url: '/api/auth', user: root })).body;
+    assert.deepEqual(info.areas, { content: true, crm: false, forms: false, members: false });
+  });
+}
 
 // ── 6. The private pages cannot be framed by another site ──────────────────
 

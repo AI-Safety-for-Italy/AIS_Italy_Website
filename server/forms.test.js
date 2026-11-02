@@ -381,6 +381,17 @@ test('making forms needs the forms permission; each maker sees their own', async
   await rejects(forms.updateSettings(luca, id, { status: 'open' }), 404);
   // The forms admin may change it.
   await forms.updateSettings(boss, id, { status: 'open' });
+
+  // The addresses the site links to are the forms admins' to give.
+  for (const reserved of ['iscrizione', 'candidatura-mentee']) {
+    await rejects(forms.updateSettings(mara, id, { slug: reserved }), 403);
+  }
+  const fromTemplate = await forms.create(mara, {
+    title: 'Candidatura',
+    template: 'mentee_application',
+  });
+  assert.notEqual(fromTemplate.slug, 'candidatura-mentee');
+  await forms.updateSettings(boss, id, { slug: 'candidatura-mentee' });
 });
 
 test('a role on the form lets its holders read the answers, but not change the form', async () => {
