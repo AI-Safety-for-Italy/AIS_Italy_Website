@@ -27,27 +27,86 @@ const DISCORD_API = 'https://discord.com/api/v10';
 // table: the site's content (/app/content/) and the CRM board (/app/crm/,
 // server/crm/). Holding a permission of one area gives nothing in the other:
 // each API checks its own area (see `areas`).
+// `help` is the line the permissions page shows under each switch.
 const PERMISSIONS = [
-  { key: 'seminar', label: 'Seminars', area: 'content' },
-  { key: 'event', label: 'Events', area: 'content' },
-  { key: 'media', label: 'Videos & podcasts', area: 'content' },
-  { key: 'blog', label: 'Blog', area: 'content' },
-  { key: 'others', label: "Edit others' content", area: 'content' },
+  {
+    key: 'seminar',
+    label: 'Seminars',
+    area: 'content',
+    help: 'Publish and edit seminars on the site.',
+  },
+  { key: 'event', label: 'Events', area: 'content', help: 'Publish and edit events on the site.' },
+  {
+    key: 'media',
+    label: 'Videos & podcasts',
+    area: 'content',
+    help: 'Publish videos and podcasts (coming later).',
+  },
+  { key: 'blog', label: 'Blog', area: 'content', help: 'Publish blog posts (coming later).' },
+  {
+    key: 'others',
+    label: "Edit others' content",
+    area: 'content',
+    help: 'Change what other people published, not only their own.',
+  },
   // In the content area for the tool's own switches (switch on/off), but
   // shown under Settings, where the permissions page is.
-  { key: 'manage', label: 'Manage permissions', area: 'content', group: 'settings' },
+  {
+    key: 'manage',
+    label: 'Manage permissions',
+    area: 'content',
+    group: 'settings',
+    help: 'Open this page and give the site content permissions.',
+  },
   // Hands out every key but this one, the personal-data ones too: for the
   // board. Only the shared admin gives it, so who administers personal data is
   // never decided by those who hold it. Implies `manage`.
-  { key: 'manage_all', label: 'Manage all permissions', area: 'settings', group: 'settings' },
-  { key: 'mentorship', label: 'CRM: mentorship', area: 'crm' },
-  { key: 'people', label: 'CRM: people', area: 'crm' },
-  { key: 'finance', label: 'CRM: finance', area: 'crm' },
-  { key: 'crm_admin', label: 'CRM: settings', area: 'crm' },
-  { key: 'forms', label: 'Forms', area: 'forms' },
-  { key: 'forms_admin', label: 'Forms: all forms', area: 'forms' },
+  {
+    key: 'manage_all',
+    label: 'Manage all permissions',
+    area: 'settings',
+    group: 'settings',
+    help: 'Give every permission, personal data included. Only the shared admin gives this.',
+  },
+  {
+    key: 'mentorship',
+    label: 'CRM: mentorship',
+    area: 'crm',
+    help: 'The mentorship board: mentors, mentees, pairs and their contacts.',
+  },
+  { key: 'people', label: 'CRM: people', area: 'crm', help: 'The people list (coming later).' },
+  { key: 'finance', label: 'CRM: finance', area: 'crm', help: 'Funding (coming later).' },
+  {
+    key: 'crm_admin',
+    label: 'CRM: settings',
+    area: 'crm',
+    help: 'Which Google sheets the board reads, and importing them.',
+  },
+  {
+    key: 'forms',
+    label: 'Forms',
+    area: 'forms',
+    help: 'Make forms and read the answers to their own.',
+  },
+  {
+    key: 'forms_admin',
+    label: 'Forms: all forms',
+    area: 'forms',
+    help: 'Manage every form and read all the answers.',
+  },
+  {
+    key: 'forms_notify',
+    label: 'Forms: choose who is notified',
+    area: 'forms',
+    help: 'Add any member of the Discord server to the people told about new answers.',
+  },
   // The member applications board (server/members.js): an area of its own.
-  { key: 'members', label: 'Member applications', area: 'members' },
+  {
+    key: 'members',
+    label: 'Member applications',
+    area: 'members',
+    help: 'Review who asked to join, and let them into Discord.',
+  },
 ];
 // The tools' areas; `settings` (manage_all) opens no tool of its own.
 const AREAS = [...new Set(PERMISSIONS.map((p) => p.area))].filter((a) => a !== 'settings');
@@ -64,17 +123,32 @@ function areas(perms) {
 
 // Local development (scripts/meet-dev.js) has no Discord server: these stand
 // in for the AIS roles, and the stand-in login lets you pick some.
-const DEV_ROLES = [
-  'Admin',
-  'Direttivo',
-  'communication',
-  'mentorship',
-  'blog',
-  'Organizzatori',
-  'seminars',
-  'events',
-  'Partecipanti',
-].map((name) => ({ id: `dev-${name.toLowerCase()}`, name }));
+// The roles the AIS server really has, highest first.
+const DEV_ROLES = ['Admin', 'Direttivo', 'Organizzatori', 'Partecipanti'].map((name) => ({
+  id: `dev-${name.toLowerCase()}`,
+  name,
+}));
+
+// What each stand-in role starts with in a fresh local database, so that
+// signing in as one shows what it would see (scripts/meet-dev.js). Only a
+// starting point to try things with: the real table is set on the
+// Permissions page of each environment.
+const DEV_DEFAULTS = {
+  'dev-admin': PERMISSIONS.map((p) => p.key),
+  'dev-direttivo': [
+    'seminar',
+    'event',
+    'others',
+    'manage',
+    'mentorship',
+    'forms',
+    'forms_admin',
+    'forms_notify',
+    'members',
+  ],
+  'dev-organizzatori': ['seminar', 'event', 'forms', 'mentorship'],
+  'dev-partecipanti': [],
+};
 
 /**
  * The local stand-ins (sign in under any name and roles, join without
@@ -285,6 +359,53 @@ async function discordPeople() {
   return rows.map((r) => ({ userId: r.id, name: r.name, avatarUrl: r.avatar_url }));
 }
 
+/**
+ * Members of the Discord server whose name matches `query`, for picking
+ * someone (e.g. who is told about a form's answers): [{ discordId, name,
+ * avatarUrl }], at most 10. Those who signed in here are found by name; the
+ * others through the bot's member search on the Discord server (Discord
+ * matches the start of a username or server nickname).
+ */
+async function searchMembers(query) {
+  const q = String(query || '')
+    .trim()
+    .slice(0, 60);
+  if (q.length < 2) return [];
+  const found = new Map();
+  const { rows } = await db.query(
+    `select discord_id, name, avatar_url from app_users
+     where kind = 'discord' and discord_id is not null and name ilike $1
+     order by lower(name) limit 10`,
+    [`%${q.replace(/[\\%_]/g, '\\$&')}%`]
+  );
+  rows.forEach((r) =>
+    found.set(r.discord_id, { discordId: r.discord_id, name: r.name, avatarUrl: r.avatar_url })
+  );
+  if (botConfigured() && found.size < 10) {
+    const res = await bot(
+      `/guilds/${process.env.DISCORD_GUILD_ID}/members/search?limit=10&query=${encodeURIComponent(
+        q
+      )}`
+    );
+    if (!res.ok) console.error(`Discord member search failed (${res.status})`);
+    if (res.ok && Array.isArray(res.body)) {
+      res.body
+        .filter((m) => m.user && !m.user.bot)
+        .forEach((m) => {
+          if (found.has(m.user.id) || found.size >= 10) return;
+          found.set(m.user.id, {
+            discordId: m.user.id,
+            name: m.nick || m.user.global_name || m.user.username,
+            avatarUrl: m.user.avatar
+              ? `https://cdn.discordapp.com/avatars/${m.user.id}/${m.user.avatar}.png?size=64`
+              : null,
+          });
+        });
+    }
+  }
+  return [...found.values()];
+}
+
 /** May `user` change who holds the keys outside the site's content? */
 function canGrantAll(user) {
   return Boolean(user) && user.kind === 'admin';
@@ -423,6 +544,8 @@ module.exports = {
   KEYS,
   areas,
   DEV_ROLES,
+  DEV_DEFAULTS,
+  searchMembers,
   devLogin,
   setFetch,
   botConfigured,
