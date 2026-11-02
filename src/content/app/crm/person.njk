@@ -1,0 +1,24 @@
+---
+title: Mentorship board
+# One person of the mentorship board, on a page of their own. An empty shell
+# like the board: everything comes from /api/app/crm/mentorship?key=…&kind=…
+# once the server has checked the `mentorship` permission.
+permalink: /app/crm/person/
+tool: crm
+tab: mentors
+pageTitle: Person
+wide: true
+noindex: true
+excludeFromSitemap: true
+eleventyExcludeFromCollections: true
+seoTitle: 'Person | Mentorship board | AI Safety for Italy'
+---
+{% extends "app.njk" %}
+{% block page %}
+    <div id="crmPerson"></div>
+
+<script src="/assets/js/meet/common.js" defer></script>
+<script src="/assets/js/meet/app-common.js" defer></script>
+<script src="/assets/js/meet/crm-person.js" defer></script>
+<script src="/assets/js/meet/crm-person-page.js" defer></script>
+{% endblock %}

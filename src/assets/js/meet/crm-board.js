@@ -29,12 +29,6 @@
   var addPanel = document.getElementById('addPanel');
   var addForm = document.getElementById('addForm');
 
-  var ORIGIN_LABELS = {
-    import: 'Imported from the sheet',
-    form: 'From the form',
-    board: 'Added on the board',
-  };
-
   var view = {
     data: null,
     shown: null,
@@ -58,55 +52,6 @@
     mentees_interest: 'Expression of interest',
   };
 
-  var FIELD_LABELS = {
-    timestamp: 'Sent',
-    consent: 'Privacy notice',
-    first_name: 'First name',
-    last_name: 'Last name',
-    name: 'Name',
-    email: 'Email',
-    form_email: 'Form email',
-    social: 'Social',
-    org: 'Affiliation',
-    affiliation: 'Affiliation',
-    role: 'Role',
-    career: 'Career stage',
-    track: 'Track',
-    tracks: 'Tracks',
-    referrer: 'Recommended by',
-    notes: 'Area / notes',
-    contacted: 'Contacted',
-    replied: 'Replied',
-    reply_note: 'What they said',
-    cv: 'CV',
-    profile: 'Profile',
-    country: 'Country and time zone',
-    background: 'Background',
-    areas: 'Areas',
-    language: 'Language',
-    mode: 'Meetings',
-    editions: 'Editions',
-    project_title: 'Project',
-    project_area: 'Project area',
-    project_abstract: 'Abstract',
-    compute: 'Compute needed',
-    interview: 'Interviews mentees',
-    mentees: 'Mentees wanted',
-    hours_mentee: 'Hours a week (mentee)',
-    hours_mentor: 'Hours a week (mentor)',
-    co_mentor: 'Co-mentor',
-    applying_as: 'Applying as',
-  };
-
-  var ACTION_LABELS = {
-    'view-person': 'opened the card',
-    'view-note': 'read the notes',
-    'set-status': 'changed',
-    'add-note': 'added a note',
-    'set-match': 'pairing',
-    denied: 'was refused',
-  };
-
   function trackLabel(key) {
     if (!view.data) return key;
     var t = view.data.tracks.filter(function (x) {
@@ -120,11 +65,6 @@
       return x.key === key;
     })[0];
     return s ? s.label : key;
-  }
-
-  /** Only real web links become links. */
-  function safeLink(url) {
-    return /^https:\/\/[^\s]+$/i.test(String(url || '')) ? url : null;
   }
 
   function fold(text) {
@@ -330,6 +270,7 @@
     if (view.tab === 'pairs') renderPairs();
     else if (view.mode === 'board') renderKanban(view.tab === 'mentees' ? 'mentee' : 'mentor');
     else renderList(view.tab === 'mentees' ? 'mentee' : 'mentor');
+    if (view.tab !== 'pairs') markEmails();
   }
 
   // ── The stage pill: one button, one menu, used everywhere ────────────────
@@ -404,38 +345,156 @@
           );
         })
       );
-      wrap.appendChild(menu);
-      var r = btn.getBoundingClientRect();
-      var below = window.innerHeight - r.bottom > menu.offsetHeight + 8;
-      menu.style.left =
-        Math.max(4, Math.min(r.left, window.innerWidth - menu.offsetWidth - 4)) + 'px';
-      menu.style.top = (below ? r.bottom + 4 : Math.max(4, r.top - menu.offsetHeight - 4)) + 'px';
-      btn.setAttribute('aria-expanded', 'true');
-      openMenu = {
-        btn: btn,
-        menu: menu,
-        away: function (ev) {
-          if (ev.type === 'scroll' && menu.contains(ev.target)) return;
-          if (ev.type === 'click' && wrap.contains(ev.target)) return;
-          closeMenu();
-        },
-        key: function (ev) {
-          if (ev.key === 'Escape') {
-            ev.preventDefault();
-            ev.stopPropagation();
-            closeMenu(true);
-          }
-        },
-      };
-      document.addEventListener('click', openMenu.away, true);
-      document.addEventListener('keydown', openMenu.key, true);
-      window.addEventListener('scroll', openMenu.away, true);
-      var first = menu.querySelector('button[aria-current="true"]') || menu.querySelector('button');
-      if (first) first.focus();
+      popMenu(btn, wrap, menu);
     });
     wrap.appendChild(btn);
     return wrap;
   }
+
+  /** Shows `menu` (inside `wrap`) under `btn`; closes on Escape, a click elsewhere or a scroll. */
+  function popMenu(btn, wrap, menu) {
+    wrap.appendChild(menu);
+    var r = btn.getBoundingClientRect();
+    var below = window.innerHeight - r.bottom > menu.offsetHeight + 8;
+    menu.style.left =
+      Math.max(4, Math.min(r.left, window.innerWidth - menu.offsetWidth - 4)) + 'px';
+    menu.style.top = (below ? r.bottom + 4 : Math.max(4, r.top - menu.offsetHeight - 4)) + 'px';
+    btn.setAttribute('aria-expanded', 'true');
+    openMenu = {
+      btn: btn,
+      menu: menu,
+      away: function (ev) {
+        if (ev.type === 'scroll' && menu.contains(ev.target)) return;
+        if (ev.type === 'click' && wrap.contains(ev.target)) return;
+        closeMenu();
+      },
+      key: function (ev) {
+        if (ev.key === 'Escape') {
+          ev.preventDefault();
+          ev.stopPropagation();
+          closeMenu(true);
+        }
+      },
+    };
+    document.addEventListener('click', openMenu.away, true);
+    document.addEventListener('keydown', openMenu.key, true);
+    window.addEventListener('scroll', openMenu.away, true);
+    var first = menu.querySelector('button[aria-current="true"]') || menu.querySelector('button');
+    if (first) first.focus();
+  }
+
+  // ── Copy emails: who is on screen, in one of three formats ──────────────
+
+  var emailsWrap = document.getElementById('crmEmails');
+  var emailsBtn = document.getElementById('copyEmails');
+  var emailsCount = document.getElementById('emailsCount');
+
+  /** The cards on screen: the filters, and in the list view the stage chip too. */
+  function onScreen() {
+    var kind = view.tab === 'mentees' ? 'mentee' : 'mentor';
+    return (kind === 'mentor' ? view.data.mentors : view.data.mentees).filter(function (c) {
+      return visible(c) && (view.mode === 'board' || !view.stage || c.status === view.stage);
+    });
+  }
+
+  function markEmails() {
+    var n = onScreen().length;
+    emailsCount.textContent = String(n);
+    emailsBtn.disabled = n === 0;
+  }
+
+  var EMAIL_FORMATS = [
+    [
+      'For BCC, separated by commas',
+      'a@example.org, b@example.org, …',
+      function (ppl) {
+        return ppl
+          .map(function (x) {
+            return x.email;
+          })
+          .join(', ');
+      },
+    ],
+    [
+      'One per line',
+      'To paste into a sheet',
+      function (ppl) {
+        return ppl
+          .map(function (x) {
+            return x.email;
+          })
+          .join('\n');
+      },
+    ],
+    [
+      'With names',
+      'Giulia Esempio <giulia@example.org>, …',
+      function (ppl) {
+        return ppl
+          .map(function (x) {
+            return x.name + ' <' + x.email + '>';
+          })
+          .join(', ');
+      },
+    ],
+  ];
+
+  function copyEmails(format) {
+    var cards = onScreen();
+    if (!cards.length) return;
+    emailsBtn.disabled = true;
+    M.api('POST', API + '?action=emails', {
+      kind: cards[0].kind,
+      keys: cards.map(function (c) {
+        return c.key;
+      }),
+    })
+      .then(function (r) {
+        var ppl = r.people || [];
+        if (!ppl.length) return M.toast('Nobody here has an email', true);
+        window.CrmPerson.copyText(format(ppl), function () {
+          var missing = cards.length - ppl.length;
+          M.toast(
+            ppl.length +
+              (ppl.length === 1 ? ' email copied' : ' emails copied') +
+              (missing > 0 ? ' (' + missing + ' without an email)' : '')
+          );
+        });
+      })
+      .catch(function (err) {
+        if (err.status === 401) fail(err);
+        else M.toast(err.message, true);
+      })
+      .then(markEmails);
+  }
+
+  emailsBtn.addEventListener('click', function (e) {
+    e.stopPropagation();
+    if (openMenu && openMenu.btn === emailsBtn) return closeMenu(true);
+    closeMenu();
+    popMenu(
+      emailsBtn,
+      emailsWrap,
+      h(
+        'div',
+        { class: 'crm-stage-menu crm-emails-menu', role: 'menu' },
+        EMAIL_FORMATS.map(function (f) {
+          return h(
+            'button',
+            {
+              type: 'button',
+              role: 'menuitem',
+              onclick: function () {
+                closeMenu(true);
+                copyEmails(f[2]);
+              },
+            },
+            h('span', null, h('strong', null, f[0]), h('small', null, f[1]))
+          );
+        })
+      )
+    );
+  });
 
   // ── List view ────────────────────────────────────────────────────────────
 
@@ -750,293 +809,33 @@
     if (view.data) render();
   });
 
-  /** One button per stage; the pairing owns "Matched". */
-  function stepper(p) {
-    var locked = p.status === 'matched';
-    return h(
-      'div',
-      { class: 'crm-steps', role: 'group', 'aria-label': 'Stage' },
-      view.data.statuses[p.kind].map(function (s) {
-        var off = locked || (s.key === 'matched' && s.key !== p.status);
-        return h(
-          'button',
-          {
-            type: 'button',
-            class: 'crm-step',
-            style: '--crm-dot:var(--crm-st-' + s.key + ')',
-            'aria-pressed': String(s.key === p.status),
-            disabled: off ? true : null,
-            title: off ? (locked ? 'End the pairing first' : 'Set by pairing') : null,
-            onclick: function () {
-              if (s.key !== p.status) change(p.key, p.kind, { status: s.key });
-            },
-          },
-          s.label
-        );
-      })
-    );
-  }
-
-  function renderPerson(p, panelBody) {
-    M.clear(panelBody);
-    var email = p.email
-      ? h('a', { href: 'mailto:' + encodeURIComponent(p.email).replace(/%40/g, '@') }, p.email)
-      : null;
-
-    var stageSlot = h('div', null, stepper(p));
-
-    var trackSelect = h(
-      'select',
-      { class: 'form-input is-compact', 'aria-label': 'Track' },
-      [h('option', { value: '' }, 'As in the sheets')].concat(
-        view.data.tracks.map(function (t) {
-          var o = h('option', { value: t.key }, t.label);
-          if (t.key === p.track) o.selected = true;
-          return o;
-        })
-      )
-    );
-    trackSelect.addEventListener('change', function () {
-      change(p.key, p.kind, { track: trackSelect.value || null });
-    });
-
-    var mine = p.ownerId && p.ownerId === view.data.me;
-    var ownerBtn = h(
-      'button',
-      {
-        type: 'button',
-        class: 'btn btn-outline btn-sm',
-        onclick: function () {
-          change(p.key, p.kind, { owner: mine ? 'none' : 'me' });
-        },
+  function renderPerson(p, out) {
+    var shown = window.CrmPerson.render(p, out, {
+      layout: 'panel',
+      me: view.data.me,
+      statuses: view.data.statuses[p.kind],
+      tracks: view.data.tracks,
+      change: change,
+      onClose: out === panelBody ? panel.close.bind(panel) : null,
+      nameOf: function (key, kind) {
+        var c = findCard(key, kind);
+        return c && c.name;
       },
-      'Take on'
-    );
-    var ownerName = h('span', null);
-    function syncOwner() {
-      mine = p.ownerId && p.ownerId === view.data.me;
-      ownerName.textContent = p.owner || 'Nobody yet';
-      ownerBtn.textContent = mine ? 'Drop' : 'Take on';
-    }
-    syncOwner();
+      onNoteAdded: function (fresh) {
+        var card = findCard(fresh.key, fresh.kind);
+        if (card) card.notes = fresh.notes.length;
+        render();
+      },
+      onRemoved: function () {
+        panel.close();
+        view.open = null;
+        view.shown = null;
+        load().catch(fail);
+      },
+    });
     view.open.sync = function (card) {
-      p.status = card.status;
-      p.track = card.track;
-      p.ownerId = card.ownerId;
-      p.owner = card.owner;
-      M.clear(stageSlot).appendChild(stepper(p));
-      trackSelect.value = card.track || '';
-      syncOwner();
+      shown.sync(card);
     };
-
-    panelBody.appendChild(
-      h(
-        'div',
-        { class: 'crm-person-head' },
-        h(
-          'div',
-          null,
-          h('span', { class: 'eyebrow' }, p.kind === 'mentor' ? 'Mentor' : 'Mentee'),
-          h('h2', { id: 'personName' }, p.name),
-          p.org ? h('p', { class: 'panel-note' }, p.org) : null,
-          email
-        ),
-        h(
-          'button',
-          {
-            type: 'button',
-            class: 'icon-btn',
-            'aria-label': 'Close',
-            onclick: function () {
-              panel.close();
-            },
-          },
-          '×'
-        )
-      )
-    );
-
-    panelBody.appendChild(
-      h(
-        'div',
-        { class: 'crm-person-controls' },
-        h(
-          'div',
-          { class: 'crm-person-stage' },
-          h('span', { class: 'form-label' }, 'Stage'),
-          stageSlot,
-          h('small', null, 'One click saves. Matched is set by pairing.')
-        ),
-        h('label', null, h('span', { class: 'form-label' }, 'Track'), trackSelect),
-        h(
-          'div',
-          null,
-          h('span', { class: 'form-label' }, 'Followed by'),
-          h('div', { class: 'crm-owner-row' }, ownerName, ownerBtn)
-        )
-      )
-    );
-    if (p.status === 'matched') {
-      panelBody.appendChild(
-        h('p', { class: 'panel-note' }, 'Paired: end the pair (in Pairs) to move them by hand.')
-      );
-    }
-
-    // Notes
-    var noteInput = h('textarea', {
-      class: 'form-input is-compact',
-      rows: '3',
-      maxlength: '4000',
-      placeholder: 'A note for the team (encrypted when stored)…',
-      'aria-label': 'New note',
-    });
-    var noteBtn = h(
-      'button',
-      {
-        type: 'button',
-        class: 'btn btn-primary btn-sm',
-        onclick: function () {
-          var text = noteInput.value.trim();
-          if (!text) return;
-          noteBtn.disabled = true;
-          M.api('POST', API + '?action=note', { key: p.key, kind: p.kind, body: text })
-            .then(function () {
-              return load();
-            })
-            .then(function () {
-              openPerson(p.key, p.kind);
-            })
-            .catch(function (err) {
-              noteBtn.disabled = false;
-              fail(err);
-            });
-        },
-      },
-      'Add note'
-    );
-    panelBody.appendChild(
-      h(
-        'section',
-        { class: 'crm-section' },
-        h('h3', null, 'Notes'),
-        p.notes.length
-          ? h(
-              'ul',
-              { class: 'crm-notes' },
-              p.notes.map(function (n) {
-                return h(
-                  'li',
-                  null,
-                  h('p', null, n.body),
-                  h('small', null, n.author + ' · ' + M.fmtDateTime(n.createdAt, 'Europe/Rome'))
-                );
-              })
-            )
-          : h('p', { class: 'panel-note' }, 'No notes yet.'),
-        noteInput,
-        h('div', { class: 'crm-note-actions' }, noteBtn)
-      )
-    );
-
-    // What the sheets say
-    panelBody.appendChild(
-      h(
-        'section',
-        { class: 'crm-section' },
-        h('h3', null, 'What they told us'),
-        p.sheets.map(function (s) {
-          var removeBtn =
-            s.origin === 'board' && s.recordId
-              ? h(
-                  'button',
-                  {
-                    type: 'button',
-                    class: 'btn btn-outline btn-sm',
-                    onclick: function () {
-                      if (!window.confirm('Remove ' + p.name + ' from the board?')) return;
-                      M.api('POST', API + '?action=remove', { recordId: s.recordId })
-                        .then(function () {
-                          panel.close();
-                          view.open = null;
-                          view.shown = null;
-                          return load();
-                        })
-                        .catch(fail);
-                    },
-                  },
-                  'Remove from the board'
-                )
-              : null;
-          return h(
-            'details',
-            { class: 'crm-sheet', open: p.sheets.length === 1 ? true : null },
-            h(
-              'summary',
-              null,
-              (SOURCE_LABELS[s.source] || s.label) +
-                (s.row ? ' · row ' + s.row : '') +
-                (ORIGIN_LABELS[s.origin] ? ' · ' + ORIGIN_LABELS[s.origin] : '')
-            ),
-            removeBtn,
-            h(
-              'dl',
-              null,
-              Object.keys(s.fields).map(function (f) {
-                var value = s.fields[f];
-                var link = (f === 'cv' || f === 'profile' || f === 'social') && safeLink(value);
-                return [
-                  h('dt', null, FIELD_LABELS[f] || f),
-                  h(
-                    'dd',
-                    null,
-                    link
-                      ? h('a', { href: link, target: '_blank', rel: 'noopener noreferrer' }, value)
-                      : value
-                  ),
-                ];
-              })
-            )
-          );
-        })
-      )
-    );
-
-    // History
-    if (p.history.length) {
-      panelBody.appendChild(
-        h(
-          'section',
-          { class: 'crm-section' },
-          h('h3', null, 'History'),
-          h(
-            'ul',
-            { class: 'activity-list' },
-            p.history.map(function (a) {
-              var what = ACTION_LABELS[a.action] || a.action;
-              var d = a.detail || {};
-              if (a.action === 'set-status' && d.to)
-                what = 'moved ' + statusLabel(p.kind, d.from) + ' → ' + statusLabel(p.kind, d.to);
-              else if (a.action === 'set-status' && d.owner)
-                what = d.owner === 'me' ? 'took them on' : 'dropped them';
-              else if (a.action === 'set-status' && 'track' in d)
-                what = 'set the track: ' + trackLabel(d.track);
-              else if (a.action === 'set-match')
-                what =
-                  (d.action === 'create' ? 'paired them' : 'ended the pair') +
-                  ' (' +
-                  trackLabel(d.track) +
-                  ')';
-              return h(
-                'li',
-                null,
-                h('span', { class: 'activity-when' }, M.fmtDateTime(a.at, 'Europe/Rome')),
-                h('span', null, h('strong', null, a.userName), ' ' + what)
-              );
-            })
-          )
-        )
-      );
-    }
   }
 
   // ── Pairs ────────────────────────────────────────────────────────────────
