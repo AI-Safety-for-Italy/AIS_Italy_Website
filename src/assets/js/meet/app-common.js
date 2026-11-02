@@ -149,6 +149,91 @@
     return info.user;
   });
 
+  /**
+   * A member's own "Notify me" switch, saved at once: { on (null: none to
+   * show), label, save(on) -> promise of the new state }.
+   */
+  M.followSwitch = function (opts) {
+    if (opts.on === null || opts.on === undefined) return null;
+    var current = Boolean(opts.on);
+    var input = h('input', {
+      type: 'checkbox',
+      role: 'switch',
+      class: 'fe-switch-input',
+      'aria-label': opts.label,
+      onchange: function () {
+        input.disabled = true;
+        opts
+          .save(input.checked)
+          .then(function (on) {
+            current = Boolean(on);
+            M.toast(current ? 'You will hear about new answers' : 'Notifications off for this one');
+          })
+          .catch(function (err) {
+            input.checked = current;
+            M.appError(err);
+          })
+          .then(function () {
+            input.disabled = false;
+          });
+      },
+    });
+    input.checked = current;
+    return h(
+      'label',
+      { class: 'fl-notify', title: 'Hear about new answers, on your channel from Settings' },
+      h('span', null, 'Notify me'),
+      input
+    );
+  };
+
+  /**
+   * Who can see something, as faces (roles by initial), the name and why on
+   * hover: [{ kind: 'person' | 'role', name, avatarUrl, what }]. A few, then +n.
+   */
+  M.accessFaces = function (who) {
+    who = who || [];
+    if (!who.length) return h('span');
+    var shown = who.slice(0, 6);
+    var row = h('div', { class: 'fl-faces', 'aria-label': 'Who can see this' });
+    shown.forEach(function (a) {
+      var label = a.name + ' — ' + a.what;
+      row.appendChild(
+        h(
+          'span',
+          {
+            class: 'fl-face' + (a.kind === 'role' ? ' is-role' : ''),
+            title: label,
+            tabindex: '0',
+            'aria-label': label,
+          },
+          a.kind === 'role'
+            ? h('span', { class: 'app-avatar is-initial' }, a.name.charAt(0).toUpperCase())
+            : avatar({ name: a.name, avatarUrl: a.avatarUrl }, 26)
+        )
+      );
+    });
+    if (who.length > shown.length) {
+      var rest = who.slice(shown.length);
+      row.appendChild(
+        h(
+          'span',
+          {
+            class: 'fl-face fl-more',
+            tabindex: '0',
+            title: rest
+              .map(function (a) {
+                return a.name + ' — ' + a.what;
+              })
+              .join('\n'),
+          },
+          '+' + rest.length
+        )
+      );
+    }
+    return row;
+  };
+
   /** Shared handling for an API call that failed. */
   M.appError = function (err) {
     if (err.status === 401) return toLogin(err.code === 'reauth');

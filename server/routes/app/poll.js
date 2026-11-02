@@ -1,6 +1,11 @@
-// /api/app/poll?id=<poll id>: one of the signed-in user's polls. Anyone
-// else's poll answers 404.
+// /api/app/poll?id=<poll id>: one of the signed-in user's polls, or one
+// shared with them (seen, not changed: everything else is the owner's).
+// Anyone else's poll answers 404.
 //   GET                                     -> the poll with every response
+//   GET    &people=<name>                   -> Discord members to share with (owner)
+//   GET    &roles=1                         -> the server's roles to share with (owner)
+//   POST   &action=share { roles, people }  -> who the poll is shared with (owner)
+//   POST   &action=notify-me { on }         -> this user hears of new answers, or not
 //   PATCH  { status | title | description | location | deadline |
 //            hideResponses | notify }
 //   DELETE                                  -> deletes the poll
@@ -37,7 +42,18 @@ module.exports = route({
       res.end(ics.build(poll, slot, { sequence: poll.meeting_sequence }));
       return;
     }
-    sendJson(res, 200, await polls.getPollAdmin(id, user.id));
+    const { people, roles } = getQuery(req);
+    if (roles) {
+      // The server's roles, to share the poll with (its owner only).
+      await polls.getPollAdmin(id, user.id);
+      sendJson(res, 200, { roles: await require('../../permissions').guildRoles() });
+      return;
+    }
+    if (people !== undefined) {
+      sendJson(res, 200, await polls.searchPeople(id, user.id, people));
+      return;
+    }
+    sendJson(res, 200, await polls.getPollFor(id, user));
   },
   async PATCH(req, res) {
     const user = await requireUser(req);
@@ -62,7 +78,11 @@ module.exports = route({
     const send = (poll, invites) =>
       notify.sendInvites({ poll, ownerId: user.id, invites, origin: siteUrl(req) });
 
-    if (action === 'finalize') {
+    if (action === 'share') {
+      sendJson(res, 200, await polls.setSharing(id, body, user.id));
+    } else if (action === 'notify-me') {
+      sendJson(res, 200, await polls.setNotifyMe(id, user, Boolean(body.on)));
+    } else if (action === 'finalize') {
       let result = await polls.finalizePoll(id, body, user.id);
       if (body.sendInvite) {
         const meeting = await polls.prepareMeetingInvite(id, user.id, body);

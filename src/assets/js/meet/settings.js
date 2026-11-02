@@ -118,6 +118,20 @@
         },
       });
     });
+    (f.polls || []).forEach(function (poll) {
+      rows.push({
+        title: poll.title,
+        what: 'Meeting poll · new answers',
+        on: poll.notifyMe,
+        save: function (on) {
+          return M.api(
+            'POST',
+            '/api/app/poll?id=' + encodeURIComponent(poll.id) + '&action=notify-me',
+            { on: on }
+          );
+        },
+      });
+    });
     rows.forEach(function (row) {
       var input = h('input', {
         type: 'checkbox',

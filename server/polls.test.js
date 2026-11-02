@@ -1137,3 +1137,106 @@ test('the schema runs again only when schema.js has changed', async () => {
   assert.equal(await index(), 1);
   assert.deepEqual(await version(), [{ version: db.SCHEMA_VERSION }]);
 });
+
+// ── Sharing, as for forms ────────────────────────────────────────────────────
+
+test('a poll shared by role or by name is seen, not changed; only followers hear of it', async () => {
+  const mail = require('./mail');
+  const sent = [];
+  process.env.MEET_FAKE_MAIL = '0';
+  mail.setTransportFactory(() => ({ sendMail: async (m) => sent.push(m), close() {} }));
+  await mail.saveSettings({ host: 'smtp.x', port: 465, fromEmail: 'tech@ais4i.it', password: 'p' });
+  try {
+    const anna = await auth.upsertDiscordUser({ discordId: 'test-Anna', name: 'Anna' });
+    const ugo = await auth.upsertDiscordUser({ discordId: 'test-Ugo', name: 'Ugo' });
+    const tea = await auth.upsertDiscordUser({
+      discordId: 'test-Tea',
+      name: 'Tea',
+      roles: ['r-board'],
+    });
+    const sid = await auth.upsertDiscordUser({ discordId: 'test-Sid', name: 'Sid' });
+    for (const [u, address] of [
+      [anna, 'anna@example.org'],
+      [ugo, 'ugo@example.org'],
+      [tea, 'tea@example.org'],
+    ]) {
+      await auth.updateProfile(u.id, { notifyChannel: 'email', notifyEmail: address });
+    }
+    const { id, token } = await polls.createPoll(basePoll(), anna.id);
+    await polls.submitResponse(token, { name: 'Bea', email: 'bea@example.org', votes: {} });
+
+    // Not shared yet: nobody else sees it.
+    await rejects(polls.getPollFor(id, ugo), 404);
+    assert.equal((await polls.listPolls(ugo)).length, 0);
+
+    // The owner shares it with a role and a person; nobody else may.
+    await rejects(polls.setSharing(id, { people: [] }, ugo.id), 404);
+    await polls.setSharing(
+      id,
+      {
+        roles: [{ id: 'r-board', name: 'Board' }],
+        people: [{ discordId: 'test-Ugo', name: 'Ugo' }],
+      },
+      anna.id
+    );
+    await rejects(
+      polls.setSharing(id, { people: [{ discordId: 'no spaces', name: 'x' }] }, anna.id),
+      400
+    );
+
+    // Ugo and Tea see it, without the voters' emails or the voting link.
+    for (const who of [ugo, tea]) {
+      const seen = await polls.getPollFor(id, who);
+      assert.equal(seen.canManage, false);
+      assert.equal(seen.ownerName, 'Anna');
+      assert.equal(seen.responses[0].name, 'Bea');
+      assert.equal(seen.responses[0].email, undefined);
+      assert.equal(seen.token, undefined);
+      // …and change nothing.
+      await rejects(polls.updatePoll(id, { title: 'Mine now' }, who.id), 404);
+      await rejects(polls.deletePoll(id, who.id), 404);
+    }
+    await rejects(polls.getPollFor(id, sid), 404);
+    const [card] = await polls.listPolls(ugo);
+    assert.equal(card.canManage, false);
+    assert.equal(card.notifyMe, false);
+    assert.deepEqual(
+      card.access.map((a) => [a.kind, a.name]),
+      [
+        ['person', 'Anna'],
+        ['person', 'Ugo'],
+        ['role', 'Board'],
+      ]
+    );
+
+    // A new answer: only the owner follows it so far.
+    const message = { subject: 'New answer', lines: ['Someone answered.'] };
+    await polls.notifyFollowers(id, message);
+    assert.deepEqual(
+      sent.map((m) => m.to),
+      ['anna@example.org']
+    );
+    // Tea follows it, the owner stops: only Tea is told.
+    await polls.setNotifyMe(id, tea, true);
+    await polls.setNotifyMe(id, anna, false);
+    sent.length = 0;
+    await polls.notifyFollowers(id, message);
+    assert.deepEqual(
+      sent.map((m) => m.to),
+      ['tea@example.org']
+    );
+    // Tea loses the role: she is not told any more, and no longer sees it.
+    await db.query(`update app_users set roles = '{}' where id = $1`, [tea.id]);
+    sent.length = 0;
+    await polls.notifyFollowers(id, message);
+    assert.equal(sent.length, 0);
+    await rejects(polls.getPollFor(id, { ...tea, row: undefined }), 404);
+    // Settings lists the polls one sees, with the switch.
+    assert.deepEqual(
+      (await polls.followable(ugo)).map((p) => [p.title, p.notifyMe]),
+      [['Board meeting', false]]
+    );
+  } finally {
+    process.env.MEET_FAKE_MAIL = '1';
+  }
+});

@@ -9,14 +9,16 @@ const { route, sendJson, readJson, getQuery, siteUrl } = require('../server/http
 const polls = require('../server/polls');
 const notify = require('../server/notify');
 
-// Owner notifications go out before answering (a Vercel function may be
-// frozen once it has replied), but never hold the voter up for long.
+// Notifications go out before answering (a Vercel function may be frozen
+// once it has replied), but never hold the voter up for long. A new answer
+// tells whoever follows the poll (its owner, and those it is shared with who
+// turned "Notify me" on); "everyone answered" is the owner's, to choose a time.
 const NOTIFY_BUDGET_MS = 8000;
 
 async function notifyOwner(result, site) {
   const { poll } = result;
   if (result.isNew) {
-    await notify.notifyOwner(poll.id, notify.newAnswerMessage({ ...result, origin: site }));
+    await polls.notifyFollowers(poll.id, notify.newAnswerMessage({ ...result, origin: site }));
   }
   const everyone = await polls.markAllAnswered(poll.id);
   if (everyone) {

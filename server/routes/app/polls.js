@@ -1,5 +1,5 @@
-// /api/app/polls: the signed-in user's own polls.
-//   GET   -> { polls: [...] }
+// /api/app/polls: the signed-in user's polls, and those shared with them.
+//   GET   -> { polls: [...] }  (each with canManage, notifyMe and access)
 //   POST  { title, description, location, durationMinutes, timezone, deadline,
 //           hideResponses, notify, inviteOnly, invitees, slots: [ISO start, ...] }
 //         -> { id, token, invites: { sent, failed } }
@@ -12,7 +12,7 @@ const notify = require('../../notify');
 module.exports = route({
   async GET(req, res) {
     const user = await requireUser(req);
-    sendJson(res, 200, { polls: await polls.listPolls(user.id) });
+    sendJson(res, 200, { polls: await polls.listPolls(user) });
   },
   async POST(req, res) {
     const user = await requireUser(req);

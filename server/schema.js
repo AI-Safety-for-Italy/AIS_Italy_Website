@@ -111,6 +111,14 @@ alter table polls add column if not exists notify boolean not null default true;
 alter table polls add column if not exists invite_only boolean not null default false;
 alter table polls add column if not exists all_answered_at timestamptz;
 
+-- Sharing a poll, as a form's answers are shared: the Discord roles
+-- ([{ id, name }]) and the people by name ([{ discordId, name }]) who see it
+-- and its answers (not the voters' emails, and changing nothing), and each
+-- one's own choice about hearing of new answers ({ discordId: true|false }).
+alter table polls add column if not exists share_roles jsonb not null default '[]';
+alter table polls add column if not exists share_people jsonb not null default '[]';
+alter table polls add column if not exists notify_choices jsonb not null default '{}';
+
 -- Guests of an invite-only poll. Each gets a personal link carrying the token;
 -- their answer is linked here once given.
 create table if not exists poll_invites (
