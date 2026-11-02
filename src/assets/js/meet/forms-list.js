@@ -30,6 +30,66 @@
     return h('span', { class: 'badge fe-badge fe-badge-' + key }, label);
   }
 
+  // Copies the public link without opening the form. A draft's link answers
+  // "not found" until the form is opened, so the toast says so.
+  function copyButton(f) {
+    var link = location.origin + '/form/?f=' + encodeURIComponent(f.slug);
+    return h(
+      'button',
+      {
+        type: 'button',
+        class: 'btn btn-outline btn-sm fl-copy',
+        title: link,
+        'aria-label': 'Copy the public link of ' + f.title,
+        onclick: function () {
+          M.copy(
+            link,
+            f.status === 'draft' ? 'Link copied: it works once the form is open' : 'Link copied'
+          );
+        },
+      },
+      'Copy link'
+    );
+  }
+
+  // The forms that tell this member about new answers (as owner, or added
+  // by someone): a switch on their card turns it off or on for them only.
+  var mine = {};
+  function notifySwitch(f) {
+    var n = mine[f.id];
+    if (!n) return null;
+    var input = h('input', {
+      type: 'checkbox',
+      role: 'switch',
+      class: 'fe-switch-input',
+      'aria-label': 'Notify me about answers to ' + f.title,
+      onchange: function () {
+        input.disabled = true;
+        M.api('PUT', '/api/app/forms?id=' + encodeURIComponent(f.id) + '&part=notify-me', {
+          on: input.checked,
+        })
+          .then(function (r) {
+            n.on = r.on;
+            M.toast(r.on ? 'You will hear about new answers' : 'Notifications off for this form');
+          })
+          .catch(function (err) {
+            input.checked = n.on;
+            fail(err);
+          })
+          .then(function () {
+            input.disabled = false;
+          });
+      },
+    });
+    input.checked = n.on;
+    return h(
+      'label',
+      { class: 'fl-notify', title: 'Notify me about answers' },
+      h('span', null, 'Notify me'),
+      input
+    );
+  }
+
   function card(f) {
     var edit = '/app/forms/edit/?id=' + encodeURIComponent(f.id);
     // The card opens the form (its questions, or its answers for those who
@@ -59,6 +119,8 @@
         'div',
         { class: 'poll-item-side' },
         badge(f),
+        notifySwitch(f),
+        copyButton(f),
         h(
           'a',
           {
@@ -76,9 +138,18 @@
   Promise.all([M.me, M.areas])
     .then(function (r) {
       newBtn.hidden = !r[1].forms;
-      return M.api('GET', '/api/app/forms');
+      return Promise.all([
+        M.api('GET', '/api/app/forms'),
+        M.api('GET', '/api/app/forms?mine=notifications').catch(function () {
+          return { forms: [] };
+        }),
+      ]);
     })
-    .then(function (data) {
+    .then(function (both) {
+      var data = both[0];
+      both[1].forms.forEach(function (n) {
+        mine[n.id] = n;
+      });
       M.clear(list);
       if (!data.forms.length) {
         list.appendChild(

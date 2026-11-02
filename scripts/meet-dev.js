@@ -110,7 +110,31 @@ const server = http.createServer((req, res) => {
   serveStatic(req, res);
 });
 
+/**
+ * The local database's Discord roles are the stand-ins (permissions.DEV_ROLES):
+ * the ones a stand-in no longer has go, and each gets its starting
+ * permissions once, so signing in as Direttivo or Partecipanti shows what
+ * they would see. Change them on /app/settings/permissions/ as on the site.
+ */
+async function seedDevRoles() {
+  if (process.env.MEET_DATABASE_URL || process.env.DATABASE_URL) return;
+  const permissions = require('../server/permissions');
+  const ids = permissions.DEV_ROLES.map((r) => r.id);
+  await db.query(
+    `delete from content_role_permissions where role_id like 'dev-%' and not (role_id = any($1))`,
+    [ids]
+  );
+  for (const role of permissions.DEV_ROLES) {
+    await db.query(
+      `insert into content_role_permissions (role_id, role_name, permissions)
+       values ($1, $2, $3) on conflict (role_id) do nothing`,
+      [role.id, role.name, permissions.DEV_DEFAULTS[role.id] || []]
+    );
+  }
+}
+
 db.ensureSchema().then(async () => {
+  await seedDevRoles();
   // The build reads published seminars and events from this file locally
   // (server/content-build.js); publishing rewrites it.
   const content = require('../server/content');

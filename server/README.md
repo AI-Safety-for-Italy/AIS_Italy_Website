@@ -200,7 +200,9 @@ switch off), against `DATABASE_URL` / `MEET_DATABASE_URL` or, with `--local`,
 the local database.
 
 Locally, `npm run dev:meet` offers stand-ins for the Discord roles on the
-login page; `node scripts/content-migrate.js --local` (with the server
+login page (Admin, Direttivo, Organizzatori, Partecipanti, one click each;
+a fresh local database gives each a starting set of permissions,
+`permissions.DEV_DEFAULTS`, to see what each one sees); `node scripts/content-migrate.js --local` (with the server
 stopped) imports into the local database; publishing rewrites
 `_content-snapshot.json`, which the watching build picks up.
 
@@ -286,8 +288,16 @@ only a forms admin can give a form those links.
   chosen one on the right; texts in Italian and English; a preview drawn by
   the public page's own code; settings (draft / open / closed, dates, link,
   one answer per email, telling the owner about new answers (by email or
-  Discord DM, as on their settings page; never what the answer says), which
-  Discord roles read the answers) and the public link. Answers are deleted
+  Discord DM, as on their settings page; never what the answer says),
+  emailing each person a copy of their answers (to the form's first email
+  question, from the General settings mailbox; on by default), which
+  Discord roles read the answers), who else hears about new answers (any
+  member of the Discord server, found by name through the bot; each is told
+  on their own channel from their Settings, or by a Discord message if they
+  never signed in; chosen by whoever holds `forms_notify`, and each can
+  switch it off for themselves on the forms list or in Settings) and the
+  public link, which the forms list
+  also copies straight from each card. Answers are deleted
   24 months after they were sent (see "Keeping time of personal data").
 - **Answers** (the editor's Answers tab; also the only tab for the Discord
   roles a form lets read its answers): a summary with a chart per question

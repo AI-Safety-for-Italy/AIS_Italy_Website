@@ -54,10 +54,37 @@
       );
     });
     roles.hidden = !(info.devRoles || []).length;
+
+    // One click per role: a member holding just that role, to see what each
+    // one sees (their permissions are on /app/settings/permissions/).
+    var people = { Admin: 'Ada', Direttivo: 'Dario', Organizzatori: 'Olga', Partecipanti: 'Paolo' };
+    var list = document.getElementById('devPersonaList');
+    (info.devRoles || []).forEach(function (role) {
+      var name = (people[role.name] || 'Test') + ' · ' + role.name;
+      list.appendChild(
+        M.h(
+          'button',
+          {
+            type: 'button',
+            class: 'btn btn-outline btn-sm',
+            onclick: function (e) {
+              signIn(
+                document.getElementById('devLogin'),
+                'dev',
+                { name: name, roles: [role.id] },
+                e.currentTarget
+              );
+            },
+          },
+          role.name
+        )
+      );
+    });
+    document.getElementById('devPersonas').hidden = !(info.devRoles || []).length;
   });
 
-  function signIn(form, action, body) {
-    var button = form.querySelector('button[type=submit]');
+  function signIn(form, action, body, pressed) {
+    var button = pressed || form.querySelector('button[type=submit]');
     button.disabled = true;
     showError('');
     M.api('POST', '/api/auth?action=' + action, body)

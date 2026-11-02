@@ -137,6 +137,25 @@ async function notifyUser(userId, message) {
   return used;
 }
 
+/**
+ * Tells a member of the Discord server, picked by id: on their own channels
+ * if they have signed in here (notifyUser, so "off" means off), else by a
+ * Discord message from the bot. Returns the channels used.
+ */
+async function notifyMember(discordId, message) {
+  const { rows } = await db.query('select id from app_users where discord_id = $1', [discordId]);
+  if (rows[0]) return notifyUser(rows[0].id, message);
+  if (!discordAvailable() || !/^\d{5,25}$/.test(String(discordId))) return [];
+  try {
+    const { text } = render(message.lines);
+    await discordDm(discordId, `**${message.subject}**\n\n${text}`.slice(0, 1900));
+    return ['discord'];
+  } catch (err) {
+    console.error('Notification on Discord failed:', err.message);
+    return [];
+  }
+}
+
 function newAnswerMessage({ poll, name, yes, maybe, origin }) {
   const counts = `${yes} yes${maybe ? `, ${maybe} if needed` : ''}`;
   return {
@@ -326,6 +345,7 @@ module.exports = {
   setFetch,
   notifyOwner,
   notifyUser,
+  notifyMember,
   newFormAnswerMessage,
   newAnswerMessage,
   allAnsweredMessage,
