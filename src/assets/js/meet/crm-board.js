@@ -20,7 +20,7 @@
   // On a wide screen the list view shows the person beside it; elsewhere, in the dialog.
   var wide = window.matchMedia('(min-width: 1100px)');
   var asideBody = h('div', { class: 'crm-aside-body' });
-  var aside = h('aside', { class: 'crm-aside', 'aria-label': 'Selected person' }, asideBody);
+  var aside = h('aside', { class: 'crm-aside', 'aria-label': 'Person details' }, asideBody);
   function inAside() {
     return wide.matches && view.mode === 'list' && view.tab !== 'pairs';
   }
@@ -46,11 +46,7 @@
     /* private window: the default is fine */
   }
 
-  var SOURCE_LABELS = {
-    mentors_prospective: 'List to contact',
-    mentors_applications: 'Mentor application',
-    mentees_interest: 'Expression of interest',
-  };
+  var SOURCE_LABELS = window.CrmPerson.SOURCE_LABELS;
 
   function trackLabel(key) {
     if (!view.data) return key;
