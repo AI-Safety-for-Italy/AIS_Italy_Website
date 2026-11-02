@@ -8,11 +8,9 @@
   var list = document.getElementById('contentList');
   list.appendChild(M.loading());
 
-  M.me
-    .then(function () {
-      return M.api('GET', '/api/app/content');
-    })
-    .then(function (data) {
+  Promise.all([M.me, M.api('GET', '/api/app/content')])
+    .then(function (r) {
+      var data = r[1];
       var manage = data.permissions.indexOf('manage') !== -1;
       document.getElementById('notLive').hidden = data.live;
       document.getElementById('askToSwitch').hidden = manage;

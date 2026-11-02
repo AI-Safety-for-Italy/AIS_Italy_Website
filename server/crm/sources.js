@@ -24,7 +24,7 @@ const audit = require('./audit');
 
 const SOURCES = {
   mentors_prospective: {
-    label: 'Prospective mentors (the list to contact)',
+    label: 'List to contact (prospective mentors)',
     kind: 'mentor',
     stage: 'prospect',
     tab: 'Mentors',
@@ -72,6 +72,7 @@ const SOURCES = {
       hours_mentee: ['Quante ore a settimana dovrebbe*'],
       hours_mentor: ['Quante ore a settimana puoi*'],
       co_mentor: ['Nome completo (co-mentor)'],
+      publish: ['Acconsenti alla pubblicazione'],
     },
   },
   // Mentee applications come from a form of the site only (the template

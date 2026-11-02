@@ -106,3 +106,24 @@ test('the areas and permissions named by the tools exist', () => {
     }
   }
 });
+
+// /assets/css and /assets/js are served with a one-year cache (vercel.json):
+// a link without ?v={{ build }} would keep the old file after a deploy.
+test('every stylesheet and script under /assets/ carries the build version', () => {
+  const SRC = path.join(__dirname, '..', 'src');
+  const files = (function walk(dir) {
+    return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) return entry.name === 'assets' ? [] : walk(full);
+      return /\.(njk|html|md)$/.test(entry.name) ? [full] : [];
+    });
+  })(SRC);
+  const missing = [];
+  for (const file of files) {
+    const text = fs.readFileSync(file, 'utf8');
+    for (const m of text.matchAll(/(?:href|src)="(\/assets\/(?:css|js)\/[^"]*)"/g)) {
+      if (!m[1].includes('?v={{ build }}')) missing.push(`${path.relative(SRC, file)}: ${m[1]}`);
+    }
+  }
+  assert.deepEqual(missing, []);
+});

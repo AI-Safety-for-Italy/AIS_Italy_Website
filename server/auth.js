@@ -117,7 +117,12 @@ async function currentUser(req) {
   const { rows } = await db.query('select * from app_users where id = $1', [session.userId]);
   // A cookie from before the last sign-out (or before leaving Discord) no longer counts.
   if (!rows.length || rows[0].session_version !== session.version) return null;
-  return publicUser(rows[0]);
+  const user = publicUser(rows[0]);
+  // The whole row, hidden (never sent to the page): the permission checks of
+  // this request read roles and sign-in times from it instead of asking the
+  // database again (permissions.rowOf).
+  Object.defineProperty(user, 'row', { value: rows[0], enumerable: false });
+  return user;
 }
 
 async function requireUser(req) {

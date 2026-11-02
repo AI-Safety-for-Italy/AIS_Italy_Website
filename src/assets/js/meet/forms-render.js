@@ -998,15 +998,19 @@
 
   // The logo on top of the green panel, leading to the homepage (not in the
   // editor's preview, where leaving would lose the edits).
-  function brand(preview) {
+  function brand(preview, lang) {
     return h(
       preview ? 'span' : 'a',
       preview
         ? { class: 'fm-brand' }
-        : { class: 'fm-brand', href: '/', 'aria-label': 'AI Safety for Italy: homepage' },
+        : { class: 'fm-brand', href: home(lang), 'aria-label': 'AI Safety for Italy: homepage' },
       h('img', { src: '/assets/img/ais4i-logo.svg', alt: '', width: 40, height: 40 }),
       h('span', null, 'AI Safety ', h('span', { class: 'fm-brand-accent' }, 'for Italy'))
     );
+  }
+
+  function home(lang) {
+    return lang === 'it' ? '/it/' : '/';
   }
 
   // The site's footer line, at the bottom of the form's column, on the
@@ -1112,7 +1116,7 @@
     frame(
       root,
       [
-        opts.eyebrow ? h('p', { class: 'fm-eyebrow' }, opts.eyebrow) : brand(opts.preview),
+        opts.eyebrow ? h('p', { class: 'fm-eyebrow' }, opts.eyebrow) : brand(opts.preview, lang),
         h('h1', { class: 'fm-title' }, t(schema.title)),
         intro ? md(intro, 'fm-intro') : null,
         h('p', { class: 'fm-meta' }, h('span', null, S.questions(total)), closes),
@@ -1195,7 +1199,7 @@
   M.formNotice = function (root, title, text, lang) {
     frame(
       root,
-      [brand(false), h('h1', { class: 'fm-title' }, title)],
+      [brand(false, lang), h('h1', { class: 'fm-title' }, title)],
       h(
         'div',
         { class: 'fm-notice' },
@@ -1203,7 +1207,7 @@
         h('p', null, text),
         h(
           'a',
-          { class: 'btn btn-outline', href: '/' },
+          { class: 'btn btn-outline', href: home(lang) },
           lang === 'en' ? 'Go to the site' : 'Vai al sito'
         )
       ),

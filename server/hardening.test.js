@@ -474,6 +474,46 @@ test('/api/app/* reaches each handler through one function, on Vercel and locall
   assert.ok(vercel.rewrites.some((r) => r.source === '/api/app/:route*'));
 });
 
+// ── Speed: what a request costs ──────────────────────────────────────────────
+
+test('an API answer says how long it took and how many queries it made', async () => {
+  const appApi = require('../api/app');
+  await db.query(
+    `insert into content_role_permissions (role_id, role_name, permissions)
+     values ('r-team', 'Team', '{members,forms}')`
+  );
+  const user = await auth.upsertDiscordUser({
+    discordId: 'd-team',
+    name: 'Team',
+    roles: ['r-team'],
+  });
+  const res = await call(appApi, { url: '/api/app/overview', user });
+  assert.equal(res.statusCode, 200);
+  const timing = res.headers['Server-Timing'];
+  assert.match(timing, /^total;dur=[\d.]+, db;dur=[\d.]+;desc="\d+ queries"/);
+  // The user's row is read once and reused by the permission checks: the
+  // sign-in, the permissions, then the three counts (polls, forms, members).
+  assert.equal(Number(/"(\d+) queries"/.exec(timing)[1]), 5);
+});
+
+test('a slow Discord does not hold a request: the stored roles stand', async () => {
+  process.env.DISCORD_BOT_TOKEN_AIS_TEAM_AREA = 'bot';
+  process.env.DISCORD_GUILD_ID = 'guild1';
+  // What a timeout looks like to the code: fetch rejects.
+  permissions.setFetch(() =>
+    Promise.reject(Object.assign(new Error('timeout'), { name: 'TimeoutError' }))
+  );
+  const user = await auth.upsertDiscordUser({
+    discordId: 'd-slow',
+    name: 'Slow',
+    roles: ['r-old'],
+  });
+  await permissions.refreshRoles(user);
+  assert.deepEqual(await permissions.rolesOf(user), ['r-old']);
+  await assert.rejects(permissions.guildRoles(), (err) => err.status === 502);
+  delete process.env.DISCORD_GUILD_ID;
+});
+
 // ── 8. A permission since retired does not block saving the table ──────────
 
 test('a key no longer known, still stored on a role, is dropped, not refused', async () => {

@@ -320,18 +320,16 @@
   }
 
   state.appendChild(M.loading());
-  M.me
-    .then(function () {
-      return Promise.all([
-        M.api('GET', '/api/app/forms?id=' + encodeURIComponent(id)),
-        M.api('GET', '/api/app/forms?meta=1').catch(function () {
-          return null;
-        }),
-      ]);
-    })
+  Promise.all([
+    M.me,
+    M.api('GET', '/api/app/forms?id=' + encodeURIComponent(id)),
+    M.api('GET', '/api/app/forms?meta=1').catch(function () {
+      return null;
+    }),
+  ])
     .then(function (r) {
-      meta = r[1];
-      loaded(r[0]);
+      meta = r[2];
+      loaded(r[1]);
     })
     .catch(fail);
 
@@ -1863,7 +1861,7 @@
       class: 'form-input is-compact',
       value: form.slug,
       maxlength: '60',
-      pattern: '[a-z0-9-]+',
+      pattern: '[a-z0-9\\-]+',
     });
     slug.disabled = form.responses > 0;
     var once = h('input', { type: 'checkbox', role: 'switch', class: 'fe-switch-input' });

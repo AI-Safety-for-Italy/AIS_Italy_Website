@@ -181,13 +181,12 @@
     );
   }
 
-  Promise.all([M.me, M.permissions])
+  // The list is asked for together with the sign-in, not after it.
+  Promise.all([M.me, M.permissions, M.api('GET', '/api/app/forms')])
     .then(function (r) {
+      var data = r[2];
       // Making forms needs a forms permission; reading some answers does not.
       newBtn.hidden = r[1].indexOf('forms') === -1 && r[1].indexOf('forms_admin') === -1;
-      return M.api('GET', '/api/app/forms');
-    })
-    .then(function (data) {
       M.clear(list);
       if (!data.forms.length) {
         list.appendChild(

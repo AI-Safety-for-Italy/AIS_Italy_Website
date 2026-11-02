@@ -112,6 +112,8 @@ async function whoIs(user, { fresh = false } = {}) {
 /** A user's Discord id (none for the shared admin). */
 async function discordIdOf(user) {
   if (!user || user.kind !== 'discord') return null;
+  // The row auth.currentUser read for this request, when there is one.
+  if (user.row) return user.row.discord_id || null;
   const { rows } = await db.query('select discord_id from app_users where id = $1', [user.id]);
   return (rows[0] && rows[0].discord_id) || null;
 }
@@ -875,9 +877,11 @@ async function responses(user, id, { record = true } = {}) {
     [form.id]
   );
   const versions = {};
-  for (const v of new Set(rows.map((r) => r.version).concat(form.current_version))) {
-    versions[v] = await schemaOf(form.id, v);
-  }
+  const wanted = [...new Set(rows.map((r) => r.version).concat(form.current_version))];
+  const schemas = await Promise.all(wanted.map((v) => schemaOf(form.id, v)));
+  wanted.forEach((v, i) => {
+    versions[v] = schemas[i];
+  });
   // An export reads the answers too, but writes its own line, not this one.
   if (record) await audit.record(user, 'form-view-responses', form.id, { count: rows.length });
   return {

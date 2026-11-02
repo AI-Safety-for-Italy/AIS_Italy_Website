@@ -16,13 +16,13 @@ pageTitle: Home
   <div class="hub-head">
     <div>
       <p class="hub-date" id="hubDate"></p>
-      <h2 class="hub-hello" id="hello">Ciao</h2>
+      <h2 class="hub-hello" id="hello">Hi</h2>
       <script>
         /* Greet last visit's user at once; hub.js confirms it. */
         (function () {
           try {
             var u = JSON.parse(localStorage.getItem('ais-user') || 'null');
-            if (u && u.name) document.getElementById('hello').textContent = 'Ciao, ' + u.name.split(' ')[0];
+            if (u && u.name) document.getElementById('hello').textContent = 'Hi, ' + u.name.split(' ')[0];
           } catch (e) {}
         })();
       </script>
@@ -58,7 +58,7 @@ pageTitle: Home
   </section>
 </div>
 
-<script src="/assets/js/meet/common.js" defer></script>
-<script src="/assets/js/meet/app-common.js" defer></script>
-<script src="/assets/js/meet/hub.js" defer></script>
+<script src="/assets/js/meet/common.js?v={{ build }}" defer></script>
+<script src="/assets/js/meet/app-common.js?v={{ build }}" defer></script>
+<script src="/assets/js/meet/hub.js?v={{ build }}" defer></script>
 {% endblock %}

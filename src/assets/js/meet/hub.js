@@ -20,7 +20,7 @@
   });
 
   M.me.then(function (user) {
-    document.getElementById('hello').textContent = 'Ciao, ' + user.name.split(' ')[0];
+    document.getElementById('hello').textContent = 'Hi, ' + user.name.split(' ')[0];
   });
 
   M.overview.then(function (data) {

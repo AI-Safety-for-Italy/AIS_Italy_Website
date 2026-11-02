@@ -568,10 +568,12 @@
 
   M.me.then(function () {
     setDuration(60);
-    return M.api('GET', '/api/app/settings').then(function (settings) {
-      if (settings.mail.configured) return;
+  });
+  Promise.all([M.me, M.api('GET', '/api/app/settings')])
+    .then(function (r) {
+      if (r[1].mail.configured) return;
       form.querySelector('input[value=invite]').disabled = true;
       document.getElementById('inviteNote').hidden = false;
-    });
-  });
+    })
+    .catch(M.appError);
 })();

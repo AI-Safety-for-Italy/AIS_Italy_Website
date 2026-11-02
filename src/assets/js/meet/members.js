@@ -44,11 +44,9 @@
 
   function load() {
     list.appendChild(M.loading());
-    M.me
-      .then(function () {
-        return M.api('GET', '/api/app/members');
-      })
-      .then(function (d) {
+    Promise.all([M.me, M.api('GET', '/api/app/members')])
+      .then(function (r) {
+        var d = r[1];
         data = d;
         var missing = [];
         if (!d.mailReady) missing.push('email sending (admin → Settings → Mail settings)');

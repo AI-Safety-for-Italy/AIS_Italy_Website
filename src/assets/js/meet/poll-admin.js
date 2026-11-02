@@ -42,14 +42,16 @@
     );
   }
 
-  M.me
-    .then(function () {
-      M.api('GET', '/api/app/settings').then(function (s) {
-        mailReady = s.mail.configured;
-      });
-      return M.api('GET', '/api/app/poll?id=' + encodeURIComponent(id || ''));
+  M.api('GET', '/api/app/settings')
+    .then(function (s) {
+      mailReady = s.mail.configured;
     })
-    .then(function (data) {
+    .catch(function () {
+      /* mail stays "not ready"; the poll's own request reports a sign-in problem */
+    });
+  Promise.all([M.me, M.api('GET', '/api/app/poll?id=' + encodeURIComponent(id || ''))])
+    .then(function (r) {
+      var data = r[1];
       if (params.get('created')) {
         var failed = Number(params.get('failed') || 0);
         M.toast(

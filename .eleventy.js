@@ -64,6 +64,12 @@ function prefixHref(href, prefix) {
   if (!href || !href.startsWith("/")) return null;
   if (href.startsWith(prefix + "/")) return null;
   if (href.startsWith("/assets/")) return null;
+  // Pages that exist once, not per language: /it/form/ would be a 404. A form
+  // is told the language instead, so it opens in the one the visitor came from.
+  if (/^\/form\/\?/.test(href) && !/[?&]lang=/.test(href)) {
+    return href + "&amp;lang=" + prefix.slice(1);
+  }
+  if (/^\/(form|join|app|api)(\/|\?|#|$)/.test(href)) return null;
   if (/\.[a-z0-9]+(\?|#|$)/i.test(href)) return null;
   return prefix + href;
 }
@@ -179,8 +185,7 @@ module.exports = function(eleventyConfig) {
   // Pass through copy
   eleventyConfig.addPassthroughCopy("src/assets/img");
   eleventyConfig.addPassthroughCopy("src/assets/js");
-  // Only the meeting-poll pages load this; style.css is built by PostCSS.
-  eleventyConfig.addPassthroughCopy("src/assets/css/meet.css");
+  // style.css and meet.css are built and minified by `npm run build:css`.
   eleventyConfig.addPassthroughCopy({ "src/assets/fonts": "assets/fonts" });
   // Copy favicons to root
   eleventyConfig.addPassthroughCopy({ "src/assets/img/favicon.svg": "favicon.svg" });

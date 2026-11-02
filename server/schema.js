@@ -260,6 +260,16 @@ create table if not exists crm_notes (
 
 create index if not exists crm_notes_person on crm_notes (person_key, created_at);
 
+-- A mentor's draft for the public site: bio and a 400x400 JPEG, encrypted
+-- together. Publishing still goes through data/mentors.yaml.
+create table if not exists crm_site_profiles (
+  person_key text primary key,
+  data_encrypted text not null,
+  updated_by uuid references app_users(id) on delete set null,
+  updated_by_name text,
+  updated_at timestamptz not null default now()
+);
+
 -- Mentor and mentee pairs. Ending one keeps the row (status 'ended').
 create table if not exists crm_matches (
   id uuid primary key default gen_random_uuid(),
@@ -411,6 +421,8 @@ create table if not exists crm_records (
 );
 
 create index if not exists crm_records_source on crm_records (source, origin);
+-- One person's records (opening them, changing their stage).
+create index if not exists crm_records_person on crm_records (person_key);
 
 -- What a member follows (server/follows.js): told about it, counted on their
 -- home page. Topics: 'members' (the member applications board).

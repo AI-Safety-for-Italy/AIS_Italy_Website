@@ -12,7 +12,6 @@
 // The other keys (the content tool) skip the first check and keep the rest.
 // Hiding a button is never the protection: this is.
 
-const db = require('./db');
 const { HttpError } = require('./http');
 const permissions = require('./permissions');
 const audit = require('./crm/audit');
@@ -28,8 +27,8 @@ const GUARDED_KEYS = permissions.PERMISSIONS.filter((p) =>
 ).map((p) => p.key);
 
 async function requireRecentLogin(user, now = Date.now()) {
-  const { rows } = await db.query('select last_login_at from app_users where id = $1', [user.id]);
-  const last = rows[0] && rows[0].last_login_at;
+  const row = await permissions.rowOf(user);
+  const last = row && row.last_login_at;
   if (!last || now - new Date(last).getTime() > MAX_SESSION_AGE_MS) {
     // `reauth` tells the login page not to send a still-valid session straight
     // back here, which would loop between the two pages.
