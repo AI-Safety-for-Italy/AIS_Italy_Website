@@ -177,6 +177,12 @@ const TEMPLATES = {
         q('co_mentor', 'short_text', 'Nome completo del co-mentor', {
           help: { it: 'Se il progetto ne prevede uno.' },
         }),
+        q(
+          'publish',
+          'yes_no',
+          'Acconsenti alla pubblicazione di nome, foto, breve bio e progetto nella pagina Mentorship del sito?',
+          { required: true }
+        ),
       ],
     }),
   },

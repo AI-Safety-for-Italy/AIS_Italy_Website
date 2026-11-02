@@ -9,6 +9,9 @@
 // Every function here assumes access.authorize(user, 'mentorship')
 // has already been called by the API.
 
+const fs = require('fs');
+const path = require('path');
+const yaml = require('js-yaml');
 const db = require('../db');
 const { HttpError } = require('../http');
 const sources = require('./sources');
@@ -59,9 +62,17 @@ function trackOf(text) {
   return projects ? 'projects' : orientation ? 'orientation' : null;
 }
 
-/** An expression of interest says "Mentor", "Mentee" or both. */
+/**
+ * An expression of interest says "Mentor", "Mentee" or both. Only the role
+ * itself counts, not what explains it: in "Mentee: vorrei essere affiancata
+ * da un mentor" the words after the colon (or in brackets) are left out.
+ * Several ticked answers come joined by commas.
+ */
 function kindsOf(applyingAs) {
-  const t = sources.norm(applyingAs);
+  const t = String(applyingAs || '')
+    .split(/[,;\n]/)
+    .map((part) => sources.norm(part.split(':')[0].replace(/\([^)]*\)/g, '')))
+    .join(' ');
   const kinds = [];
   if (/mentor/.test(t)) kinds.push('mentor');
   if (/mentee/.test(t) || !kinds.length) kinds.push('mentee');
@@ -74,9 +85,10 @@ const first = (...values) => values.find((v) => v && String(v).trim()) || '';
 
 /**
  * Everyone in the lists: { people: Map("kind:key" -> person), unlinked: rows
- * without an email, problems: records the current key cannot open }.
+ * without an email, problems: records the current key cannot open }. With
+ * `personKey`, only that person's records are read and decrypted.
  */
-async function gather() {
+async function gather(personKey) {
   const people = new Map();
   const unlinked = [];
   const problems = [];
@@ -96,7 +108,7 @@ async function gather() {
     people.get(id).records[sourceId] = record;
   };
 
-  const { bySource, unreadable } = await records.list();
+  const { bySource, unreadable } = await records.list({ personKey });
   for (const sourceId of Object.keys(sources.SOURCES)) {
     for (const record of bySource[sourceId] || []) {
       if (sourceId === 'mentees_interest') {
@@ -173,6 +185,17 @@ async function states() {
   return new Map(rows.map((r) => [`${r.kind}:${r.person_key}`, r]));
 }
 
+/** One person's row of crm_people_state, or undefined. */
+async function stateOf(key, kind) {
+  const { rows } = await db.query(
+    `select s.*, u.name as owner_name from crm_people_state s
+     left join app_users u on u.id = s.owner_id
+     where s.person_key = $1 and s.kind = $2`,
+    [key, kind]
+  );
+  return rows[0];
+}
+
 async function noteCounts() {
   const { rows } = await db.query(
     'select person_key, count(*)::int as n from crm_notes group by person_key'
@@ -239,7 +262,7 @@ function checkKey(key, kind) {
 
 async function find(key, kind) {
   checkKey(key, kind);
-  const { people } = await gather();
+  const { people } = await gather(key);
   const person = people.get(`${kind}:${key}`);
   if (!person) throw new HttpError(404, 'Not on the board (any more)');
   return person;
@@ -248,7 +271,7 @@ async function find(key, kind) {
 /** Everything about one person, with fields cut to what `perms` may read. */
 async function person(user, perms, key, kind) {
   const found = await find(key, kind);
-  const state = (await states()).get(`${kind}:${key}`);
+  const state = await stateOf(key, kind);
   const card_ = card(found, state, {});
   const sheetsView = Object.entries(found.records).map(([sourceId, record]) => {
     // The key and the record's id are dropped on purpose: lookup ids, not
@@ -278,11 +301,31 @@ async function person(user, perms, key, kind) {
     createdAt: n.created_at,
     body: crm.decrypt(n.body_encrypted, key) ?? '(this note cannot be opened with the current key)',
   }));
+  // Only the pairs of this role: someone can be a mentor and a mentee.
+  const side = kind === 'mentor' ? 'mentor_key' : 'mentee_key';
   const { rows: matchRows } = await db.query(
     `select id, mentor_key, mentee_key, track, status, created_at, ended_at from crm_matches
-     where mentor_key = $1 or mentee_key = $1 order by created_at desc`,
+     where ${side} = $1 order by created_at desc`,
     [key]
   );
+  const otherKind = kind === 'mentor' ? 'mentee' : 'mentor';
+  const otherName = async (otherKey) => {
+    const other = (await gather(otherKey)).people.get(`${otherKind}:${otherKey}`);
+    return other ? card(other, null, {}).name : null;
+  };
+  const matches = [];
+  for (const m of matchRows) {
+    const otherKey = kind === 'mentor' ? m.mentee_key : m.mentor_key;
+    matches.push({
+      id: m.id,
+      track: m.track,
+      status: m.status,
+      createdAt: m.created_at,
+      endedAt: m.ended_at,
+      otherKey,
+      otherName: await otherName(otherKey),
+    });
+  }
   await audit.record(user, 'view-person', key, { kind });
   if (notes.length) await audit.record(user, 'view-note', key, { count: notes.length });
   return {
@@ -293,16 +336,129 @@ async function person(user, perms, key, kind) {
     ).email,
     sheets: sheetsView,
     notes,
-    matches: matchRows.map((m) => ({
-      id: m.id,
-      track: m.track,
-      status: m.status,
-      createdAt: m.created_at,
-      endedAt: m.ended_at,
-      otherKey: m.mentor_key === key ? m.mentee_key : m.mentor_key,
-    })),
+    matches,
     history: await audit.recent({ subjectKey: key, limit: 40 }),
+    // So a page of its own can show the stage buttons and the track select.
+    statuses: STATUSES[kind],
+    tracks: TRACKS,
+    site: kind === 'mentor' ? await siteOf(key, found, card_.name) : null,
   };
+}
+
+// ── The draft for the public site (mentors only) ─────────────────────────────
+
+const MAX_BIO = 1200;
+const MAX_PHOTO_BYTES = 200_000;
+const MENTORS_YAML = path.join(__dirname, '..', '..', 'data', 'mentors.yaml');
+
+/** Their entry on /mentorship/ (data/mentors.yaml), matched by name, or null. */
+function siteEntry(name) {
+  let mentors;
+  try {
+    mentors = yaml.load(fs.readFileSync(MENTORS_YAML, 'utf8')).mentors || [];
+  } catch {
+    return null;
+  }
+  const want = sources.norm(name);
+  const hit = mentors.find((m) => m && m.id && sources.norm(m.name) === want);
+  return hit ? { id: hit.id, url: `/mentorship/#${hit.id}` } : null;
+}
+
+async function siteOf(key, found, name) {
+  const { rows } = await db.query(
+    'select data_encrypted, updated_by_name, updated_at from crm_site_profiles where person_key = $1',
+    [key]
+  );
+  let draft = {};
+  if (rows[0]) {
+    try {
+      draft = JSON.parse(crm.decrypt(rows[0].data_encrypted, `crm-site:${key}`)) || {};
+    } catch {
+      draft = {};
+    }
+  }
+  const answer = found.records.mentors_applications && found.records.mentors_applications.publish;
+  return {
+    bio: draft.bio || '',
+    photo: draft.photo || null,
+    updatedAt: rows[0] ? rows[0].updated_at : null,
+    updatedBy: rows[0] ? rows[0].updated_by_name : null,
+    consent: answer ? (yes(answer) ? 'yes' : 'no') : null,
+    entry: siteEntry(name),
+  };
+}
+
+/** A photo as the page sends it: a JPEG data URL, small, really a JPEG. */
+function cleanPhoto(photo) {
+  if (photo === null) return null;
+  const m = /^data:image\/jpeg;base64,([A-Za-z0-9+/]+={0,2})$/.exec(String(photo || ''));
+  if (!m) throw new HttpError(400, 'The photo must be a JPEG');
+  const bytes = Buffer.from(m[1], 'base64');
+  if (bytes.length > MAX_PHOTO_BYTES) throw new HttpError(413, 'The photo is too large');
+  if (bytes[0] !== 0xff || bytes[1] !== 0xd8 || bytes[2] !== 0xff)
+    throw new HttpError(400, 'The photo must be a JPEG');
+  return photo;
+}
+
+/**
+ * Saves a mentor's bio and/or photo for the site (`photo: null` removes it).
+ * Returns the draft as person() shows it.
+ */
+async function saveSite(user, key, kind, body) {
+  if (kind !== 'mentor') throw new HttpError(400, 'Only mentors are on the site');
+  const found = await find(key, kind);
+  const name = card(found, await stateOf(key, kind), {}).name;
+  const current = await siteOf(key, found, name);
+  const draft = { bio: current.bio, photo: current.photo };
+  if (body.bio !== undefined) {
+    const bio = String(body.bio || '').trim();
+    if (bio.length > MAX_BIO)
+      throw new HttpError(400, `The bio is longer than ${MAX_BIO} characters`);
+    draft.bio = bio;
+  }
+  if (body.photo !== undefined) draft.photo = cleanPhoto(body.photo);
+  await db.query(
+    `insert into crm_site_profiles (person_key, data_encrypted, updated_by, updated_by_name, updated_at)
+     values ($1, $2, $3, $4, now())
+     on conflict (person_key) do update set data_encrypted = excluded.data_encrypted,
+       updated_by = excluded.updated_by, updated_by_name = excluded.updated_by_name, updated_at = now()`,
+    [
+      key,
+      crm.encrypt(JSON.stringify(draft), `crm-site:${key}`),
+      user.kind === 'admin' ? null : user.id,
+      user.name,
+    ]
+  );
+  await audit.record(user, 'site-draft', key, {
+    bio: body.bio !== undefined,
+    photo: body.photo === undefined ? undefined : body.photo === null ? 'removed' : 'set',
+  });
+  return siteOf(key, found, name);
+}
+
+// ── Emails ───────────────────────────────────────────────────────────────────
+
+const MAX_EMAILS = 1000;
+
+/**
+ * The names and emails of these people, for the team to write to them:
+ * { people: [{ name, email }] } in the given order, without those who have
+ * none. One line on the audit trail with how many, never who.
+ */
+async function emails(user, kind, keys) {
+  if (!KINDS.includes(kind)) throw new HttpError(400, 'Invalid kind');
+  if (!Array.isArray(keys) || keys.length > MAX_EMAILS) throw new HttpError(400, 'Invalid list');
+  keys.forEach((k) => checkKey(k, kind));
+  const { people } = await gather();
+  const out = [];
+  for (const key of new Set(keys)) {
+    const person = people.get(`${kind}:${key}`);
+    if (!person) continue;
+    const email = first(...Object.values(person.records).map((r) => r.email));
+    if (email) out.push({ name: card(person, null, {}).name, email });
+  }
+  await audit.record(user, 'export', null, { kind, asked: keys.length, copied: out.length });
+  return { people: out };
 }
 
 // ── Changes ──────────────────────────────────────────────────────────────────
@@ -314,8 +470,7 @@ async function person(user, perms, key, kind) {
 async function update(user, key, kind, changes) {
   const found = await find(key, kind);
   const c = changes || {};
-  const all = await states();
-  const current = all.get(`${kind}:${key}`);
+  const current = await stateOf(key, kind);
   const before = card(found, current, {});
 
   let status = before.status;
@@ -355,7 +510,9 @@ async function update(user, key, kind, changes) {
   if (c.track !== undefined) detail.track = track;
   if (c.owner !== undefined) detail.owner = c.owner;
   await audit.record(user, 'set-status', key, detail);
-  return { status, track };
+  // What the board's card needs, so the page updates it without reloading.
+  const after = card(found, await stateOf(key, kind), {});
+  return { status: after.status, track: after.track, owner: after.owner, ownerId: after.ownerId };
 }
 
 async function addNote(user, key, kind, body) {
@@ -518,4 +675,7 @@ module.exports = {
   addNote,
   createMatch,
   endMatch,
+  saveSite,
+  siteEntry,
+  emails,
 };

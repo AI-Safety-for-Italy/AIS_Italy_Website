@@ -130,7 +130,7 @@
   "functions": {
     "api/app.js": {
       "maxDuration": 60,
-      "includeFiles": "data/events.yaml"
+      "includeFiles": "data/*.yaml"
     },
     "api/poll.js": {
       "maxDuration": 30
