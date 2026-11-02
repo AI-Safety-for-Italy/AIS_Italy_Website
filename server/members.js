@@ -23,6 +23,8 @@ const crm = require('./crm/crypto');
 const access = require('./access');
 const audit = require('./crm/audit');
 const { HttpError } = require('./http');
+const follows = require('./follows');
+const notify = require('./notify');
 
 const ROLES = [
   {
@@ -77,7 +79,7 @@ function text(value, label, max, required) {
  *                        the board should show them (value: text or list)
  * `source` names the form it came from. Returns { id }.
  */
-async function createApplication(fields, { source, q = db } = {}) {
+async function createApplication(fields, { source, responseId = null, q = db } = {}) {
   // Without the keys the details could not be stored protected: take none.
   if (!crm.configured()) throw new HttpError(503, 'Applications are not available right now');
   const f = fields || {};
@@ -104,14 +106,16 @@ async function createApplication(fields, { source, q = db } = {}) {
   // `q`: the caller's transaction, so the form's answer and the application
   // are kept together or not at all.
   await q.query(
-    `insert into member_applications (id, requested_role, source, details_encrypted, email_key)
-     values ($1, $2, $3, $4, $5)`,
+    `insert into member_applications
+       (id, requested_role, source, details_encrypted, email_key, response_id)
+     values ($1, $2, $3, $4, $5, $6)`,
     [
       id,
       requestedRole,
       source ? String(source).slice(0, 100) : null,
       crm.encrypt(JSON.stringify({ name, email, answers }), context(id)),
       crm.personKey(email),
+      responseId,
     ]
   );
   return { id };
@@ -179,7 +183,73 @@ async function listApplications(user) {
     applications: rows.map(summary),
     roles: boardRoles(),
     mailReady: await mail.isConfigured(),
+    following: user.kind === 'discord' ? await follows.isFollowing(user.id, 'members') : null,
   };
+}
+
+/** Follows the board (told about new applications, counted at home) or not. */
+async function setFollowing(user, on) {
+  await access.authorize(user, 'members');
+  if (user.kind !== 'discord')
+    throw new HttpError(400, 'This account has no channel to be told on');
+  return { following: await follows.setFollowing(user.id, 'members', on) };
+}
+
+/**
+ * Tells whoever follows the board, and still holds `members`, that someone
+ * applied: that it happened, never who. Returns how many were told.
+ */
+async function notifyFollowers(origin) {
+  const message = {
+    subject: 'New member application',
+    lines: [
+      'Someone asked to join AI Safety for Italy.',
+      { label: 'Open the applications', link: `${origin}/app/members/` },
+    ],
+  };
+  let told = 0;
+  for (const userId of await follows.followers('members')) {
+    const { rows } = await db.query('select id, kind from app_users where id = $1', [userId]);
+    if (!rows[0] || !(await permissions.forUser(rows[0])).includes('members')) continue;
+    try {
+      if ((await notify.notifyUser(userId, message)).length) told++;
+    } catch (err) {
+      console.error('Notification failed', err.message);
+    }
+  }
+  return told;
+}
+
+/**
+ * The decision shows on the form answer the application came from, as its
+ * tag (Approved, Rejected), the tag added to the form's if missing.
+ */
+async function tagAnswer(row, decision) {
+  if (!row || !row.response_id) return;
+  const key = decision === 'approve' ? 'approved' : 'rejected';
+  const label = decision === 'approve' ? 'Approved' : 'Rejected';
+  const { rows } = await db.query(
+    `select f.id, f.settings from form_responses r join forms f on f.id = r.form_id
+     where r.id = $1`,
+    [row.response_id]
+  );
+  if (!rows[0]) return;
+  const settings = rows[0].settings || {};
+  const tags =
+    Array.isArray(settings.tags) && settings.tags.length
+      ? settings.tags.slice()
+      : [
+          { key: 'new', label: 'New' },
+          { key: 'seen', label: 'Seen' },
+        ];
+  if (!tags.some((t) => t.key === key)) {
+    tags.push({ key, label });
+    await db.query('update forms set settings = $2 where id = $1', [
+      rows[0].id,
+      { ...settings, tags },
+    ]);
+  }
+  await db.query('update form_responses set status = $2 where id = $1', [row.response_id, key]);
 }
 
 async function loadRow(id) {
@@ -280,6 +350,7 @@ async function decide(user, id, body, { siteOrigin }) {
     decision: b.decision,
     role: b.decision === 'approve' ? b.role : undefined,
   });
+  await tagAnswer(updated.rows[0], b.decision);
   const invite =
     b.decision === 'approve' ? await sendInvite(updated.rows[0], siteOrigin, token) : undefined;
   return { application: summary(await loadRow(id)), invite };
@@ -411,6 +482,8 @@ module.exports = {
   boardRoles,
   createApplication,
   listApplications,
+  setFollowing,
+  notifyFollowers,
   decide,
   resendInvite,
   checkJoinToken,

@@ -32,8 +32,6 @@ const mail = require('../mail');
 const copyEmail = require('./copy-email');
 
 const STATUSES = ['draft', 'open', 'closed'];
-// Where the team is with one answer (form_responses.status).
-const RESPONSE_STATUSES = ['new', 'reviewing', 'accepted', 'rejected'];
 const SLUG = /^[a-z0-9](?:[a-z0-9-]{1,58}[a-z0-9])$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ROLE = /^[\w-]{1,40}$/;
@@ -43,9 +41,15 @@ const DEFAULT_SETTINGS = {
   // Email the person a copy of their answers, at the form's first email
   // question. On unless the form's managers switch it off.
   sendCopy: true,
-  // Members of the Discord server also told about new answers, besides the
-  // owner: [{ discordId, name }]. Chosen by whoever holds `forms_notify`.
-  notifyPeople: [],
+  // Members of the Discord server who read the answers by name, besides the
+  // roles ticked on the form: [{ discordId, name }]. Chosen by its managers.
+  readers: [],
+  // Each reader's own choice about hearing of new answers, by Discord id:
+  // { id: true | false }. Without one, a reader added by name hears of them
+  // and the rest (roles, forms admins) do not. The owner's is notifyOwner.
+  notifyChoices: {},
+  // The tags the team puts on answers ([{ key, label }]); null: the default.
+  tags: null,
   // The community's registration form: see ./membership.js. null for any other.
   membership: null,
   // The mentorship board list the answers also go to (server/crm/sources.js), or null.
@@ -53,19 +57,24 @@ const DEFAULT_SETTINGS = {
 };
 
 const CRM_LISTS = ['mentors_applications', 'mentees_interest', 'mentees_applications'];
-const MAX_NOTIFIED = 25;
+const MAX_READERS = 25;
+const DEFAULT_TAGS = [
+  { key: 'new', label: 'New' },
+  { key: 'seen', label: 'Seen' },
+];
+const MAX_TAGS = 12;
 const DISCORD_ID = /^[\w-]{1,40}$/;
 
-/** A list of people to tell, as sent by the editor: checked and capped. */
-function cleanNotifyPeople(list) {
+/** People added by name, as sent by the editor: checked and capped. */
+function cleanPeople(list) {
   if (!Array.isArray(list))
-    throw new HttpError(400, 'Expected a list of people', { field: 'notifyPeople' });
+    throw new HttpError(400, 'Expected a list of people', { field: 'readers' });
   const seen = new Set();
   const out = [];
   for (const p of list) {
     const discordId = String((p && p.discordId) || '');
     if (!DISCORD_ID.test(discordId))
-      throw new HttpError(400, 'Unknown person', { field: 'notifyPeople' });
+      throw new HttpError(400, 'Unknown person', { field: 'readers' });
     if (seen.has(discordId)) continue;
     seen.add(discordId);
     out.push({
@@ -75,9 +84,15 @@ function cleanNotifyPeople(list) {
         .slice(0, 100),
     });
   }
-  if (out.length > MAX_NOTIFIED)
-    throw new HttpError(400, `At most ${MAX_NOTIFIED} people`, { field: 'notifyPeople' });
+  if (out.length > MAX_READERS)
+    throw new HttpError(400, `At most ${MAX_READERS} people`, { field: 'readers' });
   return out;
+}
+
+/** The tags a form's answers can carry. */
+function tagsOf(form) {
+  const t = (form.settings && form.settings.tags) || null;
+  return Array.isArray(t) && t.length ? t : DEFAULT_TAGS;
 }
 
 // ── Who is asking ────────────────────────────────────────────────────────────
@@ -87,7 +102,36 @@ async function whoIs(user, { fresh = false } = {}) {
   await access.requireRecentLogin(user);
   if (fresh) await permissions.refreshRoles(user);
   else await permissions.refreshIfStale(user);
-  return { perms: await permissions.forUser(user), roles: await permissions.rolesOf(user) };
+  return {
+    perms: await permissions.forUser(user),
+    roles: await permissions.rolesOf(user),
+    discordId: await discordIdOf(user),
+  };
+}
+
+/** A user's Discord id (none for the shared admin). */
+async function discordIdOf(user) {
+  if (!user || user.kind !== 'discord') return null;
+  const { rows } = await db.query('select discord_id from app_users where id = $1', [user.id]);
+  return (rows[0] && rows[0].discord_id) || null;
+}
+
+/**
+ * Whether this user hears about the form's new answers: true / false, or
+ * null when they cannot (the shared admin has no channel of its own).
+ */
+function notifyMeOf(form, user, who) {
+  if (!user || user.kind !== 'discord') return null;
+  const settings = { ...DEFAULT_SETTINGS, ...form.settings };
+  if (form.owner_id === user.id) return Boolean(settings.notifyOwner);
+  // Seeing the answers is not following them: only an explicit "on" tells.
+  return (settings.notifyChoices || {})[who.discordId] === true;
+}
+
+/** Whether this Discord id was added to the form's readers by name. */
+function addedReader(form, discordId) {
+  const readers = (form.settings && form.settings.readers) || [];
+  return Boolean(discordId) && readers.some((p) => p.discordId === discordId);
 }
 
 function canManage(user, who, form) {
@@ -97,6 +141,7 @@ function canManage(user, who, form) {
 
 function canRead(user, who, form) {
   if (canManage(user, who, form)) return true;
+  if (addedReader(form, who.discordId)) return true;
   return (form.access_roles || []).some((r) => who.roles.includes(r));
 }
 
@@ -174,13 +219,91 @@ async function list(user) {
      from forms f left join form_responses r on r.form_id = f.id
      group by f.id order by f.updated_at desc`
   );
-  return rows
-    .filter((f) => canRead(user, who, f))
-    .map((f) =>
-      summary(f, { responses: f.responses, last: f.last, canManage: canManage(user, who, f) })
-    );
+  const visible = rows.filter((f) => canRead(user, who, f));
+  const people = await accessContext(visible);
+  return visible.map((f) => ({
+    ...summary(f, { responses: f.responses, last: f.last, canManage: canManage(user, who, f) }),
+    notifyMe: notifyMeOf(f, user, who),
+    access: accessOf(f, people),
+  }));
 }
 
+/** What accessOf needs, read once for a list of forms. */
+async function accessContext(forms) {
+  const ids = [...new Set(forms.map((f) => f.owner_id).filter(Boolean))];
+  const owners = {};
+  if (ids.length) {
+    const { rows } = await db.query(
+      'select id, name, avatar_url, discord_id from app_users where id = any($1)',
+      [ids]
+    );
+    rows.forEach((r) => (owners[r.id] = r));
+  }
+  const discordIds = [
+    ...new Set(
+      forms.flatMap((f) => ((f.settings && f.settings.readers) || []).map((p) => p.discordId))
+    ),
+  ];
+  const avatars = {};
+  if (discordIds.length) {
+    const { rows } = await db.query(
+      'select discord_id, avatar_url from app_users where discord_id = any($1)',
+      [discordIds]
+    );
+    rows.forEach((r) => (avatars[r.discord_id] = r.avatar_url));
+  }
+  const roles = await permissions.listRolePermissions();
+  const roleName = {};
+  roles.forEach((r) => (roleName[r.roleId] = r.roleName));
+  const has = (p) => p.permissions.includes('forms_admin');
+  return {
+    owners,
+    avatars,
+    roleName,
+    allFormsRoles: roles.filter(has).map((r) => r.roleName),
+    allFormsPeople: (await permissions.listUserPermissions()).filter(has),
+  };
+}
+
+/**
+ * Who can see a form's answers, for the faces on its card: [{ kind: 'person'
+ * | 'role', name, avatarUrl, what }]. `what` says why, and whether they are
+ * told about new answers.
+ */
+function accessOf(form, ctx) {
+  const settings = { ...DEFAULT_SETTINGS, ...form.settings };
+  const choices = settings.notifyChoices || {};
+  const out = [];
+  const owner = form.owner_id && ctx.owners[form.owner_id];
+  if (owner) {
+    out.push({
+      kind: 'person',
+      name: owner.name,
+      avatarUrl: owner.avatar_url,
+      what: 'Owner' + (settings.notifyOwner ? ' · notified' : ''),
+    });
+  }
+  (settings.readers || []).forEach((p) => {
+    if (owner && owner.discord_id === p.discordId) return;
+    out.push({
+      kind: 'person',
+      name: p.name,
+      avatarUrl: ctx.avatars[p.discordId] || null,
+      what: 'Reads the answers' + (choices[p.discordId] === true ? ' · notified' : ''),
+    });
+  });
+  (form.access_roles || []).forEach((id) =>
+    out.push({ kind: 'role', name: ctx.roleName[id] || id, what: 'Role: reads the answers' })
+  );
+  ctx.allFormsRoles.forEach((name) =>
+    out.push({ kind: 'role', name, what: 'Role: manages every form' })
+  );
+  ctx.allFormsPeople.forEach((p) => {
+    if (out.some((o) => o.kind === 'person' && o.name === p.name)) return;
+    out.push({ kind: 'person', name: p.name, avatarUrl: p.avatarUrl, what: 'Manages every form' });
+  });
+  return out;
+}
 /** Who can read a form's answers today besides the roles ticked on it (names only). */
 async function readersOf(form) {
   let owner = null;
@@ -211,7 +334,7 @@ async function get(user, id) {
     accessRoles: form.access_roles,
     // Only for those who change the form: the people who read it are theirs to know.
     ...(canManage(user, who, form) ? { readers: await readersOf(form) } : {}),
-    canChooseNotified: canManage(user, who, form) && who.perms.includes('forms_notify'),
+    notifyMe: notifyMeOf(form, user, who),
   };
 }
 
@@ -351,29 +474,10 @@ async function updateSettings(user, id, body) {
     settings.oneResponsePerEmail = Boolean(s.oneResponsePerEmail);
   if (s.notifyOwner !== undefined) settings.notifyOwner = Boolean(s.notifyOwner);
   if (s.sendCopy !== undefined) settings.sendCopy = Boolean(s.sendCopy);
-  if (s.notifyPeople !== undefined) {
-    const next = cleanNotifyPeople(s.notifyPeople);
-    const ids = (list) =>
-      (list || [])
-        .map((p) => p.discordId)
-        .sort()
-        .join(',');
-    // Who switched it off for themselves stays so (setMyNotification).
-    const muted = new Set(
-      (settings.notifyPeople || []).filter((p) => p.muted).map((p) => p.discordId)
-    );
-    next.forEach((p) => {
-      if (muted.has(p.discordId)) p.muted = true;
-    });
-    if (ids(next) !== ids(settings.notifyPeople)) {
-      // Who hears about the answers is decided by whoever holds the key.
-      const fresh = await whoIs(user, { fresh: true });
-      if (!fresh.perms.includes('forms_notify'))
-        throw new HttpError(403, 'Your roles do not let you choose who is notified', {
-          field: 'notifyPeople',
-        });
-    }
-    settings.notifyPeople = next;
+  if (s.readers !== undefined) {
+    // People who read the answers by name: the form's managers choose them,
+    // as they tick the roles below.
+    settings.readers = cleanPeople(s.readers);
   }
   if (s.membership !== undefined) {
     // Sending answers to the members board is for the forms admins: it is a
@@ -542,6 +646,7 @@ async function submit(slug, body, ip) {
   const settings = { ...DEFAULT_SETTINGS, ...form.settings };
   const onePerEmail = settings.oneResponsePerEmail && respondentKey;
   const id = crypto.randomUUID();
+  let application = false;
   // The answer and, for the sign-up form, the application on the members
   // board are written together: if the board refuses it, the person is told
   // and nothing is kept, rather than an answer nobody will ever review.
@@ -567,13 +672,13 @@ async function submit(slug, body, ip) {
         respondentKey,
       ]
     );
-    await toBoard(form, schema, settings, answers, tx);
+    application = await toBoard(form, schema, settings, answers, id, tx);
     if (settings.crm) await toMentorship(settings.crm, schema, answers, id, tx);
   });
   // The copy is built here, from the cleaned answers, and only sent by the
   // caller (api/form.js): it never travels back to the page.
   const copy = settings.sendCopy && email ? copyEmail.copyOf(schema, answers, email) : null;
-  return { ok: true, confirmation, responseId: id, formId: form.id, copy };
+  return { ok: true, confirmation, responseId: id, formId: form.id, copy, application };
 }
 
 /**
@@ -591,11 +696,13 @@ async function sendCopy(copy, origin) {
  * The registration form's answers also go to the members board, in the same
  * transaction as the answer (`q`): a failure fails the whole submission.
  */
-async function toBoard(form, schema, settings, answers, q) {
+async function toBoard(form, schema, settings, answers, responseId, q) {
   const mapping = membership.usable(schema, settings.membership);
-  if (!mapping) return;
+  if (!mapping) return false;
   const application = membership.toApplication(schema, mapping, answers);
-  if (application) await members.createApplication(application, { source: form.slug, q });
+  if (!application) return false;
+  await members.createApplication(application, { source: form.slug, responseId, q });
+  return true;
 }
 
 /**
@@ -613,19 +720,30 @@ async function toMentorship(sourceId, schema, answers, responseId, q) {
 }
 
 /**
- * Tells the form's owner a new answer came, if they asked for it (the
- * setting) and the form has one (a form made with the admin password has
- * none). Says that someone answered, never what. Returns the channels used.
+ * Tells about a new answer whoever follows the form (notifyMeOf): the owner
+ * unless they switched it off, and whoever else reads the answers (by name,
+ * by role, forms admins) and switched it on; seeing a form is not following
+ * it. Each on their own channels. Says that someone answered, never what. A
+ * shared address in General settings stands in for the owner. Returns the
+ * channels used.
  */
 async function notifyOwner(formId, origin) {
-  const { rows } = await db.query('select id, title, owner_id, settings from forms where id = $1', [
-    formId,
-  ]);
+  const { rows } = await db.query('select * from forms where id = $1', [formId]);
   const form = rows[0];
   if (!form) return [];
   const settings = { ...DEFAULT_SETTINGS, ...form.settings };
   const message = notify.newFormAnswerMessage({ form, origin });
   const used = new Set();
+  const told = new Set();
+  const add = (channels) => channels.forEach((c) => used.add(c));
+  async function safely(fn) {
+    try {
+      add(await fn());
+    } catch (err) {
+      console.error('Notification failed', err.message);
+    }
+  }
+
   if (settings.notifyOwner) {
     // One shared address (General settings) when set, whoever owns the form.
     const shared = await mail.formsAddress();
@@ -633,88 +751,91 @@ async function notifyOwner(formId, origin) {
       await mail.send({ to: shared, subject: message.subject, ...notify.render(message.lines) });
       used.add('email');
     } else if (form.owner_id) {
-      (await notify.notifyUser(form.owner_id, message)).forEach((c) => used.add(c));
+      await safely(() => notify.notifyUser(form.owner_id, message));
     }
   }
-  // The people added to the form, each on their own channels (the owner,
-  // if added too, is told once).
-  let ownerDiscord = null;
   if (form.owner_id) {
     const owner = await db.query('select discord_id from app_users where id = $1', [form.owner_id]);
-    ownerDiscord = owner.rows[0] && owner.rows[0].discord_id;
+    if (owner.rows[0] && owner.rows[0].discord_id) told.add(owner.rows[0].discord_id);
   }
-  for (const person of settings.notifyPeople || []) {
-    if (person.muted) continue;
-    if (settings.notifyOwner && person.discordId === ownerDiscord) continue;
-    try {
-      (await notify.notifyMember(person.discordId, message)).forEach((c) => used.add(c));
-    } catch (err) {
-      console.error('Notification failed', err.message);
-    }
+
+  const choices = settings.notifyChoices || {};
+  // Everyone else who follows it, if they still read the answers.
+  for (const [discordId, on] of Object.entries(choices)) {
+    if (!on || told.has(discordId)) continue;
+    const { rows: found } = await db.query(`select id, kind from app_users where discord_id = $1`, [
+      discordId,
+    ]);
+    if (!found[0]) continue;
+    const reader = { id: found[0].id, kind: found[0].kind };
+    const who = {
+      perms: await permissions.forUser(reader),
+      roles: await permissions.rolesOf(reader),
+      discordId,
+    };
+    if (!canRead(reader, who, form)) continue;
+    told.add(discordId);
+    await safely(() => notify.notifyUser(reader.id, message));
   }
   return [...used];
 }
 
 /**
- * The forms that tell this user about new answers, as owner or added by
- * someone: [{ id, title, slug, status, as: 'owner' | 'added', on }]. Only
- * their titles: it needs no permission on the forms themselves.
+ * Whether this user reads the answers of some form without holding a forms
+ * permission (added by name, or through a role ticked on a form): then the
+ * forms tool opens for them too (api/auth.js).
  */
-async function myNotifications(user) {
-  if (user.kind !== 'discord') return [];
-  const { rows: me } = await db.query('select discord_id from app_users where id = $1', [user.id]);
-  const discordId = me[0] && me[0].discord_id;
-  const { rows } = await db.query(
-    `select id, title, slug, status, owner_id, settings from forms
-     where owner_id = $1 or settings -> 'notifyPeople' @> $2::jsonb
-     order by lower(title)`,
-    [user.id, JSON.stringify([{ discordId: discordId || '' }])]
-  );
-  return rows.map((f) => {
-    const settings = { ...DEFAULT_SETTINGS, ...f.settings };
-    const added = (settings.notifyPeople || []).find((p) => p.discordId === discordId);
-    const owner = f.owner_id === user.id;
-    return {
-      id: f.id,
-      title: f.title,
-      slug: f.slug,
-      status: f.status,
-      as: owner ? 'owner' : 'added',
-      on: owner ? Boolean(settings.notifyOwner) || Boolean(added && !added.muted) : !added.muted,
-    };
-  });
-}
-
-/** Switches this user's own notifications for one form on or off. */
-async function setMyNotification(user, id, on) {
-  const mine = (await myNotifications(user)).find((f) => f.id === id);
-  if (!mine) throw new HttpError(404, 'No such form');
-  const { rows } = await db.query('select settings from forms where id = $1', [id]);
-  const settings = { ...DEFAULT_SETTINGS, ...rows[0].settings };
-  const { rows: me } = await db.query('select discord_id from app_users where id = $1', [user.id]);
-  const discordId = me[0] && me[0].discord_id;
-  if (mine.as === 'owner') settings.notifyOwner = Boolean(on);
-  settings.notifyPeople = (settings.notifyPeople || []).map((p) =>
-    p.discordId === discordId ? { ...p, muted: !on } : p
-  );
-  await db.query('update forms set settings = $2, updated_at = now() where id = $1', [
-    id,
-    settings,
+async function readsAny(user) {
+  if (!user || user.kind !== 'discord') return false;
+  const { rows } = await db.query('select discord_id, roles from app_users where id = $1', [
+    user.id,
   ]);
-  await audit.record(user, 'form-notify-me', id, { on: Boolean(on) });
-  return { ...mine, on: Boolean(on) };
+  if (!rows[0]) return false;
+  const { rows: found } = await db.query(
+    `select 1 from forms where access_roles && $1::text[]
+       or settings -> 'readers' @> $2::jsonb limit 1`,
+    [rows[0].roles || [], JSON.stringify([{ discordId: rows[0].discord_id || '' }])]
+  );
+  return found.length > 0;
 }
 
-/** Members of the Discord server to add to a form's notifications. */
+/**
+ * New answers to the forms this user follows (and still reads): the count
+ * on their home page. Seeing a form without following it adds nothing.
+ */
+async function followedNewAnswers(user) {
+  if (!user || user.kind !== 'discord') return 0;
+  const who = {
+    perms: await permissions.forUser(user),
+    roles: await permissions.rolesOf(user),
+    discordId: await discordIdOf(user),
+  };
+  const { rows } = await db.query(
+    `select f.*, count(r.id) filter (where r.status = 'new' and r.deleted_at is null)::int as fresh
+     from forms f left join form_responses r on r.form_id = f.id group by f.id`
+  );
+  return rows
+    .filter((f) => f.fresh && canRead(user, who, f) && notifyMeOf(f, user, who))
+    .reduce((n, f) => n + f.fresh, 0);
+}
+
+/** Switches this user's own notifications for one form they read on or off. */
+async function setNotifyMe(user, id, on) {
+  const { form, who } = await formFor(user, id, 'read');
+  if (notifyMeOf(form, user, who) === null)
+    throw new HttpError(400, 'This account has no channel to be told on');
+  const settings = { ...DEFAULT_SETTINGS, ...form.settings };
+  if (form.owner_id === user.id) settings.notifyOwner = Boolean(on);
+  else settings.notifyChoices = { ...settings.notifyChoices, [who.discordId]: Boolean(on) };
+  await db.query('update forms set settings = $2 where id = $1', [form.id, settings]);
+  await audit.record(user, 'form-notify-me', form.id, { on: Boolean(on) });
+  return { id: form.id, notifyMe: Boolean(on) };
+}
+/** Members of the Discord server to add to a form's readers: its managers. */
 async function searchPeople(user, id, query) {
-  const { form, who } = await formFor(user, id, 'manage');
-  if (!who.perms.includes('forms_notify')) {
-    await audit.record(user, 'denied', form.id, { needs: 'forms_notify' });
-    throw new HttpError(403, 'Your roles do not let you choose who is notified');
-  }
+  await formFor(user, id, 'manage');
   return { people: await permissions.searchMembers(query) };
 }
-
 // ── Answers ──────────────────────────────────────────────────────────────────
 
 function openAnswers(form, row) {
@@ -745,7 +866,14 @@ async function responses(user, id, { record = true } = {}) {
     form: summary(form),
     currentVersion: form.current_version,
     versions,
-    statuses: RESPONSE_STATUSES,
+    // The form's tags, then any an answer still carries from before
+    // (a tag since removed, or the old fixed ones), so none is hidden.
+    statuses: tagsOf(form).concat(
+      [...new Set(rows.map((r) => r.status))]
+        .filter((key) => !tagsOf(form).some((t) => t.key === key))
+        .map((key) => ({ key, label: key.charAt(0).toUpperCase() + key.slice(1), old: true }))
+    ),
+    canEditTags: canRead(user, who, form),
     // Deleting answers and exporting them: the form's managers only.
     canManage: canManage(user, who, form),
     responses: rows.map((r) => ({
@@ -768,11 +896,11 @@ async function responseOf(form, responseId) {
   return rows[0];
 }
 
-/** Moves one answer along: new, reviewing, accepted, rejected. Readers may. */
+/** Puts one of the form's tags on an answer. Readers may. */
 async function setResponseStatus(user, id, responseId, status) {
   const { form } = await formFor(user, id, 'read', { fresh: true });
   await responseOf(form, responseId);
-  if (!RESPONSE_STATUSES.includes(status)) throw new HttpError(400, 'Unknown status');
+  if (!tagsOf(form).some((t) => t.key === status)) throw new HttpError(400, 'Unknown tag');
   await db.query('update form_responses set status = $3 where id = $1 and form_id = $2', [
     responseId,
     form.id,
@@ -782,6 +910,52 @@ async function setResponseStatus(user, id, responseId, status) {
   return { id: responseId, status };
 }
 
+/**
+ * Adds a tag ({ add: label }) or removes one ({ remove: key }) from those
+ * the form's answers can carry. Whoever reads the answers may. "New" stays,
+ * and a tag still on an answer cannot go. Returns { tags }.
+ */
+async function editTags(user, id, body) {
+  const { form } = await formFor(user, id, 'read', { fresh: true });
+  const tags = tagsOf(form).slice();
+  const b = body || {};
+  if (b.add !== undefined) {
+    const label = String(b.add).replace(/\s+/g, ' ').trim().slice(0, 30);
+    if (!label) throw new HttpError(400, 'Give the tag a name', { field: 'tag' });
+    const key = slugify(label).slice(0, 30);
+    if (!key) throw new HttpError(400, 'Use letters or digits in the name', { field: 'tag' });
+    if (tags.some((t) => t.key === key))
+      throw new HttpError(409, 'There is a tag with this name already', { field: 'tag' });
+    if (tags.length >= MAX_TAGS)
+      throw new HttpError(400, `At most ${MAX_TAGS} tags`, { field: 'tag' });
+    tags.push({ key, label });
+  } else if (b.remove !== undefined) {
+    const key = String(b.remove);
+    if (key === 'new') throw new HttpError(400, '“New” is where every answer starts');
+    if (!tags.some((t) => t.key === key)) throw new HttpError(404, 'No such tag');
+    const { rows } = await db.query(
+      'select count(*)::int as n from form_responses where form_id = $1 and status = $2 and deleted_at is null',
+      [form.id, key]
+    );
+    if (rows[0].n)
+      throw new HttpError(
+        409,
+        rows[0].n === 1
+          ? 'One answer has this tag: move it first'
+          : `${rows[0].n} answers have this tag: move them first`
+      );
+    tags.splice(
+      tags.findIndex((t) => t.key === key),
+      1
+    );
+  } else {
+    throw new HttpError(400, 'Add or remove a tag');
+  }
+  const settings = { ...DEFAULT_SETTINGS, ...form.settings, tags };
+  await db.query('update forms set settings = $2 where id = $1', [form.id, settings]);
+  await audit.record(user, 'form-tags', form.id, { count: tags.length });
+  return { tags };
+}
 /**
  * Deletes one answer for good (a person asking to be forgotten, a test, a
  * duplicate): the row goes, with its encrypted answers. Managers only.
@@ -851,8 +1025,8 @@ async function exportCsv(user, id) {
 
 module.exports = {
   STATUSES,
-  RESPONSE_STATUSES,
   setResponseStatus,
+  editTags,
   deleteResponse,
   exportCsv,
   DEFAULT_SETTINGS,
@@ -867,8 +1041,9 @@ module.exports = {
   submit,
   notifyOwner,
   searchPeople,
-  myNotifications,
-  setMyNotification,
+  setNotifyMe,
+  readsAny,
+  followedNewAnswers,
   sendCopy,
   responses,
   requireForms,

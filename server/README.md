@@ -291,14 +291,20 @@ only a forms admin can give a form those links.
   Discord DM, as on their settings page; never what the answer says),
   emailing each person a copy of their answers (to the form's first email
   question, from the General settings mailbox; on by default), which
-  Discord roles read the answers), who else hears about new answers (any
-  member of the Discord server, found by name through the bot; each is told
-  on their own channel from their Settings, or by a Discord message if they
-  never signed in; chosen by whoever holds `forms_notify`, and each can
-  switch it off for themselves on the forms list or in Settings) and the
-  public link, which the forms list
+  Discord roles and which people (any member of the Discord server, found
+  by name) read the answers) and the public link, which the forms list
   also copies straight from each card. Answers are deleted
   24 months after they were sent (see "Keeping time of personal data").
+- **Following**: seeing a form is not following it. Each person who reads
+  the answers turns "Notify me" on (the form's card, or the editor) to be
+  told about new answers on the channel from their Settings, and to have
+  them counted on their home page; the owner follows their own form until
+  they switch it off. The member applications board has the same switch
+  (`server/follows.js`).
+- **Tags** on answers: New and Seen to start (opening a new answer marks it
+  Seen, once); whoever reads the answers adds more, or removes one no answer
+  carries. On the sign-up form the board's decision shows as the answer's
+  tag (Approved, Rejected).
 - **Answers** (the editor's Answers tab; also the only tab for the Discord
   roles a form lets read its answers): a summary with a chart per question
   (bars, columns or donut, sortable, the choice remembered per form), numbers

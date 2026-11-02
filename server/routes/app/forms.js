@@ -4,9 +4,9 @@
 //   GET    ?id=…                -> one form for the editor
 //   GET    ?id=…&view=responses -> its answers, decrypted (audited)
 //   GET    ?id=…&view=export    -> the answers as a CSV file (managers, audited)
-//   GET    ?id=…&people=<name>  -> Discord members to tell about answers (forms_notify)
-//   GET    ?mine=notifications  -> the forms that tell this user about answers
-//   PUT    ?id=…&part=notify-me { on }  -> switches that on or off, for this user only
+//   GET    ?id=…&people=<name>  -> Discord members to add to the readers (managers)
+//   PUT    ?id=…&part=notify-me { on }      -> this user hears of new answers, or not
+//   PUT    ?id=…&part=tags { add } | { remove } -> the tags the answers can carry
 //   POST   { title, schema? }   -> a new draft  -> { id, slug }
 //   PUT    ?id=…&part=schema    { schema }      -> { version }
 //   PUT    ?id=…&part=settings  { status, opensAt, closesAt, slug, settings, accessRoles }
@@ -29,10 +29,8 @@ async function signedIn(req) {
 module.exports = route({
   async GET(req, res) {
     const user = await signedIn(req);
-    const { id, view, meta, people, mine } = getQuery(req);
-    if (mine === 'notifications') {
-      sendJson(res, 200, { forms: await forms.myNotifications(user) });
-    } else if (meta) {
+    const { id, view, meta, people } = getQuery(req);
+    if (meta) {
       sendJson(res, 200, await forms.meta(user));
     } else if (!id) {
       sendJson(res, 200, { forms: await forms.list(user) });
@@ -62,7 +60,8 @@ module.exports = route({
     if (part === 'schema') sendJson(res, 200, await forms.saveSchema(user, id, body.schema));
     else if (part === 'settings') sendJson(res, 200, await forms.updateSettings(user, id, body));
     else if (part === 'notify-me')
-      sendJson(res, 200, await forms.setMyNotification(user, id, Boolean(body.on)));
+      sendJson(res, 200, await forms.setNotifyMe(user, id, Boolean(body.on)));
+    else if (part === 'tags') sendJson(res, 200, await forms.editTags(user, id, body));
     else if (part === 'response')
       sendJson(res, 200, await forms.setResponseStatus(user, id, response, body.status));
     else throw new HttpError(400, 'Which part?');

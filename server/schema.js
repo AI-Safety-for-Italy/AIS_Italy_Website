@@ -411,4 +411,17 @@ create table if not exists crm_records (
 );
 
 create index if not exists crm_records_source on crm_records (source, origin);
+
+-- What a member follows (server/follows.js): told about it, counted on their
+-- home page. Topics: 'members' (the member applications board).
+create table if not exists app_follows (
+  user_id uuid not null references app_users(id) on delete cascade,
+  topic text not null,
+  created_at timestamptz not null default now(),
+  primary key (user_id, topic)
+);
+
+-- The form answer an application came from, so the board's decision shows
+-- as the answer's tag (Approved, Rejected).
+alter table member_applications add column if not exists response_id uuid;
 `;

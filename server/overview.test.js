@@ -78,12 +78,26 @@ test('each member sees the counts of the tools they may open, and only those', a
   assert.equal(m.tools.polls.open, 2);
   assert.equal(m.tools.forms.count, 2);
 
+  // The board counts only for those following it.
   const e = await overview(elisa);
   assert.deepEqual(Object.keys(e.tools).sort(), ['members', 'polls']);
-  assert.equal(e.tools.members.count, 2);
-  assert.equal(e.tools.members.label, 'applications to review');
+  assert.equal(e.tools.members.count, 0);
+  await require('./follows').setFollowing(elisa.id, 'members', true);
+  assert.equal((await overview(elisa)).tools.members.count, 2);
+  assert.equal((await overview(elisa)).tools.members.label, 'applications to review');
 
-  // A role on a form counts its answers for its readers.
+  // A role on a form lets its readers in, but its answers count only once
+  // they follow it.
+  assert.equal((await overview(tea)).tools.forms.count, 0);
+  const tid = (await db.query('select discord_id from app_users where id = $1', [tea.id])).rows[0]
+    .discord_id;
+  await db.query(`update forms set settings = $2 where id = $1`, [
+    shared,
+    { notifyChoices: { [tid]: true } },
+  ]);
   assert.equal((await overview(tea)).tools.forms.count, 1);
+  // The owner follows their own form unless they switch it off.
+  await db.query(`update forms set settings = $2 where id = $1`, [own, { notifyOwner: false }]);
+  assert.equal((await overview(mara)).tools.forms.count, 0);
   assert.deepEqual(Object.keys((await overview(nobody)).tools), ['polls']);
 });

@@ -473,3 +473,21 @@ test('/api/app/* reaches each handler through one function, on Vercel and locall
   const vercel = require('../vercel.json');
   assert.ok(vercel.rewrites.some((r) => r.source === '/api/app/:route*'));
 });
+
+// ── 8. A permission since retired does not block saving the table ──────────
+
+test('a key no longer known, still stored on a role, is dropped, not refused', async () => {
+  const root = await admin();
+  await db.query(
+    `insert into content_role_permissions (role_id, role_name, permissions)
+     values ('r-old', 'Direttivo', '{forms,forms_admin,forms_notify}')`
+  );
+  const [row] = await permissions.listRolePermissions();
+  assert.deepEqual(row.permissions, ['forms', 'forms_admin']);
+  // The page sends back what it was given, minus one key: saved.
+  await permissions.savePermissions(
+    { roles: [{ ...row, permissions: ['forms'] }], people: [] },
+    root
+  );
+  assert.deepEqual((await permissions.listRolePermissions())[0].permissions, ['forms']);
+});
