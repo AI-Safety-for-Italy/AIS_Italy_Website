@@ -234,6 +234,25 @@
     return row;
   };
 
+  // Who can open this tool, at the top of its pages (src/components/app.njk).
+  var accessSlot = document.getElementById('apAccess');
+  if (accessSlot) {
+    M.api(
+      'GET',
+      '/api/app/access?tool=' +
+        encodeURIComponent(accessSlot.getAttribute('data-tool')) +
+        (accessSlot.getAttribute('data-section')
+          ? '&section=' + encodeURIComponent(accessSlot.getAttribute('data-section'))
+          : '')
+    )
+      .then(function (r) {
+        accessSlot.appendChild(M.accessFaces(r.access));
+      })
+      .catch(function () {
+        /* no faces: the page itself says what is wrong */
+      });
+  }
+
   /** Shared handling for an API call that failed. */
   M.appError = function (err) {
     if (err.status === 401) return toLogin(err.code === 'reauth');
@@ -243,6 +262,7 @@
   // ── The frame (src/components/app.njk): tools, counts, menu, search ──────
 
   var AREAS_CACHE = 'ais-areas';
+  var PERMS_CACHE = 'ais-perms';
   var shell = document.getElementById('apShell');
   var registry = [];
   var settings = {};
@@ -258,10 +278,29 @@
     document.querySelectorAll('[data-area]').forEach(function (el) {
       el.hidden = !areas[el.getAttribute('data-area')];
     });
-    if (!perms) return;
-    document.querySelectorAll('[data-needs]').forEach(function (el) {
-      el.hidden = perms.indexOf(el.getAttribute('data-needs')) === -1;
+    if (perms) {
+      // A tab or button that needs a key: hidden without it.
+      document.querySelectorAll('[data-needs]').forEach(function (el) {
+        el.hidden = perms.indexOf(el.getAttribute('data-needs')) === -1;
+      });
+      // A tool that needs one of some keys besides its area.
+      document.querySelectorAll('[data-needs-any]').forEach(function (el) {
+        var area = el.getAttribute('data-area');
+        el.hidden =
+          (area && !areas[area]) ||
+          !el
+            .getAttribute('data-needs-any')
+            .split(' ')
+            .some(function (k) {
+              return perms.indexOf(k) !== -1;
+            });
+      });
+    }
+    // A group of tools shows when one of its tools does.
+    document.querySelectorAll('.ap-group').forEach(function (group) {
+      group.hidden = !group.querySelector('.ap-sub .ap-link:not([hidden])');
     });
+    if (!perms) return;
     if (isAdmin !== undefined) {
       document.querySelectorAll('.ap-tabs .admin-only').forEach(function (el) {
         el.hidden = !isAdmin;
@@ -269,11 +308,21 @@
     }
   }
 
+  // A group of tools in the sidebar opens and closes on its entry.
+  document.querySelectorAll('.ap-group-toggle').forEach(function (button) {
+    button.addEventListener('click', function () {
+      var open = button.getAttribute('aria-expanded') !== 'true';
+      button.setAttribute('aria-expanded', open ? 'true' : 'false');
+      button.parentNode.classList.toggle('is-open', open);
+    });
+  });
+
   if (shell) {
     // Last visit's tools at once, so the sidebar does not jump.
     try {
       var cached = JSON.parse(window.localStorage.getItem(AREAS_CACHE) || 'null');
-      if (cached) showAllowed(cached);
+      var cachedPerms = JSON.parse(window.localStorage.getItem(PERMS_CACHE) || 'null');
+      if (cached) showAllowed(cached, cachedPerms || undefined);
     } catch (e) {
       /* nothing cached */
     }
@@ -283,6 +332,7 @@
       showAllowed(areas, info.permissions || [], info.user.kind === 'admin');
       try {
         window.localStorage.setItem(AREAS_CACHE, JSON.stringify(areas));
+        window.localStorage.setItem(PERMS_CACHE, JSON.stringify(info.permissions || []));
       } catch (e) {
         /* the sidebar just shows a moment later next time */
       }
@@ -351,6 +401,13 @@
     var out = [{ label: 'Home', hint: 'Personal area', url: '/app/' }];
     registry.forEach(function (tool) {
       if (tool.area && !areas[tool.area]) return;
+      if (
+        tool.needsAny &&
+        !tool.needsAny.some(function (k) {
+          return perms.indexOf(k) !== -1;
+        })
+      )
+        return;
       out.push({ label: tool.title, hint: 'Tool', url: tool.url });
       (tool.tabs || []).forEach(function (tab) {
         if (tab.needs && perms.indexOf(tab.needs) === -1) return;

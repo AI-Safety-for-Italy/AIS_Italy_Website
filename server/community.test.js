@@ -36,7 +36,9 @@ beforeEach(() => {
     // Reading someone's roles again before a change: those stored for them.
     const who = /\/members\/(\d+)$/.exec(url);
     if (who && (init.method || 'GET') === 'GET') {
-      const { rows } = await db.query('select roles from app_users where discord_id = $1', [who[1]]);
+      const { rows } = await db.query('select roles from app_users where discord_id = $1', [
+        who[1],
+      ]);
       return { ok: true, status: 200, json: async () => ({ roles: rows[0] ? rows[0].roles : [] }) };
     }
     return { ok: true, status: 204, json: async () => ({}) };
@@ -47,7 +49,7 @@ beforeEach(() => {
 
 async function board() {
   await permissions.saveRolePermissions([
-    { roleId: 'r-board', roleName: 'Board', permissions: ['members'] },
+    { roleId: 'r-board', roleName: 'Board', permissions: ['members', 'community'] },
   ]);
   return auth.upsertDiscordUser({ discordId: '900000001', name: 'Elisa', roles: ['r-board'] });
 }
@@ -248,11 +250,12 @@ test('the old sheet comes in after a preview: approved people, consent, the stab
 
   const done = await community.importConfirm(user, SHEET);
   assert.deepEqual(done, { imported: 3, updated: 0, discordFailed: 0 });
-  // Bea got her tags on Discord: her two groups given, the others taken away.
+  // Bea got her tags on Discord: her two groups given, no role taken away
+  // (one given by hand there shows in the check of roles and tags).
   const calls = roleCalls();
   assert.ok(calls.includes('PUT 700000002/roles/1566885628547960922'));
   assert.ok(calls.includes('PUT 700000002/roles/1566885852347633766'));
-  assert.ok(calls.includes('DELETE 700000002/roles/1566887735308845169'));
+  assert.ok(!calls.some((c) => c.startsWith('DELETE')));
   const listed = (await community.listMembers(user)).members;
   assert.deepEqual(
     listed.map((m) => [m.name, m.publish, m.groups.length]),
@@ -262,7 +265,9 @@ test('the old sheet comes in after a preview: approved people, consent, the stab
       ['Ciro Tre', false, 0],
     ]
   );
-  assert.equal(listed[0].groups[0].level, 'coordination');
+  // "Coordinamento" on the sheet counts as taking part: coordinators are
+  // chosen on Working groups.
+  assert.equal(listed[0].groups[0].level, 'stable');
   // The details are encrypted in the database.
   const { rows } = await db.query('select details_encrypted from community_members');
   assert.ok(rows.every((r) => !r.details_encrypted.includes('Ada')));
@@ -301,10 +306,6 @@ test('tags are added, moved and removed for several people, and Discord follows'
   await community.setTags(user, { members: [ids[0]], action: 'remove', group: 'community' });
   await rejects(
     community.setTags(user, { members: ids, action: 'add', group: 'nope', level: 'stable' }),
-    400
-  );
-  await rejects(
-    community.setTags(user, { members: ids, action: 'add', group: 'events', level: 'boss' }),
     400
   );
   await rejects(community.setTags(user, { members: [], action: 'remove', group: 'events' }), 400);
@@ -380,9 +381,10 @@ test('an application carries its tags; whoever approves can change them; joining
     { source: 'iscrizione' }
   );
   const [app] = (await members.listApplications(user)).applications;
+  // Coordination is not taken from an application: taking part in each.
   assert.deepEqual(app.tags, [
     { group: 'events', level: 'stable' },
-    { group: 'seminars', level: 'coordination' },
+    { group: 'seminars', level: 'stable' },
   ]);
   // Approving with one tag changed; in dev mode the join link works at once.
   process.env.MEET_FAKE_MAIL = '1';
@@ -399,7 +401,7 @@ test('an application carries its tags; whoever approves can change them; joining
     { siteOrigin: 'https://x' }
   );
   const { rows } = await db.query('select * from member_applications where id = $1', [id]);
-  // Who coordinates is set on Members: approving keeps everyone as taking part.
+  // Who coordinates is set on Working groups: approving keeps everyone taking part.
   assert.deepEqual(rows[0].tags, [{ group: 'events', level: 'stable' }]);
 
   // Joining (as Discord would: completeJoinDev stands in) puts her in the
@@ -449,9 +451,11 @@ test('a participant asks to become an organizer; approving gives the role and th
 
   const [app] = (await members.listApplications(user)).applications;
   assert.equal(app.kind, 'upgrade');
+  // The form no longer asks who would coordinate: taking part in each.
+  assert.ok(!schema.items.some((i) => i.id === 'coordinate'));
   assert.deepEqual(app.tags, [
-    { group: 'events', level: 'coordination' },
     { group: 'technical', level: 'stable' },
+    { group: 'events', level: 'stable' },
   ]);
   botCalls = [];
   await members.decide(user, app.id, { decision: 'approve' }, { siteOrigin: 'https://x' });
@@ -465,3 +469,284 @@ test('a participant asks to become an organizer; approving gives the role and th
 function mail() {
   return require('./mail');
 }
+
+test('the members board and the applications are given apart', async () => {
+  await permissions.saveRolePermissions([
+    { roleId: 'r-apps', roleName: 'Applications', permissions: ['members'] },
+    { roleId: 'r-community', roleName: 'Community', permissions: ['community'] },
+  ]);
+  const apps = await auth.upsertDiscordUser({
+    discordId: '900000009',
+    name: 'Pia',
+    roles: ['r-apps'],
+  });
+  const team = await auth.upsertDiscordUser({
+    discordId: '900000008',
+    name: 'Rea',
+    roles: ['r-community'],
+  });
+  await rejects(community.listMembers(apps), 403);
+  assert.ok((await members.listApplications(apps)).applications);
+  assert.ok((await community.listMembers(team)).members);
+  await rejects(members.listApplications(team), 403);
+});
+
+test('who held the applications before keeps the members board, once', async () => {
+  const pg = new PGlite();
+  db.setDb(pg);
+  await db.query('select 1');
+  // As on a database from before the split: the marker not there yet.
+  await db.query(`delete from app_settings where key = 'migration_community_key'`);
+  await db.query(
+    `insert into content_role_permissions (role_id, role_name, permissions) values ('r-old', 'Old', '{members}')`
+  );
+  const roleOf = async () =>
+    (await db.query(`select permissions from content_role_permissions where role_id = 'r-old'`))
+      .rows[0].permissions;
+  await pg.exec(require('./schema'));
+  assert.deepEqual(await roleOf(), ['members', 'community']);
+  // Taken away later, it stays away: the migration does not run again.
+  await db.query(
+    `update content_role_permissions set permissions = '{members}' where role_id = 'r-old'`
+  );
+  await pg.exec(require('./schema'));
+  assert.deepEqual(await roleOf(), ['members']);
+});
+
+// ── Linking to Discord, and roles against tags ──────────────────────────────
+
+/**
+ * A Discord server with these members ({ id, username, nick?, roles }): the
+ * bot's search, list and member reads, and role changes that stick.
+ */
+function server(people) {
+  permissions.setFetch(async (url, init = {}) => {
+    const method = init.method || 'GET';
+    botCalls.push({ url, method });
+    const json = (body, status = 200) => ({ ok: status < 300, status, json: async () => body });
+    const asMember = (p) => ({
+      user: { id: p.id, username: p.username, global_name: p.globalName || null, avatar: null },
+      nick: p.nick || null,
+      roles: p.roles,
+    });
+    const search = /\/members\/search\?limit=\d+&query=([^&]*)/.exec(url);
+    if (search) {
+      const q = decodeURIComponent(search[1]).toLowerCase();
+      return json(
+        people
+          .filter((p) => [p.username, p.nick || ''].some((n) => n.toLowerCase().startsWith(q)))
+          .map(asMember)
+      );
+    }
+    if (/\/members\?limit=1000/.test(url)) return json(people.map(asMember));
+    const role = /\/members\/(\d+)\/roles\/(\d+)$/.exec(url);
+    if (role) {
+      const p = people.find((x) => x.id === role[1]);
+      if (p && method === 'PUT' && !p.roles.includes(role[2])) p.roles.push(role[2]);
+      if (p && method === 'DELETE') p.roles = p.roles.filter((r) => r !== role[2]);
+      return json({}, 204);
+    }
+    const one = /\/members\/(\d+)$/.exec(url);
+    if (one) {
+      const p = people.find((x) => x.id === one[1]);
+      if (p) return json(asMember(p));
+      // The team signed in here: their roles as stored, as the default stand-in.
+      const { rows } = await db.query('select roles from app_users where discord_id = $1', [
+        one[1],
+      ]);
+      return rows[0] ? json({ roles: rows[0].roles }) : json({ message: 'Unknown Member' }, 404);
+    }
+    return json({}, 204);
+  });
+}
+
+const ROLE = {
+  mentorship: '1566885628547960922',
+  seminars: '1566885852347633766',
+  events: '1566887735308845169',
+};
+
+test('members not linked: their accounts suggested by name, linked, or marked not on Discord', async () => {
+  const user = await board();
+  await community.importConfirm(user, SHEET);
+  const people = [
+    { id: '800000001', username: 'adauno', nick: 'Ada Uno', roles: [ROLE.events] },
+    { id: '800000002', username: 'ada_other', roles: [] },
+    { id: '800000003', username: 'bea.d', roles: [] },
+  ];
+  server(people);
+  const list = (await community.listMembers(user)).members;
+  const ada = list.find((m) => m.name === 'Ada Uno');
+
+  const { suggestions } = await community.discordSuggestions(user, ada.id);
+  assert.deepEqual(
+    suggestions.map((a) => [a.discordId, a.score]),
+    [
+      ['800000001', 3],
+      ['800000002', 1],
+    ]
+  );
+
+  // Linking gives the roles of her tags and takes none away (events was given by hand).
+  botCalls = [];
+  const linked = await community.linkDiscord(user, ada.id, '800000001');
+  assert.equal(linked.member.discordId, '800000001');
+  assert.equal(linked.member.discordUsername, 'adauno');
+  assert.equal(linked.member.discordName, 'Ada Uno');
+  assert.ok(roleCalls().every((c) => c.startsWith('PUT 800000001/')));
+  assert.ok(people[0].roles.includes(ROLE.events));
+  // Who she is on Discord is stored encrypted.
+  const { rows } = await db.query(
+    'select discord_info_encrypted from community_members where id = $1',
+    [ada.id]
+  );
+  assert.ok(!rows[0].discord_info_encrypted.includes('adauno'));
+  // Taken accounts are not suggested to anyone else, nor linked twice.
+  const ciro = list.find((m) => m.name === 'Ciro Tre');
+  await rejects(community.linkDiscord(user, ciro.id, '800000001'), 409);
+  await rejects(community.linkDiscord(user, ciro.id, '899999999'), 404);
+
+  // Ciro is not on Discord: checked, with a note; linked people cannot be.
+  const marked = await community.markAbsent(user, ciro.id, {
+    absent: true,
+    note: 'left the server',
+  });
+  assert.equal(marked.member.discordAbsent, true);
+  assert.equal(marked.member.discordNote, 'left the server');
+  await rejects(community.markAbsent(user, ada.id, { absent: true }), 409);
+  // Linking later clears the mark.
+  const later = await community.linkDiscord(user, ciro.id, '800000002');
+  assert.equal(later.member.discordAbsent, false);
+
+  // Only the members board opens this.
+  const apps = await auth.upsertDiscordUser({ discordId: '900000007', name: 'Uma', roles: [] });
+  await rejects(community.discordSuggestions(apps, ada.id), 403);
+});
+
+test('roles on Discord against tags here: each difference settled, or left', async () => {
+  const user = await board();
+  await community.importConfirm(user, SHEET);
+  const list = (await community.listMembers(user)).members;
+  const bea = list.find((m) => m.name === 'Bea Due'); // tags: mentorship, seminars
+  // On Discord: seminars and events, not mentorship.
+  const people = [{ id: '800000005', username: 'bea', roles: [ROLE.seminars, ROLE.events] }];
+  server(people);
+  await db.query('update community_members set discord_id = $2 where id = $1', [
+    bea.id,
+    '800000005',
+  ]);
+
+  let check = await community.roleCheck(user);
+  assert.equal(check.checked, 1);
+  assert.deepEqual(
+    check.members.map((m) => [m.name, m.missing, m.extra]),
+    [['Bea Due', ['mentorship'], ['events']]]
+  );
+
+  // The missing role given on Discord; the extra one left as it is.
+  await community.resolveRole(user, { member: bea.id, group: 'mentorship', action: 'give' });
+  assert.ok(people[0].roles.includes(ROLE.mentorship));
+  await community.resolveRole(user, {
+    member: bea.id,
+    group: 'events',
+    action: 'ok',
+    kind: 'extra',
+  });
+  check = await community.roleCheck(user);
+  assert.deepEqual(check.members, []);
+
+  // A role there taken as a tag here; a tag removed; a role taken away.
+  people[0].roles.push('1566887710659051550'); // community
+  check = await community.roleCheck(user);
+  assert.deepEqual(check.members[0].extra, ['community']);
+  await community.resolveRole(user, { member: bea.id, group: 'community', action: 'tag' });
+  const tags = (await community.listMembers(user)).members.find((m) => m.id === bea.id).groups;
+  assert.ok(tags.some((t) => t.group === 'community' && t.level === 'stable'));
+  await community.resolveRole(user, { member: bea.id, group: 'seminars', action: 'take' });
+  assert.ok(!people[0].roles.includes(ROLE.seminars));
+  await rejects(
+    community.resolveRole(user, { member: bea.id, group: 'seminars', action: 'x' }),
+    400
+  );
+
+  // Someone whose account left the server.
+  people.length = 0;
+  check = await community.roleCheck(user);
+  assert.equal(check.members[0].notOnServer, true);
+});
+
+test('a tag changes the role of its group only, not the roles given by hand', async () => {
+  const user = await board();
+  await community.importConfirm(user, SHEET);
+  const ada = (await community.listMembers(user)).members.find((m) => m.name === 'Ada Uno');
+  await db.query('update community_members set discord_id = $2 where id = $1', [
+    ada.id,
+    '800000009',
+  ]);
+  botCalls = [];
+  await community.setTags(user, {
+    members: [ada.id],
+    action: 'add',
+    group: 'events',
+    level: 'stable',
+  });
+  assert.deepEqual(roleCalls(), [`PUT 800000009/roles/${ROLE.events}`]);
+});
+
+test('coordinators are chosen on Working groups only', async () => {
+  const user = await board();
+  await community.importConfirm(user, SHEET);
+  const list = (await community.listMembers(user)).members;
+  const ada = list.find((m) => m.name === 'Ada Uno'); // in mentorship, taking part
+  const ciro = list.find((m) => m.name === 'Ciro Tre'); // in no group
+  await db.query('update community_members set discord_id = $2 where id = $1', [
+    ciro.id,
+    '700000003',
+  ]);
+
+  let after = (
+    await community.setCoordinator(user, { group: 'mentorship', member: ada.id, on: true })
+  ).members;
+  assert.deepEqual(after.find((m) => m.id === ada.id).groups, [
+    { group: 'mentorship', level: 'coordination' },
+  ]);
+  // Someone not in the group is put in it, with its role on Discord.
+  botCalls = [];
+  after = (await community.setCoordinator(user, { group: 'events', member: ciro.id, on: true }))
+    .members;
+  assert.deepEqual(after.find((m) => m.id === ciro.id).groups, [
+    { group: 'events', level: 'coordination' },
+  ]);
+  assert.ok(roleCalls().includes('PUT 700000003/roles/1566887735308845169'));
+  // Putting a coordinator in the group again from Members keeps them coordinating.
+  await community.setTags(user, { members: [ada.id], action: 'add', group: 'mentorship' });
+  after = (await community.listMembers(user)).members;
+  assert.equal(after.find((m) => m.id === ada.id).groups[0].level, 'coordination');
+  // Taken back: still in the group, taking part.
+  after = (await community.setCoordinator(user, { group: 'mentorship', member: ada.id, on: false }))
+    .members;
+  assert.deepEqual(after.find((m) => m.id === ada.id).groups, [
+    { group: 'mentorship', level: 'stable' },
+  ]);
+  await rejects(community.setCoordinator(user, { group: 'nope', member: ada.id, on: true }), 400);
+});
+
+test('the coordination declared before becomes taking part, once', async () => {
+  const pg = new PGlite();
+  db.setDb(pg);
+  const user = await board();
+  await community.importConfirm(user, SHEET);
+  const ada = (await community.listMembers(user)).members.find((m) => m.name === 'Ada Uno');
+  // As on a database from before: someone coordinating, the marker not there yet.
+  await db.query(`update member_groups set level = 'coordination' where member_id = $1`, [ada.id]);
+  await db.query(`delete from app_settings where key = 'migration_coordinators'`);
+  await pg.exec(require('./schema'));
+  const levelOf = async () =>
+    (await db.query('select level from member_groups where member_id = $1', [ada.id])).rows[0]
+      .level;
+  assert.equal(await levelOf(), 'stable');
+  // Chosen again on Working groups: it stays, the migration does not run again.
+  await community.setCoordinator(user, { group: 'mentorship', member: ada.id, on: true });
+  await pg.exec(require('./schema'));
+  assert.equal(await levelOf(), 'coordination');
+});

@@ -1,0 +1,25 @@
+---
+title: Seminars
+# The seminars on the site (server/content.js), for whoever holds `seminar`;
+# the API checks it. The page is the shared list (content-list-page.njk).
+permalink: /app/content/seminars/
+tool: content
+section: seminars
+pageTitle: Seminars
+contentType: seminar
+noindex: true
+excludeFromSitemap: true
+eleventyExcludeFromCollections: true
+seoTitle: 'Seminars | AI Safety for Italy'
+---
+{% extends "app.njk" %}
+{% block actions %}
+<a class="btn btn-primary btn-sm" href="/app/content/edit/?type=seminar" data-needs="seminar" hidden>+ New seminar</a>
+{% endblock %}
+{% block page %}
+{% include "content-list-page.njk" %}
+<script src="/assets/js/meet/common.js?v={{ build }}" defer></script>
+<script src="/assets/js/meet/app-common.js?v={{ build }}" defer></script>
+<script src="/assets/js/meet/content-common.js?v={{ build }}" defer></script>
+<script src="/assets/js/meet/content-list.js?v={{ build }}" defer></script>
+{% endblock %}

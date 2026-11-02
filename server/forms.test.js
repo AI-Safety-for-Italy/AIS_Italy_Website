@@ -1621,8 +1621,10 @@ test('the sign-up form offers the working groups as they are, and its answers be
     answer(slug, signupAnswers({ email: 'x@example.org', groups: { selected: ['nope'] } }))
   );
   const [app] = await applications();
+  // An older form's "coordinate" answer counts as taking part: who
+  // coordinates is chosen on Working groups.
   assert.deepEqual(app.tags, [
-    { group: 'events', level: 'coordination' },
+    { group: 'events', level: 'stable' },
     { group: 'seminars', level: 'stable' },
   ]);
   const { rows: stored } = await db.query('select details_encrypted from member_applications');

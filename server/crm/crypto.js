@@ -66,6 +66,21 @@ function personKey(email) {
     .slice(0, 32);
 }
 
+// No 0/O, 1/I/L: the codes are read aloud and copied by hand.
+const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+
+/**
+ * A short code that stands for `text` without saying it ("K7Q2M"): the same
+ * text always gives the same code, and it cannot be reversed without the
+ * secret. The mentee selection names people by it (server/crm/review.js).
+ */
+function pseudonym(text, length = 5) {
+  const digest = crypto.createHmac('sha256', keySecret()).update(`code:${text}`).digest();
+  let out = '';
+  for (let i = 0; i < length; i++) out += CODE_ALPHABET[digest[i] % CODE_ALPHABET.length];
+  return out;
+}
+
 function encrypt(plain, context = '') {
   const [key] = encryptionKeys();
   const iv = crypto.randomBytes(12);
@@ -95,4 +110,4 @@ function decrypt(blob, context = '') {
   return null;
 }
 
-module.exports = { configured, normalizeEmail, personKey, encrypt, decrypt };
+module.exports = { configured, normalizeEmail, personKey, pseudonym, encrypt, decrypt };

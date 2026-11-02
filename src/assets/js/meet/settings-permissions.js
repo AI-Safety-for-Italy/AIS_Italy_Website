@@ -25,11 +25,20 @@
   var dirty = false;
 
   // Groups take the names of the tools (src/data/tools.js) and of Settings
-  // (src/data/appSettings.js), as the sidebar shows them.
+  // (src/data/appSettings.js), in the sidebar's order: a tool inside a group
+  // of the sidebar (src/data/toolGroups.js) is named as there, "Mentorship ›
+  // Selection", so each part is given apart, as it opens apart.
   var groupTitle = {};
+  var areaOrder = [];
   try {
+    var toolGroups = JSON.parse(document.getElementById('apToolGroups').textContent);
     JSON.parse(document.getElementById('apTools').textContent).forEach(function (tool) {
-      if (tool.area && !groupTitle[tool.area]) groupTitle[tool.area] = tool.title;
+      if (!tool.area || groupTitle[tool.area]) return;
+      areaOrder.push(tool.area);
+      groupTitle[tool.area] =
+        tool.group && toolGroups[tool.group]
+          ? toolGroups[tool.group].title + ' › ' + (tool.navLabel || tool.title)
+          : tool.title;
     });
     groupTitle.settings = JSON.parse(document.getElementById('apSettings').textContent).title;
   } catch (e) {
@@ -114,22 +123,22 @@
       }
       last.keys.push(k);
     });
-    return out
-      .filter(function (g) {
-        return g.group !== 'settings';
-      })
-      .concat(
-        out.filter(function (g) {
-          return g.group === 'settings';
-        })
-      );
+    // As the sidebar lists the tools; Settings, and what no tool opens, last.
+    function rank(g) {
+      if (g.group === 'settings') return 1e6;
+      var i = areaOrder.indexOf(g.group);
+      return i === -1 ? 1e5 : i;
+    }
+    return out.sort(function (a, b) {
+      return rank(a) - rank(b);
+    });
   }
 
   /** "CRM: people" -> "People": the group above already names the tool, and
    * a key named like its tool ("Forms" under Forms) is its "Access". */
   function shortLabel(k, g) {
     if (k.label === g.title) return 'Access';
-    var s = k.label.replace(/^(CRM|Forms): /, '');
+    var s = k.label.replace(/^(CRM|Forms|Mentee selection): /, '');
     return s.charAt(0).toUpperCase() + s.slice(1);
   }
 
@@ -293,23 +302,22 @@
     );
 
     groups().forEach(function (g) {
-      var on = g.keys.filter(function (k) {
-        return selected.permissions.indexOf(k.key) !== -1;
-      }).length;
+      var count = h('span', { class: 'perm-group-count' });
+      // A switch changes its group's count and the list on the left only:
+      // drawing the whole page again would send it back to the top.
+      function showCount() {
+        var on = g.keys.filter(function (k) {
+          return selected.permissions.indexOf(k.key) !== -1;
+        }).length;
+        count.className = 'perm-group-count' + (on ? ' is-on' : '');
+        count.textContent = on + ' / ' + g.keys.length;
+      }
+      showCount();
       detail.appendChild(
         h(
           'section',
           { class: 'perm-group' },
-          h(
-            'div',
-            { class: 'perm-group-head' },
-            h('h3', null, g.title),
-            h(
-              'span',
-              { class: 'perm-group-count' + (on ? ' is-on' : '') },
-              on + ' / ' + g.keys.length
-            )
-          ),
+          h('div', { class: 'perm-group-head' }, h('h3', null, g.title), count),
           g.keys.map(function (k) {
             var input = h('input', {
               type: 'checkbox',
@@ -321,11 +329,14 @@
                 if (input.checked && i === -1) selected.permissions.push(k.key);
                 if (!input.checked && i !== -1) selected.permissions.splice(i, 1);
                 markDirty();
-                render();
+                showCount();
+                renderNav();
               },
             });
             input.checked = selected.permissions.indexOf(k.key) !== -1;
-            input.disabled = locked(k);
+            // Some keys go to people by name only, never to a Discord role.
+            var forPeopleOnly = k.peopleOnly && !isPerson;
+            input.disabled = locked(k) || forPeopleOnly;
             return h(
               'label',
               { class: 'perm-row' + (input.disabled ? ' is-locked' : '') },
@@ -337,7 +348,14 @@
                   null,
                   shortLabel(k, g),
                   input.disabled
-                    ? h('span', { class: 'perm-lock', title: 'Not yours to change' }, ' 🔒')
+                    ? h(
+                        'span',
+                        {
+                          class: 'perm-lock',
+                          title: forPeopleOnly ? 'Given to people only' : 'Not yours to change',
+                        },
+                        ' 🔒'
+                      )
                     : null
                 ),
                 k.help ? h('small', null, k.help) : null

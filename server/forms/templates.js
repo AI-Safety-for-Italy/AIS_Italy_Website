@@ -282,16 +282,6 @@ const TEMPLATES = {
           optionsFrom: 'work_groups',
           showIf: ACTIVE,
         }),
-        q(
-          'coordinate',
-          'multi',
-          'Vorresti coordinare (o co-coordinare) qualcuno di questi gruppi?',
-          {
-            optionsFrom: 'work_groups',
-            help: { it: 'Facoltativo: chi coordina organizza il lavoro del gruppo.' },
-            showIf: ACTIVE,
-          }
-        ),
         q('hours', 'number', 'Quante ore vuoi dedicare ad AI Safety Italy ogni mese?', {
           min: 0,
           max: 200,
@@ -331,7 +321,6 @@ const MEMBERSHIP = {
     areasItem: 'areas',
     publishItem: 'publish',
     groupsItem: 'groups',
-    coordItem: 'coordinate',
   },
 };
 

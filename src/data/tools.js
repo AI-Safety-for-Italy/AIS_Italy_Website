@@ -13,6 +13,14 @@
 // for every signed-in member. A tab or an action with `needs` shows only to
 // those holding that permission key; `admin: true` only to the shared admin.
 // icon: the inside of a 24×24 stroke SVG (no colours: it takes the text's).
+// needsAny: permission keys of which the tool needs one, besides its area.
+// sections: the parts of a tool shown as boxes on its page, each with the
+// key it needs (`needs`) and its own faces.
+// faces: true shows who can open the tool at the top of its pages (for the
+// tools without items shared one by one; /api/app/access).
+// group: tools listed together in the sidebar under one entry that opens on
+// them (src/data/toolGroups.js), each named there by its `navLabel`. A group's
+// tools stand next to each other in this list.
 
 module.exports = [
   {
@@ -26,14 +34,36 @@ module.exports = [
     tabs: [],
     actions: [{ label: 'New poll', url: '/app/polls/new/' }],
   },
+  // The site's content (server/content.js). One entry in the sidebar; its page
+  // shows a box per part (`sections`), each opened by its own key, with who
+  // holds it. The tool shows to whoever holds one of them (`needsAny`).
   {
     key: 'content',
     title: 'Site content',
+    faces: true,
     url: '/app/content/',
     area: 'content',
+    needsAny: ['seminar', 'event'],
     text: 'Seminars and events on the website.',
     icon: '<path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/>',
-    // No tabs: the green buttons start a new seminar or event.
+    sections: [
+      {
+        key: 'seminars',
+        label: 'Seminars',
+        url: '/app/content/seminars/',
+        needs: 'seminar',
+        text: 'The talks of the seminar series.',
+        icon: '<path d="M3 5h18v11H3z"/><path d="M8 20h8M12 16v4"/>',
+      },
+      {
+        key: 'events',
+        label: 'Events',
+        url: '/app/content/events/',
+        needs: 'event',
+        text: 'Meetups, workshops and the other events.',
+        icon: '<rect x="3" y="4.5" width="18" height="16" rx="2.5"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/>',
+      },
+    ],
     tabs: [],
     actions: [
       { label: 'New seminar', url: '/app/content/edit/?type=seminar', needs: 'seminar' },
@@ -42,7 +72,10 @@ module.exports = [
   },
   {
     key: 'crm',
+    faces: true,
     title: 'Mentorship board',
+    group: 'mentorship',
+    navLabel: 'Board',
     url: '/app/crm/',
     area: 'crm',
     text: 'Mentors, mentees and pairs.',
@@ -52,6 +85,32 @@ module.exports = [
       { key: 'mentees', label: 'Mentees', url: '/app/crm/#mentees' },
       { key: 'pairs', label: 'Pairs', url: '/app/crm/#pairs' },
       { key: 'settings', label: 'Sheets', url: '/app/crm/settings/', needs: 'crm_admin' },
+    ],
+    actions: [],
+  },
+  // The mentee selection (server/crm/review.js). Its area opens to the admins
+  // of the panel (`review_admin`) and to the reviewers they add, who hold no
+  // key: /api/auth works it out.
+  {
+    key: 'review',
+    faces: true,
+    title: 'Mentee selection',
+    group: 'mentorship',
+    navLabel: 'Selection',
+    url: '/app/review/',
+    area: 'review',
+    text: 'Score the mentees’ applications, without knowing who they are.',
+    icon: '<path d="M9 4h6a1 1 0 0 1 1 1v1H8V5a1 1 0 0 1 1-1z"/><path d="M16 5h2a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h2"/><path d="M9 12l2 2 4-4M9 17h6"/>',
+    tabs: [
+      { key: 'cv', label: 'Score CVs', url: '/app/review/#cv' },
+      { key: 'answers', label: 'Score answers', url: '/app/review/#answers' },
+      { key: 'summary', label: 'Summary', url: '/app/review/summary/', needs: 'review_admin' },
+      {
+        key: 'settings',
+        label: 'Grid & reviewers',
+        url: '/app/review/settings/',
+        needs: 'review_admin',
+      },
     ],
     actions: [],
   },
@@ -67,15 +126,33 @@ module.exports = [
   },
   {
     key: 'members',
+    faces: true,
     title: 'Member applications',
+    group: 'members',
+    navLabel: 'Applications',
     url: '/app/members/',
     area: 'members',
-    text: 'Who asked to join, the community and its working groups.',
+    text: 'Who asked to join, and letting them into Discord.',
     icon: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 11l2 2 4-4"/>',
+    tabs: [],
+    actions: [],
+  },
+  // The community's members and working groups (server/community.js), with
+  // a permission of its own (`community`), apart from the applications.
+  {
+    key: 'community',
+    faces: true,
+    title: 'Members board',
+    group: 'members',
+    navLabel: 'Board',
+    url: '/app/members/people/',
+    area: 'community',
+    text: 'The community and its working groups.',
+    icon: '<circle cx="8" cy="8" r="3"/><circle cx="16" cy="8" r="3"/><path d="M2.5 20a5.5 5.5 0 0 1 11 0M10.5 20a5.5 5.5 0 0 1 11 0"/>',
     tabs: [
-      { key: 'applications', label: 'Applications', url: '/app/members/' },
       { key: 'people', label: 'Members', url: '/app/members/people/' },
       { key: 'groups', label: 'Working groups', url: '/app/members/groups/' },
+      { key: 'discord', label: 'Discord', url: '/app/members/discord/' },
     ],
     actions: [],
   },

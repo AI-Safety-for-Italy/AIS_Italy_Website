@@ -42,7 +42,7 @@ pageTitle: Home
     <h3 class="ap-section-title" id="hubToolsTitle">Your tools</h3>
     <div class="hub-tools">
       {%- for t in tools %}
-      <a class="hub-tool" href="{{ t.url }}"{% if t.area %} data-area="{{ t.area }}" hidden{% endif %}>
+      <a class="hub-tool" href="{{ t.url }}"{% if t.area %} data-area="{{ t.area }}" hidden{% endif %}{% if t.needsAny %} data-needs-any="{{ t.needsAny | join(' ') }}"{% endif %}>
         <span class="hub-tool-icon hub-tool-icon--{{ t.key }}" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{{ t.icon | safe }}</svg></span>
         <span class="hub-tool-body">
           <strong>{{ t.title }}</strong>

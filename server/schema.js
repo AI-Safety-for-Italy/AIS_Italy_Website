@@ -499,4 +499,72 @@ alter table member_applications add column if not exists kind text not null defa
 -- The form answer an application came from, so the board's decision shows
 -- as the answer's tag (Approved, Rejected).
 alter table member_applications add column if not exists response_id uuid;
+
+-- ── The mentee selection (/app/review/, server/crm/review.js) ──────────────
+
+-- Who may score the mentees: people picked by the panel's admins (holders of
+-- review_admin). A reviewer sees only the anonymous applications and their
+-- own scores, never the others' nor the summary.
+create table if not exists review_reviewers (
+  user_id uuid primary key references app_users(id) on delete cascade,
+  added_by_name text not null,
+  added_at timestamptz not null default now()
+);
+
+-- One reviewer's scores of one mentee, on the CV or on the answers: the grid's
+-- criterion -> 1..5. conflict: they know the person and step aside. The
+-- comment is encrypted, bound to the person, the part and the reviewer.
+create table if not exists review_scores (
+  person_key text not null,
+  part text not null check (part in ('cv', 'answers')),
+  reviewer_id uuid not null references app_users(id) on delete cascade,
+  reviewer_name text not null,
+  scores jsonb not null default '{}',
+  conflict boolean not null default false,
+  comment_encrypted text,
+  updated_at timestamptz not null default now(),
+  primary key (person_key, part, reviewer_id)
+);
+
+-- The community's members and working groups got a permission of their own
+-- (community), apart from the applications (members). Once, on each
+-- database: whoever held members then keeps both. Later changes are the
+-- Permissions page's.
+do $$
+begin
+  if not exists (select 1 from app_settings where key = 'migration_community_key') then
+    update content_role_permissions set permissions = array_append(permissions, 'community')
+      where 'members' = any(permissions) and not ('community' = any(permissions));
+    update user_permissions set permissions = array_append(permissions, 'community')
+      where 'members' = any(permissions) and not ('community' = any(permissions));
+    insert into app_settings (key, value) values ('migration_community_key', 'true');
+  end if;
+end $$;
+
+-- Linking the members to their Discord accounts (server/community.js): who
+-- they are there (username, display name) and a note, encrypted; and
+-- whether someone checked they are not on Discord at all.
+alter table community_members add column if not exists discord_info_encrypted text;
+alter table community_members add column if not exists discord_absent boolean not null default false;
+
+-- A difference between a member's tags and their roles on Discord that the
+-- team looked at and left as it is: a role without the tag (extra), or a tag
+-- without the role (missing). The check no longer lists it.
+create table if not exists member_role_ok (
+  member_id uuid not null references community_members(id) on delete cascade,
+  group_id text not null references work_groups(id) on delete cascade,
+  kind text not null check (kind in ('missing', 'extra')),
+  primary key (member_id, group_id, kind)
+);
+
+-- Who coordinates a working group is chosen on Working groups only. Once, on
+-- each database: the coordination people declared on the forms and the old
+-- sheet becomes taking part, so the coordinators are set from there.
+do $$
+begin
+  if not exists (select 1 from app_settings where key = 'migration_coordinators') then
+    update member_groups set level = 'stable' where level = 'coordination';
+    insert into app_settings (key, value) values ('migration_coordinators', 'true');
+  end if;
+end $$;
 `;

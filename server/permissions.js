@@ -94,6 +94,17 @@ const PERMISSIONS = [
     area: 'forms',
     help: 'Manage every form and read all the answers.',
   },
+  // The mentee selection (server/crm/review.js): sees every score, sets the
+  // grid, picks the reviewers. Given to people by name only, never to a role,
+  // and only by the shared admin, like `manage_all`. The reviewers themselves
+  // hold no key: the panel's admins add them on the panel (review_reviewers).
+  {
+    key: 'review_admin',
+    label: 'Mentee selection: admin',
+    area: 'review',
+    peopleOnly: true,
+    help: 'All the scores of the mentee selection, its grid and its reviewers. Only for people, only the shared admin gives this.',
+  },
   // The member applications board (server/members.js): an area of its own.
   {
     key: 'members',
@@ -101,10 +112,20 @@ const PERMISSIONS = [
     area: 'members',
     help: 'Review who asked to join, and let them into Discord.',
   },
+  // The community's members and working groups (server/community.js): an
+  // area of its own, apart from the applications, so each is given apart.
+  {
+    key: 'community',
+    label: 'Members board',
+    area: 'community',
+    help: 'The members and the working groups: their tags on Discord, and the directory on the site.',
+  },
 ];
 // The tools' areas; `settings` (manage_all) opens no tool of its own.
 const AREAS = [...new Set(PERMISSIONS.map((p) => p.area))].filter((a) => a !== 'settings');
 const KEYS = PERMISSIONS.map((p) => p.key);
+// Keys a Discord role never grants, even if a row of the roles' table holds one.
+const PEOPLE_ONLY = PERMISSIONS.filter((p) => p.peopleOnly).map((p) => p.key);
 
 /** Which areas a set of permission keys opens: { content, crm, forms, members }. */
 function areas(perms) {
@@ -128,7 +149,7 @@ const DEV_ROLES = ['Admin', 'Direttivo', 'Organizzatori', 'Partecipanti'].map((n
 // starting point to try things with: the real table is set on the
 // Permissions page of each environment.
 const DEV_DEFAULTS = {
-  'dev-admin': PERMISSIONS.map((p) => p.key),
+  'dev-admin': PERMISSIONS.filter((p) => !p.peopleOnly).map((p) => p.key),
   'dev-direttivo': [
     'seminar',
     'event',
@@ -138,6 +159,7 @@ const DEV_DEFAULTS = {
     'forms',
     'forms_admin',
     'members',
+    'community',
   ],
   'dev-organizzatori': ['seminar', 'event', 'forms', 'mentorship'],
   'dev-partecipanti': [],
@@ -187,7 +209,12 @@ async function forRoles(roleIds) {
     'select permissions from content_role_permissions where role_id = any($1)',
     [roleIds]
   );
-  return withImplied(rows);
+  return withImplied(rows.map(fromRole));
+}
+
+/** A row of the roles' table without the keys given to people only. */
+function fromRole(row) {
+  return { permissions: row.permissions.filter((k) => !PEOPLE_ONLY.includes(k)) };
 }
 
 /** The keys held by the union of these rows, `manage_all` bringing `manage`. */
@@ -226,13 +253,13 @@ async function readPermissions(user) {
     return process.env.VERCEL ? CONTENT_ONLY.slice() : KEYS.slice();
   }
   const { rows } = await db.query(
-    `select r.permissions from app_users u
+    `select r.permissions, true as by_role from app_users u
        join content_role_permissions r on r.role_id = any(u.roles) where u.id = $1
      union all
-     select permissions from user_permissions where user_id = $1`,
+     select permissions, false from user_permissions where user_id = $1`,
     [user.id]
   );
-  return withImplied(rows);
+  return withImplied(rows.map((r) => (r.by_role ? fromRole(r) : r)));
 }
 
 /**
@@ -447,6 +474,10 @@ async function searchMembers(query) {
   return [...found.values()];
 }
 
+// The keys only the shared admin hands out: who administers them is never
+// decided by those who hold them.
+const ONLY_SHARED_ADMIN = ['manage_all', 'review_admin'];
+
 /** May `user` change who holds the keys outside the site's content? */
 function canGrantAll(user) {
   return Boolean(user) && user.kind === 'admin';
@@ -459,8 +490,12 @@ function canGrantAll(user) {
  */
 function grantable(user, perms) {
   if (canGrantAll(user)) return KEYS.slice();
-  if (perms.includes('manage_all')) return KEYS.filter((k) => k !== 'manage_all');
+  if (perms.includes('manage_all')) return KEYS.filter((k) => !ONLY_SHARED_ADMIN.includes(k));
   return CONTENT_ONLY.slice();
+}
+
+function labelOf(key) {
+  return PERMISSIONS.find((p) => p.key === key).label;
 }
 
 /** The checked keys of one row of the table. */
@@ -507,6 +542,9 @@ async function savePermissions({ roles, people }, actor) {
     if (seen.has(roleId)) throw new HttpError(400, `${roleName} is listed twice`);
     seen.add(roleId);
     const permissions = cleanKeys(row);
+    const personal = permissions.filter((k) => PEOPLE_ONLY.includes(k));
+    if (personal.length)
+      throw new HttpError(400, `${roleName}: “${labelOf(personal[0])}” is given to people only`);
     if (permissions.length) cleanRoles.push({ roleId, roleName, permissions });
   }
   let cleanPeople = null;
@@ -542,8 +580,10 @@ async function savePermissions({ roles, people }, actor) {
     if (refused.length) {
       throw new HttpError(
         403,
-        refused.includes('manage_all')
-          ? 'Only the shared admin can give or take away “Manage all permissions”'
+        refused.some((k) => ONLY_SHARED_ADMIN.includes(k))
+          ? `Only the shared admin can give or take away “${labelOf(
+              refused.find((k) => ONLY_SHARED_ADMIN.includes(k))
+            )}”`
           : 'Changing who may use the CRM, forms and member applications needs “Manage all permissions”'
       );
     }
@@ -583,6 +623,7 @@ async function saveRolePermissions(list, actor) {
 module.exports = {
   PERMISSIONS,
   KEYS,
+  PEOPLE_ONLY,
   areas,
   DEV_ROLES,
   DEV_DEFAULTS,

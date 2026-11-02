@@ -198,7 +198,7 @@
 
   // The working groups as tags, under the role: each click puts the person
   // in the group or takes them out. Precompiled from the form; who
-  // coordinates is set on Members. On Discord the groups become roles, never
+  // coordinates is chosen on Working groups. On Discord the groups become roles, never
   // permissions here.
   function tagPicker(start) {
     var tags = {};

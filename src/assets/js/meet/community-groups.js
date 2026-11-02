@@ -1,6 +1,7 @@
 /* /app/members/groups/: the community's working groups (server/community.js):
  * their names and descriptions in both languages, their order on the site,
- * and the Discord role each one is. On Discord they are roles; here only
+ * the Discord role each one is, and who coordinates each: the only place
+ * coordinators are chosen. On Discord they are roles; here only
  * tags, never permissions. A new group needs its role made on Discord first.
  * The site shows the change once published (community-site.js). */
 (function () {
@@ -10,12 +11,14 @@
 
   var view = document.getElementById('groupsView');
   var groups = [];
+  var members = []; // everyone, with their groups and levels (for the coordinators)
   var editing = null; // a group's id, or 'new'
 
   view.appendChild(M.loading());
   Promise.all([M.me, M.api('GET', '/api/app/community')])
     .then(function (r) {
       groups = r[1].groups;
+      members = r[1].members;
       M.communitySite.draw(r[1].site);
       render();
     })
@@ -80,6 +83,92 @@
       .catch(M.appError);
   }
 
+  function inGroup(m, g, level) {
+    return m.groups.some(function (t) {
+      return t.group === g.id && (!level || t.level === level);
+    });
+  }
+
+  function setCoordinator(g, member, on) {
+    return M.api('POST', '/api/app/community?action=coordinator', {
+      group: g.id,
+      member: member.id,
+      on: on,
+    })
+      .then(function (r) {
+        members = r.members;
+        if (on && !inGroup(member, g)) g.members++;
+        M.toast(member.name + (on ? ' coordinates ' : ' no longer coordinates ') + g.titleEn);
+        render();
+      })
+      .catch(function (err) {
+        if (err.status === 401) return M.appError(err);
+        M.toast(err.message, true);
+      });
+  }
+
+  /** Who coordinates the group: each can be taken back, others added. */
+  function coordinators(g) {
+    var current = members.filter(function (m) {
+      return inGroup(m, g, 'coordination');
+    });
+    // Those in the group first, then everyone else.
+    var others = members
+      .filter(function (m) {
+        return !inGroup(m, g, 'coordination');
+      })
+      .sort(function (a, b) {
+        return (
+          (inGroup(b, g) ? 1 : 0) - (inGroup(a, g) ? 1 : 0) || a.name.localeCompare(b.name, 'it')
+        );
+      });
+    var pick = h(
+      'select',
+      {
+        class: 'form-input is-compact wg-coord-pick',
+        'aria-label': 'Add a coordinator of ' + g.titleEn,
+        onchange: function () {
+          var m = members.filter(function (x) {
+            return x.id === pick.value;
+          })[0];
+          if (m) setCoordinator(g, m, true);
+        },
+      },
+      h('option', { value: '' }, '+ Add a coordinator…'),
+      others.map(function (m) {
+        return h('option', { value: m.id }, m.name + (inGroup(m, g) ? '' : ' (not in the group)'));
+      })
+    );
+    return h(
+      'div',
+      { class: 'wg-coords' },
+      h('span', { class: 'wg-coords-label' }, 'Coordinators'),
+      current.length
+        ? current.map(function (m) {
+            return h(
+              'span',
+              { class: 'tag-chip is-coordination wg-coord' },
+              m.name,
+              h(
+                'button',
+                {
+                  type: 'button',
+                  class: 'wg-coord-x',
+                  'aria-label': m.name + ' no longer coordinates ' + g.titleEn,
+                  title: 'No longer coordinates (still takes part)',
+                  onclick: function () {
+                    setCoordinator(g, m, false);
+                  },
+                },
+                '×'
+              )
+            );
+          })
+        : h('span', { class: 'panel-note' }, 'None yet'),
+      pick
+    );
+  }
+
   function card(g, i) {
     return h(
       'div',
@@ -127,7 +216,8 @@
             (g.members === 1 ? ' member' : ' members') +
             ' · Discord role ' +
             g.discordRoleId
-        )
+        ),
+        coordinators(g)
       ),
       h(
         'div',
