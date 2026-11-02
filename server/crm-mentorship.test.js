@@ -340,15 +340,43 @@ test('the API lets in only the mentorship permission', async () => {
   assert.equal(person.body.email, 'ada@example.org');
 });
 
-test('a change re-reads the Discord roles, even right after signing in', async () => {
+test('a note or a pair re-reads the Discord roles; a stage change trusts them for five minutes', async () => {
   await setRoles();
   process.env.DISCORD_BOT_TOKEN_AIS_TEAM_AREA = 'bot';
   process.env.DISCORD_GUILD_ID = 'guild1';
   const maria = await member('Maria', ['r-mentors']);
   permissions.setFetch(async () => ({ ok: true, status: 200, json: async () => ({ roles: [] }) }));
-  // Reading within five minutes of signing in: the stored roles stand.
+  const move = () =>
+    call({
+      method: 'POST',
+      url: '/api/app/crm/mentorship?action=update',
+      user: maria,
+      body: { key: ADA(), kind: 'mentor', status: 'selected' },
+    });
+  // Reading, and moving someone, within five minutes of the last check: the
+  // stored roles stand (a move must feel instant).
   assert.equal((await call({ user: maria })).statusCode, 200);
-  // Writing: Discord is asked, says the role is gone, and the change is refused.
+  assert.equal((await move()).statusCode, 200);
+  // A note: Discord is asked, says the role is gone, and the note is refused.
+  const note = await call({
+    method: 'POST',
+    url: '/api/app/crm/mentorship?action=note',
+    user: maria,
+    body: { key: ADA(), kind: 'mentor', body: 'Ciao' },
+  });
+  assert.equal(note.statusCode, 403);
+  assert.equal((await db.query('select 1 from crm_notes')).rows.length, 0);
+  // Discord said no roles: from now on a move is refused too.
+  assert.equal((await move()).statusCode, 403);
+});
+
+test('a stage change re-reads the Discord roles once the last check is five minutes old', async () => {
+  await setRoles();
+  process.env.DISCORD_BOT_TOKEN_AIS_TEAM_AREA = 'bot';
+  process.env.DISCORD_GUILD_ID = 'guild1';
+  const maria = await member('Maria', ['r-mentors']);
+  permissions.setFetch(async () => ({ ok: true, status: 200, json: async () => ({ roles: [] }) }));
+  await db.query(`update app_users set roles_checked_at = now() - interval '6 minutes'`);
   const res = await call({
     method: 'POST',
     url: '/api/app/crm/mentorship?action=update',
@@ -356,8 +384,7 @@ test('a change re-reads the Discord roles, even right after signing in', async (
     body: { key: ADA(), kind: 'mentor', status: 'selected' },
   });
   assert.equal(res.statusCode, 403);
-  const { rows } = await db.query('select * from crm_people_state');
-  assert.equal(rows.length, 0);
+  assert.equal((await db.query('select 1 from crm_people_state')).rows.length, 0);
 });
 
 test('without its encryption keys the CRM refuses to run', async () => {

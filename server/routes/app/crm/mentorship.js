@@ -1,6 +1,7 @@
 // /api/app/crm/mentorship: the mentorship board. Every call needs the
 // `mentorship` permission (server/access.js); changes re-read the Discord
-// roles first. Everything read or changed is on the audit trail.
+// roles first, except `update` (stage, track, owner), which trusts a check
+// from the last five minutes as reads do. Everything read or changed is on the audit trail.
 //   GET                                   -> the board: { mentors, mentees, matches, … }
 //   GET  ?key=…&kind=mentor|mentee        -> one person, with notes and history
 //   POST ?action=update  { key, kind, status?, track?, owner?: 'me'|'none' }
@@ -99,8 +100,10 @@ module.exports = route({
       );
       return;
     }
-    const { user } = await door(req, { write: true });
     const { action } = query;
+    // A stage change trusts roles checked in the last five minutes, as reads
+    // do, so the board stays quick; every other change asks Discord again.
+    const { user } = await door(req, { write: action !== 'update' });
     const body = await readJson(req);
     if (action === 'add') {
       sendJson(res, 201, await mentorship.addProspect(user, body));
