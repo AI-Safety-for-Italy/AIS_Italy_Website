@@ -270,7 +270,7 @@
 </head>
 <body style="background-color: var(--bg-primary); color: var(--text-primary);">
     {# The meeting-poll pages get a bare logo header and footer line instead. #}
-    {% if appShell %}{# the frame of app.njk draws its own #}{% elif meetHead %}{% include "meet-header.njk" %}{% else %}{% include "header.njk" %}{% endif %}
+    {% if appShell %}{# the frame of app.njk draws its own #}{% elif noHeader %}{# the page draws its own brand #}{% elif meetHead %}{% include "meet-header.njk" %}{% else %}{% include "header.njk" %}{% endif %}
 
     <main id="main">
         {% block content %}{% endblock %}

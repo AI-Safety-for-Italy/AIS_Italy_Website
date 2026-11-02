@@ -2588,6 +2588,50 @@ dialog.crm-panel {
   box-sizing: border-box;
 }
 
+/* The logo on the green panel, in place of a header bar. */
+.fm-brand,
+.fm-aside a.fm-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  align-self: flex-start;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: #fff;
+  text-decoration: none;
+}
+
+.fm-brand img {
+  width: 40px;
+  height: 40px;
+  /* the mark's dark green leaf needs a light ground on the panel */
+  padding: 3px;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.fm-brand .fm-brand-accent {
+  color: #7fd6a2;
+}
+
+a.fm-brand:hover {
+  opacity: 0.9;
+}
+
+/* Without the header bar the page fills the window (side by side only: in
+   one column the panel keeps its own height). */
+@container (min-width: 881px) {
+  .fm-root.is-bare .fm-shell {
+    min-height: 100vh;
+  }
+
+  .fm-root.is-bare .fm-aside-inner {
+    min-height: min(100%, 100vh);
+  }
+}
+
 .fm-eyebrow {
   margin: 0;
   font-family: var(--font-mono);

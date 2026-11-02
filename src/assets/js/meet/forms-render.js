@@ -940,6 +940,19 @@
 
   // ── The page around it ──────────────────────────────────────────────────
 
+  // The logo on top of the green panel, leading to the homepage (not in the
+  // editor's preview, where leaving would lose the edits).
+  function brand(preview) {
+    return h(
+      preview ? 'span' : 'a',
+      preview
+        ? { class: 'fm-brand' }
+        : { class: 'fm-brand', href: '/', 'aria-label': 'AI Safety for Italy: homepage' },
+      h('img', { src: '/assets/img/ais4i-logo.svg', alt: '', width: 40, height: 40 }),
+      h('span', null, 'AI Safety ', h('span', { class: 'fm-brand-accent' }, 'for Italy'))
+    );
+  }
+
   function frame(root, aside, main) {
     M.clear(root);
     root.classList.add('fm-root');
@@ -1015,7 +1028,7 @@
     frame(
       root,
       [
-        h('p', { class: 'fm-eyebrow' }, opts.eyebrow || 'AI Safety for Italy'),
+        opts.eyebrow ? h('p', { class: 'fm-eyebrow' }, opts.eyebrow) : brand(opts.preview),
         h('h1', { class: 'fm-title' }, t(schema.title)),
         intro ? md(intro, 'fm-intro') : null,
         h('p', { class: 'fm-meta' }, h('span', null, S.questions(total)), closes),
@@ -1098,10 +1111,7 @@
   M.formNotice = function (root, title, text, lang) {
     frame(
       root,
-      [
-        h('p', { class: 'fm-eyebrow' }, 'AI Safety for Italy'),
-        h('h1', { class: 'fm-title' }, title),
-      ],
+      [brand(false), h('h1', { class: 'fm-title' }, title)],
       h(
         'div',
         { class: 'fm-notice' },
