@@ -193,7 +193,21 @@ async function schemaOf(formId, version) {
     [formId, version]
   );
   if (!rows.length) throw new HttpError(500, 'A version of this form is missing');
-  return rows[0].schema;
+  return withLiveOptions(rows[0].schema);
+}
+
+/**
+ * A question whose options come from elsewhere (`optionsFrom`) gets them as
+ * they are now: the working groups, so the sign-up form follows them.
+ */
+async function withLiveOptions(schema) {
+  if (!schema || !schema.items.some((i) => i.optionsFrom)) return schema;
+  const groups = await require('../community').listGroups();
+  const options = groups.map((g) => ({ id: g.id, label: { it: g.titleIt, en: g.titleEn } }));
+  return {
+    ...schema,
+    items: schema.items.map((i) => (i.optionsFrom === 'work_groups' ? { ...i, options } : i)),
+  };
 }
 
 function summary(form, extra = {}) {

@@ -46,6 +46,8 @@ const MAX_ITEMS = 150;
 const MAX_OPTIONS = 60;
 const LIMITS = { label: 500, help: 3000, option: 200, title: 200, description: 6000 };
 const TEXT_MAX = { short_text: 300, long_text: 8000 };
+// Where a choice question's options may come from instead of the form itself.
+const OPTIONS_FROM = ['work_groups'];
 // The most a paragraph's word limit may be set to.
 const WORDS_MAX = 2000;
 
@@ -130,7 +132,16 @@ function cleanItem(raw, languages, seen) {
     if (min !== undefined && max !== undefined && min > max)
       throw fail(`${where}: minimum above maximum`, { field: where });
   }
-  if (TYPES[type].choice) {
+  // Options kept elsewhere and filled in whenever the form is read: the
+  // community's working groups (server/forms/forms.js, schemaOf).
+  if (TYPES[type].choice && OPTIONS_FROM.includes(it.optionsFrom)) {
+    item.optionsFrom = it.optionsFrom;
+    item.options = [];
+    if (type === 'multi') {
+      const max = int(it.maxChoices, 1, 50, where);
+      if (max) item.maxChoices = max;
+    }
+  } else if (TYPES[type].choice) {
     if (!Array.isArray(it.options) || !it.options.length)
       throw fail(`${where}: add at least one option`, { field: where });
     if (it.options.length > MAX_OPTIONS)

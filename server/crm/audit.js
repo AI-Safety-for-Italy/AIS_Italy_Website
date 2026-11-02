@@ -26,6 +26,11 @@ const ACTIONS = new Set([
   // Forms (server/forms/): subject_key is the form or response id.
   'form-create',
   'form-notify-me',
+  'community-list',
+  'community-member',
+  'community-tags',
+  'community-groups',
+  'community-import',
   'form-tags',
   'form-edit',
   'form-settings',

@@ -236,9 +236,21 @@ test('a CRM-only member is shut out of the content tool, and the other way round
   );
 
   const seenByMentor = (await call(authApi, { url: '/api/auth', user: mentor })).body;
-  assert.deepEqual(seenByMentor.areas, { content: false, crm: true, forms: false, members: false });
+  assert.deepEqual(seenByMentor.areas, {
+    content: false,
+    crm: true,
+    forms: false,
+    members: false,
+    upgrade: false,
+  });
   const seenByWriter = (await call(authApi, { url: '/api/auth', user: writer })).body;
-  assert.deepEqual(seenByWriter.areas, { content: true, crm: false, forms: false, members: false });
+  assert.deepEqual(seenByWriter.areas, {
+    content: true,
+    crm: false,
+    forms: false,
+    members: false,
+    upgrade: false,
+  });
   assert.deepEqual((await call(authApi, { url: '/api/auth' })).body.areas, {
     content: false,
     crm: false,

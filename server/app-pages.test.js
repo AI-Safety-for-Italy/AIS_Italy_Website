@@ -99,7 +99,12 @@ test('the permissions named by the Settings tabs exist', () => {
 
 test('the areas and permissions named by the tools exist', () => {
   for (const tool of tools) {
-    assert.ok(tool.area === null || areas.includes(tool.area), `${tool.key}: area ${tool.area}`);
+    // 'upgrade' is worked out by /api/auth (a participant who may ask to
+    // become an organizer), not a permission's area.
+    assert.ok(
+      tool.area === null || tool.area === 'upgrade' || areas.includes(tool.area),
+      `${tool.key}: area ${tool.area}`
+    );
     for (const item of [...tool.tabs, ...tool.actions]) {
       if (item.needs === undefined) continue;
       assert.ok(permissionKeys.includes(item.needs), `${tool.key}: needs ${item.needs}`);

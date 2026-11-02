@@ -327,7 +327,13 @@ for (const env of ['production', 'preview']) {
       assert.ok(!perms.includes(key), key);
     }
     const info = (await call(authApi, { url: '/api/auth', user: root })).body;
-    assert.deepEqual(info.areas, { content: true, crm: false, forms: false, members: false });
+    assert.deepEqual(info.areas, {
+      content: true,
+      crm: false,
+      forms: false,
+      members: false,
+      upgrade: false,
+    });
   });
 }
 

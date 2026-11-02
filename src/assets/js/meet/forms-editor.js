@@ -1526,6 +1526,25 @@
   }
 
   function optionsEditor(item) {
+    // Options kept elsewhere: the working groups, as Member applications →
+    // Working groups has them (server/forms/forms.js, withLiveOptions).
+    if (item.optionsFrom === 'work_groups') {
+      return h(
+        'div',
+        { class: 'fe-options' },
+        h(
+          'p',
+          { class: 'form-note', style: 'margin:0' },
+          'The options are the working groups, as they are in Member applications → Working groups: ' +
+            item.options
+              .map(function (o) {
+                return tx(o.label);
+              })
+              .join(', ') +
+            '. Change them there: this question follows.'
+        )
+      );
+    }
     var box = h('div', { class: 'fe-options' });
     function draw() {
       M.clear(box);

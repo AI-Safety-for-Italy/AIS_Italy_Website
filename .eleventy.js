@@ -3,6 +3,7 @@ const fs = require("fs");
 const path = require("path");
 const locales = require("./src/data/locales.js");
 const contentBuild = require("./server/content-build");
+const communityBuild = require('./server/community-build');
 
 const DEFAULT_LOCALE = locales[0];
 const PREFIXED_LOCALES = locales.filter(l => l.prefix);
@@ -384,12 +385,17 @@ module.exports = function(eleventyConfig) {
       // Seminars and events published from the dashboard (/app/content/)
       // join the YAML's; see server/content-build.js.
       if (filename === 'events.yaml') return contentBuild.merge(data, await contentBuild.load());
+      // The directory and the working groups, once published from the
+      // dashboard (Member applications); see server/community-build.js.
+      if (filename === 'members.yaml') return communityBuild.members(data, await communityBuild.load());
+      if (filename === 'community.yaml') return communityBuild.community(data, await communityBuild.load());
       return data;
     });
   });
   // The local server rewrites this on every publish, so `npm run dev:meet`
   // shows the change at once.
   eleventyConfig.addWatchTarget(contentBuild.SNAPSHOT);
+  eleventyConfig.addWatchTarget(communityBuild.SNAPSHOT);
 
   /**
    * Load all design tokens and make them globally available

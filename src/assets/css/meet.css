@@ -1504,6 +1504,216 @@ dialog.meet-dialog::backdrop {
 
 /* ── Toast & loading ─────────────────────────────────────────────────────── */
 
+/* Members and Working groups (/app/members/people/, /groups/) */
+.site-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  margin: 0 0 1rem;
+  padding: 0.85rem 1rem;
+}
+
+.site-bar-text {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.9rem;
+}
+
+.site-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.people-tools,
+.bulk-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.people-tools input[type='search'] {
+  max-width: 18rem;
+}
+
+.people-tools select,
+.bulk-bar select {
+  width: auto;
+}
+
+.bulk-bar {
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--accent-100);
+  border-radius: var(--radius-sm);
+  background: var(--accent-50);
+}
+
+.bulk-bar[hidden] {
+  display: none;
+}
+
+.people-table th,
+.people-table td {
+  text-align: left;
+  vertical-align: top;
+}
+
+.people-legend {
+  display: inline-flex;
+  gap: 0.4rem;
+  align-items: center;
+  margin-left: auto;
+}
+
+.people-table tr.is-picked td {
+  background: var(--accent-50);
+}
+
+.people-name {
+  font-weight: 600;
+  text-align: left;
+}
+
+.people-sub {
+  display: block;
+  color: var(--text-tertiary);
+  font-size: 0.78rem;
+}
+
+.people-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.people-tags .tag-chip {
+  padding: 0.15rem 0.5rem;
+  font-size: 0.75rem;
+  cursor: default;
+}
+
+.import-panel {
+  margin-top: 1.5rem;
+}
+
+.import-panel > summary {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.import-list {
+  max-height: 24rem;
+  overflow: auto;
+}
+
+.wg-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+}
+
+.wg-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: 0;
+}
+
+.wg-order {
+  display: flex;
+  flex-direction: column;
+}
+
+.wg-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.wg-text h3 {
+  margin: 0 0 0.2rem;
+  font-size: 1.05rem;
+}
+
+.wg-text p {
+  margin: 0 0 0.3rem;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.wg-actions {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.wg-form {
+  margin: 0 0 0.6rem;
+}
+
+@media (max-width: 640px) {
+  .wg-card {
+    flex-wrap: wrap;
+  }
+}
+
+.organizer-page {
+  max-width: 46rem;
+}
+
+/* Member applications: the working groups as tags under the role */
+.tag-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.7rem;
+  border: 1px dashed var(--border-strong);
+  border-radius: 999px;
+  background: none;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.tag-chip small {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.tag-chip.is-stable {
+  border-style: solid;
+  border-color: var(--accent);
+  background: var(--accent-50);
+  color: var(--accent-700);
+}
+
+.tag-chip.is-coordination {
+  border-style: solid;
+  border-color: var(--accent-700);
+  background: var(--accent);
+  color: #fff;
+}
+
+.badge-upgrade {
+  background: var(--accent-100);
+  color: var(--accent-700);
+}
+
 /* The login page's stand-ins: one button per Discord role */
 .dev-personas {
   display: grid;
