@@ -332,6 +332,8 @@ for (const env of ['production', 'preview']) {
       crm: false,
       forms: false,
       members: false,
+      community: false,
+      review: false,
       upgrade: false,
     });
   });

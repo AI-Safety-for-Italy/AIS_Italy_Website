@@ -30,13 +30,18 @@ const STATUSES = {
     { key: 'matched', label: 'Matched' },
     { key: 'declined', label: 'Declined' },
   ],
+  // Shortlisted and Interview are the steps of the mentee selection
+  // (server/crm/review.js), which moves people between Applied and those
+  // and Rejected; Selected and Matched are decided on the board.
   mentee: [
     { key: 'interested', label: 'Interested' },
     { key: 'contacted', label: 'Contacted' },
     { key: 'applied', label: 'Applied' },
+    { key: 'shortlisted', label: 'Shortlisted' },
+    { key: 'interview', label: 'Interview' },
     { key: 'selected', label: 'Selected' },
     { key: 'matched', label: 'Matched' },
-    { key: 'declined', label: 'Declined' },
+    { key: 'declined', label: 'Rejected' },
   ],
 };
 const KINDS = Object.keys(STATUSES);
@@ -253,6 +258,27 @@ async function board(user) {
   };
 }
 
+/**
+ * The mentees who sent an application, for the selection
+ * (server/crm/review.js): [{ key, record, card }], `record` their
+ * application and `card` as the board shows them, its status included: the
+ * selection reads and moves the same status the board does.
+ */
+async function applicants() {
+  const { people } = await gather();
+  const state = await states();
+  const out = [];
+  for (const [id, person] of people) {
+    if (person.kind !== 'mentee' || !person.records.mentees_applications) continue;
+    out.push({
+      key: person.key,
+      record: person.records.mentees_applications,
+      card: card(person, state.get(id), {}),
+    });
+  }
+  return out;
+}
+
 // ── One person ───────────────────────────────────────────────────────────────
 
 function checkKey(key, kind) {
@@ -337,7 +363,11 @@ async function person(user, perms, key, kind) {
     sheets: sheetsView,
     notes,
     matches,
-    history: await audit.recent({ subjectKey: key, limit: 40 }),
+    // The selection's own lines (who opened or scored them) stay out: the
+    // board must not tell who reviewed whom.
+    history: (await audit.recent({ subjectKey: key, limit: 60 }))
+      .filter((line) => !line.action.startsWith('review-'))
+      .slice(0, 40),
     // So a page of its own can show the stage buttons and the track select.
     statuses: STATUSES[kind],
     tracks: TRACKS,
@@ -675,6 +705,7 @@ module.exports = {
   kindsOf,
   yes,
   board,
+  applicants,
   person,
   update,
   addNote,

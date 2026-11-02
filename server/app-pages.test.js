@@ -85,7 +85,8 @@ test('every tool has a unique key, app urls and at least one page', () => {
 test('every tool and tab url is the permalink of a page', () => {
   const permalinks = new Set(pages.map((p) => p.data.permalink));
   for (const tool of [...tools, appSettings]) {
-    for (const url of [tool.url, ...tool.tabs.map((t) => t.url)]) {
+    const sections = (tool.sections || []).map((x) => x.url);
+    for (const url of [tool.url, ...tool.tabs.map((t) => t.url), ...sections]) {
       assert.ok(permalinks.has(pathOf(url)), `${tool.key}: no page has permalink ${pathOf(url)}`);
     }
   }
@@ -105,7 +106,10 @@ test('the areas and permissions named by the tools exist', () => {
       tool.area === null || tool.area === 'upgrade' || areas.includes(tool.area),
       `${tool.key}: area ${tool.area}`
     );
-    for (const item of [...tool.tabs, ...tool.actions]) {
+    for (const key of tool.needsAny || []) {
+      assert.ok(permissionKeys.includes(key), `${tool.key}: needsAny ${key}`);
+    }
+    for (const item of [...(tool.sections || []), ...tool.tabs, ...tool.actions]) {
       if (item.needs === undefined) continue;
       assert.ok(permissionKeys.includes(item.needs), `${tool.key}: needs ${item.needs}`);
     }
@@ -131,4 +135,16 @@ test('every stylesheet and script under /assets/ carries the build version', () 
     }
   }
   assert.deepEqual(missing, []);
+});
+
+test('the groups of tools exist, and their tools stand together', () => {
+  const groups = require('../src/data/toolGroups');
+  const seen = [];
+  tools.forEach((tool, i) => {
+    if (!tool.group) return;
+    assert.ok(groups[tool.group], `${tool.key}: unknown group ${tool.group}`);
+    if (tools[i - 1] && tools[i - 1].group === tool.group) return;
+    assert.ok(!seen.includes(tool.group), `${tool.group}: its tools are not next to each other`);
+    seen.push(tool.group);
+  });
 });

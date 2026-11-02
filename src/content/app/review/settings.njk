@@ -1,0 +1,21 @@
+---
+title: Grid & reviewers
+# The grid each part is scored on, the weight of each part, and who reviews,
+# for the admins of the selection (`review_admin`); the API checks it.
+permalink: /app/review/settings/
+tool: review
+tab: settings
+pageTitle: Grid & reviewers
+noindex: true
+excludeFromSitemap: true
+eleventyExcludeFromCollections: true
+seoTitle: 'Grid & reviewers | Mentee selection | AI Safety for Italy'
+---
+{% extends "app.njk" %}
+{% block page %}
+    <div id="rvSettings"></div>
+
+<script src="/assets/js/meet/common.js?v={{ build }}" defer></script>
+<script src="/assets/js/meet/app-common.js?v={{ build }}" defer></script>
+<script src="/assets/js/meet/review-settings.js?v={{ build }}" defer></script>
+{% endblock %}

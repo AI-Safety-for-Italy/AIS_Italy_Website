@@ -1,5 +1,5 @@
 // /api/app/community: the community's members and working groups
-// (server/community.js), for whoever holds `members`.
+// (server/community.js), for whoever holds `community`.
 //   GET                                  -> { members, groups, site }
 //   GET    ?people=<name>                -> Discord members, to link someone's account
 //   POST   ?action=group { id?, titleEn, titleIt, descriptionEn, descriptionIt,
@@ -24,7 +24,7 @@ module.exports = route({
     const user = await requireUser(req);
     const { people } = getQuery(req);
     if (people !== undefined) {
-      await access.authorize(user, 'members');
+      await access.authorize(user, 'community');
       sendJson(res, 200, { people: await permissions.searchMembers(people) });
       return;
     }

@@ -499,4 +499,45 @@ alter table member_applications add column if not exists kind text not null defa
 -- The form answer an application came from, so the board's decision shows
 -- as the answer's tag (Approved, Rejected).
 alter table member_applications add column if not exists response_id uuid;
+
+-- ── The mentee selection (/app/review/, server/crm/review.js) ──────────────
+
+-- Who may score the mentees: people picked by the panel's admins (holders of
+-- review_admin). A reviewer sees only the anonymous applications and their
+-- own scores, never the others' nor the summary.
+create table if not exists review_reviewers (
+  user_id uuid primary key references app_users(id) on delete cascade,
+  added_by_name text not null,
+  added_at timestamptz not null default now()
+);
+
+-- One reviewer's scores of one mentee, on the CV or on the answers: the grid's
+-- criterion -> 1..5. conflict: they know the person and step aside. The
+-- comment is encrypted, bound to the person, the part and the reviewer.
+create table if not exists review_scores (
+  person_key text not null,
+  part text not null check (part in ('cv', 'answers')),
+  reviewer_id uuid not null references app_users(id) on delete cascade,
+  reviewer_name text not null,
+  scores jsonb not null default '{}',
+  conflict boolean not null default false,
+  comment_encrypted text,
+  updated_at timestamptz not null default now(),
+  primary key (person_key, part, reviewer_id)
+);
+
+-- The community's members and working groups got a permission of their own
+-- (community), apart from the applications (members). Once, on each
+-- database: whoever held members then keeps both. Later changes are the
+-- Permissions page's.
+do $$
+begin
+  if not exists (select 1 from app_settings where key = 'migration_community_key') then
+    update content_role_permissions set permissions = array_append(permissions, 'community')
+      where 'members' = any(permissions) and not ('community' = any(permissions));
+    update user_permissions set permissions = array_append(permissions, 'community')
+      where 'members' = any(permissions) and not ('community' = any(permissions));
+    insert into app_settings (key, value) values ('migration_community_key', 'true');
+  end if;
+end $$;
 `;

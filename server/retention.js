@@ -9,7 +9,8 @@
 //     hand): deleted 24 months after they were created. Those that came from a
 //     form go with their answer;
 //   - a mentor's draft for the site (photo and bio) goes with their last
-//     record on the board.
+//     record on the board;
+//   - the scores of the mentee selection go with the application they score.
 //
 // Each run leaves one line on the audit trail with the counts, never who.
 
@@ -46,11 +47,19 @@ async function cleanup() {
          returning p.person_key`
       )
     : { rows: [] };
+  // The mentee selection's scores go with the application they score.
+  const reviewScores = await db.query(
+    `delete from review_scores s
+     where not exists (select 1 from crm_records r
+                       where r.person_key = s.person_key and r.source = 'mentees_applications')
+     returning s.person_key`
+  );
   const counts = {
     answers: answers.rows.length,
     applications: applications.rows.length,
     boardRecords: boardRecords.rows.length,
     siteDrafts: siteDrafts.rows.length,
+    reviewScores: reviewScores.rows.length,
   };
   await audit.record({ id: null, name: 'retention job' }, 'retention-cleanup', null, {
     months: MONTHS,

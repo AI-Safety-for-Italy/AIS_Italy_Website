@@ -1,5 +1,6 @@
 // /api/app/content: seminars and events published from the dashboard.
 //   GET                           -> { items, permissions, activity, live }
+//   GET    ?type=seminar|event    -> the same, of that kind only (needs its key)
 //   GET    ?id=…                  -> one item: { …, form, versions }
 //   POST   {fields}               -> publishes a new item  -> { id, publish }
 //   PUT    ?id=… {fields}         -> saves changes         -> { id, publish }
@@ -48,6 +49,21 @@ module.exports = route({
       content.recentActivity(),
       content.isLive(),
     ]);
+    // A page of one kind (the sidebar's Seminars, Events): only who may
+    // publish that kind sees its list.
+    if (query.type !== undefined) {
+      if (!['seminar', 'event'].includes(query.type)) throw new HttpError(400, 'Unknown type');
+      if (!list.permissions.includes(query.type))
+        throw new HttpError(403, `Your Discord roles do not let you publish ${query.type}s`);
+      const ofType = (x) => x.type === query.type;
+      sendJson(res, 200, {
+        ...list,
+        items: list.items.filter(ofType),
+        activity: activity.filter(ofType),
+        live,
+      });
+      return;
+    }
     sendJson(res, 200, { ...list, activity, live });
   },
 

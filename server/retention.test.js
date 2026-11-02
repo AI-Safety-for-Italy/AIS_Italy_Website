@@ -87,6 +87,7 @@ test('after 24 months answers and applications never approved are deleted; membe
     applications: 2,
     boardRecords: 2,
     siteDrafts: 0,
+    reviewScores: 0,
   });
   const left = await db.query('select count(*)::int as n from form_responses');
   assert.equal(left.rows[0].n, 2);
@@ -108,6 +109,7 @@ test('after 24 months answers and applications never approved are deleted; membe
     applications: 2,
     boardRecords: 2,
     siteDrafts: 0,
+    reviewScores: 0,
   });
 });
 
@@ -117,7 +119,13 @@ test('the cleanup runs only with the secret, and not at all without one set', as
   assert.equal((await call({ authorization: 'Bearer wrong' })).statusCode, 401);
   const ok = await call({ authorization: `Bearer ${SECRET}` });
   assert.equal(ok.statusCode, 200);
-  assert.deepEqual(ok.body, { answers: 2, applications: 2, boardRecords: 2, siteDrafts: 0 });
+  assert.deepEqual(ok.body, {
+    answers: 2,
+    applications: 2,
+    boardRecords: 2,
+    siteDrafts: 0,
+    reviewScores: 0,
+  });
   delete process.env.CRON_SECRET;
   assert.equal((await call({ authorization: 'Bearer ' })).statusCode, 503);
 });

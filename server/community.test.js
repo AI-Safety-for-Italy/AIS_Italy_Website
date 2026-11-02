@@ -36,7 +36,9 @@ beforeEach(() => {
     // Reading someone's roles again before a change: those stored for them.
     const who = /\/members\/(\d+)$/.exec(url);
     if (who && (init.method || 'GET') === 'GET') {
-      const { rows } = await db.query('select roles from app_users where discord_id = $1', [who[1]]);
+      const { rows } = await db.query('select roles from app_users where discord_id = $1', [
+        who[1],
+      ]);
       return { ok: true, status: 200, json: async () => ({ roles: rows[0] ? rows[0].roles : [] }) };
     }
     return { ok: true, status: 204, json: async () => ({}) };
@@ -47,7 +49,7 @@ beforeEach(() => {
 
 async function board() {
   await permissions.saveRolePermissions([
-    { roleId: 'r-board', roleName: 'Board', permissions: ['members'] },
+    { roleId: 'r-board', roleName: 'Board', permissions: ['members', 'community'] },
   ]);
   return auth.upsertDiscordUser({ discordId: '900000001', name: 'Elisa', roles: ['r-board'] });
 }
@@ -465,3 +467,46 @@ test('a participant asks to become an organizer; approving gives the role and th
 function mail() {
   return require('./mail');
 }
+
+test('the members board and the applications are given apart', async () => {
+  await permissions.saveRolePermissions([
+    { roleId: 'r-apps', roleName: 'Applications', permissions: ['members'] },
+    { roleId: 'r-community', roleName: 'Community', permissions: ['community'] },
+  ]);
+  const apps = await auth.upsertDiscordUser({
+    discordId: '900000009',
+    name: 'Pia',
+    roles: ['r-apps'],
+  });
+  const team = await auth.upsertDiscordUser({
+    discordId: '900000008',
+    name: 'Rea',
+    roles: ['r-community'],
+  });
+  await rejects(community.listMembers(apps), 403);
+  assert.ok((await members.listApplications(apps)).applications);
+  assert.ok((await community.listMembers(team)).members);
+  await rejects(members.listApplications(team), 403);
+});
+
+test('who held the applications before keeps the members board, once', async () => {
+  const pg = new PGlite();
+  db.setDb(pg);
+  await db.query('select 1');
+  // As on a database from before the split: the marker not there yet.
+  await db.query(`delete from app_settings where key = 'migration_community_key'`);
+  await db.query(
+    `insert into content_role_permissions (role_id, role_name, permissions) values ('r-old', 'Old', '{members}')`
+  );
+  const roleOf = async () =>
+    (await db.query(`select permissions from content_role_permissions where role_id = 'r-old'`))
+      .rows[0].permissions;
+  await pg.exec(require('./schema'));
+  assert.deepEqual(await roleOf(), ['members', 'community']);
+  // Taken away later, it stays away: the migration does not run again.
+  await db.query(
+    `update content_role_permissions set permissions = '{members}' where role_id = 'r-old'`
+  );
+  await pg.exec(require('./schema'));
+  assert.deepEqual(await roleOf(), ['members']);
+});

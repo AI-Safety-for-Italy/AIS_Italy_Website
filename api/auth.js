@@ -13,6 +13,7 @@ const discord = require('../server/discord');
 const permissions = require('../server/permissions');
 const forms = require('../server/forms/forms');
 const members = require('../server/members');
+const review = require('../server/crm/review');
 const { withTiming } = require('../server/timing');
 
 const handler = route({
@@ -24,6 +25,8 @@ const handler = route({
     // Reading a form's answers (added by name, or by a role ticked on it)
     // opens the forms tool too, on those forms only.
     if (user && !areas.forms) areas.forms = await forms.readsAny(user).catch(() => false);
+    // The reviewers of the mentee selection hold no key: they are on its list.
+    if (user && !areas.review) areas.review = await review.isReviewer(user).catch(() => false);
     // A participant may ask to become an organizer (/app/organizer/).
     if (user) areas.upgrade = (await members.upgradeState(user).catch(() => ({}))).can === true;
     sendJson(res, 200, {

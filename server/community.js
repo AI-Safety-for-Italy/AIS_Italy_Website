@@ -15,8 +15,8 @@
 // the site": that stores what it may show (publishSite) and rebuilds it; its
 // directory and working groups come from that published copy through
 // /api/community (server/community-build.js). Never published, the YAML stays
-// the site. Managed from Member applications → Members and Working groups,
-// with the `members` permission.
+// the site. Managed from Members → Board (Members and Working groups), with
+// the `community` permission, apart from the applications (`members`).
 
 const crypto = require('crypto');
 const db = require('./db');
@@ -105,7 +105,7 @@ async function listGroups() {
  * group needs the id of its role on Discord, made there first.
  */
 async function saveGroup(user, body) {
-  await access.authorize(user, 'members', { fresh: true });
+  await access.authorize(user, 'community', { fresh: true });
   const b = body || {};
   const existing = b.id
     ? (await db.query('select * from work_groups where id = $1', [String(b.id)])).rows[0]
@@ -186,7 +186,7 @@ function slugify(s) {
 
 /** The groups in a new order (every id, once). */
 async function reorderGroups(user, ids) {
-  await access.authorize(user, 'members', { fresh: true });
+  await access.authorize(user, 'community', { fresh: true });
   const all = (await listGroups()).map((g) => g.id);
   if (!Array.isArray(ids) || ids.length !== all.length || all.some((id) => !ids.includes(id)))
     throw new HttpError(400, 'Every group, once');
@@ -204,7 +204,7 @@ async function reorderGroups(user, ids) {
  * Discord). The role itself stays on Discord, to delete there if wanted.
  */
 async function deleteGroup(user, id) {
-  await access.authorize(user, 'members', { fresh: true });
+  await access.authorize(user, 'community', { fresh: true });
   const { rows } = await db.query('select * from work_groups where id = $1', [String(id)]);
   if (!rows[0]) throw new HttpError(404, 'No such group');
   const affected = await membersOf(rows[0].id);
@@ -301,7 +301,7 @@ function memberOut(row, groups) {
 
 /** Everyone in the community, with their groups: { members, groups, live }. */
 async function listMembers(user) {
-  await access.authorize(user, 'members');
+  await access.authorize(user, 'community');
   const { rows } = await db.query('select * from community_members order by created_at');
   const groups = await groupsByMember();
   const members = rows.map((r) => memberOut(r, groups));
@@ -319,7 +319,7 @@ async function loadMember(id) {
 
 /** Changes a member: their details, publish, and the Discord account they are. */
 async function updateMember(user, id, body) {
-  await access.authorize(user, 'members', { fresh: true });
+  await access.authorize(user, 'community', { fresh: true });
   const row = await loadMember(id);
   const b = body || {};
   const d = detailsOf(row) || {};
@@ -370,7 +370,7 @@ async function updateMember(user, id, body) {
  * Each is mirrored on Discord. Returns { members, discordFailed }.
  */
 async function setTags(user, body) {
-  await access.authorize(user, 'members', { fresh: true });
+  await access.authorize(user, 'community', { fresh: true });
   const b = body || {};
   const ids = Array.isArray(b.members) ? b.members.map(String) : [];
   if (!ids.length) throw new HttpError(400, 'Pick someone');
@@ -622,7 +622,7 @@ async function discordByEmail(emails) {
  * publish, tags, discord, exists }], counts }. No email leaves the server.
  */
 async function importPreview(user, csvText) {
-  await access.authorize(user, 'members', { fresh: true });
+  await access.authorize(user, 'community', { fresh: true });
   const groups = await listGroups();
   const people = peopleFromSheet(csvText, groups);
   const discord = await discordByEmail(people.map((p) => p.email));
@@ -657,7 +657,7 @@ async function importPreview(user, csvText) {
  * site over to this list. Returns { imported, updated, discordFailed }.
  */
 async function importConfirm(user, csvText) {
-  await access.authorize(user, 'members', { fresh: true });
+  await access.authorize(user, 'community', { fresh: true });
   const groups = await listGroups();
   const people = peopleFromSheet(csvText, groups);
   const discord = await discordByEmail(people.map((p) => p.email));
@@ -733,7 +733,7 @@ async function isLive() {
  * { publishedAt, build }.
  */
 async function publishSite(user) {
-  await access.authorize(user, 'members', { fresh: true });
+  await access.authorize(user, 'community', { fresh: true });
   const copy = { ...(await draft()), publishedAt: new Date().toISOString() };
   await db.query(
     `insert into app_settings (key, value, updated_at) values ($1, $2::jsonb, now())
@@ -750,7 +750,7 @@ async function publishSite(user) {
 
 /** Takes the site back to the YAML (data/members.yaml, community.yaml). */
 async function unpublishSite(user) {
-  await access.authorize(user, 'members', { fresh: true });
+  await access.authorize(user, 'community', { fresh: true });
   await db.query('delete from app_settings where key = $1', [PUBLISHED]);
   const build = await require('./content-publish').triggerBuild();
   await audit.record(user, 'community-import', null, { published: false });

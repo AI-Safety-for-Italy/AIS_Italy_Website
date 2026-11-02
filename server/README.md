@@ -155,7 +155,8 @@ online at the next build, which publishing starts (about 3 minutes).
 
 | Where                                 | What                                                                       |
 | ------------------------------------- | -------------------------------------------------------------------------- |
-| `/app/content/`                       | The list, newest first, and the latest changes                             |
+| `/app/content/`                       | A box per part (seminars, events), each with who can use it                |
+| `/app/content/seminars/`, `/events/`  | The seminars, the events: newest first, and their latest changes           |
 | `/app/content/edit/`                  | The form (`?type=seminar`, `?type=event`, or `?id=…`), with a live preview |
 | `server/routes/app/content.js`        | The API                                                                    |
 | `server/content.js`                   | Validation, the entry each item becomes, versions, the import              |
@@ -241,6 +242,34 @@ Phases 0 (foundations) and 1 (the mentorship board) are here.
   mentee has one mentor; a mentor can go over the number of mentees they asked
   for, with a warning. Pairing sets both to Matched; ending a pair sets them back
   to Selected and keeps the ended pair.
+
+**The mentee selection** (`/app/review/`; `server/crm/review.js`,
+`server/routes/app/crm/review.js`): reviewers score the mentees' applications
+without knowing who they are, and a summary ranks them.
+
+- **Who.** The panel's admins hold `review_admin`, a key given to people by
+  name only (never to a Discord role) and only by the shared admin. They pick
+  the reviewers on _Grid & reviewers_ from anyone who signed in with Discord
+  (`review_reviewers`; reviewers hold no permission key). A reviewer sees the
+  applications under a code and their own scores, never a name, the others'
+  scores or the summary. Neither needs `mentorship`.
+- **Two parts, scored apart**, each on its own grid (criteria 1 to 5, each with
+  a weight, edited by the admins): the **CV** (the CV and profile links: not
+  anonymous, a CV says who someone is) and the **answers** to the application
+  form, with the name, role, affiliation, emails, links, handles and phone
+  numbers taken out (`scrub`, best effort). A mentee's code differs between the
+  two parts, so a reviewer doing both cannot pair a CV with its answers. A
+  reviewer who knows the person steps aside instead of scoring.
+- **Summary** (admins only): every applicant with the names, each part's mean
+  over the complete reviews, how far the reviewers differ, the overall score
+  (the parts' means, weighted) and each review with its comment (encrypted).
+  "Hide names" shows the codes only, to discuss before the names.
+- **The status is the board's.** Changing it in the summary moves the mentee
+  on the board (`mentorship.update`) and the other way round: there is one
+  status. Declined applicants leave the reviewers' lists. Matched is still
+  set by pairing on the board. The board's history of a person leaves out the
+  selection's lines, so it does not tell who reviewed whom.
+- Scores go with the application they score (`server/retention.js`).
 
 The foundations it stands on:
 
@@ -352,7 +381,8 @@ Security (`server/forms/`):
 # Member applications (`/app/members/`)
 
 The registration form's submissions, reviewed by members whose Discord roles
-hold **Member applications** (ticked on Site content → Permissions).
+hold **Member applications** (`members`, ticked on Settings → Permissions).
+In the sidebar: Members → Applications.
 
 | Where                   | What                                                         |
 | ----------------------- | ------------------------------------------------------------ |
@@ -394,7 +424,23 @@ Locally (`npm run dev:meet`, no Discord) the link joins at once.
 
 The directory of members and the working groups, kept in the database instead
 of the old members sheet (`scripts/update-members.py`, `data/members.yaml`).
-Tabs of Member applications, with the `members` permission.
+In the sidebar: Members → Board, with its own permission, **Members board**
+(`community`), given apart from the applications. Whoever held `members`
+before the split got `community` too, once (`migration_community_key` in
+`server/schema.js`).
+
+**The sidebar's groups.** Tools that belong together are listed under one
+entry that opens on them (`group` and `navLabel` in `src/data/tools.js`,
+the groups in `src/data/toolGroups.js`): Mentorship → Board, Selection;
+Members → Applications, Board. Each tool keeps its own permission area, so
+a group shows only the tools one may open, and the Permissions page lists
+the keys under the same names ("Mentorship › Selection").
+
+**Site content** is one entry, shown to whoever holds `seminar` or `event`
+(`needsAny`; holding only "Manage permissions" opens nothing to publish, so
+no empty tool). Its page has a box per part (`sections` in `tools.js`),
+each shown to who holds that part's key, with its own faces; each list
+(`?type=` on the API) is refused to who may not publish that kind.
 
 | Where                         | What                                                                 |
 | ----------------------------- | -------------------------------------------------------------------- |

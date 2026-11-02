@@ -189,30 +189,40 @@ test('a permission opens only its own area', () => {
     crm: true,
     forms: false,
     members: false,
+    community: false,
+    review: false,
   });
   assert.deepEqual(permissions.areas(['seminar']), {
     content: true,
     crm: false,
     forms: false,
     members: false,
+    community: false,
+    review: false,
   });
   assert.deepEqual(permissions.areas(['manage', 'finance']), {
     content: true,
     crm: true,
     forms: false,
     members: false,
+    community: false,
+    review: false,
   });
   assert.deepEqual(permissions.areas([]), {
     content: false,
     crm: false,
     forms: false,
     members: false,
+    community: false,
+    review: false,
   });
   assert.deepEqual(permissions.areas(permissions.KEYS), {
     content: true,
     crm: true,
     forms: true,
     members: true,
+    community: true,
+    review: true,
   });
 });
 
@@ -241,6 +251,8 @@ test('a CRM-only member is shut out of the content tool, and the other way round
     crm: true,
     forms: false,
     members: false,
+    community: false,
+    review: false,
     upgrade: false,
   });
   const seenByWriter = (await call(authApi, { url: '/api/auth', user: writer })).body;
@@ -249,6 +261,8 @@ test('a CRM-only member is shut out of the content tool, and the other way round
     crm: false,
     forms: false,
     members: false,
+    community: false,
+    review: false,
     upgrade: false,
   });
   assert.deepEqual((await call(authApi, { url: '/api/auth' })).body.areas, {
@@ -256,6 +270,8 @@ test('a CRM-only member is shut out of the content tool, and the other way round
     crm: false,
     forms: false,
     members: false,
+    community: false,
+    review: false,
   });
 });
 

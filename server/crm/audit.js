@@ -48,6 +48,13 @@ const ACTIONS = new Set([
   'member-resend',
   // The daily deletion of what is past its keeping time (server/retention.js).
   'retention-cleanup',
+  // The mentee selection (server/crm/review.js): subject_key is the person
+  // key; detail says which part and that it was scored, never the scores.
+  'review-list',
+  'review-score',
+  'review-summary',
+  'review-settings',
+  'review-reviewers',
   // Who may do what (server/permissions.js): detail lists the keys changed.
   'permissions-change',
 ]);
