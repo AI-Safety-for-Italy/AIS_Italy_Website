@@ -6026,6 +6026,13 @@ textarea.fm-input:focus {
   text-decoration: none;
 }
 
+/* Above the card's link, like the count. */
+.fl-copy {
+  position: relative;
+  z-index: 1;
+  white-space: nowrap;
+}
+
 .fl-answers:hover {
   background: var(--accent-50);
 }

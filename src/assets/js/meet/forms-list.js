@@ -30,6 +30,28 @@
     return h('span', { class: 'badge fe-badge fe-badge-' + key }, label);
   }
 
+  // Copies the public link without opening the form. A draft's link answers
+  // "not found" until the form is opened, so the toast says so.
+  function copyButton(f) {
+    var link = location.origin + '/form/?f=' + encodeURIComponent(f.slug);
+    return h(
+      'button',
+      {
+        type: 'button',
+        class: 'btn btn-outline btn-sm fl-copy',
+        title: link,
+        'aria-label': 'Copy the public link of ' + f.title,
+        onclick: function () {
+          M.copy(
+            link,
+            f.status === 'draft' ? 'Link copied: it works once the form is open' : 'Link copied'
+          );
+        },
+      },
+      'Copy link'
+    );
+  }
+
   function card(f) {
     var edit = '/app/forms/edit/?id=' + encodeURIComponent(f.id);
     // The card opens the form (its questions, or its answers for those who
@@ -59,6 +81,7 @@
         'div',
         { class: 'poll-item-side' },
         badge(f),
+        copyButton(f),
         h(
           'a',
           {
