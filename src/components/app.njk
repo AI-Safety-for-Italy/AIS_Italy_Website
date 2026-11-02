@@ -44,10 +44,7 @@
     {%- endfor %}
 
     <div class="ap-nav-bottom">
-      <a class="ap-link" href="/app/settings/"{% if tool == "settings" %} aria-current="page"{% endif %}>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>
-        <span class="ap-link-label">Settings</span>
-      </a>
+      {#- Settings is in the profile menu below (app-common.js, showUser). -#}
       <div class="app-user ap-user" id="appUser"></div>
     </div>
   </nav>
