@@ -64,7 +64,7 @@ async function formsAddress() {
 }
 
 async function isConfigured() {
-  if (process.env.MEET_FAKE_MAIL === '1') return true;
+  if (process.env.MEET_FAKE_MAIL === '1' && !process.env.VERCEL) return true;
   const s = await readSettings();
   return Boolean(s && s.host && s.fromEmail && s.password);
 }
@@ -139,7 +139,7 @@ function logFake(message) {
  * not attempted. Throws HttpError(503) when email is not set up.
  */
 async function sendBatch(messages, { pauseMs = BATCH_PAUSE_MS } = {}) {
-  if (process.env.MEET_FAKE_MAIL === '1') {
+  if (process.env.MEET_FAKE_MAIL === '1' && !process.env.VERCEL) {
     messages.forEach(logFake);
     return messages.map(() => ({ ok: true }));
   }

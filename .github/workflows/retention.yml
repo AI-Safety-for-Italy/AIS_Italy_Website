@@ -1,5 +1,5 @@
-# Deletes the personal data past its keeping time (24 months: form answers,
-# member applications never approved), once a day, on the live site.
+# Deletes the personal data past its keeping time (12 months, 24 for the
+# people selected for the program), once a day, on the live site.
 # See server/retention.js. Needs the repository secret CRON_SECRET, the same
 # value as the CRON_SECRET environment variable on Vercel (production).
 name: Retention cleanup

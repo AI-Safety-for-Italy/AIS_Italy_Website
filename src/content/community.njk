@@ -164,7 +164,8 @@ seoDescription_it: "Partecipa ad AI Safety for Italy: come entrare nei gruppi di
                                     {% for raw in member.profile | split(",") %}
                                     {% set url = raw | trim %}
                                     {% if url %}
-                                    {% set href = url if ("http://" in url or "https://" in url) else "https://" + url %}
+                                    {#- Only a link that starts with http(s):// is used as it is: anything else (javascript:…) gets https:// in front. -#}
+                                    {% set href = url if (url.indexOf("https://") == 0 or url.indexOf("http://") == 0) else "https://" + url %}
                                     {% set label = url | replace("https://", "") | replace("http://", "") | replace("www.", "") %}
                                     <a href="{{ href }}" target="_blank" rel="noopener noreferrer">{{ label }}</a>
                                     {% endif %}

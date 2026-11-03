@@ -52,6 +52,26 @@ test('a new poll is listed and its slots are sorted and de-duplicated', async ()
   assert.equal(list[0].slotCount, 2);
 });
 
+test('a few answers per address and poll, since each one notifies the owner', async () => {
+  const { token } = await polls.createPoll(basePoll(), await owner());
+  const answer = (i) =>
+    polls.submitResponse(
+      token,
+      { name: `P${i}`, email: `p${i}@example.org`, votes: {} },
+      {
+        ip: '203.0.113.9',
+      }
+    );
+  for (let i = 0; i < 5; i++) await answer(i);
+  await rejects(answer(5), 429);
+  // Another address still can.
+  await polls.submitResponse(
+    token,
+    { name: 'Q', email: 'q@example.org', votes: {} },
+    { ip: '203.0.113.10' }
+  );
+});
+
 test('poll input is validated', async () => {
   await rejects(polls.createPoll(basePoll({ title: '  ' }), await owner()), 400);
   await rejects(polls.createPoll(basePoll({ slots: [] }), await owner()), 400);

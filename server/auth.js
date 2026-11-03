@@ -22,6 +22,7 @@ const { isEmail } = require('./email');
 const COOKIE = 'ais_session';
 const SESSION_DAYS = 7;
 const MAX_FAILURES = 10;
+const MAX_FAILURES_ALL = 50; // per hour, from all addresses
 const FAILURE_WINDOW_MINUTES = 15;
 
 function hashPassword(password) {
@@ -94,7 +95,7 @@ async function endSessions(userId) {
 
 function cookieHeader(name, value, maxAge, sameSite = 'Strict') {
   // Secure everywhere but plain-http localhost, where browsers would drop it.
-  const secure = process.env.MEET_INSECURE_COOKIES === '1' ? '' : '; Secure';
+  const secure = process.env.MEET_INSECURE_COOKIES === '1' && !process.env.VERCEL ? '' : '; Secure';
   return `${name}=${value}; Path=/; HttpOnly; SameSite=${sameSite}; Max-Age=${maxAge}${secure}`;
 }
 
@@ -144,7 +145,11 @@ async function checkAdminPassword(req, password) {
      where ip = $1 and attempted_at > now() - make_interval(mins => $2)`,
     [ip, FAILURE_WINDOW_MINUTES]
   );
-  if (rows[0].n >= MAX_FAILURES) {
+  // And from everywhere at once: changing address does not buy more guesses.
+  const all = await db.query(
+    `select count(*)::int as n from login_attempts where attempted_at > now() - interval '1 hour'`
+  );
+  if (rows[0].n >= MAX_FAILURES || all.rows[0].n >= MAX_FAILURES_ALL) {
     throw new HttpError(429, 'Too many attempts. Try again in a few minutes.');
   }
   if (!verifyPassword(password, process.env.ADMIN_PASSWORD_HASH)) {

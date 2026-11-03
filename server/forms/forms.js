@@ -701,8 +701,24 @@ async function submit(slug, body, ip) {
  * Sends the copy from submit(), if the mailbox is set up; `origin` is the
  * site, for the logo (server/forms/copy-email.js). Returns whether it went.
  */
-async function sendCopy(copy, origin) {
+async function sendCopy(copy, origin, formId) {
   if (!copy || !(await mail.isConfigured())) return false;
+  // One copy a day per address and form: the copy must not become a way to
+  // mail any text to anyone from our mailbox. Noted with the sending limits
+  // (form_submit_attempts, emptied after a day), under the address's key.
+  if (formId) {
+    const mark = `copy:${crm.personKey(copy.to)}`;
+    const { rows } = await db.query(
+      `select 1 from form_submit_attempts
+       where ip_hash = $1 and form_id = $2 and at > now() - interval '1 day'`,
+      [mark, formId]
+    );
+    if (rows.length) return false;
+    await db.query('insert into form_submit_attempts (ip_hash, form_id) values ($1, $2)', [
+      mark,
+      formId,
+    ]);
+  }
   const email = copyEmail.render(copy, origin);
   await mail.send({ to: copy.to, ...email });
   return true;

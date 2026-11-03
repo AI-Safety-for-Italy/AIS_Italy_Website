@@ -139,6 +139,42 @@ test('the board keeps the selected for 24 months, the others for 12, and forgets
   assert.ok(!JSON.stringify(line.detail).includes('sara'));
 });
 
+test('the form answer of someone selected stays until 24 months', async () => {
+  const { rows } = await db.query(
+    `insert into forms (slug, title) values ('sel', 'Sel') returning id`
+  );
+  const answer = async (age) =>
+    (
+      await db.query(
+        `insert into form_responses (form_id, version, answers_encrypted, submitted_at)
+         values ($1, 1, 'x', now() - $2::interval) returning id`,
+        [rows[0].id, age]
+      )
+    ).rows[0].id;
+  const kept = await answer('14 months');
+  const old = await answer('30 months');
+  for (const [name, id] of [
+    ['xena', kept],
+    ['yuri', old],
+  ]) {
+    await db.query(
+      `insert into crm_records (id, source, person_key, origin, data_encrypted, response_id)
+       values (gen_random_uuid(), 'mentees_applications', $1, 'form', 'x', $2)`,
+      [key(name), id]
+    );
+    await db.query(
+      `insert into crm_people_state (person_key, kind, status) values ($1, 'mentee', 'matched')`,
+      [key(name)]
+    );
+  }
+  await retention.cleanup();
+  const left = await db.query('select id from form_responses');
+  assert.deepEqual(
+    left.rows.map((r) => r.id),
+    [kept]
+  );
+});
+
 test('before the first import nothing about the board is deleted', async () => {
   await db.query(
     `insert into crm_notes (person_key, body_encrypted, author_name) values ('p', 'x', 'Test')`
