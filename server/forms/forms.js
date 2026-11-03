@@ -1,8 +1,10 @@
 // Forms: making them, opening them to the public, and the answers they get.
 //
 // Who may do what (checked here, on every call, never only in the page):
-//   - manage a form (edit, settings, delete): its owner while they hold the
-//     `forms` permission, or anyone with `forms_admin`;
+//   - own a form (delete it, choose who else edits it): its owner while they
+//     hold the `forms` permission, or anyone with `forms_admin`;
+//   - manage a form (questions, settings, exporting and deleting answers):
+//     whoever owns it, and the people added by name with "Can edit";
 //   - read its answers: whoever may manage it, or whoever holds one of the
 //     Discord roles listed in the form's access_roles (say, the mentorship
 //     team for the mentor applications).
@@ -42,7 +44,8 @@ const DEFAULT_SETTINGS = {
   // question. On unless the form's managers switch it off.
   sendCopy: true,
   // Members of the Discord server who read the answers by name, besides the
-  // roles ticked on the form: [{ discordId, name }]. Chosen by its managers.
+  // roles ticked on the form: [{ discordId, name, edit? }]. Chosen by its
+  // managers; `edit: true` lets them change the form too, given by its owners.
   readers: [],
   // Each reader's own choice about hearing of new answers, by Discord id:
   // { id: true | false }. Without one, a reader added by name hears of them
@@ -77,12 +80,14 @@ function cleanPeople(list) {
       throw new HttpError(400, 'Unknown person', { field: 'readers' });
     if (seen.has(discordId)) continue;
     seen.add(discordId);
-    out.push({
+    const person = {
       discordId,
       name: String((p && p.name) || discordId)
         .trim()
         .slice(0, 100),
-    });
+    };
+    if (p && p.edit === true) person.edit = true;
+    out.push(person);
   }
   if (out.length > MAX_READERS)
     throw new HttpError(400, `At most ${MAX_READERS} people`, { field: 'readers' });
@@ -136,9 +141,21 @@ function addedReader(form, discordId) {
   return Boolean(discordId) && readers.some((p) => p.discordId === discordId);
 }
 
-function canManage(user, who, form) {
+/** Whether this Discord id was added by name with "Can edit". */
+function addedEditor(form, discordId) {
+  const readers = (form.settings && form.settings.readers) || [];
+  return Boolean(discordId) && readers.some((p) => p.discordId === discordId && p.edit === true);
+}
+
+/** Deletes the form, chooses who edits it: its owner, or a forms admin. */
+function canOwn(user, who, form) {
   if (who.perms.includes('forms_admin')) return true;
   return who.perms.includes('forms') && Boolean(form.owner_id) && form.owner_id === user.id;
+}
+
+/** Changes the form and handles its answers: its owners, and its editors. */
+function canManage(user, who, form) {
+  return canOwn(user, who, form) || addedEditor(form, who.discordId);
 }
 
 function canRead(user, who, form) {
@@ -305,7 +322,9 @@ function accessOf(form, ctx) {
       kind: 'person',
       name: p.name,
       avatarUrl: ctx.avatars[p.discordId] || null,
-      what: 'Reads the answers' + (choices[p.discordId] === true ? ' · notified' : ''),
+      what:
+        (p.edit === true ? 'Edits the form' : 'Reads the answers') +
+        (choices[p.discordId] === true ? ' · notified' : ''),
     });
   });
   (form.access_roles || []).forEach((id) =>
@@ -328,10 +347,15 @@ async function readersOf(form) {
     owner = rows.length ? rows[0].name : null;
   }
   const has = (p) => p.permissions.includes('forms_admin');
+  const roles = (await permissions.listRolePermissions()).filter(has);
+  const people = (await permissions.listUserPermissions()).filter(has);
   return {
     owner,
-    allFormsRoles: (await permissions.listRolePermissions()).filter(has).map((r) => r.roleName),
-    allFormsPeople: (await permissions.listUserPermissions()).filter(has).map((p) => p.name),
+    allFormsRoles: roles.map((r) => r.roleName),
+    // So the editor shows these roles ticked and locked: they read every form.
+    allFormsRoleIds: roles.map((r) => r.roleId),
+    allFormsPeople: people.map((p) => p.name),
+    allFormsAvatars: people.map((p) => ({ name: p.name, avatarUrl: p.avatarUrl || null })),
   };
 }
 
@@ -350,6 +374,8 @@ async function get(user, id) {
     accessRoles: form.access_roles,
     // Only for those who change the form: the people who read it are theirs to know.
     ...(canManage(user, who, form) ? { readers: await readersOf(form) } : {}),
+    // Whether this user may delete the form and choose who edits it.
+    canOwn: canOwn(user, who, form),
     notifyMe: notifyMeOf(form, user, who),
   };
 }
@@ -492,8 +518,23 @@ async function updateSettings(user, id, body) {
   if (s.sendCopy !== undefined) settings.sendCopy = Boolean(s.sendCopy);
   if (s.readers !== undefined) {
     // People who read the answers by name: the form's managers choose them,
-    // as they tick the roles below.
-    settings.readers = cleanPeople(s.readers);
+    // as they tick the roles below. Who edits it is for its owners only.
+    const next = cleanPeople(s.readers);
+    if (!canOwn(user, who, form)) {
+      const editors = (list) =>
+        list
+          .filter((p) => p.edit === true)
+          .map((p) => p.discordId)
+          .sort()
+          .join(',');
+      if (editors(next) !== editors(settings.readers || []))
+        throw new HttpError(
+          403,
+          'Only the form’s owner, or whoever holds “Forms: all forms”, chooses who edits it',
+          { field: 'readers' }
+        );
+    }
+    settings.readers = next;
   }
   if (s.membership !== undefined) {
     // Sending answers to the members board is for the forms admins: it is a
@@ -575,6 +616,11 @@ async function updateSettings(user, id, body) {
 /** Deletes a form: drafts without answers, or anything for forms_admin. */
 async function remove(user, id) {
   const { form, who } = await formFor(user, id, 'manage', { fresh: true });
+  if (!canOwn(user, who, form))
+    throw new HttpError(
+      403,
+      'Only the form’s owner, or whoever holds “Forms: all forms”, deletes it'
+    );
   const { rows } = await db.query(
     'select count(*)::int as n from form_responses where form_id = $1',
     [form.id]
@@ -591,7 +637,10 @@ async function remove(user, id) {
 
 /** What the editor needs besides the form: templates, question kinds, roles. */
 async function meta(user) {
-  await requireForms(user);
+  // Also for the editors added by name, who may hold no forms permission.
+  const who = await whoIs(user);
+  if (!who.perms.includes('forms') && !who.perms.includes('forms_admin') && !(await readsAny(user)))
+    await requireForms(user);
   let roles = [];
   try {
     roles = await permissions.guildRoles();

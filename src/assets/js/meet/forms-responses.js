@@ -227,6 +227,8 @@
       var q = byId[itemId];
       if (CHOICE.indexOf(q.type) !== -1)
         return key === '__other' ? Boolean(v.other) : (v.selected || []).indexOf(key) !== -1;
+      // A ranking: picking an option keeps whoever put it first.
+      if (q.type === 'ranking') return Array.isArray(v) && v[0] === key;
       return String(v) === key;
     }
 
@@ -246,6 +248,12 @@
         if (v.other) labels.push('Other: ' + v.other);
         return labels.join(', ');
       }
+      if (q.type === 'ranking')
+        return (Array.isArray(v) ? v : [])
+          .map(function (id, i) {
+            return i + 1 + '. ' + optionLabel(q, id);
+          })
+          .join(', ');
       if (q.type === 'yes_no') return v === 'yes' ? 'Yes' : 'No';
       if (q.type === 'consent') return 'Accepted';
       if (q.type === 'scale') return v + ' / ' + q.max;
@@ -932,6 +940,7 @@
           others.length ? textList(q, others, 'Written in “Other”') : null
         );
       }
+      if (q.type === 'ranking') return ranking(q, answered);
       if (q.type === 'scale') {
         var values = answered.map(function (r) {
           return Number(r.answers[q.id]);
@@ -1159,6 +1168,50 @@
         b.share = b.count / nums.length;
       });
       return out;
+    }
+
+    /** A ranking: the options by their average place, each with how many put it first. */
+    function ranking(q, answered) {
+      var selectedKey = null;
+      state.cross.forEach(function (f) {
+        if (f.item === q.id) selectedKey = f.key;
+      });
+      var rows = q.options.map(function (o) {
+        var places = [];
+        var first = 0;
+        answered.forEach(function (r) {
+          var at = (r.answers[q.id] || []).indexOf(o.id);
+          if (at === -1) return;
+          places.push(at + 1);
+          if (at === 0) first++;
+        });
+        var avg = places.length ? mean(places) : null;
+        return {
+          key: o.id,
+          avg: avg,
+          label: (t(o.label) || o.id) + (avg !== null ? ' · average place ' + avg : ''),
+          count: first,
+          share: answered.length ? first / answered.length : 0,
+          selected: o.id === selectedKey,
+        };
+      });
+      rows.sort(function (a, b) {
+        return (a.avg === null ? 1e9 : Number(a.avg)) - (b.avg === null ? 1e9 : Number(b.avg));
+      });
+      return h(
+        'div',
+        null,
+        h(
+          'p',
+          { class: 'fr-card-meta', style: 'margin:0 0 .5rem' },
+          'Best placed first. The bars: how many put each option first.'
+        ),
+        C.bars(rows, {
+          onPick: function (key) {
+            toggleCross(q, key, optionLabel(q, key) + ' first');
+          },
+        })
+      );
     }
 
     function stats(values, pairs) {
@@ -1418,6 +1471,14 @@
         if (v.other) tags.push(h('span', { class: 'fr-tag is-other' }, 'Other: ' + v.other));
         return h('div', { class: 'fr-tags' }, tags);
       }
+      if (q.type === 'ranking')
+        return h(
+          'ol',
+          { class: 'fr-a fr-rank' },
+          (Array.isArray(v) ? v : []).map(function (id) {
+            return h('li', null, optionLabel(q, id));
+          })
+        );
       if (q.type === 'url' && /^https:\/\//i.test(String(v)))
         return h(
           'p',
