@@ -44,6 +44,12 @@ const PERMISSIONS = [
   },
   { key: 'blog', label: 'Blog', area: 'content', help: 'Publish blog posts (coming later).' },
   {
+    key: 'homepage',
+    label: 'Banners & spotlight',
+    area: 'content',
+    help: 'The banners above every page and the boxes beside the home page hero.',
+  },
+  {
     key: 'others',
     label: "Edit others' content",
     area: 'content',
@@ -153,6 +159,7 @@ const DEV_DEFAULTS = {
   'dev-direttivo': [
     'seminar',
     'event',
+    'homepage',
     'others',
     'manage',
     'mentorship',

@@ -7,12 +7,15 @@
 //   GET ?part=mentors    -> { live, mentors, hidden }   the mentors published from
 //                           the board (server/crm/mentorship.js), photos as paths
 //   GET ?part=mentor-photo&id=…  -> that published mentor's photo (image/jpeg)
+//   GET ?part=highlights -> { live, banners, spotlights }   the banners and the
+//                           home page boxes switched on (server/highlights.js)
 // Only what is on the site anyway: nothing until the content is switched on,
 // and never removed items.
 const { route, sendJson, HttpError } = require('../server/http');
 const content = require('../server/content');
 const community = require('../server/community');
 const mentorship = require('../server/crm/mentorship');
+const highlights = require('../server/highlights');
 const { getQuery } = require('../server/http');
 
 module.exports = route({
@@ -20,6 +23,10 @@ module.exports = route({
     const { part, id } = getQuery(req);
     if (part === 'community') {
       sendJson(res, 200, await community.publicExport());
+      return;
+    }
+    if (part === 'highlights') {
+      sendJson(res, 200, await highlights.publicExport());
       return;
     }
     if (part === 'mentors') {

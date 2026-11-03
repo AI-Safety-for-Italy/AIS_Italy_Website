@@ -43,8 +43,8 @@ module.exports = [
     faces: true,
     url: '/app/content/',
     area: 'content',
-    needsAny: ['seminar', 'event'],
-    text: 'Seminars and events on the website.',
+    needsAny: ['seminar', 'event', 'homepage'],
+    text: 'Seminars, events, banners and the home page spotlight.',
     icon: '<path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/>',
     sections: [
       {
@@ -62,6 +62,14 @@ module.exports = [
         needs: 'event',
         text: 'Meetups, workshops and the other events.',
         icon: '<rect x="3" y="4.5" width="18" height="16" rx="2.5"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/>',
+      },
+      {
+        key: 'homepage',
+        label: 'Banners & spotlight',
+        url: '/app/content/homepage/',
+        needs: 'homepage',
+        text: 'The banners above every page and the boxes beside the home page hero.',
+        icon: '<path d="M3 5h18v4H3z"/><rect x="12" y="12" width="9" height="8" rx="1.5"/><path d="M3 13h6M3 17h6"/>',
       },
     ],
     tabs: [],

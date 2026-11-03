@@ -139,6 +139,9 @@ db.ensureSchema().then(async () => {
   // (server/content-build.js); publishing rewrites it.
   const content = require('../server/content');
   require('../server/content-build').writeSnapshot(await content.exportForBuild());
+  require('../server/highlights-build').writeSnapshot(
+    await require('../server/highlights').publicExport()
+  );
   server.listen(PORT, () => {
     console.log(`Personal area running at http://localhost:${PORT}/app/`);
     console.log(

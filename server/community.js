@@ -879,7 +879,8 @@ async function differences() {
  *             tags here without their role there (fixed by "Give the roles"),
  *             roles there without a tag here, linked accounts gone from the
  *             server; read from Discord, so `available` false without the bot
- *   site      { live, publishedAt, pending, changes }: the public directory
+ *   site      { live, publishedAt, pending, changes, members, groups, draft }:
+ *             the public directory, and how many are on it
  */
 async function status(user) {
   await access.authorize(user, 'community');
@@ -1338,7 +1339,10 @@ function canonical(value) {
   );
 }
 
-/** Whether the list differs from what the site shows: { live, publishedAt, pending }. */
+/**
+ * Whether the list differs from what the site shows: { live, publishedAt,
+ * pending, changes, members, groups, draft: { members, groups } }.
+ */
 async function siteState() {
   const now = await draft();
   const was = await published();
@@ -1367,6 +1371,10 @@ async function siteState() {
     publishedAt: was ? was.publishedAt : null,
     pending: !same,
     changes: same ? 0 : Math.max(changes, 1),
+    // On the website (the last publish) and after the next one.
+    members: was ? (was.members || []).length : 0,
+    groups: was ? (was.groups || []).length : 0,
+    draft: { members: now.members.length, groups: now.groups.length },
   };
 }
 /**

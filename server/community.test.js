@@ -366,6 +366,29 @@ test('the site shows only what is published, and only who consented', async () =
   assert.ok(!JSON.stringify(await community.publicExport()).includes('Ciro'));
   await community.publishSite(user);
   assert.ok(JSON.stringify(await community.publicExport()).includes('Ciro'));
+  let site = await community.siteState();
+  assert.deepEqual([site.members, site.groups, site.draft], [3, 8, { members: 3, groups: 8 }]);
+
+  // Tags and working groups reach the site on the same update: the group's
+  // members (about.njk) and the group itself (community.yaml).
+  await community.setTags(user, {
+    members: [ciro.id],
+    action: 'add',
+    group: 'events',
+    level: 'stable',
+  });
+  const events = (await community.listGroups()).find((g) => g.id === 'events');
+  await community.saveGroup(user, { ...events, titleEn: 'Events and meetups' });
+  site = await community.siteState();
+  assert.equal(site.pending, true);
+  assert.equal(site.changes, 2);
+  await community.publishSite(user);
+  const after = await community.publicExport();
+  assert.deepEqual(after.members.find((m) => m.name === 'Ciro Tre').groups, ['events']);
+  assert.equal(after.groups.find((g) => g.id === 'events').title, 'Events and meetups');
+  assert.equal(communityBuild.community({}, after).working_groups, after.groups);
+  assert.equal(communityBuild.members(yaml, after).published_at, after.publishedAt);
+  assert.equal((await community.siteState()).pending, false);
 
   await community.unpublishSite(user);
   assert.equal((await community.publicExport()).live, false);

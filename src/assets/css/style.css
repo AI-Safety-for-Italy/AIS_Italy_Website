@@ -1136,7 +1136,7 @@ a:hover {
     animation: rise-in 0.7s var(--ease) 0.35s both;
   }
 
-  .event-card.hero-enter {
+  .spotlight.hero-enter {
     animation-delay: 0.3s;
   }
 }
@@ -1206,6 +1206,72 @@ a:hover {
   transform: translateY(-3px);
   box-shadow: var(--shadow-xl);
   border-color: var(--border-strong);
+}
+
+/* The boxes beside the home page hero: stacked in one cell, so the
+   tallest sets the height and switching never moves the page; the one
+   showing is .is-current (main.js), the dots pick one. */
+.spotlight {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.spotlight-cards {
+  display: grid;
+}
+
+.spotlight-cards > .event-card {
+  grid-area: 1 / 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.spotlight.is-rotating .event-card {
+  transition: opacity 0.5s ease, visibility 0.5s, box-shadow 0.3s ease, transform 0.3s ease;
+}
+
+.spotlight.is-rotating .event-card:not(.is-current) {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.spotlight-dots {
+  display: flex;
+  justify-content: center;
+  gap: 0.25rem;
+}
+
+.spotlight-dot {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+
+.spotlight-dot::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border-strong);
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.spotlight-dot.is-current::before {
+  background: var(--accent);
+  transform: scale(1.25);
+}
+
+.spotlight-dot:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 50%;
 }
 
 .event-card-body {

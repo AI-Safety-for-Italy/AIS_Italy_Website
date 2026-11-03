@@ -1059,7 +1059,9 @@
     var lang = pickLang(schema, opts.lang);
     var S = STRINGS[lang] || STRINGS.it;
     var t = texter(schema, lang);
-    var total = schema.items.filter(isQuestion).length;
+    // The questions the answers so far bring into play: drawSteps() counts
+    // them again on every change, as "show only if" adds or hides some.
+    var total = h('span', null, S.questions(schema.items.filter(isQuestion).length));
 
     var langToggle = null;
     if (schema.languages.length > 1) {
@@ -1119,7 +1121,7 @@
         opts.eyebrow ? h('p', { class: 'fm-eyebrow' }, opts.eyebrow) : brand(opts.preview, lang),
         h('h1', { class: 'fm-title' }, t(schema.title)),
         intro ? md(intro, 'fm-intro') : null,
-        h('p', { class: 'fm-meta' }, h('span', null, S.questions(total)), closes),
+        h('p', { class: 'fm-meta' }, total, closes),
         steps,
       ],
       [langToggle ? h('div', { class: 'fm-topline' }, langToggle) : null, view],
@@ -1131,6 +1133,11 @@
     var form = null;
     function drawSteps() {
       if (!form) return;
+      total.textContent = S.questions(
+        form.pages.reduce(function (n, p) {
+          return n + p.count;
+        }, 0)
+      );
       M.clear(steps);
       steps.hidden = form.pages.length < 2;
       form.pages.forEach(function (p) {

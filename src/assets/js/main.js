@@ -320,6 +320,60 @@
     requestAnimationFrame(frame);
   }
 
+  // ── Home page spotlight ───────────────────────────────────────────────
+  // With more than one box beside the hero, they take turns every few
+  // seconds; a dot shows one at once. Hovering or focusing holds it, and
+  // with reduced motion only the dots change it.
+  function initSpotlight() {
+    var box = document.querySelector('[data-spotlight].is-rotating');
+    if (!box) return;
+    var cards = Array.prototype.slice.call(box.querySelectorAll('.event-card'));
+    var dots = Array.prototype.slice.call(box.querySelectorAll('.spotlight-dot'));
+    var EVERY = 8000;
+    var current = 0;
+    var held = false;
+
+    function show(i) {
+      current = i;
+      cards.forEach(function (card, j) {
+        var on = j === i;
+        card.classList.toggle('is-current', on);
+        if (on) card.removeAttribute('aria-hidden');
+        else card.setAttribute('aria-hidden', 'true');
+        card.querySelectorAll('a').forEach(function (a) {
+          if (on) a.removeAttribute('tabindex');
+          else a.setAttribute('tabindex', '-1');
+        });
+      });
+      dots.forEach(function (dot, j) {
+        dot.classList.toggle('is-current', j === i);
+        if (j === i) dot.setAttribute('aria-current', 'true');
+        else dot.removeAttribute('aria-current');
+      });
+    }
+
+    dots.forEach(function (dot, i) {
+      dot.addEventListener('click', function () {
+        show(i);
+      });
+    });
+    show(0);
+    if (reduceMotion) return;
+    ['mouseenter', 'focusin'].forEach(function (e) {
+      box.addEventListener(e, function () {
+        held = true;
+      });
+    });
+    ['mouseleave', 'focusout'].forEach(function (e) {
+      box.addEventListener(e, function () {
+        held = false;
+      });
+    });
+    setInterval(function () {
+      if (!held && !document.hidden) show((current + 1) % cards.length);
+    }, EVERY);
+  }
+
   // ── Stats count up from zero the first time they scroll into view ─────
   function initCountUp() {
     var nums = document.querySelectorAll('[data-count]');
@@ -773,6 +827,7 @@
   initMentorExplorer();
   initVideoEmbeds();
   initAnnouncements();
+  initSpotlight();
   initScrollReveal();
   initCountUp();
   initHeroGlow();

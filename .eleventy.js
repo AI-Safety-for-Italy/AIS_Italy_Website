@@ -5,6 +5,7 @@ const locales = require("./src/data/locales.js");
 const contentBuild = require("./server/content-build");
 const communityBuild = require('./server/community-build');
 const mentorsBuild = require('./server/mentors-build');
+const highlightsBuild = require('./server/highlights-build');
 
 const DEFAULT_LOCALE = locales[0];
 const PREFIXED_LOCALES = locales.filter(l => l.prefix);
@@ -397,6 +398,9 @@ module.exports = function(eleventyConfig) {
       if (filename === 'events.yaml') return contentBuild.merge(data, await contentBuild.load());
       // The directory and the working groups, once published from the
       // dashboard (Member applications); see server/community-build.js.
+      // The banners, once saved from the dashboard (Site content → Homepage);
+      // see server/highlights-build.js.
+      if (filename === 'global.yaml') return highlightsBuild.global(data, await highlightsBuild.load());
       if (filename === 'members.yaml') return communityBuild.members(data, await communityBuild.load());
       if (filename === 'community.yaml') return communityBuild.community(data, await communityBuild.load());
       if (filename === 'mentors.yaml') {
@@ -409,6 +413,11 @@ module.exports = function(eleventyConfig) {
   // shows the change at once.
   eleventyConfig.addWatchTarget(contentBuild.SNAPSHOT);
   eleventyConfig.addWatchTarget(communityBuild.SNAPSHOT);
+  eleventyConfig.addWatchTarget(highlightsBuild.SNAPSHOT);
+  // The boxes beside the home page hero (src/content/index.njk).
+  eleventyConfig.addGlobalData('highlights', async () =>
+    highlightsBuild.spotlights(await highlightsBuild.load())
+  );
   eleventyConfig.addWatchTarget(mentorsBuild.SNAPSHOT);
 
   /**

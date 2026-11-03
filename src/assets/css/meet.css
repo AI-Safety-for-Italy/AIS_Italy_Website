@@ -9847,3 +9847,251 @@ a.hub-todo-card:hover {
     justify-content: flex-start;
   }
 }
+
+/* ── Banners & spotlight (/app/content/homepage/) ────────────────────────── */
+
+.hl-panel + .hl-panel {
+  margin-top: 1.5rem;
+}
+
+.hl-panel .panel-head {
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.hl-add {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.hl-add .form-input {
+  width: auto;
+}
+
+.hl-list {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.hl-item {
+  border: 1px solid var(--border-default);
+  border-left: 3px solid var(--border-strong);
+  border-radius: var(--radius-sm, 8px);
+  padding: 1rem 1.1rem 1.2rem;
+  display: grid;
+  gap: 0.9rem;
+}
+
+.hl-item.is-on {
+  border-left-color: var(--accent);
+}
+
+.hl-item-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.hl-item-head strong {
+  margin-right: auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.hl-switch {
+  padding: 0;
+  gap: 0.5rem;
+}
+
+.hl-tools {
+  display: flex;
+  gap: 0.15rem;
+}
+
+.hl-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem 1rem;
+}
+
+.hl-grid > .is-wide {
+  grid-column: 1 / -1;
+}
+
+.hl-field {
+  display: grid;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.hl-field .form-label {
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.hl-sub {
+  margin: 0.5rem 0 0;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.hl-lines {
+  display: grid;
+  gap: 0.5rem;
+  justify-items: start;
+}
+
+.hl-line {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 0.75rem;
+  align-items: end;
+  width: 100%;
+}
+
+.hl-date {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 10rem));
+  gap: 0.75rem;
+}
+
+.hl-fill .form-input {
+  max-width: 32rem;
+}
+
+@media (max-width: 640px) {
+  .hl-grid,
+  .hl-line {
+    grid-template-columns: 1fr;
+  }
+
+  .hl-date {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* A dashboard box with parts: the title's link covers the box, the parts'
+   links sit above it. */
+.hub-tool.has-parts {
+  position: relative;
+}
+
+.hub-tool-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.hub-tool-link::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+
+.hub-tool-parts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.hub-tool-body .hub-tool-part {
+  position: relative;
+  z-index: 1;
+  padding: 3px 10px;
+  border: 1px solid var(--border-default);
+  border-radius: 999px;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  background: var(--bg-primary);
+}
+
+.hub-tool-body .hub-tool-part:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.hub-tool-part[hidden] {
+  display: none;
+}
+
+.hl-langbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+}
+
+.hl-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 360px);
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.hl-preview-spot {
+  position: sticky;
+  top: calc(var(--ap-top, 64px) + 1rem);
+}
+
+.hl-preview {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.hl-preview.is-off > :not(.hl-preview-label) {
+  opacity: 0.5;
+}
+
+.hl-preview-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+/* The site's bar, in the page's flow; on the site the text crosses it on
+   one line, here it wraps so all of it shows. */
+.hl-banner-preview {
+  position: static;
+  border-radius: var(--radius-sm, 8px);
+}
+
+.hl-banner-preview .announce-item {
+  display: block;
+  text-align: center;
+}
+
+.hl-banner-preview .announce-dot {
+  display: inline-block;
+  margin-right: 0.5rem;
+  vertical-align: middle;
+}
+
+.hl-banner-preview .announce-item a {
+  margin-left: 0.5rem;
+}
+
+.hl-preview .event-card:hover {
+  transform: none;
+}
+
+@media (max-width: 1100px) {
+  .hl-body {
+    grid-template-columns: 1fr;
+  }
+
+  /* Above the fields, where it is seen while typing the first ones. */
+  .hl-preview-spot {
+    position: static;
+    max-width: 420px;
+    order: -1;
+  }
+}
