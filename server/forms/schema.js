@@ -32,8 +32,8 @@ const TYPES = {
   single: { answer: true, choice: true, label: 'One choice' },
   multi: { answer: true, choice: true, label: 'Several choices' },
   dropdown: { answer: true, choice: true, label: 'Drop-down' },
-  // The options put in order by the person: the answer is every option's id,
-  // first to last.
+  // The options put in order by the person: the answer is the ids of those
+  // they ranked, first to last; the rest they left out.
   ranking: { answer: true, choice: true, label: 'Ranking' },
   scale: { answer: true, label: 'Scale' },
   date: { answer: true, label: 'Date' },
@@ -166,6 +166,14 @@ function cleanItem(raw, languages, seen) {
     if (type === 'multi') {
       const max = int(it.maxChoices, 1, item.options.length, where);
       if (max) item.maxChoices = max;
+    }
+    if (type === 'ranking') {
+      // How many to rank, exactly or at least; without it, as many as they like.
+      const count = int(it.rankCount, 1, item.options.length, where);
+      if (count) {
+        item.rankCount = count;
+        item.rankMode = it.rankMode === 'atLeast' ? 'atLeast' : 'exactly';
+      }
     }
   }
   if (type === 'scale') {
@@ -349,13 +357,17 @@ function cleanOne(item, raw) {
     case 'dropdown':
       return cleanChoice(item, raw);
     case 'ranking': {
-      // Every option once, in the order given.
+      // The options ranked, each once, in the order given; the others left out.
       if (!Array.isArray(raw)) return { error: 'Put the options in order' };
       if (!raw.length) return { empty: true };
       const ids = item.options.map((o) => o.id);
       const order = raw.map(String);
-      if (order.length !== ids.length || ids.some((id) => !order.includes(id)))
-        return { error: 'Put every option in order' };
+      if (order.some((id) => !ids.includes(id)) || new Set(order).size !== order.length)
+        return { error: 'Put the options in order' };
+      const n = item.rankCount;
+      if (n && item.rankMode === 'atLeast' && order.length < n)
+        return { error: `Rank at least ${n}` };
+      if (n && item.rankMode !== 'atLeast' && order.length !== n) return { error: `Rank ${n}` };
       return { value: order };
     }
     case 'scale': {

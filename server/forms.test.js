@@ -1689,7 +1689,7 @@ test('the sign-up form offers the working groups as they are, and its answers be
   assert.equal(details.publish, true);
 });
 
-test('a ranking question: every option once, in the order given', () => {
+test('a ranking question: the options ranked, each once, in the order given', () => {
   const s = schemaLib.cleanSchema({
     languages: ['it'],
     title: { it: 'Priorità' },
@@ -1715,8 +1715,9 @@ test('a ranking question: every option once, in the order given', () => {
     schemaLib.answerText(s, s.items[0], answers.rank),
     '1. Mentorship; 2. Seminari; 3. Meetup'
   );
+  // Options can be left out.
+  assert.deepEqual(schemaLib.cleanAnswers(s, { rank: ['op_b'] }).answers.rank, ['op_b']);
   for (const bad of [
-    ['op_a', 'op_b'],
     ['op_a', 'op_b', 'op_b'],
     ['op_a', 'op_b', 'op_x'],
     'op_a,op_b,op_c',
@@ -1731,6 +1732,50 @@ test('a ranking question: every option once, in the order given', () => {
   // Required: no order at all is refused.
   assert.throws(
     () => schemaLib.cleanAnswers(s, {}),
+    (err) => err.status === 400
+  );
+});
+
+test('a ranking question can ask to rank exactly, or at least, a number of options', () => {
+  const make = (extra) =>
+    schemaLib.cleanSchema({
+      languages: ['it'],
+      title: { it: 'Priorità' },
+      items: [
+        {
+          id: 'rank',
+          type: 'ranking',
+          label: { it: 'Le tue preferite' },
+          options: ['a', 'b', 'c', 'd'].map((x) => ({ id: `op_${x}`, label: { it: x } })),
+          ...extra,
+        },
+      ],
+    });
+  const refused = (s, rank) =>
+    assert.throws(
+      () => schemaLib.cleanAnswers(s, { rank }),
+      (err) => err.status === 400 && Boolean(err.details.errors.rank),
+      JSON.stringify(rank)
+    );
+  const exactly = make({ rankCount: 2 });
+  assert.equal(exactly.items[0].rankMode, 'exactly');
+  assert.deepEqual(schemaLib.cleanAnswers(exactly, { rank: ['op_d', 'op_a'] }).answers.rank, [
+    'op_d',
+    'op_a',
+  ]);
+  refused(exactly, ['op_d']);
+  refused(exactly, ['op_d', 'op_a', 'op_b']);
+  const atLeast = make({ rankCount: 2, rankMode: 'atLeast' });
+  assert.equal(
+    schemaLib.cleanAnswers(atLeast, { rank: ['op_d', 'op_a', 'op_b'] }).answers.rank.length,
+    3
+  );
+  refused(atLeast, ['op_d']);
+  // Not optional once answered, but an optional question can be left empty.
+  assert.deepEqual(schemaLib.cleanAnswers(exactly, {}).answers, {});
+  // More than there are options is refused when the form is saved.
+  assert.throws(
+    () => make({ rankCount: 5 }),
     (err) => err.status === 400
   );
 });

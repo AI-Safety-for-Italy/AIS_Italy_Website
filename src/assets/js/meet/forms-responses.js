@@ -1189,7 +1189,16 @@
         return {
           key: o.id,
           avg: avg,
-          label: (t(o.label) || o.id) + (avg !== null ? ' · average place ' + avg : ''),
+          label:
+            (t(o.label) || o.id) +
+            (avg !== null
+              ? ' · average place ' +
+                avg +
+                ' · ranked by ' +
+                places.length +
+                ' of ' +
+                answered.length
+              : ' · ranked by nobody'),
           count: first,
           share: answered.length ? first / answered.length : 0,
           selected: o.id === selectedKey,

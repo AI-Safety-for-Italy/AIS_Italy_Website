@@ -1568,6 +1568,49 @@
     }
     draw();
     var extra = [];
+    if (item.type === 'ranking') {
+      // How many the person must rank: exactly or at least that many. Empty:
+      // as many as they like (they can leave any option out).
+      var mode = h(
+        'select',
+        { class: 'form-input is-compact', 'aria-label': 'Exactly or at least' },
+        h('option', { value: 'exactly' }, 'Exactly'),
+        h('option', { value: 'atLeast' }, 'At least')
+      );
+      mode.value = item.rankMode === 'atLeast' ? 'atLeast' : 'exactly';
+      mode.disabled = !item.rankCount;
+      mode.addEventListener('change', function () {
+        item.rankMode = mode.value;
+        markDirty();
+      });
+      var count = textInput(
+        item.rankCount,
+        function (v) {
+          if (v) {
+            item.rankCount = Number(v);
+            item.rankMode = mode.value;
+          } else {
+            delete item.rankCount;
+            delete item.rankMode;
+          }
+          mode.disabled = !v;
+        },
+        {
+          type: 'number',
+          min: '1',
+          max: String(item.options.length),
+          placeholder: 'Any',
+          'aria-label': 'How many to rank',
+        }
+      );
+      extra.push(
+        field(
+          'How many to rank?',
+          h('div', { class: 'fe-rank-count' }, mode, count),
+          'Empty: as many as they like. They can always leave options out.'
+        )
+      );
+    }
     if (item.type === 'multi') {
       extra.push(
         field(
