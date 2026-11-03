@@ -235,23 +235,29 @@ test('the old sheet comes in after a preview: approved people, consent, the stab
     published: 2,
     tagged: 2,
     onDiscord: 1,
+    byName: 0,
     already: 0,
   });
+  // The bot cannot read the server's list here: no matching by name.
+  assert.equal(preview.byName, false);
   const bea = preview.people.find((p) => p.name === 'Bea Due');
   assert.equal(bea.role, 'organizer');
   assert.deepEqual(bea.tags, [
     { group: 'mentorship', level: 'stable' },
     { group: 'seminars', level: 'stable' },
   ]);
-  assert.equal(bea.discord.id, '700000002');
+  assert.deepEqual(bea.discord, { id: '700000002', name: 'Bea D.', by: 'email' });
   assert.ok(!JSON.stringify(preview).includes('@example.org'));
   assert.equal((await community.listMembers(user)).members.length, 0);
   await rejects(community.importPreview(user, 'a,b\n1,2'), 400);
 
+  botCalls = [];
   const done = await community.importConfirm(user, SHEET);
-  assert.deepEqual(done, { imported: 3, updated: 0, discordFailed: 0 });
-  // Bea got her tags on Discord: her two groups given, no role taken away
-  // (one given by hand there shows in the check of roles and tags).
+  assert.deepEqual(done, { imported: 3, updated: 0, linked: 1 });
+  // Importing sends nothing to Discord: the tags go with "Send tags".
+  assert.deepEqual(roleCalls(), []);
+  const sent = await community.sendTags(user);
+  assert.deepEqual(sent, { given: 2, failed: 0, remaining: 0 });
   const calls = roleCalls();
   assert.ok(calls.includes('PUT 700000002/roles/1566885628547960922'));
   assert.ok(calls.includes('PUT 700000002/roles/1566885852347633766'));
@@ -275,7 +281,7 @@ test('the old sheet comes in after a preview: approved people, consent, the stab
   assert.deepEqual(await community.importConfirm(user, SHEET), {
     imported: 0,
     updated: 3,
-    discordFailed: 0,
+    linked: 1,
   });
 });
 
@@ -749,4 +755,72 @@ test('the coordination declared before becomes taking part, once', async () => {
   await community.setCoordinator(user, { group: 'mentorship', member: ada.id, on: true });
   await pg.exec(require('./schema'));
   assert.equal(await levelOf(), 'coordination');
+});
+
+test('before importing, the sheet is matched to Discord by name, only when sure', async () => {
+  const user = await board();
+  server([
+    // Ada: one account with her name, as display name.
+    { id: '800000021', username: 'adauno', globalName: 'Ada Uno', roles: [] },
+    // Bea: two accounts with her name, written two ways: neither is taken.
+    { id: '800000022', username: 'bea.due', roles: [] },
+    { id: '800000023', username: 'beadue', nick: 'Due Bea', roles: [] },
+    // Ciro: the username, dots as spaces.
+    { id: '800000024', username: 'ciro.tre', roles: [] },
+  ]);
+  // Ciro's account is already someone else's on the board.
+  await db.query(
+    `insert into community_members (id, person_key, discord_id, details_encrypted, source)
+     values ('00000000-0000-4000-8000-000000000001', 'someone', '800000024', 'x', 'board')`
+  );
+
+  const preview = await community.importPreview(user, SHEET);
+  assert.equal(preview.byName, true);
+  const by = (name) => preview.people.find((p) => p.name === name).discord;
+  assert.deepEqual(by('Ada Uno'), { id: '800000021', name: 'Ada Uno', by: 'name' });
+  assert.equal(by('Bea Due'), null);
+  assert.equal(by('Ciro Tre'), null);
+  assert.equal(preview.counts.byName, 1);
+
+  botCalls = [];
+  const done = await community.importConfirm(user, SHEET);
+  assert.equal(done.linked, 1);
+  assert.deepEqual(roleCalls(), []);
+  const ada = (await community.listMembers(user)).members.find((m) => m.name === 'Ada Uno');
+  assert.equal(ada.discordId, '800000021');
+  assert.equal(ada.discordUsername, 'adauno');
+});
+
+test('the tags go to Discord a few at a time, until none is left', async () => {
+  const user = await board();
+  const people = [];
+  const rows = [];
+  for (let i = 0; i < 12; i++) {
+    people.push({ id: String(810000000 + i), username: `p${i}`, nick: `Persona N${i}`, roles: [] });
+    rows.push([
+      '10/10/2026 10.00.00',
+      'Persona',
+      `N${i}`,
+      `p${i}@example.org`,
+      '',
+      'Italia',
+      'Roma',
+      '',
+      '',
+      'Partecipazione stabile',
+      '',
+      'Partecipazione stabile',
+      CONSENT,
+      'Approvato',
+    ]);
+  }
+  server(people);
+  assert.equal((await community.importConfirm(user, csv(rows))).linked, 12);
+  // 12 people, 2 tags each: 24 roles, 15 per call.
+  const first = await community.sendTags(user);
+  assert.deepEqual(first, { given: 15, failed: 0, remaining: 9 });
+  const second = await community.sendTags(user);
+  assert.deepEqual(second, { given: 9, failed: 0, remaining: 0 });
+  assert.deepEqual(await community.sendTags(user), { given: 0, failed: 0, remaining: 0 });
+  assert.ok(people.every((p) => p.roles.length === 2));
 });

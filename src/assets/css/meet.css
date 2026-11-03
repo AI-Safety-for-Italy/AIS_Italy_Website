@@ -9690,3 +9690,22 @@ a.hub-todo-card:hover {
 [data-theme='dark'] .perm-from-role {
   color: #1c1203;
 }
+
+/* The import preview: how each one was matched to Discord. */
+.match-by {
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.match-by.is-email {
+  background: var(--accent-100);
+  color: var(--accent-700);
+}
+
+.match-by.is-name {
+  background: var(--warning-light);
+  color: var(--warning);
+}

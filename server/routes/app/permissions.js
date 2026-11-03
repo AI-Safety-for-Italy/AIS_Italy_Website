@@ -17,6 +17,11 @@ module.exports = route({
   async GET(req, res) {
     const user = await requireUser(req);
     const perms = await access.authorize(user, 'manage');
+    // Everyone's Discord roles as they are now, those with keys of their own
+    // first: what a person holds through them shows from these.
+    const own = (await permissions.listUserPermissions()).map((p) => p.userId);
+    const all = (await permissions.discordPeople()).map((p) => p.userId);
+    await permissions.refreshPeopleRoles([...new Set([...own, ...all])]);
     const [roles, table, people, candidates] = await Promise.all([
       permissions.guildRoles(),
       permissions.listRolePermissions(),
@@ -25,10 +30,17 @@ module.exports = route({
     ]);
     sendJson(res, 200, {
       keys: permissions.PERMISSIONS,
-      roles: roles.map((r) => ({ ...r, main: permissions.isMainRole(r) })),
+      // main: one of the association's roles; rank: its place among them
+      // (Admin, Direttivo, Organizzatori, Partecipanti), -1 for the others.
+      roles: roles.map((r) => ({
+        ...r,
+        main: permissions.isMainRole(r),
+        rank: permissions.mainRank(r),
+      })),
       table: table.map((r) => ({
         ...r,
         main: permissions.isMainRole({ id: r.roleId, name: r.roleName }),
+        rank: permissions.mainRank({ id: r.roleId, name: r.roleName }),
       })),
       people,
       candidates,

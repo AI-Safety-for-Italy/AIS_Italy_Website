@@ -435,10 +435,21 @@ Direttivo, Organizzatori, Partecipanti: by id for the two in
 `isMainRole`); the others, the working groups' roles used as tags among
 them, are folded under "Other roles", still editable. A person shows what
 they already hold through their Discord roles as yellow, locked switches
-("From role: Direttivo"), changed on the role.
+("From role: Direttivo"), changed on the role. Opening the page reads
+everyone's roles again from Discord (`refreshPeopleRoles`), so a role taken
+away there no longer shows as held.
+
+**Importing the old sheet** matches each person to Discord before anything
+is stored, as the preview shows: by email (they signed in here with
+Discord), else by name (the sheet's name, letter for letter, is the
+nickname, display name or username of one account on the server and of no
+other, nor anyone else's; it needs the bot to read the server's list, the
+Server Members intent). Importing sends nothing to Discord: "Send tags to
+Discord" (Discord tab) gives the roles of everyone's tags, 15 per call, none
+taken away.
 
 **Discord** (Members → Board → Discord): the old sheet has no Discord
-username, so most imported members are not linked. *To link* lists them, each
+username, so the members not matched on import are not linked. *To link* lists them, each
 with the server's accounts that may be them (the bot's member search by full
 name, then each word; best match first), a manual search, and "Not on
 Discord" (with a note) once checked. Linking keeps who they are there

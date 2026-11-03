@@ -458,7 +458,7 @@
       h(
         'p',
         { class: 'panel-note' },
-        'Download the members sheet as CSV (File → Download → .csv) and pick it here. Only approved people come in; those who consented are shown on the site once published; “Coordinamento” and “Partecipazione stabile” become tags. Whoever has signed in here once is matched to their Discord account by email and gets their tags on Discord. Nothing is stored until you confirm.'
+        'Download the members sheet as CSV (File → Download → .csv) and pick it here. Only approved people come in; those who consented are shown on the site once published; “Coordinamento” and “Partecipazione stabile” become tags. Each person is matched to their Discord account by email (if they signed in here once) or by name (the same name as one account on the server, and only one). Nothing is stored until you confirm, and importing sends nothing to Discord: the tags go there with “Send tags to Discord” (Discord tab), once you have checked the matches.'
       ),
       h('div', { class: 'people-tools' }, file, check),
       out
@@ -483,7 +483,13 @@
             c.tagged +
             ' with tags · ' +
             c.onDiscord +
-            ' matched to Discord (get their tags now) · ' +
+            ' matched to Discord (' +
+            (c.onDiscord - c.byName) +
+            ' by email, ' +
+            c.byName +
+            ' by name' +
+            (preview.byName ? '' : ': the bot cannot read the server’s members here') +
+            ') · ' +
             c.already +
             ' already here (tags added, nothing else changed)'
         )
@@ -536,7 +542,16 @@
                 h(
                   'td',
                   null,
-                  p.discord ? p.discord.name : h('span', { class: 'panel-note' }, 'not matched')
+                  p.discord
+                    ? [
+                        p.discord.name,
+                        h(
+                          'span',
+                          { class: 'match-by is-' + p.discord.by },
+                          p.discord.by === 'name' ? 'by name' : 'by email'
+                        ),
+                      ]
+                    : h('span', { class: 'panel-note' }, 'not matched')
                 )
               );
             })
@@ -554,9 +569,9 @@
         !window.confirm(
           'Import ' +
             c.people +
-            ' people, and give ' +
+            ' people, ' +
             c.onDiscord +
-            ' of them their tags on Discord?'
+            ' of them linked to Discord? Nothing is sent to Discord yet: their tags go there with “Send tags to Discord”.'
         )
       )
         return;
@@ -567,9 +582,9 @@
             r.imported +
               ' imported, ' +
               r.updated +
-              ' updated' +
-              (r.discordFailed ? '; Discord did not take ' + r.discordFailed : '') +
-              '. Publish to show them on the site.'
+              ' updated, ' +
+              r.linked +
+              ' linked to Discord. Send their tags from the Discord tab; publish to show them on the site.'
           );
           preview = null;
           importText = null;

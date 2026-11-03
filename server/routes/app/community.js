@@ -17,6 +17,7 @@
 //   POST   ?action=link { member, discordId | null } -> linked (roles given, none taken)
 //   POST   ?action=absent { member, absent, note? }  -> checked: not on Discord
 //   GET    ?action=check                 -> roles on Discord against tags here
+//   POST   ?action=send-tags             -> some of the missing roles given: { given, failed, remaining }
 //   POST   ?action=resolve { member, group, action: give|take|tag|untag|ok, level?, kind? }
 // Tag changes reach Discord at once; the site only on publish.
 const { route, sendJson, readJson, getQuery, HttpError } = require('../../http');
@@ -64,6 +65,7 @@ module.exports = route({
     else if (action === 'absent')
       sendJson(res, 200, await community.markAbsent(user, body.member, body));
     else if (action === 'resolve') sendJson(res, 200, await community.resolveRole(user, body));
+    else if (action === 'send-tags') sendJson(res, 200, await community.sendTags(user));
     else throw new HttpError(400, 'Unknown action');
   },
   async PUT(req, res) {
