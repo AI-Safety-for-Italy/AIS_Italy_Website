@@ -1021,6 +1021,11 @@ test('the person gets a copy of their answers unless the form switches it off', 
     // Questions left empty are not listed; answers are escaped in the HTML.
     assert.ok(!copy.text.includes('Chi sei'));
     assert.ok(!copy.text.includes('Link al CV'));
+    // The same address on the same day gets no second copy (the copy must not
+    // become a way to mail any text from our mailbox); a day later it does.
+    await send(goodAnswers());
+    assert.equal(copies().length, 1);
+    await db.query(`update form_submit_attempts set at = now() - interval '2 days'`);
     await send(goodAnswers({ name: '<b>Ada</b>' }));
     assert.ok(copies()[1].html.includes('&lt;b&gt;Ada&lt;/b&gt;'));
 

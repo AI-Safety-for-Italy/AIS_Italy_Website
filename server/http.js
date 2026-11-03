@@ -25,6 +25,9 @@ const MAX_BODY = 100_000;
 async function readJson(req, { max = MAX_BODY } = {}) {
   // Vercel may already have buffered and parsed the body.
   if (req.body !== undefined && req.body !== null) {
+    // Already parsed: the size is only known from the header.
+    if (Number(req.headers && req.headers['content-length']) > max)
+      throw new HttpError(413, 'Request too large');
     if (typeof req.body === 'object' && !Buffer.isBuffer(req.body)) return req.body;
     return parseJson(String(req.body));
   }
@@ -57,7 +60,7 @@ function origin(req) {
   const host = req.headers['x-forwarded-host'] || req.headers.host;
   const proto =
     req.headers['x-forwarded-proto'] ||
-    (process.env.MEET_INSECURE_COOKIES === '1' ? 'http' : 'https');
+    (process.env.MEET_INSECURE_COOKIES === '1' && !process.env.VERCEL ? 'http' : 'https');
   return `${String(proto).split(',')[0]}://${host}`;
 }
 

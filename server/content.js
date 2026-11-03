@@ -506,6 +506,9 @@ async function restoreVersion(user, itemId, versionId) {
   );
   if (!rows.length) throw new HttpError(404, 'Version not found');
   const entry = { ...rows[0].entry, anchor: row.slug };
+  // An old version can be of the other type: it needs that type's permission too.
+  if (!perms.includes(entry.category))
+    throw new HttpError(403, 'Your Discord roles do not allow editing this');
   await db.transaction(async (tx) => {
     await tx.query(
       `update content_items set type = $2, day = $3, entry = $4, deleted = false,

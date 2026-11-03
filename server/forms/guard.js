@@ -71,7 +71,12 @@ async function check({ formId, token, honeypot, ip }) {
     throw new HttpError(400, 'This form has expired: reload the page and send it again');
   }
   if (age < MIN_FILL_MS) return 'bot';
+  await limit(formId, ip);
+  return 'ok';
+}
 
+/** Throws 429 past MAX_PER_WINDOW sends from this address to this form (or poll) id. */
+async function limit(formId, ip) {
   const ipHash = hashIp(ip || 'unknown');
   await db.query(`delete from form_submit_attempts where at < now() - interval '1 day'`);
   const { rows } = await db.query(
@@ -87,7 +92,15 @@ async function check({ formId, token, honeypot, ip }) {
     formId,
     new Date(now()),
   ]);
-  return 'ok';
 }
 
-module.exports = { MIN_FILL_MS, MAX_PER_WINDOW, WINDOW_MS, issueToken, check, hashIp, setClock };
+module.exports = {
+  MIN_FILL_MS,
+  MAX_PER_WINDOW,
+  WINDOW_MS,
+  issueToken,
+  check,
+  limit,
+  hashIp,
+  setClock,
+};

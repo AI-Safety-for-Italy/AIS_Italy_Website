@@ -32,9 +32,20 @@ const MONTHS_PARTICIPANTS = 24;
 
 async function cleanup() {
   const answers = await db.query(
-    `delete from form_responses
-     where submitted_at < now() - make_interval(months => $1) returning id`,
-    [MONTHS]
+    // The answer of someone selected for the program stays up to
+    // MONTHS_PARTICIPANTS, with their board record (which goes with it).
+    `delete from form_responses f
+     where f.submitted_at < now() - make_interval(months => $1)
+       and (
+         f.submitted_at < now() - make_interval(months => $2)
+         or not exists (
+           select 1 from crm_records r
+           join crm_people_state s on s.person_key = r.person_key
+           where r.response_id = f.id and s.status in ('selected', 'matched')
+         )
+       )
+     returning f.id`,
+    [MONTHS, MONTHS_PARTICIPANTS]
   );
   const applications = await db.query(
     `delete from member_applications

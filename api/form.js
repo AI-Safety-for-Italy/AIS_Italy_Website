@@ -44,7 +44,7 @@ module.exports = route({
             .notifyOwner(result.formId, siteUrl(req))
             .catch((err) => console.error('Notification failed', err)),
           forms
-            .sendCopy(result.copy, siteUrl(req))
+            .sendCopy(result.copy, siteUrl(req), result.formId)
             .catch((err) => console.error('Copy failed', err)),
           // A sign-up: whoever follows the member applications hears of it.
           result.application

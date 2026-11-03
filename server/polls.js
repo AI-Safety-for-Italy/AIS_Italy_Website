@@ -713,9 +713,11 @@ async function markAllAnswered(pollId) {
  * Adds or (with a matching editToken) replaces a participant's availability.
  * Slots left out of `votes` count as "no".
  */
-async function submitResponse(token, body) {
+async function submitResponse(token, body, { ip } = {}) {
   const poll = await loadPoll('token', text(token, 'Poll', { max: 64, required: true }));
   if (!isOpen(poll)) throw new HttpError(409, 'This poll is closed');
+  // Each answer notifies the owner: a few per address and poll, as for forms.
+  if (ip !== undefined) await require('./forms/guard').limit(poll.id, ip);
 
   const name = cleanName(body.name);
   // A guest of an invite-only poll answers as the address they were invited
