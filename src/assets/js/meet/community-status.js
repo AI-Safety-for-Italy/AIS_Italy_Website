@@ -7,9 +7,12 @@
  *                     changes Discord); roles there without a tag are
  *                     reviewed on the Discord tab
  *   Website           the public directory: "Update the website" puts the
- *                     list as it is now on the Community page
- * From /api/app/community?action=status. Meet.communityStatus.refresh()
- * after any change on the page. */
+ *                     list as it is now on the Community page; how many
+ *                     people are there, and "updated" only once the build
+ *                     that shows the publish is online
+ * From /api/app/community?action=status, and the site's own
+ * /community/version.json (the publish its build shows).
+ * Meet.communityStatus.refresh() after any change on the page. */
 (function () {
   'use strict';
   var M = window.Meet;
@@ -18,6 +21,10 @@
   var bar = document.getElementById('membersStatus');
   var state = null;
   var giving = null; // { given, failed, remaining } while giving the roles
+  var built; // /community/version.json: { publishedAt, members, groups }; null if unknown
+  var recheck = null;
+  // A build takes about ten minutes: past this the update most likely failed.
+  var BUILD_MINUTES = 30;
   var onDiscordTab = /\/app\/members\/discord\//.test(window.location.pathname);
 
   function when(iso) {
@@ -30,11 +37,24 @@
     });
   }
 
+  /** The publish the website's build shows, or null when it cannot tell. */
+  function siteVersion() {
+    if (!window.fetch) return Promise.resolve(null);
+    return fetch('/community/version.json', { cache: 'no-store' })
+      .then(function (r) {
+        return r.ok ? r.json() : null;
+      })
+      .catch(function () {
+        return null;
+      });
+  }
+
   function refresh() {
     if (!bar) return Promise.resolve();
-    return M.api('GET', API + '?action=status')
-      .then(function (s) {
-        state = s;
+    return Promise.all([M.api('GET', API + '?action=status'), siteVersion()])
+      .then(function (r) {
+        state = r[0];
+        built = r[1];
         draw();
       })
       .catch(function (err) {
@@ -248,31 +268,84 @@
           'Back to the old directory'
         )
       : null;
+    var onSite =
+      plural(site.members, 'member', 'members') +
+      ' and ' +
+      plural(site.groups, 'working group', 'working groups');
+    var next =
+      plural(site.draft.members, 'member', 'members') +
+      ' and ' +
+      plural(site.draft.groups, 'working group', 'working groups');
     if (!site.live) {
       return row(
         'Website',
         false,
-        'The Community page still shows the old directory: updating puts this list there.',
+        'The Community page still shows the old directory: updating puts these ' + next + ' there.',
         update
+      );
+    }
+    // Published, but the build that shows it is not online yet (or failed).
+    if (built && built.publishedAt !== site.publishedAt) {
+      var late = Date.now() - new Date(site.publishedAt).getTime() > BUILD_MINUTES * 60000;
+      var shown = built.publishedAt ? 'the one of ' + when(built.publishedAt) : 'the old directory';
+      return row(
+        'Website',
+        false,
+        late
+          ? 'Published on ' +
+              when(site.publishedAt) +
+              ' (' +
+              onSite +
+              '), but the website still shows ' +
+              shown +
+              ': the update may have failed, try again.'
+          : 'Updating the website with ' +
+              onSite +
+              ' (published ' +
+              when(site.publishedAt) +
+              '): it is online in a few minutes.',
+        late ? [update, back] : null
       );
     }
     if (!site.pending) {
       return row(
         'Website',
         true,
-        'The Community page shows this list (updated ' + when(site.publishedAt) + ').',
+        'The Community page shows ' + onSite + ' (updated ' + when(site.publishedAt) + ').',
         back
       );
     }
     return row(
       'Website',
       false,
-      plural(site.changes, 'change', 'changes') +
-        ' not on the Community page yet (last updated ' +
+      'The Community page shows ' +
+        onSite +
+        ' (updated ' +
         when(site.publishedAt) +
-        ').',
+        '); ' +
+        plural(site.changes, 'change', 'changes') +
+        ' not there yet: updating puts ' +
+        next +
+        ' there.',
       [update, back]
     );
+  }
+
+  /** While the website is being rebuilt, look again every half minute. */
+  function watchBuild() {
+    var site = state && state.site;
+    var waiting =
+      site &&
+      site.live &&
+      built &&
+      built.publishedAt !== site.publishedAt &&
+      Date.now() - new Date(site.publishedAt).getTime() < BUILD_MINUTES * 60000;
+    if (waiting && !recheck) {
+      recheck = setTimeout(function () {
+        recheck = null;
+        refresh();
+      }, 30000);
+    }
   }
 
   function draw() {
@@ -282,6 +355,7 @@
     bar.appendChild(accountsRow(state.accounts));
     bar.appendChild(rolesRow(state.roles));
     bar.appendChild(siteRow(state.site));
+    watchBuild();
   }
 
   if (bar) {

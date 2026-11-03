@@ -65,11 +65,22 @@ async function load() {
   }
 }
 
-/** data/members.yaml's shape, from the published copy (or the YAML as it is). */
+/** The day of a publish as the board sees it (Italian time): YYYY-MM-DD. */
+function dayOf(iso) {
+  const d = new Date(iso || '');
+  return isNaN(d) ? '' : d.toLocaleDateString('en-CA', { timeZone: 'Europe/Rome' });
+}
+
+/**
+ * data/members.yaml's shape, from the published copy (or the YAML as it is).
+ * published_at is the publish this build shows: /community/version.json
+ * gives it to the board, which says "updated" only once the site has it.
+ */
 function members(yaml, published) {
   if (!published || !published.live) return yaml;
   return {
-    last_updated: String(published.publishedAt || '').slice(0, 10) || yaml.last_updated,
+    last_updated: dayOf(published.publishedAt) || yaml.last_updated,
+    published_at: published.publishedAt || null,
     members: published.members,
   };
 }
@@ -80,4 +91,4 @@ function community(yaml, published) {
   return { ...yaml, working_groups: published.groups };
 }
 
-module.exports = { SNAPSHOT, setFetch, load, writeSnapshot, members, community };
+module.exports = { SNAPSHOT, setFetch, load, writeSnapshot, members, community, dayOf };
