@@ -728,26 +728,42 @@ async function markAbsent(user, id, { absent, note } = {}) {
 }
 
 /**
+ * Everyone on the Discord server, bots left out, in pages of 1000; null when
+ * the bot may not read the list (no bot here, or the Server Members intent
+ * off in the Developer Portal).
+ */
+async function serverList() {
+  if (!permissions.botConfigured()) return null;
+  const guild = process.env.DISCORD_GUILD_ID;
+  const out = [];
+  let after = '0';
+  for (let page = 0; page < 20; page++) {
+    let res = null;
+    try {
+      res = await botCall(`/guilds/${guild}/members?limit=1000&after=${after}`);
+    } catch {
+      return null;
+    }
+    if (!res.ok || !Array.isArray(res.body)) return null;
+    out.push(...res.body.filter((m) => m.user && !m.user.bot));
+    if (res.body.length < 1000) break;
+    after = res.body[res.body.length - 1].user.id;
+  }
+  return out;
+}
+
+/**
  * The server's members among `ids`: { found: Map(id -> member), gone: Set of
- * ids no longer on the server, failed }. The whole list in pages of 1000 when
- * the bot may read it (the Server Members intent), else one by one.
+ * ids no longer on the server, failed }. The whole list when the bot may read
+ * it (serverList), else one by one.
  */
 async function serverMembers(ids) {
   const want = new Set(ids);
   const found = new Map();
   const guild = process.env.DISCORD_GUILD_ID;
-  let after = '0';
-  let listed = true;
-  for (let page = 0; page < 20; page++) {
-    const res = await botCall(`/guilds/${guild}/members?limit=1000&after=${after}`);
-    if (!res.ok || !Array.isArray(res.body)) {
-      listed = false;
-      break;
-    }
-    res.body.forEach((m) => m.user && want.has(m.user.id) && found.set(m.user.id, m));
-    if (res.body.length < 1000) break;
-    after = res.body[res.body.length - 1].user.id;
-  }
+  const all = await serverList();
+  const listed = Boolean(all);
+  if (all) all.forEach((m) => want.has(m.user.id) && found.set(m.user.id, m));
   const gone = new Set();
   let failed = 0;
   if (listed) {
@@ -826,6 +842,52 @@ async function roleCheck(user) {
     differences: members.length,
   });
   return { members, groups, checked: rows.length, failed };
+}
+
+// Role changes per call: Discord limits how fast roles change, and a call
+// must end in seconds. The page calls again until none is left.
+const TAGS_PER_CALL = 15;
+
+/**
+ * "Send tags to Discord": gives everyone linked the roles of their tags they
+ * do not have yet, TAGS_PER_CALL at a time; none is taken away, and a missing
+ * role left as it is on the check (member_role_ok) is not given. Returns
+ * { given, failed, remaining } (remaining: still to give after this call).
+ */
+async function sendTags(user) {
+  await access.authorize(user, 'community', { fresh: true });
+  if (!permissions.botConfigured())
+    throw new HttpError(503, 'The Discord bot is not set up here: nothing to send');
+  const groups = await listGroups();
+  const roleOf = new Map(groups.map((g) => [g.id, g.discordRoleId]));
+  const { rows } = await db.query('select * from community_members where discord_id is not null');
+  const tags = await groupsByMember();
+  const oks = new Set(
+    (
+      await db.query(`select member_id, group_id from member_role_ok where kind = 'missing'`)
+    ).rows.map((r) => `${r.member_id}:${r.group_id}`)
+  );
+  const withTags = rows.filter((r) => (tags[r.id] || []).length);
+  const { found } = await serverMembers(withTags.map((r) => r.discord_id));
+  const todo = [];
+  for (const row of withTags) {
+    const m = found.get(row.discord_id);
+    if (!m) continue; // not on the server (any more): the check shows them
+    const has = new Set(m.roles || []);
+    for (const t of tags[row.id]) {
+      const role = roleOf.get(t.group);
+      if (role && !has.has(role) && !oks.has(`${row.id}:${t.group}`))
+        todo.push({ discordId: row.discord_id, role });
+    }
+  }
+  let given = 0;
+  let failed = 0;
+  for (const t of todo.slice(0, TAGS_PER_CALL)) {
+    if (await discordRole(t.discordId, t.role, true)) given++;
+    else failed++;
+  }
+  await audit.record(user, 'community-discord', null, { action: 'send-tags', given, failed });
+  return { given, failed, remaining: Math.max(todo.length - TAGS_PER_CALL, 0) };
 }
 
 /**
@@ -982,6 +1044,64 @@ function peopleFromSheet(csvText, groups) {
 }
 
 /** Their Discord accounts, for those who signed in here (by their Discord email). */
+/**
+ * The Discord account of each of the sheet's people, before anything is
+ * stored: { [email]: { id, name, username, displayName, by } }.
+ *   by 'email'  they signed in here with Discord under that email
+ *   by 'name'   their name on the sheet is, letter for letter (accents and
+ *               case aside), the nickname, display name or username of one
+ *               account on the server, and of no other; nor is that account
+ *               anyone else's on the sheet or on the board
+ * The second needs the server's list (serverList): `byName` says whether it
+ * could be read. Anyone else is left for Members → Discord.
+ */
+async function matchDiscord(people) {
+  const out = {};
+  const byEmail = await discordByEmail(people.map((p) => p.email));
+  Object.entries(byEmail).forEach(([email, d]) => (out[email] = { ...d, by: 'email' }));
+  const server = await serverList();
+  if (!server) return { matches: out, byName: false };
+  const { rows } = await db.query(
+    'select discord_id, person_key from community_members where discord_id is not null'
+  );
+  const linkedTo = new Map(rows.map((r) => [r.discord_id, r.person_key]));
+  const index = new Map();
+  for (const m of server) {
+    const names = new Set(
+      [m.nick, m.user.global_name, m.user.username].map(fold).filter((n) => n.includes(' '))
+    );
+    names.forEach((n) => index.set(n, (index.get(n) || new Set()).add(m)));
+  }
+  const candidates = {};
+  for (const p of people) {
+    if (out[p.email]) continue;
+    const full = fold(p.name);
+    const reversed = full.split(' ').reverse().join(' ');
+    const hits = new Set([...(index.get(full) || []), ...(index.get(reversed) || [])]);
+    if (hits.size !== 1) continue;
+    const m = [...hits][0];
+    const owner = linkedTo.get(m.user.id);
+    if (owner && owner !== crm.personKey(p.email)) continue;
+    candidates[p.email] = m;
+  }
+  // An account two people of the sheet would both get: neither.
+  const uses = {};
+  Object.values(candidates).forEach((m) => (uses[m.user.id] = (uses[m.user.id] || 0) + 1));
+  Object.values(out).forEach((d) => (uses[d.id] = (uses[d.id] || 0) + 1));
+  for (const [email, m] of Object.entries(candidates)) {
+    if (uses[m.user.id] > 1) continue;
+    const p = discordPerson(m);
+    out[email] = {
+      id: m.user.id,
+      name: p.displayName,
+      username: p.username,
+      displayName: p.displayName,
+      by: 'name',
+    };
+  }
+  return { matches: out, byName: true };
+}
+
 async function discordByEmail(emails) {
   if (!emails.length) return {};
   const { rows } = await db.query(
@@ -1002,7 +1122,7 @@ async function importPreview(user, csvText) {
   await access.authorize(user, 'community', { fresh: true });
   const groups = await listGroups();
   const people = peopleFromSheet(csvText, groups);
-  const discord = await discordByEmail(people.map((p) => p.email));
+  const { matches: discord, byName } = await matchDiscord(people);
   const { rows } = await db.query(
     'select person_key from community_members where person_key is not null'
   );
@@ -1012,7 +1132,9 @@ async function importPreview(user, csvText) {
     role: p.role,
     publish: p.publish,
     tags: p.tags,
-    discord: discord[p.email] || null,
+    discord: discord[p.email]
+      ? { id: discord[p.email].id, name: discord[p.email].name, by: discord[p.email].by }
+      : null,
     exists: have.has(crm.personKey(p.email)),
   }));
   out.sort((a, b) => a.name.localeCompare(b.name, 'it'));
@@ -1023,51 +1145,59 @@ async function importPreview(user, csvText) {
       published: out.filter((p) => p.publish).length,
       tagged: out.filter((p) => p.tags.length).length,
       onDiscord: out.filter((p) => p.discord).length,
+      byName: out.filter((p) => p.discord && p.discord.by === 'name').length,
       already: out.filter((p) => p.exists).length,
     },
+    // Whether the server's list could be read, for matching by name.
+    byName,
   };
 }
 
 /**
  * Brings the sheet's people in (those already here are updated, their tags
- * added to), gives the matched ones their tags on Discord, and switches the
- * site over to this list. Returns { imported, updated, discordFailed }.
+ * added to) and links those matched to Discord (matchDiscord). Nothing is
+ * sent to Discord: the tags become roles with "Send tags to Discord"
+ * (sendTags). Returns { imported, updated, linked }.
  */
 async function importConfirm(user, csvText) {
   await access.authorize(user, 'community', { fresh: true });
   const groups = await listGroups();
   const people = peopleFromSheet(csvText, groups);
-  const discord = await discordByEmail(people.map((p) => p.email));
+  const { matches: discord } = await matchDiscord(people);
   let imported = 0;
   let updated = 0;
-  let discordFailed = 0;
+  let linked = 0;
   for (const p of people) {
     const key = crm.personKey(p.email);
     const found = (await db.query('select * from community_members where person_key = $1', [key]))
       .rows[0];
     const id = found ? found.id : crypto.randomUUID();
-    const linked = discord[p.email] ? discord[p.email].id : null;
+    const match = discord[p.email];
+    const account = match && !(await takenDiscord(match.id, id)) ? match.id : null;
     if (found) {
       await db.query(
         `update community_members set discord_id = coalesce(discord_id, $2), updated_at = now() where id = $1`,
-        [id, linked && !(await takenDiscord(linked, id)) ? linked : null]
+        [id, account]
       );
       updated++;
     } else {
       await db.query(
         `insert into community_members (id, person_key, discord_id, role, publish, details_encrypted, source, joined_on)
          values ($1, $2, $3, $4, $5, $6, 'sheet', $7)`,
-        [
-          id,
-          key,
-          linked && !(await takenDiscord(linked, id)) ? linked : null,
-          p.role,
-          p.publish,
-          sealDetails(id, p),
-          p.joinedOn,
-        ]
+        [id, key, account, p.role, p.publish, sealDetails(id, p), p.joinedOn]
       );
       imported++;
+    }
+    // Who they are on Discord, kept as when linked on Members → Discord.
+    const now = await loadMember(id);
+    if (account && now.discord_id === account) {
+      linked++;
+      if (match.username) {
+        await db.query(
+          'update community_members set discord_info_encrypted = $2, discord_absent = false where id = $1',
+          [id, sealDiscordInfo(id, { ...discordInfoOf(now), ...match })]
+        );
+      }
     }
     for (const t of p.tags) {
       await db.query(
@@ -1076,10 +1206,9 @@ async function importConfirm(user, csvText) {
         [id, t.group, t.level]
       );
     }
-    if (!(await syncRoles(await loadMember(id), { addOnly: true }))) discordFailed++;
   }
-  await audit.record(user, 'community-import', null, { imported, updated });
-  return { imported, updated, discordFailed };
+  await audit.record(user, 'community-import', null, { imported, updated, linked });
+  return { imported, updated, linked };
 }
 
 async function takenDiscord(discordId, exceptId) {
@@ -1220,5 +1349,6 @@ module.exports = {
   linkDiscord,
   markAbsent,
   roleCheck,
+  sendTags,
   resolveRole,
 };
