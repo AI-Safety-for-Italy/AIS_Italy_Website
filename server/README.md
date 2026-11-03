@@ -528,11 +528,14 @@ the fallback: it can be switched off.
 
 # Keeping time of personal data
 
-Answers to forms and member applications that were never approved are deleted
-24 months after they were sent; approved applications stay, as the record of
-who is a member; the board's own copies of people (imported or added by
-hand) go the same way, those from a form go with their answer
-(`server/retention.js`). A GitHub Action runs it once a day
+12 months for everyone who was not selected: answers to forms, member
+applications never approved, and the mentorship board's own copies of people
+(imported or added by hand; those from a form go with their answer), together
+with the notes and status the team wrote about them. Approved applications
+stay, as the record of who is a member, but after 12 months only name and email
+remain (the answers are dropped). The board's copies of people selected for the
+program (selected or paired) stay 24 months (`server/retention.js`). A GitHub
+Action runs it once a day
 on the live site (`.github/workflows/retention.yml`), calling
 `/api/cron/cleanup` with a shared secret; each run leaves one line with the
 counts on the audit trail.
@@ -540,4 +543,5 @@ counts on the audit trail.
 Setting up, once: a random `CRON_SECRET` of at least 32 characters
 (`openssl rand -base64 48`), saved both as a Vercel environment variable
 (Production) and as a GitHub repository secret. Without it the job does
-nothing. The privacy notice should say the same 24 months.
+nothing. The privacy notice (`src/content/privacy.njk`) says the same periods:
+when one changes here, change it there and tell the people already on file.

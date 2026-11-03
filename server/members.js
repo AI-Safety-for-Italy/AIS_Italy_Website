@@ -144,6 +144,35 @@ function context(id) {
 }
 
 /**
+ * Drops the answers to the sign-up questions of approved applications older
+ * than `months`: name and email stay (the record of who is a member). Returns
+ * how many applications were trimmed.
+ */
+async function dropOldAnswers(months) {
+  const { rows } = await db.query(
+    `select id, details_encrypted from member_applications
+     where status = 'approved' and details_encrypted is not null
+       and created_at < now() - make_interval(months => $1)`,
+    [months]
+  );
+  let trimmed = 0;
+  for (const row of rows) {
+    const who = details({ id: row.id, details_encrypted: row.details_encrypted });
+    // Unreadable with the current key, or already without answers: leave it.
+    if (!who || !who.answers || !who.answers.length) continue;
+    await db.query('update member_applications set details_encrypted = $2 where id = $1', [
+      row.id,
+      crm.encrypt(
+        JSON.stringify({ name: who.name, email: who.email, answers: [] }),
+        context(row.id)
+      ),
+    ]);
+    trimmed++;
+  }
+  return trimmed;
+}
+
+/**
  * Tags in their shape only ([{ group, level }]), each group once and taking
  * part: who coordinates is chosen on Working groups. Which groups exist is
  * checked on deciding.
@@ -742,6 +771,7 @@ module.exports = {
   checkJoinToken,
   completeJoin,
   completeJoinDev,
+  dropOldAnswers,
   joinCommunity,
   devMode,
 };

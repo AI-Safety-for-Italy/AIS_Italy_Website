@@ -2063,7 +2063,7 @@
           h(
             'p',
             { class: 'form-note', style: 'margin:0' },
-            'Answers are kept for 24 months after they are sent, then deleted.'
+            'Answers are kept for 12 months after they are sent, then deleted.'
           )
         ),
         h(
