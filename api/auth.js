@@ -5,20 +5,35 @@
 //   POST    ?action=password { password } -> signs in as the admin
 //   POST    ?action=dev { name, roles }   -> local development only; roles
 //                                           are ids from devRoles
-//   DELETE  -> signs out
+//   DELETE  -> signs out, on every device
 // Discord sign-in itself goes through /api/discord.
 const { route, sendJson, readJson, getQuery, HttpError } = require('../server/http');
 const auth = require('../server/auth');
 const discord = require('../server/discord');
 const permissions = require('../server/permissions');
+const forms = require('../server/forms/forms');
+const members = require('../server/members');
+const review = require('../server/crm/review');
+const { withTiming } = require('../server/timing');
 
-module.exports = route({
+const handler = route({
   async GET(req, res) {
     const user = await auth.currentUser(req);
-    const devLogin = process.env.MEET_DEV_LOGIN === '1';
+    const devLogin = permissions.devLogin();
+    const perms = user ? await permissions.forUser(user) : [];
+    const areas = permissions.areas(perms);
+    // Reading a form's answers (added by name, or by a role ticked on it)
+    // opens the forms tool too, on those forms only.
+    if (user && !areas.forms) areas.forms = await forms.readsAny(user).catch(() => false);
+    // The reviewers of the mentee selection hold no key: they are on its list.
+    if (user && !areas.review) areas.review = await review.isReviewer(user).catch(() => false);
+    // A participant may ask to become an organizer (/app/organizer/).
+    if (user) areas.upgrade = (await members.upgradeState(user).catch(() => ({}))).can === true;
     sendJson(res, 200, {
       user,
-      permissions: user ? await permissions.forUser(user) : [],
+      permissions: perms,
+      // Which tools these permissions open: { content, crm, forms, members }.
+      areas,
       discord: discord.isConfigured(),
       // Setting names only, so a half-done setup says what it still needs.
       discordMissing: discord.isConfigured() ? undefined : discord.missingSettings(),
@@ -32,7 +47,7 @@ module.exports = route({
     if (action === 'password') {
       const password = typeof body.password === 'string' ? body.password : '';
       sendJson(res, 200, { user: await auth.passwordLogin(req, res, password) });
-    } else if (action === 'dev' && process.env.MEET_DEV_LOGIN === '1') {
+    } else if (action === 'dev' && permissions.devLogin()) {
       // Stands in for Discord on a local machine, where there is no app to
       // sign in with. Each name is its own account.
       const name =
@@ -46,14 +61,19 @@ module.exports = route({
         name,
         roles,
       });
-      auth.startSession(res, user.id);
+      await auth.startSession(res, user.id);
       sendJson(res, 200, { user });
     } else {
       throw new HttpError(400, 'Unknown action');
     }
   },
   async DELETE(req, res) {
+    // Signing out ends the sessions of this account on every device too.
+    const user = await auth.currentUser(req);
+    if (user) await auth.endSessions(user.id);
     auth.logout(res);
     sendJson(res, 200, { user: null });
   },
 });
+
+module.exports = withTiming(handler);

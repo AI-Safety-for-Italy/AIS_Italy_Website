@@ -1,0 +1,23 @@
+---
+title: Mentee selection
+# The mentee selection: reviewers score the applications under a code, the
+# CV and the answers apart. An empty shell: everything comes from
+# /api/app/crm/review once the server has checked who may see what, so
+# nothing personal is ever in this page's HTML.
+permalink: /app/review/
+tool: review
+tab: cv
+wide: true
+noindex: true
+excludeFromSitemap: true
+eleventyExcludeFromCollections: true
+seoTitle: 'Mentee selection | AI Safety for Italy'
+---
+{% extends "app.njk" %}
+{% block page %}
+    <div id="rvPage"></div>
+
+<script src="/assets/js/meet/common.js?v={{ build }}" defer></script>
+<script src="/assets/js/meet/app-common.js?v={{ build }}" defer></script>
+<script src="/assets/js/meet/review-score.js?v={{ build }}" defer></script>
+{% endblock %}

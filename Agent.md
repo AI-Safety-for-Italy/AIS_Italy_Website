@@ -236,7 +236,7 @@ site:
 
 navigation: Array of nav items { name, url, dropdown }
 social: Social media links { linkedin } (no Discord invite: access goes through the sign-up form)
-forms: External form URLs { mailingList, courseApplication }
+forms: Form URLs { mailingList (the sign-up form on this site, /form/?f=iscrizione), courseApplication }
 ```
 
 **Validation**: Integrated validation on module load

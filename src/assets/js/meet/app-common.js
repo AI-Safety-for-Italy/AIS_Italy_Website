@@ -1,5 +1,7 @@
 /* Pages of the signed-in area (/app/): checks who is signed in, shows them in
- * the header with a sign-out button, and sends anyone signed out to the login.
+ * the sidebar with a sign-out menu, and sends anyone signed out to the login;
+ * runs the frame of src/components/app.njk (which tools show, their to-do
+ * counts, the menu on a phone, the Ctrl+K search).
  * The real protection is in the API; this only avoids showing an empty page. */
 (function () {
   'use strict';
@@ -24,11 +26,21 @@
     }
   }
 
-  function toLogin() {
-    remember(null);
-    window.location.replace(
-      '/app/login/?next=' + encodeURIComponent(window.location.pathname + window.location.search)
-    );
+  var leaving = false;
+  // `reauth`: the session is valid but too old for a tool holding personal
+  // data (server/access.js), so the login page must ask again rather than
+  // send it straight back here.
+  function toLogin(reauth) {
+    // Several requests can answer 401 together: go to the login once.
+    if (!leaving) {
+      leaving = true;
+      remember(null);
+      window.location.replace(
+        '/app/login/?next=' +
+          encodeURIComponent(window.location.pathname + window.location.search) +
+          (reauth ? '&reauth=1' : '')
+      );
+    }
     return new Promise(function () {});
   }
 
@@ -37,6 +49,8 @@
       ? h('img', { class: 'app-avatar', src: user.avatarUrl, alt: '', width: size, height: size })
       : h('span', { class: 'app-avatar is-initial', 'aria-hidden': 'true' }, user.name.charAt(0));
   }
+  /** A member's picture, or their initial: ({ name, avatarUrl }, px). */
+  M.avatar = avatar;
 
   /** The profile button in the header, opening Tools / Settings / Sign out. */
   function showUser(user) {
@@ -57,10 +71,7 @@
         )
       ),
       h('a', { href: '/app/', role: 'menuitem' }, 'Tools'),
-      h('a', { href: '/app/settings/', role: 'menuitem' }, 'My settings'),
-      user.kind === 'admin'
-        ? h('a', { href: '/app/polls/settings/', role: 'menuitem' }, 'General settings')
-        : null,
+      h('a', { href: '/app/settings/', role: 'menuitem' }, 'Settings'),
       h(
         'button',
         {
@@ -122,6 +133,11 @@
     return info.permissions || [];
   });
 
+  /** Resolves with the tools the user's roles open: { content, crm, forms, members }. */
+  M.areas = auth.then(function (info) {
+    return info.areas || {};
+  });
+
   /** Resolves with the signed-in user ({ id, kind, name, avatarUrl }). */
   M.me = auth.then(function (info) {
     if (!info.user) return toLogin();
@@ -133,11 +149,399 @@
     return info.user;
   });
 
+  /**
+   * A member's own "Notify me" switch, saved at once: { on (null: none to
+   * show), label, save(on) -> promise of the new state }.
+   */
+  M.followSwitch = function (opts) {
+    if (opts.on === null || opts.on === undefined) return null;
+    var current = Boolean(opts.on);
+    var input = h('input', {
+      type: 'checkbox',
+      role: 'switch',
+      class: 'fe-switch-input',
+      'aria-label': opts.label,
+      onchange: function () {
+        input.disabled = true;
+        opts
+          .save(input.checked)
+          .then(function (on) {
+            current = Boolean(on);
+            M.toast(current ? 'You will hear about new answers' : 'Notifications off for this one');
+          })
+          .catch(function (err) {
+            input.checked = current;
+            M.appError(err);
+          })
+          .then(function () {
+            input.disabled = false;
+          });
+      },
+    });
+    input.checked = current;
+    return h(
+      'label',
+      { class: 'fl-notify', title: 'Hear about new answers, on your channel from Settings' },
+      h('span', null, 'Notify me'),
+      input
+    );
+  };
+
+  /**
+   * Who can see something, as faces (roles by initial), the name and why on
+   * hover: [{ kind: 'person' | 'role', name, avatarUrl, what }]. A few, then +n.
+   */
+  M.accessFaces = function (who) {
+    who = who || [];
+    if (!who.length) return h('span');
+    var shown = who.slice(0, 6);
+    var row = h('div', { class: 'fl-faces', 'aria-label': 'Who can see this' });
+    shown.forEach(function (a) {
+      var label = a.name + ' — ' + a.what;
+      row.appendChild(
+        h(
+          'span',
+          {
+            class: 'fl-face' + (a.kind === 'role' ? ' is-role' : ''),
+            title: label,
+            tabindex: '0',
+            'aria-label': label,
+          },
+          a.kind === 'role'
+            ? h('span', { class: 'app-avatar is-initial' }, a.name.charAt(0).toUpperCase())
+            : avatar({ name: a.name, avatarUrl: a.avatarUrl }, 26)
+        )
+      );
+    });
+    if (who.length > shown.length) {
+      var rest = who.slice(shown.length);
+      row.appendChild(
+        h(
+          'span',
+          {
+            class: 'fl-face fl-more',
+            tabindex: '0',
+            title: rest
+              .map(function (a) {
+                return a.name + ' — ' + a.what;
+              })
+              .join('\n'),
+          },
+          '+' + rest.length
+        )
+      );
+    }
+    return row;
+  };
+
+  // Who can open this tool, at the top of its pages (src/components/app.njk).
+  var accessSlot = document.getElementById('apAccess');
+  if (accessSlot) {
+    M.api(
+      'GET',
+      '/api/app/access?tool=' +
+        encodeURIComponent(accessSlot.getAttribute('data-tool')) +
+        (accessSlot.getAttribute('data-section')
+          ? '&section=' + encodeURIComponent(accessSlot.getAttribute('data-section'))
+          : '')
+    )
+      .then(function (r) {
+        accessSlot.appendChild(M.accessFaces(r.access));
+      })
+      .catch(function () {
+        /* no faces: the page itself says what is wrong */
+      });
+  }
+
   /** Shared handling for an API call that failed. */
   M.appError = function (err) {
-    if (err.status === 401) return toLogin();
+    if (err.status === 401) return toLogin(err.code === 'reauth');
     M.toast(err.message, true);
   };
+
+  // ── The frame (src/components/app.njk): tools, counts, menu, search ──────
+
+  var AREAS_CACHE = 'ais-areas';
+  var PERMS_CACHE = 'ais-perms';
+  var shell = document.getElementById('apShell');
+  var registry = [];
+  var settings = {};
+  try {
+    registry = JSON.parse((document.getElementById('apTools') || {}).textContent || '[]');
+    settings = JSON.parse((document.getElementById('apSettings') || {}).textContent || '{}');
+  } catch (e) {
+    registry = [];
+  }
+
+  /** Shows the tools these areas open, and the tabs these permissions open. */
+  function showAllowed(areas, perms, isAdmin) {
+    document.querySelectorAll('[data-area]').forEach(function (el) {
+      el.hidden = !areas[el.getAttribute('data-area')];
+    });
+    if (perms) {
+      // A tab or button that needs a key: hidden without it.
+      document.querySelectorAll('[data-needs]').forEach(function (el) {
+        el.hidden = perms.indexOf(el.getAttribute('data-needs')) === -1;
+      });
+      // A tool that needs one of some keys besides its area.
+      document.querySelectorAll('[data-needs-any]').forEach(function (el) {
+        var area = el.getAttribute('data-area');
+        el.hidden =
+          (area && !areas[area]) ||
+          !el
+            .getAttribute('data-needs-any')
+            .split(' ')
+            .some(function (k) {
+              return perms.indexOf(k) !== -1;
+            });
+      });
+    }
+    // A group of tools shows when one of its tools does.
+    document.querySelectorAll('.ap-group').forEach(function (group) {
+      group.hidden = !group.querySelector('.ap-sub .ap-link:not([hidden])');
+    });
+    if (!perms) return;
+    if (isAdmin !== undefined) {
+      document.querySelectorAll('.ap-tabs .admin-only').forEach(function (el) {
+        el.hidden = !isAdmin;
+      });
+    }
+  }
+
+  // A group of tools in the sidebar opens and closes on its entry.
+  document.querySelectorAll('.ap-group-toggle').forEach(function (button) {
+    button.addEventListener('click', function () {
+      var open = button.getAttribute('aria-expanded') !== 'true';
+      button.setAttribute('aria-expanded', open ? 'true' : 'false');
+      button.parentNode.classList.toggle('is-open', open);
+    });
+  });
+
+  if (shell) {
+    // Last visit's tools at once, so the sidebar does not jump.
+    try {
+      var cached = JSON.parse(window.localStorage.getItem(AREAS_CACHE) || 'null');
+      var cachedPerms = JSON.parse(window.localStorage.getItem(PERMS_CACHE) || 'null');
+      if (cached) showAllowed(cached, cachedPerms || undefined);
+    } catch (e) {
+      /* nothing cached */
+    }
+    auth.then(function (info) {
+      if (!info.user) return;
+      var areas = info.areas || {};
+      showAllowed(areas, info.permissions || [], info.user.kind === 'admin');
+      try {
+        window.localStorage.setItem(AREAS_CACHE, JSON.stringify(areas));
+        window.localStorage.setItem(PERMS_CACHE, JSON.stringify(info.permissions || []));
+      } catch (e) {
+        /* the sidebar just shows a moment later next time */
+      }
+    });
+  }
+
+  /** What waits for the member in each tool: { tools: { key: { count, label, url } } }. */
+  // Asked together with /api/auth, not after it; it only resolves once the
+  // session is confirmed, so a signed-out visitor is sent to the login first.
+  var overviewReq = shell
+    ? M.api('GET', '/api/app/overview').catch(function () {
+        return { tools: {} };
+      })
+    : null;
+  M.overview = overviewReq
+    ? M.me.then(function () {
+        return overviewReq;
+      })
+    : Promise.resolve({ tools: {} });
+
+  M.overview.then(function (data) {
+    Object.keys(data.tools || {}).forEach(function (key) {
+      var todo = data.tools[key];
+      document.querySelectorAll('[data-ap-count="' + key + '"]').forEach(function (el) {
+        el.textContent = todo && todo.count ? String(todo.count) : '';
+        el.hidden = !(todo && todo.count);
+        if (todo && todo.label) el.title = todo.count + ' ' + todo.label;
+      });
+    });
+  });
+
+  // The menu on a narrow screen: the sidebar slides in.
+  var nav = document.getElementById('apNav');
+  var openMenu = document.getElementById('apMenu');
+  var scrim = document.getElementById('apScrim');
+  function setMenu(open) {
+    if (!shell) return;
+    shell.classList.toggle('is-menu-open', open);
+    if (scrim) scrim.hidden = !open;
+    if (openMenu) openMenu.setAttribute('aria-expanded', String(open));
+    if (open && nav) {
+      var first = nav.querySelector('a, button');
+      if (first) first.focus();
+    }
+  }
+  if (openMenu)
+    openMenu.addEventListener('click', function () {
+      setMenu(true);
+    });
+  if (scrim)
+    scrim.addEventListener('click', function () {
+      setMenu(false);
+    });
+  var closeMenu = document.getElementById('apNavClose');
+  if (closeMenu)
+    closeMenu.addEventListener('click', function () {
+      setMenu(false);
+      if (openMenu) openMenu.focus();
+    });
+
+  // ── Search (Ctrl+K): go to a tool, a tab or an action ───────────────────
+
+  var palette = null;
+
+  function entries(areas, perms, isAdmin) {
+    var out = [{ label: 'Home', hint: 'Personal area', url: '/app/' }];
+    registry.forEach(function (tool) {
+      if (tool.area && !areas[tool.area]) return;
+      if (
+        tool.needsAny &&
+        !tool.needsAny.some(function (k) {
+          return perms.indexOf(k) !== -1;
+        })
+      )
+        return;
+      out.push({ label: tool.title, hint: 'Tool', url: tool.url });
+      (tool.tabs || []).forEach(function (tab) {
+        if (tab.needs && perms.indexOf(tab.needs) === -1) return;
+        if (tab.admin && !isAdmin) return;
+        if (tab.url === tool.url) return;
+        out.push({ label: tab.label, hint: tool.title, url: tab.url });
+      });
+      (tool.actions || []).forEach(function (action) {
+        if (action.needs && perms.indexOf(action.needs) === -1) return;
+        out.push({ label: action.label, hint: tool.title + ' · action', url: action.url });
+      });
+    });
+    (settings.tabs || []).forEach(function (tab) {
+      if (tab.needs && perms.indexOf(tab.needs) === -1) return;
+      out.push({ label: tab.label, hint: settings.title, url: tab.url });
+    });
+    return out;
+  }
+
+  function openPalette() {
+    if (palette) {
+      palette.input.focus();
+      return;
+    }
+    auth.then(function (info) {
+      var all = entries(
+        info.areas || {},
+        info.permissions || [],
+        info.user && info.user.kind === 'admin'
+      );
+      var active = 0;
+      var shown = all;
+      var input = h('input', {
+        type: 'search',
+        class: 'ap-palette-input',
+        placeholder: 'Go to a tool or do something…',
+        'aria-label': 'Search the personal area',
+        'aria-controls': 'apPaletteList',
+        autocomplete: 'off',
+      });
+      var list = h('ul', { class: 'ap-palette-list', id: 'apPaletteList', role: 'listbox' });
+      var box = h(
+        'div',
+        { class: 'ap-palette', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Search' },
+        h(
+          'div',
+          { class: 'ap-palette-box' },
+          h('div', { class: 'ap-palette-field' }, input, h('kbd', null, 'Esc')),
+          list
+        )
+      );
+      function draw() {
+        var q = input.value.trim().toLowerCase();
+        shown = all.filter(function (e) {
+          return !q || (e.label + ' ' + e.hint).toLowerCase().indexOf(q) !== -1;
+        });
+        active = Math.min(active, Math.max(shown.length - 1, 0));
+        M.clear(list);
+        if (!shown.length)
+          list.appendChild(h('li', { class: 'ap-palette-none' }, 'Nothing matches.'));
+        shown.forEach(function (e, i) {
+          list.appendChild(
+            h(
+              'li',
+              {
+                role: 'option',
+                'aria-selected': String(i === active),
+                class: 'ap-palette-item',
+                onmousemove: function () {
+                  if (active !== i) {
+                    active = i;
+                    draw();
+                  }
+                },
+                onclick: function () {
+                  go(e);
+                },
+              },
+              h('span', null, e.label),
+              h('small', null, e.hint)
+            )
+          );
+        });
+      }
+      function go(e) {
+        close();
+        window.location.href = e.url;
+      }
+      function close() {
+        box.remove();
+        palette = null;
+      }
+      input.addEventListener('input', function () {
+        active = 0;
+        draw();
+      });
+      input.addEventListener('keydown', function (ev) {
+        if (ev.key === 'ArrowDown') {
+          ev.preventDefault();
+          active = Math.min(active + 1, shown.length - 1);
+          draw();
+        } else if (ev.key === 'ArrowUp') {
+          ev.preventDefault();
+          active = Math.max(active - 1, 0);
+          draw();
+        } else if (ev.key === 'Enter' && shown[active]) {
+          ev.preventDefault();
+          go(shown[active]);
+        } else if (ev.key === 'Escape') {
+          close();
+        }
+      });
+      box.addEventListener('click', function (ev) {
+        if (ev.target === box) close();
+      });
+      document.body.appendChild(box);
+      palette = { input: input, close: close };
+      draw();
+      input.focus();
+    });
+  }
+
+  var searchButton = document.getElementById('apSearchOpen');
+  if (searchButton) searchButton.addEventListener('click', openPalette);
+  document.addEventListener('keydown', function (e) {
+    if (!shell) return;
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
+      e.preventDefault();
+      if (palette) palette.close();
+      else openPalette();
+    } else if (e.key === 'Escape' && shell.classList.contains('is-menu-open')) {
+      setMenu(false);
+    }
+  });
 
   M.statusBadge = function (status) {
     var label = { open: 'Open', closed: 'Closed', scheduled: 'Time chosen' }[status] || status;

@@ -1,16 +1,9 @@
-/* Shared by the content tool's pages (/app/content/): shows the parts marked
- * data-needs="<permission>" to those whose Discord roles grant it, and the
- * labels used across the pages. The API enforces the same rules. */
+/* Shared by the content tool's pages (/app/content/): the labels used across
+ * the pages. The API enforces the permission rules. */
 (function () {
   'use strict';
   var M = window.Meet;
   var h = M.h;
-
-  M.permissions.then(function (perms) {
-    document.querySelectorAll('[data-needs]').forEach(function (el) {
-      el.hidden = perms.indexOf(el.getAttribute('data-needs')) === -1;
-    });
-  });
 
   M.contentTypeLabel = { seminar: 'Seminar', event: 'Event' };
 

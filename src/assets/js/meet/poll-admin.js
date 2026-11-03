@@ -42,14 +42,16 @@
     );
   }
 
-  M.me
-    .then(function () {
-      M.api('GET', '/api/app/settings').then(function (s) {
-        mailReady = s.mail.configured;
-      });
-      return M.api('GET', '/api/app/poll?id=' + encodeURIComponent(id || ''));
+  M.api('GET', '/api/app/settings')
+    .then(function (s) {
+      mailReady = s.mail.configured;
     })
-    .then(function (data) {
+    .catch(function () {
+      /* mail stays "not ready"; the poll's own request reports a sign-in problem */
+    });
+  Promise.all([M.me, M.api('GET', '/api/app/poll?id=' + encodeURIComponent(id || ''))])
+    .then(function (r) {
+      var data = r[1];
       if (params.get('created')) {
         var failed = Number(params.get('failed') || 0);
         M.toast(
@@ -90,6 +92,8 @@
     poll = data;
     document.title = poll.title + ' | Admin';
     document.getElementById('pollTitle').textContent = poll.title;
+    var apTitle = document.getElementById('apTitle');
+    if (apTitle) apTitle.textContent = poll.title;
     M.clear(document.getElementById('statusBadge')).appendChild(
       M.statusBadge(poll.status === 'open' && !poll.open ? 'closed' : poll.status)
     );
@@ -116,15 +120,21 @@
               'Voting closes ' + M.fmtDateTime(poll.deadline, poll.timezone)
             )
           : null,
-        h('button', { type: 'button', class: 'link-button', onclick: openEdit }, 'Edit details')
+        poll.canManage
+          ? h('button', { type: 'button', class: 'link-button', onclick: openEdit }, 'Edit details')
+          : h('span', null, M.icon('users'), 'Shared by ' + (poll.ownerName || 'its owner'))
       )
     );
 
     M.clear(view);
     if (poll.status === 'scheduled') view.appendChild(scheduledCard());
-    if (poll.inviteOnly) view.appendChild(guestsPanel());
-    else if (poll.status !== 'scheduled') view.appendChild(sharePanel());
+    // Shared with this member: the poll and its answers, nothing to change.
+    if (poll.canManage) {
+      if (poll.inviteOnly) view.appendChild(guestsPanel());
+      else if (poll.status !== 'scheduled') view.appendChild(sharePanel());
+    }
     view.appendChild(resultsPanel());
+    if (poll.canManage) view.appendChild(accessPanel());
     if (poll.description) {
       view.appendChild(
         h(
@@ -303,6 +313,201 @@
       .catch(M.appError);
   }
 
+  // ── Who sees the poll (the owner only) ─────────────────────────────────
+  // Discord roles and people by name see the poll and its answers (not the
+  // voters' emails) and change nothing; each turns "Notify me" on for
+  // themselves. Saved with its own button.
+  function accessPanel() {
+    var roles = (poll.shareRoles || []).slice();
+    var people = (poll.sharePeople || []).slice();
+    var roleBox = h('div', { class: 'fe-roles' }, M.loading());
+    var chips = h('div', { class: 'fe-people' });
+    var results = h('div', { class: 'fe-people-results', role: 'listbox', hidden: true });
+    var search = h('input', {
+      class: 'form-input is-compact',
+      type: 'search',
+      placeholder: 'Search a member of the Discord server…',
+      'aria-label': 'Search a member of the Discord server',
+      autocomplete: 'off',
+    });
+    var save = h('button', { type: 'button', class: 'btn btn-primary btn-sm' }, 'Save sharing');
+    var dirty = false;
+    function changed() {
+      dirty = true;
+      save.disabled = false;
+    }
+    save.disabled = true;
+
+    function drawPeople() {
+      M.clear(chips);
+      if (!people.length) {
+        chips.appendChild(
+          h('p', { class: 'form-note', style: 'margin:0' }, 'Nobody added by name.')
+        );
+      }
+      people.forEach(function (p) {
+        chips.appendChild(
+          h(
+            'span',
+            { class: 'fe-person' },
+            M.avatar({ name: p.name, avatarUrl: p.avatarUrl }, 22),
+            h('span', null, p.name),
+            h(
+              'button',
+              {
+                type: 'button',
+                class: 'fe-person-x',
+                'aria-label': 'Remove ' + p.name,
+                onclick: function () {
+                  people.splice(people.indexOf(p), 1);
+                  changed();
+                  drawPeople();
+                },
+              },
+              '×'
+            )
+          )
+        );
+      });
+    }
+
+    // The server's roles (the bot, or the local stand-ins), with those
+    // already ticked that Discord no longer lists.
+    M.api('GET', '/api/app/poll?id=' + encodeURIComponent(id) + '&roles=1')
+      .then(function (r) {
+        M.clear(roleBox);
+        var all = r.roles.slice();
+        roles.forEach(function (x) {
+          if (
+            !all.some(function (y) {
+              return y.id === x.id;
+            })
+          )
+            all.push({ id: x.id, name: x.name });
+        });
+        if (!all.length) {
+          roleBox.appendChild(
+            h(
+              'p',
+              { class: 'form-note' },
+              'The Discord bot is not set up here, so the roles cannot be listed.'
+            )
+          );
+        }
+        all.forEach(function (role) {
+          var input = h('input', { type: 'checkbox', value: role.id });
+          input.checked = roles.some(function (x) {
+            return x.id === role.id;
+          });
+          input.addEventListener('change', function () {
+            roles = roles.filter(function (x) {
+              return x.id !== role.id;
+            });
+            if (input.checked) roles.push({ id: role.id, name: role.name });
+            changed();
+          });
+          roleBox.appendChild(
+            h('label', { class: 'check-row' }, input, h('span', null, role.name))
+          );
+        });
+      })
+      .catch(function (err) {
+        M.clear(roleBox).appendChild(h('p', { class: 'form-note' }, err.message));
+      });
+
+    var timer = null;
+    search.addEventListener('input', function () {
+      clearTimeout(timer);
+      timer = setTimeout(function () {
+        var q = search.value.trim();
+        if (q.length < 2) {
+          results.hidden = true;
+          return;
+        }
+        M.api(
+          'GET',
+          '/api/app/poll?id=' + encodeURIComponent(id) + '&people=' + encodeURIComponent(q)
+        )
+          .then(function (data) {
+            M.clear(results);
+            var fresh = data.people.filter(function (p) {
+              return !people.some(function (c) {
+                return c.discordId === p.discordId;
+              });
+            });
+            if (!fresh.length)
+              results.appendChild(h('p', { class: 'fe-people-none' }, 'Nobody found'));
+            fresh.forEach(function (p) {
+              results.appendChild(
+                h(
+                  'button',
+                  {
+                    type: 'button',
+                    role: 'option',
+                    class: 'fe-people-hit',
+                    onclick: function () {
+                      people.push(p);
+                      search.value = '';
+                      results.hidden = true;
+                      changed();
+                      drawPeople();
+                    },
+                  },
+                  M.avatar(p, 24),
+                  h('span', null, p.name)
+                )
+              );
+            });
+            results.hidden = false;
+          })
+          .catch(M.appError);
+      }, 250);
+    });
+
+    save.addEventListener('click', function () {
+      save.disabled = true;
+      M.api('POST', '/api/app/poll?id=' + encodeURIComponent(id) + '&action=share', {
+        roles: roles,
+        people: people.map(function (p) {
+          return { discordId: p.discordId, name: p.name };
+        }),
+      })
+        .then(function (data) {
+          dirty = false;
+          poll.shareRoles = data.shareRoles;
+          poll.sharePeople = data.sharePeople;
+          M.toast('Sharing saved');
+        })
+        .catch(function (err) {
+          save.disabled = false;
+          M.appError(err);
+        });
+    });
+    window.addEventListener('beforeunload', function (e) {
+      if (!dirty) return;
+      e.preventDefault();
+      e.returnValue = '';
+    });
+
+    drawPeople();
+    return h(
+      'div',
+      { class: 'panel form-grid' },
+      h('div', { class: 'panel-head', style: 'margin:0' }, h('h2', null, 'Who sees the poll')),
+      h(
+        'p',
+        { class: 'panel-note', style: 'margin:0' },
+        'Besides you: the roles and people added here see the poll and its answers (not the voters’ emails), and change nothing. Seeing is not following: each turns on “Notify me” to hear about new answers.'
+      ),
+      h('h3', { class: 'fe-subhead' }, 'Roles'),
+      roleBox,
+      h('h3', { class: 'fe-subhead' }, 'People'),
+      chips,
+      h('div', { class: 'fe-people-search' }, search, results),
+      h('div', null, save)
+    );
+  }
+
   function sharePanel() {
     return h(
       'div',
@@ -360,47 +565,49 @@
                 (poll.invitedToMeeting.length === 1 ? ' person' : ' people')
               : '')
         ),
-        h(
-          'div',
-          { class: 'final-actions' },
-          h(
-            'a',
-            {
-              class: 'btn btn-ghost btn-sm',
-              href: '/api/app/poll?id=' + encodeURIComponent(poll.id) + '&format=ics',
-            },
-            'Download calendar event'
-          ),
-          poll.responses.length
-            ? h(
+        !poll.canManage
+          ? null
+          : h(
+              'div',
+              { class: 'final-actions' },
+              h(
+                'a',
+                {
+                  class: 'btn btn-ghost btn-sm',
+                  href: '/api/app/poll?id=' + encodeURIComponent(poll.id) + '&format=ics',
+                },
+                'Download calendar event'
+              ),
+              poll.responses.length
+                ? h(
+                    'button',
+                    { type: 'button', class: 'btn btn-ghost btn-sm', onclick: copyEmails },
+                    'Copy emails (' + poll.responses.length + ')'
+                  )
+                : null,
+              h(
                 'button',
-                { type: 'button', class: 'btn btn-ghost btn-sm', onclick: copyEmails },
-                'Copy emails (' + poll.responses.length + ')'
+                {
+                  type: 'button',
+                  class: 'btn btn-ghost btn-sm',
+                  onclick: function () {
+                    openFinalize(slot, true);
+                  },
+                },
+                poll.invitedToMeeting.length ? 'Email the invite again' : 'Email the invite'
+              ),
+              h(
+                'button',
+                {
+                  type: 'button',
+                  class: 'btn btn-ghost btn-sm',
+                  onclick: function (e) {
+                    unschedule(e.currentTarget);
+                  },
+                },
+                'Change time'
               )
-            : null,
-          h(
-            'button',
-            {
-              type: 'button',
-              class: 'btn btn-ghost btn-sm',
-              onclick: function () {
-                openFinalize(slot, true);
-              },
-            },
-            poll.invitedToMeeting.length ? 'Email the invite again' : 'Email the invite'
-          ),
-          h(
-            'button',
-            {
-              type: 'button',
-              class: 'btn btn-ghost btn-sm',
-              onclick: function (e) {
-                unschedule(e.currentTarget);
-              },
-            },
-            'Change time'
-          )
-        )
+            )
       )
     );
   }
@@ -415,25 +622,27 @@
   }
 
   function resultsPanel() {
-    var canPick = poll.status !== 'scheduled';
+    var canPick = poll.canManage && poll.status !== 'scheduled';
     var table = M.resultsTable(poll, {
       tz: poll.timezone,
       finalSlotId: poll.finalSlotId,
-      rowExtra: function (r) {
-        return h(
-          'button',
-          {
-            type: 'button',
-            class: 'remove-btn',
-            title: 'Remove ' + r.name + ' so they can answer again',
-            'aria-label': 'Remove ' + r.name,
-            onclick: function () {
-              deleteResponse(r);
-            },
+      rowExtra: !poll.canManage
+        ? null
+        : function (r) {
+            return h(
+              'button',
+              {
+                type: 'button',
+                class: 'remove-btn',
+                title: 'Remove ' + r.name + ' so they can answer again',
+                'aria-label': 'Remove ' + r.name,
+                onclick: function () {
+                  deleteResponse(r);
+                },
+              },
+              'Remove'
+            );
           },
-          'Remove'
-        );
-      },
       footerExtra: canPick
         ? function (slot) {
             return h(
@@ -456,7 +665,9 @@
     });
 
     var actions = [];
-    if (poll.status === 'open') {
+    if (!poll.canManage) {
+      // nothing to change: only this member's own "Notify me" below
+    } else if (poll.status === 'open') {
       actions.push(
         h(
           'button',
@@ -485,24 +696,24 @@
         )
       );
     }
-    var notifyToggle = h('input', {
-      type: 'checkbox',
-      checked: poll.notify,
-      onchange: function (e) {
-        M.api('PATCH', '/api/app/poll?id=' + encodeURIComponent(id), { notify: e.target.checked })
-          .then(function (data) {
-            poll = data;
-            M.toast(
-              data.notify ? 'You’ll be notified of new answers' : 'Notifications off for this poll'
-            );
-          })
-          .catch(M.appError);
+    // This member's own switch: the owner's and each sharer's alike.
+    var follow = M.followSwitch({
+      on: poll.notifyMe,
+      label: 'Notify me about new answers',
+      save: function (on) {
+        return M.api('POST', '/api/app/poll?id=' + encodeURIComponent(id) + '&action=notify-me', {
+          on: on,
+        }).then(function (r) {
+          poll.notifyMe = r.notifyMe;
+          poll.notify = poll.canManage ? r.notifyMe : poll.notify;
+          return r.notifyMe;
+        });
       },
     });
-    actions.unshift(
-      h('label', { class: 'check-row notify-toggle' }, notifyToggle, h('span', null, 'Notify me'))
-    );
-    if (poll.responses.length) {
+    if (follow) actions.unshift(follow);
+    if (!poll.canManage) {
+      // no emails, no deleting
+    } else if (poll.responses.length) {
       actions.push(
         h(
           'button',
@@ -511,13 +722,15 @@
         )
       );
     }
-    actions.push(
-      h(
-        'button',
-        { type: 'button', class: 'btn btn-danger-outline btn-sm', onclick: deletePoll },
-        'Delete poll'
-      )
-    );
+    if (poll.canManage) {
+      actions.push(
+        h(
+          'button',
+          { type: 'button', class: 'btn btn-danger-outline btn-sm', onclick: deletePoll },
+          'Delete poll'
+        )
+      );
+    }
 
     return h(
       'div',
@@ -703,10 +916,11 @@
     send.disabled = !mailReady;
     document.getElementById('sendInviteNote').textContent = mailReady
       ? 'From the team mailbox, with the event attached.'
-      : 'Needs email sending, which the admin sets up in General settings.';
+      : 'Needs email sending, which the admin sets up in Settings → Mail settings.';
     document.getElementById('inviteFields').hidden = !send.checked;
     if (sendOnly && !mailReady) {
-      finalizeError.textContent = 'Email sending isn’t set up yet (admin → General settings).';
+      finalizeError.textContent =
+        'Email sending isn’t set up yet (admin → Settings → Mail settings).';
       finalizeError.hidden = false;
     }
     submit.disabled = sendOnly && !mailReady;

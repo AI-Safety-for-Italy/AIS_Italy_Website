@@ -3,6 +3,8 @@ const fs = require("fs");
 const path = require("path");
 const locales = require("./src/data/locales.js");
 const contentBuild = require("./server/content-build");
+const communityBuild = require('./server/community-build');
+const mentorsBuild = require('./server/mentors-build');
 
 const DEFAULT_LOCALE = locales[0];
 const PREFIXED_LOCALES = locales.filter(l => l.prefix);
@@ -64,6 +66,12 @@ function prefixHref(href, prefix) {
   if (!href || !href.startsWith("/")) return null;
   if (href.startsWith(prefix + "/")) return null;
   if (href.startsWith("/assets/")) return null;
+  // Pages that exist once, not per language: /it/form/ would be a 404. A form
+  // is told the language instead, so it opens in the one the visitor came from.
+  if (/^\/form\/\?/.test(href) && !/[?&]lang=/.test(href)) {
+    return href + "&amp;lang=" + prefix.slice(1);
+  }
+  if (/^\/(form|join|app|api)(\/|\?|#|$)/.test(href)) return null;
   if (/\.[a-z0-9]+(\?|#|$)/i.test(href)) return null;
   return prefix + href;
 }
@@ -179,8 +187,7 @@ module.exports = function(eleventyConfig) {
   // Pass through copy
   eleventyConfig.addPassthroughCopy("src/assets/img");
   eleventyConfig.addPassthroughCopy("src/assets/js");
-  // Only the meeting-poll pages load this; style.css is built by PostCSS.
-  eleventyConfig.addPassthroughCopy("src/assets/css/meet.css");
+  // style.css and meet.css are built and minified by `npm run build:css`.
   eleventyConfig.addPassthroughCopy({ "src/assets/fonts": "assets/fonts" });
   // Copy favicons to root
   eleventyConfig.addPassthroughCopy({ "src/assets/img/favicon.svg": "favicon.svg" });
@@ -305,6 +312,15 @@ module.exports = function(eleventyConfig) {
     (list || []).filter(e => e && e.day).sort((a, b) => (a.day < b.day ? -1 : 1))
   );
 
+  // A mentor's project (data/mentors.yaml): their own, or else the first one
+  // written by one of their `co_mentors`, so a shared project is written once.
+  eleventyConfig.addFilter("projectOf", (list, mentor) => {
+    if (!mentor) return undefined;
+    if (mentor.project) return mentor.project;
+    const co = (list || []).find(m => (mentor.co_mentors || []).includes(m.id) && m.project);
+    return co ? co.project : undefined;
+  });
+
   eleventyConfig.addFilter("pluckFlat", (list, key) => {
     return (list || []).reduce((acc, item) => acc.concat((item && item[key]) || []), []);
   });
@@ -344,6 +360,7 @@ module.exports = function(eleventyConfig) {
   const dataFileNames = [
     'home.yaml',
     'mentorship.yaml',
+    'mentors.yaml',
     'about.yaml',
     'events.yaml',
     'activities.yaml',
@@ -358,6 +375,15 @@ module.exports = function(eleventyConfig) {
     'resources.yaml'
   ];
 
+  // The mentors published from the board (server/mentors-build.js), read once
+  // per build. Their photos are written before the build starts: the
+  // passthrough copy runs alongside the data, so it could miss them otherwise.
+  let mentorsPublished;
+  eleventyConfig.on('eleventy.before', async () => {
+    mentorsPublished = mentorsBuild.load();
+    mentorsBuild.writePhotos(await mentorsPublished);
+  });
+
   // Load and expose each data file as global data
   dataFileNames.forEach(filename => {
     const dataKey = filename.replace('.yaml', '');
@@ -369,12 +395,21 @@ module.exports = function(eleventyConfig) {
       // Seminars and events published from the dashboard (/app/content/)
       // join the YAML's; see server/content-build.js.
       if (filename === 'events.yaml') return contentBuild.merge(data, await contentBuild.load());
+      // The directory and the working groups, once published from the
+      // dashboard (Member applications); see server/community-build.js.
+      if (filename === 'members.yaml') return communityBuild.members(data, await communityBuild.load());
+      if (filename === 'community.yaml') return communityBuild.community(data, await communityBuild.load());
+      if (filename === 'mentors.yaml') {
+        return mentorsBuild.merge(data, await (mentorsPublished || mentorsBuild.load()));
+      }
       return data;
     });
   });
   // The local server rewrites this on every publish, so `npm run dev:meet`
   // shows the change at once.
   eleventyConfig.addWatchTarget(contentBuild.SNAPSHOT);
+  eleventyConfig.addWatchTarget(communityBuild.SNAPSHOT);
+  eleventyConfig.addWatchTarget(mentorsBuild.SNAPSHOT);
 
   /**
    * Load all design tokens and make them globally available

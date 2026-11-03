@@ -18,22 +18,34 @@
 
 const contentBuild = require('./content-build');
 const content = require('./content');
+const permissions = require('./permissions');
 
 const DISCORD_API = 'https://discord.com/api/v10';
 
-let fetchImpl = (...args) => fetch(...args);
+// Outside services answer within 10 seconds or the call fails (no request
+// waits on them for the function's whole time limit).
+const timed = (url, opts = {}) => fetch(url, { signal: AbortSignal.timeout(10_000), ...opts });
+let fetchImpl = timed;
 function setFetch(fn) {
   fetchImpl = fn;
 }
 
 function isLocal() {
-  return process.env.MEET_DEV_LOGIN === '1' && !process.env.CONTENT_BUILD_TOKEN;
+  return permissions.devLogin() && !process.env.CONTENT_BUILD_TOKEN;
 }
 
 /** Starts the deploy workflow. Returns { started, detail }. */
 async function triggerBuild() {
   if (isLocal()) {
     contentBuild.writeSnapshot(await content.exportForBuild());
+    // The community directory too, as last published (server/community.js).
+    require('./community-build').writeSnapshot(await require('./community').publicExport());
+    // And the mentors published from the board (server/crm/mentorship.js).
+    try {
+      require('./mentors-build').writeSnapshot(await require('./crm/mentorship').snapshotData());
+    } catch (err) {
+      console.error('Writing the mentors snapshot failed', err.message);
+    }
     return { started: true, detail: 'local: snapshot written, Eleventy rebuilds' };
   }
   const token = process.env.CONTENT_BUILD_TOKEN;
@@ -81,11 +93,23 @@ function message({ user, action, entry, siteOrigin }) {
 
 /** Posts in the team channel. Returns { sent, detail }. */
 async function announce({ user, action, entry, siteOrigin }) {
-  const text = message({ user, action, entry, siteOrigin });
+  return post(message({ user, action, entry, siteOrigin }));
+}
+
+/** Says in the team channel who put a mentor on /mentorship/. Returns { sent, detail }. */
+async function announceMentor({ user, name, id, siteOrigin }) {
+  return post(
+    `📝 ${user.name} published **${name}** on the mentorship page.
+${siteOrigin}/mentorship/#${id}
+Online in a few minutes.`
+  );
+}
+
+async function post(text) {
   const channel = process.env.DISCORD_CONTENT_CHANNEL_ID;
   const token = process.env.DISCORD_BOT_TOKEN_AIS_TEAM_AREA;
   if (!channel || !token) {
-    if (process.env.MEET_DEV_LOGIN === '1') {
+    if (permissions.devLogin()) {
       console.log(`\n[Discord announcement]\n${text}\n`);
       return { sent: true, detail: 'local: printed in the terminal' };
     }
@@ -118,4 +142,4 @@ async function afterSave({ user, result, siteOrigin }) {
   return { build, announcement };
 }
 
-module.exports = { setFetch, triggerBuild, announce, afterSave, message };
+module.exports = { setFetch, triggerBuild, announce, announceMentor, afterSave, message };

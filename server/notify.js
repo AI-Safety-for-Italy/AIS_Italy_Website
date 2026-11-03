@@ -1,7 +1,8 @@
-// Messages the meeting polls send:
+// Messages the meeting polls and the forms send:
 //   - invitations to the guests of an invite-only poll (email);
 //   - to the poll's owner, about each new answer and when every guest has
-//     answered, by email and/or Discord DM as their settings say.
+//     answered, by email and/or Discord DM as their settings say;
+//   - to a form's owner, about each new answer (never what it says).
 //
 // Owner notifications never make the action that triggered them fail: a
 // broken mail server or a closed Discord DM is logged and skipped.
@@ -53,7 +54,10 @@ function render(lines, { noReply = false } = {}) {
 
 // ── Discord ─────────────────────────────────────────────────────────────────
 
-let fetchImpl = (...args) => fetch(...args);
+// Outside services answer within 10 seconds or the call fails (no request
+// waits on them for the function's whole time limit).
+const timed = (url, opts = {}) => fetch(url, { signal: AbortSignal.timeout(10_000), ...opts });
+let fetchImpl = timed;
 function setFetch(fn) {
   fetchImpl = fn;
 }
@@ -90,13 +94,23 @@ async function discordDm(discordId, content) {
  * `message` is { subject, lines } (see render). Returns the channels used.
  */
 async function notifyOwner(pollId, message) {
+  const { rows } = await db.query('select owner_id, notify from polls where id = $1', [pollId]);
+  const poll = rows[0];
+  if (!poll || !poll.notify || !poll.owner_id) return [];
+  return notifyUser(poll.owner_id, message);
+}
+
+/**
+ * Tells a signed-in user something happened, on the channels they chose on
+ * their settings page. Returns the channels used.
+ */
+async function notifyUser(userId, message) {
   const { rows } = await db.query(
-    `select p.notify, u.kind, u.discord_id, u.email, u.notify_email, u.notify_channel
-     from polls p join app_users u on u.id = p.owner_id where p.id = $1`,
-    [pollId]
+    'select discord_id, email, notify_email, notify_channel from app_users where id = $1',
+    [userId]
   );
   const owner = rows[0];
-  if (!owner || !owner.notify || owner.notify_channel === 'none') return [];
+  if (!owner || owner.notify_channel === 'none') return [];
 
   const wantsDiscord = ['discord', 'both'].includes(owner.notify_channel);
   const wantsEmail = ['email', 'both'].includes(owner.notify_channel);
@@ -126,6 +140,25 @@ async function notifyOwner(pollId, message) {
   return used;
 }
 
+/**
+ * Tells a member of the Discord server, picked by id: on their own channels
+ * if they have signed in here (notifyUser, so "off" means off), else by a
+ * Discord message from the bot. Returns the channels used.
+ */
+async function notifyMember(discordId, message) {
+  const { rows } = await db.query('select id from app_users where discord_id = $1', [discordId]);
+  if (rows[0]) return notifyUser(rows[0].id, message);
+  if (!discordAvailable() || !/^\d{5,25}$/.test(String(discordId))) return [];
+  try {
+    const { text } = render(message.lines);
+    await discordDm(discordId, `**${message.subject}**\n\n${text}`.slice(0, 1900));
+    return ['discord'];
+  } catch (err) {
+    console.error('Notification on Discord failed:', err.message);
+    return [];
+  }
+}
+
 function newAnswerMessage({ poll, name, yes, maybe, origin }) {
   const counts = `${yes} yes${maybe ? `, ${maybe} if needed` : ''}`;
   return {
@@ -133,6 +166,16 @@ function newAnswerMessage({ poll, name, yes, maybe, origin }) {
     lines: [
       `${name} answered “${poll.title}” (${counts}).`,
       { label: 'See the answers', link: `${origin}/app/polls/poll/?id=${poll.id}` },
+    ],
+  };
+}
+
+function newFormAnswerMessage({ form, origin }) {
+  return {
+    subject: `New answer: ${form.title}`,
+    lines: [
+      `Someone answered “${form.title}”.`,
+      { label: 'Open the form', link: `${origin}/app/forms/edit/?id=${form.id}` },
     ],
   };
 }
@@ -304,6 +347,9 @@ module.exports = {
   discordAvailable,
   setFetch,
   notifyOwner,
+  notifyUser,
+  notifyMember,
+  newFormAnswerMessage,
   newAnswerMessage,
   allAnsweredMessage,
   sendInvites,

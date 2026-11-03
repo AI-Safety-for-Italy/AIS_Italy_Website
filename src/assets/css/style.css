@@ -80,6 +80,8 @@
   --success-light: #dcfce7;
   --warning: #d97706;
   --warning-light: #fef3c7;
+  --warning-soft: #fef3c7;
+  --warning-ink: #92400e;
   --error: #cd212a;
   --error-light: #fbecea;
   --info: #008c45;
@@ -174,6 +176,8 @@
   --success-light: #166534;
   --warning: #fbbf24;
   --warning-light: #78350f;
+  --warning-soft: #3b2508;
+  --warning-ink: #fcd34d;
   --error: #e5484d;
   --error-light: #3a171a;
   --info: #2fbf71;
@@ -1582,6 +1586,704 @@ a:hover {
   margin: 0;
 }
 
+/* Mentors and projects: search + track/area filters over a grid of mentor
+   cards; each card opens a dialog with the full project (mentor-explorer.njk) */
+.mentors-intro {
+  margin: 0 0 1.25rem;
+  color: var(--text-secondary);
+}
+
+/* A short heads-up on orange, e.g. "More mentors will be announced…" */
+.note-orange {
+  display: flex;
+  align-items: baseline;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0.6rem 0.9rem;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: var(--warning-ink);
+  background: var(--warning-soft);
+  border-left: 3px solid var(--warning);
+  border-radius: var(--radius-sm);
+}
+
+.note-orange::before {
+  content: '';
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--warning);
+  transform: translateY(-1px);
+}
+
+.mentors-more-coming {
+  margin: 0 0 1.75rem;
+}
+
+.mentor-filters {
+  display: grid;
+  gap: 0.85rem;
+  margin-bottom: 2rem;
+}
+
+/* Search and track on one line, area chips below */
+.mentor-filter-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.mentor-filters[hidden],
+.mentor-card[hidden],
+.mentor-empty[hidden],
+.mentor-more[hidden],
+.mentor-reset[hidden] {
+  display: none;
+}
+
+.mentor-search {
+  position: relative;
+  display: block;
+  flex: 1 1 18rem;
+}
+
+.mentor-search svg {
+  position: absolute;
+  left: 0.95rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.mentor-search input {
+  width: 100%;
+  padding: 0.75rem 1rem 0.75rem 2.6rem;
+  font: inherit;
+  font-size: 0.975rem;
+  color: var(--text-primary);
+  background: var(--card-bg);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-full);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.mentor-search input::placeholder {
+  color: var(--text-muted);
+}
+
+.mentor-search input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--ring);
+}
+
+/* Track: one choice out of three, as a segmented control */
+.mentor-segmented {
+  display: inline-flex;
+  justify-self: start;
+  max-width: 100%;
+  overflow-x: auto;
+  gap: 0.2rem;
+  padding: 0.2rem;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-full);
+  scrollbar-width: none;
+}
+
+.mentor-segment {
+  flex-shrink: 0;
+  padding: 0.45rem 1rem;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.mentor-segment:hover {
+  color: var(--text-primary);
+}
+
+.mentor-segment[aria-pressed='true'] {
+  color: var(--text-primary);
+  background: var(--card-bg);
+  box-shadow: var(--shadow-sm), 0 0 0 1px var(--border-default);
+}
+
+/* Area: any number of chips, each with how many mentors it would show */
+.mentor-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.mentor-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.38rem 0.85rem;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: var(--card-bg);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease,
+    opacity 0.15s ease;
+}
+
+.mentor-chip:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.mentor-chip[aria-pressed='true'] {
+  color: var(--accent-700);
+  background: var(--accent-100);
+  border-color: var(--accent-300);
+}
+
+.mentor-chip.is-empty:not([aria-pressed='true']) {
+  opacity: 0.45;
+}
+
+.mentor-segment:focus-visible,
+.mentor-chip:focus-visible,
+.mentor-reset:focus-visible,
+.mentor-dialog-close:focus-visible {
+  outline: none;
+  box-shadow: var(--ring);
+}
+
+.mentor-reset {
+  margin-left: 0.35rem;
+  padding: 0;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--accent);
+  background: none;
+  border: 0;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.mentor-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.25rem;
+}
+
+.mentor-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.5rem;
+  background: var(--card-bg);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius);
+  transition: transform 0.25s var(--ease), box-shadow 0.25s var(--ease),
+    border-color 0.25s var(--ease);
+}
+
+.mentor-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--accent-300);
+  box-shadow: var(--shadow-md);
+  cursor: pointer;
+}
+
+/* Portrait on top, centred, with the name under it */
+.mentor-card-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.85rem;
+  padding-bottom: 1.1rem;
+  text-align: center;
+  border-bottom: 1px solid var(--border-muted);
+}
+
+.mentor-avatar {
+  width: 128px;
+  height: 128px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--bg-tertiary);
+}
+
+.mentor-avatar.is-large {
+  width: 120px;
+  height: 120px;
+}
+
+.mentor-initials {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: 2.5rem;
+  font-weight: 600;
+  color: var(--accent-700);
+  background: var(--accent-100);
+  box-shadow: inset 0 0 0 1px var(--accent-200);
+}
+
+.mentor-initials.is-large {
+  font-size: 2.4rem;
+}
+
+.mentor-card-who {
+  min-width: 0;
+}
+
+.mentor-avatar.is-small {
+  width: 48px;
+  height: 48px;
+}
+
+.mentor-initials.is-small {
+  font-size: 1rem;
+}
+
+/* "Co-mentor": a label in the card's top corner, above the name in the profile */
+.mentor-co-badge {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  padding: 0.25rem 0.65rem;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent-700);
+  background: var(--accent-100);
+  border: 1px solid var(--accent-200);
+  border-radius: var(--radius-full);
+}
+
+.mentor-co-badge.is-inline {
+  position: static;
+  display: inline-block;
+  margin-bottom: 0.5rem;
+}
+
+.mentor-co-list {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0.6rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mentor-co {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.6rem 0.9rem 0.6rem 0.6rem;
+  color: inherit;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius);
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.mentor-co:hover {
+  border-color: var(--accent-300);
+  background: var(--bg-primary);
+}
+
+.mentor-co-name {
+  display: block;
+  font-weight: 650;
+}
+
+.mentor-co .mentor-role {
+  display: block;
+  margin: 0;
+}
+
+.mentor-name {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 1.1rem;
+  font-weight: 650;
+  line-height: 1.3;
+}
+
+.mentor-role {
+  margin: 0.15rem 0 0;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  color: var(--text-tertiary);
+}
+
+/* Only between a role and the affiliation: a mentor may have no role. */
+* + .mentor-affiliation::before {
+  content: ' · ';
+}
+
+.mentor-track-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mentor-track-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.mentor-track-pill::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.mentor-track-pill.is-orientation::before {
+  background: var(--secondary);
+}
+
+.mentor-project-title {
+  margin: 0 0 0.4rem;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--text-primary);
+}
+
+/* Orientation-only mentors have no project title: a small label instead */
+.mentor-help-label {
+  margin: 0 0 0.4rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.mentor-summary {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin: 0;
+  font-size: 0.925rem;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+.mentor-card-foot {
+  margin-top: auto;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-muted);
+}
+
+.mentor-area-tags {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mentor-area-tags .tag {
+  font-size: 0.75rem;
+  padding: 0.2rem 0.65rem;
+  color: var(--text-secondary);
+  background: var(--bg-primary);
+  border-color: transparent;
+}
+
+/* Only the card's hover says it opens: the link itself is for screen
+   readers and keyboards, and its ::after makes the whole card its hit area. */
+.mentor-open {
+  position: static;
+}
+
+.mentor-card:focus-within {
+  border-color: var(--accent);
+  box-shadow: var(--ring);
+}
+
+.mentor-open:focus-visible {
+  outline: none;
+}
+
+/* The whole card is the link's hit area */
+.mentor-open::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius);
+}
+
+.mentor-empty {
+  padding: 2.5rem 1.5rem;
+  text-align: center;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+}
+
+.mentor-empty p {
+  margin: 0 0 1rem;
+  color: var(--text-secondary);
+}
+
+.mentor-more {
+  margin-top: 2rem;
+  text-align: center;
+}
+
+.mentor-more-count {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--text-tertiary);
+}
+
+/* Mentor profile: a centred dialog, a bottom sheet on phones */
+.mentor-dialog {
+  width: min(720px, calc(100% - 2rem));
+  max-width: none;
+  max-height: calc(100dvh - 3rem);
+  padding: 0;
+  color: var(--text-primary);
+  background: var(--card-bg);
+  border: 1px solid var(--border-default);
+  border-radius: 14px;
+  box-shadow: var(--shadow-xl);
+  overscroll-behavior: contain;
+}
+
+.mentor-dialog[open] {
+  animation: mentor-dialog-in 0.25s var(--ease);
+}
+
+/* Opened from a link the dialog itself takes focus; its frame is enough. */
+.mentor-dialog:focus-visible {
+  outline: none;
+}
+
+.mentor-dialog::backdrop {
+  background: var(--overlay-light);
+  backdrop-filter: blur(3px);
+}
+
+@keyframes mentor-dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+
+html:has(.mentor-dialog[open]) {
+  overflow: hidden;
+}
+
+/* Without JavaScript a card's link scrolls to the profile, shown inline */
+.mentor-dialog:target:not([open]) {
+  position: static;
+  display: block;
+  margin: 2rem auto 0;
+}
+
+.mentor-dialog-inner {
+  position: relative;
+  padding: 2.25rem;
+}
+
+.mentor-dialog-close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  color: var(--text-secondary);
+  background: var(--bg-primary);
+  border: 1px solid var(--border-default);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.mentor-dialog-close:hover {
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
+
+.mentor-dialog-head {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding-right: 3rem;
+}
+
+.mentor-dialog-meta {
+  margin: 0.4rem 0 0;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--text-tertiary);
+}
+
+.mentor-dialog-meta span + span::before {
+  content: ' · ';
+}
+
+.mentor-dialog-name {
+  margin: 0;
+  font-size: clamp(1.5rem, 3vw, 1.85rem);
+  line-height: 1.2;
+}
+
+.mentor-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.mentor-links a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.mentor-dialog-tags {
+  margin-top: 1.5rem;
+  padding-bottom: 1.75rem;
+  border-bottom: 1px solid var(--border-default);
+}
+
+.mentor-dialog-part {
+  margin-top: 1.75rem;
+}
+
+.mentor-dialog-part h3 {
+  margin: 0.5rem 0 0.65rem;
+  font-size: 1.45rem;
+  line-height: 1.3;
+}
+
+.mentor-dialog-part > p:not(.mono-label) {
+  margin: 0.4rem 0 0;
+  line-height: 1.7;
+  color: var(--text-secondary);
+  /* Keeps the paragraph breaks of a multi-paragraph project description. */
+  white-space: pre-line;
+}
+
+@media (max-width: 1024px) {
+  .mentor-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .mentor-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* One scrolling line of chips rather than four wrapped rows */
+  .mentor-chips {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    margin: 0 -1.25rem;
+    padding: 0 1.25rem 0.25rem;
+    scrollbar-width: none;
+  }
+
+  .mentor-chip {
+    flex-shrink: 0;
+  }
+
+  /* The three tracks share the width, wrapping their names if needed */
+  .mentor-segmented {
+    display: flex;
+    width: 100%;
+  }
+
+  .mentor-segment {
+    flex: 1 1 0;
+    padding: 0.45rem 0.6rem;
+    font-size: 0.85rem;
+    line-height: 1.25;
+  }
+
+  .mentor-dialog {
+    width: 100%;
+    max-height: 92dvh;
+    margin: auto 0 0;
+    border-radius: 14px 14px 0 0;
+  }
+
+  .mentor-dialog-inner {
+    padding: 1.5rem 1.25rem 1.75rem;
+  }
+
+  .mentor-dialog-head {
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .mentor-card .mentor-avatar {
+    width: 104px;
+    height: 104px;
+  }
+
+  .mentor-card .mentor-initials {
+    font-size: 2.1rem;
+  }
+
+  .mentor-avatar.is-large {
+    width: 88px;
+    height: 88px;
+  }
+
+  .mentor-initials.is-large {
+    font-size: 1.8rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mentor-dialog[open] {
+    animation: none;
+  }
+
+  .mentor-card:hover {
+    transform: none;
+  }
+}
+
 /* The two tracks: numbered cards with a commitment / outcome footer */
 .track-head {
   display: flex;
@@ -1896,6 +2598,20 @@ a:hover {
   transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
+.call-roles.is-single {
+  grid-template-columns: minmax(0, 1fr);
+  align-self: center;
+}
+
+.call-roles.is-single .call-role p {
+  flex-grow: 0;
+}
+
+.call-role-actions {
+  display: grid;
+  gap: 0.6rem;
+}
+
 .call-role:hover {
   transform: translateY(-3px);
   box-shadow: var(--shadow-lg);
@@ -1915,6 +2631,7 @@ a:hover {
 
 .call-role .btn {
   align-self: stretch;
+  width: 100%;
   max-width: 100%;
   white-space: normal;
   text-align: center;

@@ -1,0 +1,1035 @@
+// Tests for the mentorship board (server/crm/mentorship.js and its API), on the
+// invented sheets of server/crm/fixtures.js. Run with `npm run test:meet`.
+//
+// The invented people: mentors Ada (in all three lists), Bruno, Dario (to
+// contact), Elena and Fabio (applied); mentee Gino; Carla has no email.
+const { test, beforeEach } = require('node:test');
+const assert = require('node:assert/strict');
+const { PGlite } = require('@electric-sql/pglite');
+
+process.env.SESSION_SECRET = 'x'.repeat(40);
+
+const db = require('./db');
+const auth = require('./auth');
+const permissions = require('./permissions');
+const sheets = require('./sheets');
+const crm = require('./crm/crypto');
+const audit = require('./crm/audit');
+const mentorship = require('./crm/mentorship');
+const api = require('./routes/app/crm/mentorship');
+const sources = require('./crm/sources');
+const records = require('./crm/records');
+
+beforeEach(async () => {
+  db.setDb(new PGlite());
+  process.env.CRM_ENCRYPTION_KEY = Buffer.alloc(32, 1).toString('base64');
+  process.env.CRM_KEY_SECRET = 'a-crm-secret-of-at-least-thirty-two-characters';
+  process.env.CRM_SHEETS_FAKE = '1';
+  delete process.env.DISCORD_BOT_TOKEN_AIS_TEAM_AREA;
+  delete process.env.DISCORD_GUILD_ID;
+  sheets.setForTests();
+  permissions.setFetch(() => {
+    throw new Error('no network in tests');
+  });
+  // The board reads its own records: copy the invented sheets onto it once,
+  // as the team does with the real ones. Every test below then checks the
+  // board built from the imported copy.
+  const me = await admin();
+  for (const id of sources.SHEET_SOURCES) await records.importSource(me, id);
+});
+
+const ADA = () => crm.personKey('ada@example.org');
+const GINO = () => crm.personKey('gino@example.org');
+const ELENA = () => crm.personKey('elena@example.org');
+const FABIO = () => crm.personKey('fabio@example.org');
+const BRUNO = () => crm.personKey('bruno@example.org');
+
+async function admin() {
+  await db.query('select 1');
+  const { rows } = await db.query(
+    `update app_users set last_login_at = now() where kind = 'admin' returning *`
+  );
+  return { id: rows[0].id, kind: 'admin', name: rows[0].name };
+}
+
+async function member(name, roles) {
+  return auth.upsertDiscordUser({ discordId: `test-${name}`, name, roles });
+}
+
+async function setRoles() {
+  await permissions.saveRolePermissions([
+    { roleId: 'r-mentors', roleName: 'mentorship team', permissions: ['mentorship'] },
+    { roleId: 'r-people', roleName: 'people team', permissions: ['people'] },
+  ]);
+}
+
+async function call({ method = 'GET', url = '/api/app/crm/mentorship', user, body } = {}) {
+  const headers = { 'content-type': 'application/json' };
+  if (user) headers.cookie = `${auth.COOKIE}=${auth.makeSession(user.id)}`;
+  const res = {
+    statusCode: 200,
+    headers: {},
+    setHeader(k, v) {
+      this.headers[k] = v;
+    },
+    end(text) {
+      this.body = text ? JSON.parse(text) : null;
+    },
+  };
+  await api({ method, url, headers, body, socket: {} }, res);
+  return res;
+}
+
+async function rejects(promise, status) {
+  await assert.rejects(promise, (err) => err.status === status);
+}
+
+const byName = (list, name) => list.find((c) => c.name === name);
+
+// ── Reading ──────────────────────────────────────────────────────────────────
+
+test('the three lists become one card per person and role', async () => {
+  const board = await mentorship.board(await admin());
+  assert.deepEqual(
+    board.mentors.map((m) => m.name),
+    ['Ada Esempio', 'Bruno Prova', 'Dario Test', 'Elena Campione', 'Fabio Marcatore']
+  );
+  assert.deepEqual(
+    board.mentees.map((m) => m.name),
+    ['Gino Mentee']
+  );
+  const ada = byName(board.mentors, 'Ada Esempio');
+  assert.deepEqual(ada.sources.sort(), [
+    'mentees_interest',
+    'mentors_applications',
+    'mentors_prospective',
+  ]);
+  assert.equal(ada.key, ADA());
+  assert.equal(ada.project, 'Sonde lineari sui modelli piccoli');
+  assert.equal(ada.capacity, 2);
+  assert.equal(ada.referrer, 'Bruno Prova');
+  // Carla has no email: listed apart, never tracked.
+  assert.deepEqual(board.unlinked, [
+    { kind: 'mentor', source: 'mentors_prospective', row: 4, name: 'Carla Finta' },
+  ]);
+  assert.deepEqual(board.problems, []);
+  // The board itself carries no contact details.
+  assert.ok(!JSON.stringify(board).includes('@'));
+});
+
+test('where each person is comes from the sheets until the team moves them', async () => {
+  const board = await mentorship.board(await admin());
+  const status = (list, name) => byName(list, name).status;
+  assert.equal(status(board.mentors, 'Ada Esempio'), 'applied');
+  assert.equal(status(board.mentors, 'Bruno Prova'), 'to_contact');
+  assert.equal(status(board.mentors, 'Dario Test'), 'to_contact');
+  assert.equal(status(board.mentees, 'Gino Mentee'), 'interested');
+  const track = (list, name) => byName(list, name).track;
+  assert.equal(track(board.mentors, 'Ada Esempio'), 'projects');
+  assert.equal(track(board.mentors, 'Elena Campione'), 'both');
+  assert.equal(track(board.mentors, 'Fabio Marcatore'), 'orientation');
+  assert.equal(track(board.mentors, 'Bruno Prova'), 'orientation');
+  assert.equal(track(board.mentors, 'Dario Test'), null);
+  assert.equal(track(board.mentees, 'Gino Mentee'), 'projects');
+});
+
+test('the sheets’ free answers are read sensibly', () => {
+  assert.equal(mentorship.yes('Sì'), true);
+  assert.equal(mentorship.yes(' si '), true);
+  assert.equal(mentorship.yes('Yes, by email'), true);
+  assert.equal(mentorship.yes('No'), false);
+  assert.equal(mentorship.yes(''), false);
+  assert.equal(mentorship.trackOf('Progetti, Orientamento'), 'both');
+  assert.equal(mentorship.trackOf('AI safety projects'), 'projects');
+  assert.equal(mentorship.trackOf('Orientamento professionale'), 'orientation');
+  assert.equal(mentorship.trackOf('boh'), null);
+  assert.deepEqual(mentorship.kindsOf('Mentor'), ['mentor']);
+  assert.deepEqual(mentorship.kindsOf('Mentee'), ['mentee']);
+  assert.deepEqual(mentorship.kindsOf('Mentor e mentee'), ['mentor', 'mentee']);
+  assert.deepEqual(mentorship.kindsOf(''), ['mentee']);
+  // The explanation after the role does not count, whatever word it uses.
+  assert.deepEqual(mentorship.kindsOf('Mentee: vorrei essere affiancat* da un mentor'), ['mentee']);
+  assert.deepEqual(mentorship.kindsOf('Mentor: vorrei seguire un mentee'), ['mentor']);
+  assert.deepEqual(mentorship.kindsOf('Mentee (cerco un mentor)'), ['mentee']);
+  assert.deepEqual(
+    mentorship.kindsOf('Mentor: vorrei seguire un mentee, Mentee: vorrei un mentor'),
+    ['mentor', 'mentee']
+  );
+});
+
+test('one person shows every sheet they are in, and contact details only to the mentorship team', async () => {
+  const me = await admin();
+  const full = await mentorship.person(me, ['mentorship'], ADA(), 'mentor');
+  assert.equal(full.email, 'ada@example.org');
+  assert.equal(full.sheets.length, 3);
+  const app = full.sheets.find((s) => s.source === 'mentors_applications');
+  assert.equal(app.fields.cv, 'https://example.org/cv/ada.pdf');
+  assert.equal(app.row, 2);
+
+  const cut = await mentorship.person(me, ['people'], ADA(), 'mentor');
+  assert.equal(cut.email, undefined);
+  const text = JSON.stringify(cut.sheets);
+  assert.ok(!text.includes('@') && !text.includes('/cv/'));
+  assert.equal(
+    cut.sheets.find((s) => s.source === 'mentors_applications').fields.project_title,
+    'Sonde lineari sui modelli piccoli'
+  );
+
+  const lines = await audit.recent({ subjectKey: ADA() });
+  assert.deepEqual(
+    lines.map((l) => l.action),
+    ['view-person', 'view-person']
+  );
+  await rejects(
+    mentorship.person(me, ['mentorship'], crm.personKey('nobody@example.org'), 'mentor'),
+    404
+  );
+  await rejects(mentorship.person(me, ['mentorship'], 'not-a-key', 'mentor'), 400);
+  await rejects(mentorship.person(me, ['mentorship'], ADA(), 'boss'), 400);
+});
+
+// ── Changes ──────────────────────────────────────────────────────────────────
+
+test('moving someone along is stored by key, audited, and validated', async () => {
+  const me = await admin();
+  await mentorship.update(me, BRUNO(), 'mentor', { status: 'contacted', track: 'projects' });
+  let bruno = byName((await mentorship.board(me)).mentors, 'Bruno Prova');
+  assert.equal(bruno.status, 'contacted');
+  assert.equal(bruno.track, 'projects');
+  assert.equal(bruno.statusSet, true);
+  const [line] = await audit.recent({ subjectKey: BRUNO() });
+  assert.deepEqual(line.detail, {
+    kind: 'mentor',
+    from: 'to_contact',
+    to: 'contacted',
+    track: 'projects',
+  });
+
+  await rejects(mentorship.update(me, BRUNO(), 'mentor', { status: 'hired' }), 400);
+  await rejects(mentorship.update(me, BRUNO(), 'mentor', { status: 'interested' }), 400); // a mentee's status
+  await rejects(mentorship.update(me, BRUNO(), 'mentor', { status: 'matched' }), 400);
+  await rejects(mentorship.update(me, BRUNO(), 'mentor', { track: 'cooking' }), 400);
+  await rejects(mentorship.update(me, BRUNO(), 'mentor', { owner: 'someone' }), 400);
+  await rejects(
+    mentorship.update(me, crm.personKey('ghost@example.org'), 'mentor', { status: 'contacted' }),
+    404
+  );
+
+  // Clearing the track falls back to what the sheets say; the answer says so
+  // too, since the page updates the card from it without reloading.
+  const answer = await mentorship.update(me, BRUNO(), 'mentor', { track: null });
+  bruno = byName((await mentorship.board(me)).mentors, 'Bruno Prova');
+  assert.equal(bruno.track, 'orientation');
+  assert.deepEqual(answer, {
+    status: 'contacted',
+    track: 'orientation',
+    owner: null,
+    ownerId: null,
+  });
+});
+
+test('a team member can take someone on, and drop them', async () => {
+  await setRoles();
+  const maria = await member('Maria', ['r-mentors']);
+  const taken = await mentorship.update(maria, ELENA(), 'mentor', { owner: 'me' });
+  assert.equal(taken.owner, 'Maria');
+  assert.equal(byName((await mentorship.board(maria)).mentors, 'Elena Campione').owner, 'Maria');
+  await mentorship.update(maria, ELENA(), 'mentor', { owner: 'none' });
+  assert.equal(byName((await mentorship.board(maria)).mentors, 'Elena Campione').owner, null);
+});
+
+test('notes are encrypted at rest, shown in clear to the team, and tied to their person', async () => {
+  const me = await admin();
+  await mentorship.addNote(me, ADA(), 'mentor', 'Preferisce le chiamate al mattino.');
+  const { rows } = await db.query('select * from crm_notes');
+  assert.equal(rows.length, 1);
+  assert.ok(!rows[0].body_encrypted.includes('mattino'));
+  const ada = await mentorship.person(me, ['mentorship'], ADA(), 'mentor');
+  assert.equal(ada.notes[0].body, 'Preferisce le chiamate al mattino.');
+  assert.equal(ada.notes[0].author, me.name);
+  assert.equal(byName((await mentorship.board(me)).mentors, 'Ada Esempio').notes, 1);
+
+  // Moved onto someone else's key, the note does not open.
+  await db.query('update crm_notes set person_key = $1', [ELENA()]);
+  const elena = await mentorship.person(me, ['mentorship'], ELENA(), 'mentor');
+  assert.match(elena.notes[0].body, /cannot be opened/);
+
+  await rejects(mentorship.addNote(me, ADA(), 'mentor', '   '), 400);
+  await rejects(mentorship.addNote(me, ADA(), 'mentor', 'x'.repeat(4001)), 400);
+  await rejects(mentorship.addNote(me, crm.personKey('ghost@example.org'), 'mentor', 'hi'), 404);
+});
+
+// ── Pairing ──────────────────────────────────────────────────────────────────
+
+test('only selected people on the same track can be paired, a mentee only once', async () => {
+  const me = await admin();
+  await rejects(mentorship.createMatch(me, ADA(), GINO(), 'projects'), 409); // nobody selected yet
+  await mentorship.update(me, ADA(), 'mentor', { status: 'selected' });
+  await rejects(mentorship.createMatch(me, ADA(), GINO(), 'projects'), 409); // Gino not selected
+  await mentorship.update(me, GINO(), 'mentee', { status: 'selected' });
+  await mentorship.update(me, FABIO(), 'mentor', { status: 'selected' });
+  await rejects(mentorship.createMatch(me, FABIO(), GINO(), 'projects'), 409); // Fabio: orientation
+  await rejects(mentorship.createMatch(me, ADA(), GINO(), 'cooking'), 400);
+
+  const { overCapacity } = await mentorship.createMatch(me, ADA(), GINO(), 'projects');
+  assert.equal(overCapacity, false);
+  let board = await mentorship.board(me);
+  assert.equal(byName(board.mentors, 'Ada Esempio').status, 'matched');
+  assert.equal(byName(board.mentees, 'Gino Mentee').status, 'matched');
+  assert.equal(board.matches.length, 1);
+  assert.equal(board.matches[0].mentor.name, 'Ada Esempio');
+  assert.equal(board.matches[0].mentee.name, 'Gino Mentee');
+  // Each one's page names the other.
+  assert.equal(
+    (await mentorship.person(me, ['mentorship'], ADA(), 'mentor')).matches[0].otherName,
+    'Gino Mentee'
+  );
+  assert.equal(
+    (await mentorship.person(me, ['mentorship'], GINO(), 'mentee')).matches[0].otherName,
+    'Ada Esempio'
+  );
+
+  // Gino already has a mentor.
+  await mentorship.update(me, ELENA(), 'mentor', { status: 'selected' });
+  await rejects(mentorship.createMatch(me, ELENA(), GINO(), 'projects'), 409);
+  // While paired, moving them by hand is refused.
+  await rejects(mentorship.update(me, GINO(), 'mentee', { status: 'declined' }), 409);
+
+  await mentorship.endMatch(me, board.matches[0].id);
+  board = await mentorship.board(me);
+  assert.equal(byName(board.mentors, 'Ada Esempio').status, 'selected');
+  assert.equal(byName(board.mentees, 'Gino Mentee').status, 'selected');
+  assert.equal(board.matches.length, 0);
+  await rejects(
+    mentorship.endMatch(
+      me,
+      board.matches[0] ? board.matches[0].id : '00000000-0000-0000-0000-000000000000'
+    ),
+    404
+  );
+  // The ended pair is kept, and both histories say what happened.
+  const { rows } = await db.query('select status from crm_matches');
+  assert.deepEqual(
+    rows.map((r) => r.status),
+    ['ended']
+  );
+  const gino = await audit.recent({ subjectKey: GINO() });
+  assert.deepEqual(
+    gino.filter((l) => l.action === 'set-match').map((l) => l.detail.action),
+    ['end', 'create']
+  );
+});
+
+// ── The API ──────────────────────────────────────────────────────────────────
+
+test('the API lets in only the mentorship permission', async () => {
+  await setRoles();
+  const maria = await member('Maria', ['r-mentors']);
+  const paolo = await member('Paolo', ['r-people']);
+  const nico = await member('Nico', []);
+  assert.equal((await call({})).statusCode, 401);
+  assert.equal((await call({ user: nico })).statusCode, 403);
+  assert.equal((await call({ user: paolo })).statusCode, 403);
+  const ok = await call({ user: maria });
+  assert.equal(ok.statusCode, 200);
+  assert.equal(ok.body.mentors.length, 5);
+  assert.equal(ok.headers['Cache-Control'], 'no-store');
+  const post = (user, action, body) =>
+    call({ method: 'POST', url: `/api/app/crm/mentorship?action=${action}`, user, body });
+  assert.equal(
+    (await post(paolo, 'note', { key: ADA(), kind: 'mentor', body: 'hi' })).statusCode,
+    403
+  );
+  assert.equal(
+    (await post(maria, 'note', { key: ADA(), kind: 'mentor', body: 'hi' })).statusCode,
+    201
+  );
+  assert.equal(
+    (await post(maria, 'update', { key: ADA(), kind: 'mentor', status: 'selected', evil: 1 }))
+      .statusCode,
+    200
+  );
+  assert.equal((await post(maria, 'drop-table', {})).statusCode, 400);
+  const person = await call({
+    url: `/api/app/crm/mentorship?key=${ADA()}&kind=mentor`,
+    user: maria,
+  });
+  assert.equal(person.body.email, 'ada@example.org');
+});
+
+test('a note or a pair re-reads the Discord roles; a stage change trusts them for five minutes', async () => {
+  await setRoles();
+  process.env.DISCORD_BOT_TOKEN_AIS_TEAM_AREA = 'bot';
+  process.env.DISCORD_GUILD_ID = 'guild1';
+  const maria = await member('Maria', ['r-mentors']);
+  permissions.setFetch(async () => ({ ok: true, status: 200, json: async () => ({ roles: [] }) }));
+  const move = () =>
+    call({
+      method: 'POST',
+      url: '/api/app/crm/mentorship?action=update',
+      user: maria,
+      body: { key: ADA(), kind: 'mentor', status: 'selected' },
+    });
+  // Reading, and moving someone, within five minutes of the last check: the
+  // stored roles stand (a move must feel instant).
+  assert.equal((await call({ user: maria })).statusCode, 200);
+  assert.equal((await move()).statusCode, 200);
+  // A note: Discord is asked, says the role is gone, and the note is refused.
+  const note = await call({
+    method: 'POST',
+    url: '/api/app/crm/mentorship?action=note',
+    user: maria,
+    body: { key: ADA(), kind: 'mentor', body: 'Ciao' },
+  });
+  assert.equal(note.statusCode, 403);
+  assert.equal((await db.query('select 1 from crm_notes')).rows.length, 0);
+  // Discord said no roles: from now on a move is refused too.
+  assert.equal((await move()).statusCode, 403);
+});
+
+test('a stage change re-reads the Discord roles once the last check is five minutes old', async () => {
+  await setRoles();
+  process.env.DISCORD_BOT_TOKEN_AIS_TEAM_AREA = 'bot';
+  process.env.DISCORD_GUILD_ID = 'guild1';
+  const maria = await member('Maria', ['r-mentors']);
+  permissions.setFetch(async () => ({ ok: true, status: 200, json: async () => ({ roles: [] }) }));
+  await db.query(`update app_users set roles_checked_at = now() - interval '6 minutes'`);
+  const res = await call({
+    method: 'POST',
+    url: '/api/app/crm/mentorship?action=update',
+    user: maria,
+    body: { key: ADA(), kind: 'mentor', status: 'selected' },
+  });
+  assert.equal(res.statusCode, 403);
+  assert.equal((await db.query('select 1 from crm_people_state')).rows.length, 0);
+});
+
+test('without its encryption keys the CRM refuses to run', async () => {
+  const me = await admin();
+  delete process.env.CRM_ENCRYPTION_KEY;
+  assert.equal((await call({ user: me })).statusCode, 503);
+});
+
+test('after reading, moving, noting and pairing, the database holds no name, email or note', async () => {
+  const me = await admin();
+  await mentorship.board(me);
+  await mentorship.person(me, ['mentorship'], ADA(), 'mentor');
+  await mentorship.addNote(me, ADA(), 'mentor', 'Testo riservato della nota');
+  await mentorship.update(me, ADA(), 'mentor', { status: 'selected', owner: 'me' });
+  await mentorship.update(me, GINO(), 'mentee', { status: 'selected' });
+  await mentorship.createMatch(me, ADA(), GINO(), 'projects');
+  // The board's records are ciphertext (random text, where a short name can
+  // turn up by chance): check they are encrypted, and look for names elsewhere.
+  const { rows: stored } = await db.query('select data_encrypted from crm_records');
+  assert.ok(stored.length > 0);
+  assert.ok(
+    stored.every((r) => /^v1\./.test(r.data_encrypted)),
+    'a board record is not encrypted'
+  );
+  const dump = JSON.stringify(
+    await Promise.all(
+      ['crm_people_state', 'crm_notes', 'crm_matches', 'crm_audit', 'crm_records'].map(async (t) =>
+        (
+          await db.query(`select * from ${t}`)
+        ).rows.map(
+          // eslint-disable-next-line no-unused-vars
+          ({ data_encrypted, ...rest }) => rest
+        )
+      )
+    )
+  );
+  assert.ok(!dump.includes('@'), 'an email reached the database');
+  assert.ok(
+    !/Ada|Gino|Esempio|Mentee|Sonde/.test(dump),
+    'a name or an answer reached the database'
+  );
+  assert.ok(!dump.includes('riservato'), 'a note is stored in clear');
+});
+
+// ── The board's own records ─────────────────────────────────────────────────
+
+test('importing a sheet again replaces the first copy instead of doubling it', async () => {
+  const me = await admin();
+  const before = await mentorship.board(me);
+  // Without a confirmation the earlier copy is kept.
+  await assert.rejects(records.importSource(me, 'mentors_prospective'), (err) => {
+    assert.equal(err.status, 409);
+    assert.equal(err.details.existing, 4);
+    return true;
+  });
+  let asked = null;
+  const again = await records.importSource(me, 'mentors_prospective', {
+    confirmOverwrite: async (n) => {
+      asked = n;
+    },
+  });
+  assert.equal(asked, 4);
+  assert.equal(again.replaced, 4);
+  assert.equal(again.imported, 4);
+  assert.equal(again.withoutEmail, 1);
+  const after = await mentorship.board(me);
+  assert.deepEqual(
+    after.mentors.map((m) => [m.name, m.sources.length]),
+    before.mentors.map((m) => [m.name, m.sources.length])
+  );
+  const { rows } = await db.query(
+    `select count(*)::int as n from crm_records where source = 'mentors_prospective'`
+  );
+  assert.equal(rows[0].n, 4);
+});
+
+test('only CRM: settings may import, and the import is on the audit trail', async () => {
+  await permissions.saveRolePermissions([
+    { roleId: 'r-mentors', roleName: 'mentorship team', permissions: ['mentorship'] },
+    { roleId: 'r-crm-admin', roleName: 'crm admins', permissions: ['mentorship', 'crm_admin'] },
+  ]);
+  const maria = await member('Maria', ['r-mentors']);
+  const boss = await member('Bea', ['r-crm-admin']);
+  const url = '/api/app/crm/mentorship?action=import&source=mentees_interest';
+  assert.equal((await call({ method: 'POST', url, user: maria, body: {} })).statusCode, 403);
+  // Already imported (beforeEach): replacing it takes the confirmation and
+  // the admin password.
+  const asks = await call({ method: 'POST', url, user: boss, body: {} });
+  assert.equal(asks.statusCode, 409);
+  assert.equal(asks.body.code, 'confirm_overwrite');
+  assert.ok(asks.body.existing > 0);
+  process.env.ADMIN_PASSWORD_HASH = auth.hashPassword('the admin password');
+  const noTick = { adminPassword: 'the admin password' };
+  assert.equal((await call({ method: 'POST', url, user: boss, body: noTick })).statusCode, 409);
+  const wrong = await call({
+    method: 'POST',
+    url,
+    user: boss,
+    body: { replace: true, adminPassword: 'guess' },
+  });
+  assert.equal(wrong.statusCode, 403);
+  assert.equal(wrong.body.code, 'wrong_password');
+  const res = await call({
+    method: 'POST',
+    url,
+    user: boss,
+    body: { replace: true, adminPassword: 'the admin password' },
+  });
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.imported > 0, true);
+  assert.equal(res.body.replaced, asks.body.existing);
+  const lines = (await audit.recent()).filter((l) => l.action === 'crm-import');
+  assert.ok(lines.length >= 1);
+  assert.ok(!JSON.stringify(lines).includes('@'));
+  // Mentee applications have no sheet: nothing to import.
+  const none = await call({
+    method: 'POST',
+    url: '/api/app/crm/mentorship?action=import&source=mentees_applications',
+    user: boss,
+    body: {},
+  });
+  assert.equal(none.statusCode, 404);
+});
+
+test('a mentor to contact can be added by hand, and only those can be removed', async () => {
+  await setRoles();
+  const maria = await member('Maria', ['r-mentors']);
+  const add = (body) =>
+    call({ method: 'POST', url: '/api/app/crm/mentorship?action=add', user: maria, body });
+  assert.equal((await add({ first_name: 'Ivo', email: 'non-una-email' })).statusCode, 400);
+  assert.equal((await add({ email: 'ivo@example.org' })).statusCode, 400);
+  const res = await add({
+    first_name: 'Ivo',
+    last_name: 'Nuovo',
+    email: 'Ivo@Example.org',
+    org: 'Università di Prova',
+    track: 'Progetti',
+  });
+  assert.equal(res.statusCode, 201);
+  const me = await admin();
+  const ivo = byName((await mentorship.board(me)).mentors, 'Ivo Nuovo');
+  assert.equal(ivo.status, 'to_contact');
+  assert.equal(ivo.track, 'projects');
+
+  const detail = await mentorship.person(me, ['mentorship'], ivo.key, 'mentor');
+  const added = detail.sheets.find((s) => s.origin === 'board');
+  assert.ok(added.recordId);
+  // An imported row cannot be removed from here.
+  const ada = await mentorship.person(me, ['mentorship'], ADA(), 'mentor');
+  assert.equal(ada.sheets[0].recordId, undefined);
+  const { rows } = await db.query(`select id from crm_records where origin = 'import' limit 1`);
+  const refused = await call({
+    method: 'POST',
+    url: '/api/app/crm/mentorship?action=remove',
+    user: maria,
+    body: { recordId: rows[0].id },
+  });
+  assert.equal(refused.statusCode, 404);
+  const removed = await call({
+    method: 'POST',
+    url: '/api/app/crm/mentorship?action=remove',
+    user: maria,
+    body: { recordId: added.recordId },
+  });
+  assert.equal(removed.statusCode, 200);
+  assert.equal(byName((await mentorship.board(me)).mentors, 'Ivo Nuovo'), undefined);
+});
+
+test('a mentee application from a form shows the mentee as applied', async () => {
+  const me = await admin();
+  await records.add(
+    'mentees_applications',
+    {
+      name: 'Lia Candidata',
+      email: 'lia@example.org',
+      role: 'Studentessa',
+      affiliation: 'Università di Prova',
+      areas: 'Interpretability',
+      tracks: 'Progetti di AI safety',
+    },
+    { origin: 'form' }
+  );
+  const lia = byName((await mentorship.board(me)).mentees, 'Lia Candidata');
+  assert.equal(lia.status, 'applied');
+  assert.equal(lia.track, 'projects');
+  assert.equal(lia.org, 'Studentessa, Università di Prova');
+});
+
+test('a sheet downloaded as CSV imports like the sheet itself', async () => {
+  process.env.ADMIN_PASSWORD_HASH = auth.hashPassword('the admin password');
+  const me = await admin();
+  const csv =
+    '﻿Informazioni cronologiche,Nome completo,Email,Per quale ruolo vorresti candidarti?,' +
+    'Percorso/i a cui vorresti partecipare,Quali aree tematiche si allineano di più al tuo background?\r\n' +
+    '01/10/2026,Nora Csv,nora@example.org,Mentee,Orientamento professionale,"Interpretability, ""evals""\nanche governance"\r\n' +
+    '02/10/2026,Senza Email,,Mentee,,\r\n';
+  const res = await call({
+    method: 'POST',
+    url: '/api/app/crm/mentorship?action=import&source=mentees_interest',
+    user: me,
+    body: { csv, replace: true, adminPassword: 'the admin password' },
+  });
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.imported, 2);
+  assert.equal(res.body.withoutEmail, 1);
+  const board = await mentorship.board(me);
+  // The CSV replaced the earlier import of that list: Gino came from it.
+  assert.deepEqual(
+    board.mentees.map((m) => m.name),
+    ['Nora Csv']
+  );
+  const nora = board.mentees[0];
+  assert.equal(nora.track, 'orientation');
+  assert.equal(nora.areas, 'Interpretability, "evals"\nanche governance');
+});
+
+test('a file of another list, or with no one in it, is refused and the list is kept', async () => {
+  const me = await admin();
+  const count = async () =>
+    (await db.query(`select count(*)::int as n from crm_records where source = 'mentees_interest'`))
+      .rows[0].n;
+  const before = await count();
+  const tries = [
+    'Nome,Cognome,Contatto email\r\nAda,Rossi,ada@example.org\r\n', // the mentors' columns
+    'Nome completo,Telefono\r\nAda Rossi,123\r\n', // no email column
+    'Informazioni cronologiche,Nome completo,Email\r\n', // headers only
+    '',
+  ];
+  for (const csv of tries) {
+    // Refused before any confirmation is asked: even the password changes nothing.
+    await assert.rejects(
+      records.importSource(me, 'mentees_interest', { csv, confirmOverwrite: async () => {} }),
+      (err) => err.status === 400 && err.details.code === 'unusable'
+    );
+  }
+  assert.equal(await count(), before);
+});
+
+// ── The page of a person: draft for the site, emails ─────────────────────────
+
+// The smallest JPEG start the server checks for, padded: enough for the tests.
+const JPEG =
+  'data:image/jpeg;base64,' + Buffer.from([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3]).toString('base64');
+
+test('a person comes with the stages and tracks, and a mentor with their draft for the site', async () => {
+  const me = await admin();
+  const ada = await mentorship.person(me, ['mentorship'], ADA(), 'mentor');
+  assert.ok(ada.statuses.some((s) => s.key === 'to_contact'));
+  assert.ok(ada.tracks.some((t) => t.key === 'projects'));
+  assert.deepEqual(
+    { ...ada.site, updatedAt: null },
+    {
+      bio: '',
+      photo: null,
+      updatedAt: null,
+      updatedBy: null,
+      consent: null,
+      consentFrom: null,
+      consentInForm: null,
+      id: 'ada-esempio',
+      entry: ada.site.entry,
+      entryFrom: 'application',
+      published: null,
+      unpublishedChanges: false,
+      missing: ada.site.missing,
+      vocab: ada.site.vocab,
+    }
+  );
+  assert.ok(ada.site.vocab.tracks.some((t) => t.id === 'projects'));
+  assert.ok(ada.site.vocab.areas.some((a) => a.id === 'interpretability'));
+  const gino = await mentorship.person(me, ['mentorship'], GINO(), 'mentee');
+  assert.equal(gino.site, null);
+});
+
+test('the draft for the site is checked, encrypted, audited, and only for mentors', async () => {
+  const me = await admin();
+  const site = await mentorship.saveSite(me, ADA(), 'mentor', {
+    bio: 'Ricercatrice di prova.',
+    photo: JPEG,
+  });
+  assert.equal(site.bio, 'Ricercatrice di prova.');
+  assert.equal(site.photo, JPEG);
+  // Only what is sent changes.
+  assert.equal(
+    (await mentorship.saveSite(me, ADA(), 'mentor', { photo: null })).bio,
+    'Ricercatrice di prova.'
+  );
+  const { rows } = await db.query('select data_encrypted from crm_site_profiles');
+  assert.ok(!rows[0].data_encrypted.includes('Ricercatrice'));
+  await rejects(
+    mentorship.saveSite(me, ADA(), 'mentor', { photo: 'data:image/png;base64,iVBORw0KGgo=' }),
+    400
+  );
+  await rejects(
+    mentorship.saveSite(me, ADA(), 'mentor', {
+      photo: 'data:image/jpeg;base64,' + Buffer.from('<svg>').toString('base64'),
+    }),
+    400
+  );
+  await rejects(mentorship.saveSite(me, ADA(), 'mentor', { bio: 'x'.repeat(1201) }), 400);
+  await rejects(mentorship.saveSite(me, GINO(), 'mentee', { bio: 'x' }), 400);
+  const [line] = await audit.recent({ subjectKey: ADA() });
+  assert.equal(line.action, 'site-draft');
+  assert.ok(!JSON.stringify(line.detail).includes('Ricercatrice'));
+});
+
+test('a consent given by email is recorded by hand, with how it was given, and can be undone', async () => {
+  const me = await admin();
+  await rejects(mentorship.saveSite(me, ADA(), 'mentor', { consent: { value: 'yes' } }), 400);
+  await rejects(mentorship.saveSite(me, ADA(), 'mentor', { consent: { value: 'maybe' } }), 400);
+  await mentorship.saveSite(me, ADA(), 'mentor', { bio: 'Bio di prova.' });
+  const site = await mentorship.saveSite(me, ADA(), 'mentor', {
+    consent: { value: 'yes', note: 'Email del 2 novembre' },
+  });
+  assert.equal(site.consent, 'yes');
+  assert.equal(site.consentFrom.note, 'Email del 2 novembre');
+  assert.equal(site.consentFrom.by, me.name);
+  // Saving the bio keeps the consent.
+  assert.equal(
+    (await mentorship.saveSite(me, ADA(), 'mentor', { bio: 'Altra bio.' })).consent,
+    'yes'
+  );
+  const { rows } = await db.query('select data_encrypted from crm_site_profiles');
+  assert.ok(!rows[0].data_encrypted.includes('novembre'));
+  const [line] = await audit.recent({ subjectKey: ADA() });
+  assert.ok(!JSON.stringify(line.detail).includes('novembre'));
+  // A withdrawal needs no note; null goes back to the form's answer.
+  assert.equal(
+    (await mentorship.saveSite(me, ADA(), 'mentor', { consent: { value: 'no' } })).consent,
+    'no'
+  );
+  const back = await mentorship.saveSite(me, ADA(), 'mentor', { consent: null });
+  assert.equal(back.consent, null);
+  assert.equal(back.consentFrom, null);
+  assert.equal(back.bio, 'Altra bio.');
+});
+
+test('a mentor on the site is found by name in data/mentors.yaml', () => {
+  const yaml = require('js-yaml');
+  const fs = require('fs');
+  const listed = yaml.load(
+    fs.readFileSync(require('path').join(__dirname, '..', 'data', 'mentors.yaml'), 'utf8')
+  ).mentors;
+  const one = listed.find((m) => m.id && m.name);
+  assert.deepEqual(mentorship.siteEntry(one.name.toUpperCase()), {
+    id: one.id,
+    url: `/mentorship/#${one.id}`,
+  });
+  assert.equal(mentorship.siteEntry('Nessuno Inventato'), null);
+});
+
+test('emails are given for the people asked, in order, and the copy is on the audit trail', async () => {
+  const me = await admin();
+  const { people } = await mentorship.emails(me, 'mentor', [
+    BRUNO(),
+    ADA(),
+    crm.personKey('ghost@example.org'),
+  ]);
+  assert.deepEqual(people, [
+    { name: 'Bruno Prova', email: 'bruno@example.org' },
+    { name: 'Ada Esempio', email: 'ada@example.org' },
+  ]);
+  const [line] = await audit.recent();
+  assert.equal(line.action, 'export');
+  assert.deepEqual(line.detail, { kind: 'mentor', asked: 3, copied: 2 });
+  await rejects(mentorship.emails(me, 'mentor', ['not a key']), 400);
+  await rejects(mentorship.emails(me, 'mentor', 'all'), 400);
+});
+
+test('the API copies emails and saves the draft only for the mentorship team', async () => {
+  await setRoles();
+  const maria = await member('Maria', ['r-mentors']);
+  const nico = await member('Nico', ['r-other']);
+  const ask = (user) =>
+    call({
+      method: 'POST',
+      url: '/api/app/crm/mentorship?action=emails',
+      user,
+      body: { kind: 'mentor', keys: [ADA()] },
+    });
+  assert.deepEqual((await ask(maria)).body.people, [
+    { name: 'Ada Esempio', email: 'ada@example.org' },
+  ]);
+  assert.equal((await ask(nico)).statusCode, 403);
+  const saved = await call({
+    method: 'POST',
+    url: '/api/app/crm/mentorship?action=site',
+    user: maria,
+    body: { key: ADA(), kind: 'mentor', bio: 'Bio di prova' },
+  });
+  assert.equal(saved.statusCode, 200);
+  assert.equal(saved.body.updatedBy, 'Maria');
+});
+
+// ── Publishing a mentor on /mentorship/ ──────────────────────────────────────
+
+// Without CONTENT_BUILD_TOKEN or MEET_DEV_LOGIN the build is neither started
+// nor written locally: nothing leaves the tests, no snapshot lands in the repo.
+const contentPublish = require('./content-publish');
+contentPublish.setFetch(() => {
+  throw new Error('no network in tests');
+});
+
+/** Every text in both languages, for a projects-track mentor. */
+function fullEntry(extra = {}) {
+  const pair = (en, it) => ({ [en[0]]: en[1], [`${en[0]}_it`]: it });
+  return {
+    name: 'Ada Esempio',
+    affiliation: 'Istituto Finto',
+    links: { website: 'https://example.org/ada' },
+    tracks: ['projects'],
+    areas: ['interpretability'],
+    ...pair(['bio', 'A made-up researcher.'], 'Una ricercatrice inventata.'),
+    ...pair(['language', 'Italian'], 'Italiano'),
+    project: {
+      ...pair(['title', 'Linear probes'], 'Sonde lineari'),
+      ...pair(['summary', 'Probes on small models.'], 'Sonde sui modelli piccoli.'),
+      ...pair(['description', 'A longer text.'], 'Un testo più lungo.'),
+      ...pair(['mentee', 'Python.'], 'Python.'),
+      ...pair(['deliverable', 'A blog post.'], 'Un blogpost.'),
+    },
+    ...extra,
+  };
+}
+
+const siteOfAda = async (me) => (await mentorship.person(me, ['mentorship'], ADA(), 'mentor')).site;
+
+test('a new mentor’s entry starts from their application, in Italian', async () => {
+  const me = await admin();
+  await mentorship.saveSite(me, ADA(), 'mentor', { bio: 'Bio dal tabellone.' });
+  const site = await siteOfAda(me);
+  assert.equal(site.entryFrom, 'application');
+  assert.equal(site.id, 'ada-esempio');
+  assert.equal(site.entry.name, 'Ada Esempio');
+  assert.equal(site.entry.affiliation, 'Ricercatrice, Istituto Finto');
+  assert.equal(site.entry.links.website, 'https://example.org/ada');
+  assert.deepEqual(site.entry.tracks, ['projects']);
+  assert.equal(site.entry.project.title_it, 'Sonde lineari sui modelli piccoli');
+  assert.equal(site.entry.project.description_it, 'Un progetto di prova.');
+  assert.equal(site.entry.language_it, 'Italiano');
+  assert.equal(site.entry.bio_it, 'Bio dal tabellone.');
+  for (const f of ['bio', 'areas', 'language', 'project.title', 'project.summary_it'])
+    assert.ok(site.missing.includes(f), f);
+  assert.ok(!site.missing.includes('bio_it'));
+  // Both tracks: projects and orientation.
+  const elena = (await mentorship.person(me, ['mentorship'], ELENA(), 'mentor')).site;
+  assert.deepEqual(elena.entry.tracks, ['projects', 'orientation']);
+  assert.ok(elena.missing.includes('orientation_it'));
+});
+
+test('a mentor already in data/mentors.yaml starts from their entry there', async () => {
+  const listed = require('js-yaml').load(
+    require('fs').readFileSync(
+      require('path').join(__dirname, '..', 'data', 'mentors.yaml'),
+      'utf8'
+    )
+  ).mentors;
+  const one = listed.find((m) => m.id && !m.co_mentors && m.name.split(' ').length === 2);
+  const [first_name, last_name] = one.name.split(' ');
+  const me = await admin();
+  const { key } = await mentorship.addProspect(me, {
+    first_name,
+    last_name,
+    email: 'yaml-mentor@example.org',
+  });
+  const { site } = await mentorship.person(me, ['mentorship'], key, 'mentor');
+  assert.equal(site.entryFrom, 'yaml');
+  assert.equal(site.id, one.id);
+  assert.equal(site.entry.bio, one.bio);
+  assert.equal(site.entry.photo, undefined);
+  assert.equal(site.published, null);
+
+  // Taken off the site from the board: hidden, so the YAML entry stays off too.
+  const { site: after } = await mentorship.unpublish(me, key, 'mentor');
+  assert.equal(after.published, null);
+  assert.deepEqual(await mentorship.publicExport(), { live: true, mentors: [], hidden: [one.id] });
+  // Published again, the board's copy replaces the YAML one, its photo path kept.
+  await mentorship.update(me, key, 'mentor', { status: 'selected' });
+  const { site: back } = await mentorship.publish(me, key, 'mentor');
+  assert.equal(back.published.id, one.id);
+  const out = await mentorship.publicExport();
+  assert.deepEqual(out.hidden, []);
+  assert.equal(out.mentors[0].id, one.id);
+  if (one.photo) assert.equal(out.mentors[0].photo, one.photo);
+});
+
+test('only a selected mentor with every text in both languages is published', async () => {
+  const me = await admin();
+  await mentorship.saveEntry(me, ADA(), 'mentor', fullEntry());
+  await rejects(mentorship.publish(me, ADA(), 'mentor'), 400); // not selected
+  await mentorship.update(me, ADA(), 'mentor', { status: 'selected' });
+  const noEnglish = fullEntry();
+  noEnglish.project.summary = '';
+  await mentorship.saveEntry(me, ADA(), 'mentor', noEnglish);
+  await assert.rejects(mentorship.publish(me, ADA(), 'mentor'), (err) => {
+    assert.equal(err.status, 400);
+    assert.deepEqual(err.details.missing, ['project.summary']);
+    return true;
+  });
+  await mentorship.saveEntry(me, ADA(), 'mentor', fullEntry({ role: 'Researcher' }));
+  assert.deepEqual((await siteOfAda(me)).missing, ['role_it']);
+  await rejects(mentorship.publish(me, ADA(), 'mentor'), 400);
+
+  // Checked as it is saved.
+  for (const bad of [
+    { links: { website: 'http://example.org' } },
+    { links: { github: 'javascript:alert(1)' } },
+    { tracks: ['cooking'] },
+    { areas: ['astrology'] },
+    { bio: 'x'.repeat(1501) },
+    { name: { evil: true } },
+    { places: 'many' },
+  ]) {
+    await rejects(mentorship.saveEntry(me, ADA(), 'mentor', fullEntry(bad)), 400);
+  }
+  await rejects(mentorship.saveEntry(me, GINO(), 'mentee', fullEntry()), 400);
+
+  await mentorship.saveEntry(me, ADA(), 'mentor', fullEntry());
+  const { site, build } = await mentorship.publish(me, ADA(), 'mentor');
+  assert.equal(build.started, false);
+  assert.equal(site.published.id, 'ada-esempio');
+  assert.equal(site.unpublishedChanges, false);
+  const [line] = (await audit.recent({ subjectKey: ADA() })).filter((l) => l.action === 'publish');
+  assert.deepEqual(line.detail, { id: 'ada-esempio' });
+  const out = await mentorship.publicExport();
+  assert.equal(out.mentors.length, 1);
+  assert.equal(out.mentors[0].project.summary_it, 'Sonde sui modelli piccoli.');
+  // Empty fields are left out, as in the YAML.
+  assert.equal(out.mentors[0].role, undefined);
+  assert.equal(out.mentors[0].links.github, undefined);
+
+  // A change shows as not published until published again.
+  await mentorship.saveEntry(me, ADA(), 'mentor', fullEntry({ affiliation: 'Altro Istituto' }));
+  assert.equal((await siteOfAda(me)).unpublishedChanges, true);
+});
+
+test('the photo goes on the site only with consent, and comes off when it is withdrawn', async () => {
+  const me = await admin();
+  await mentorship.update(me, ADA(), 'mentor', { status: 'selected' });
+  await mentorship.saveSite(me, ADA(), 'mentor', { photo: JPEG });
+  await mentorship.saveEntry(me, ADA(), 'mentor', fullEntry());
+  await mentorship.publish(me, ADA(), 'mentor');
+  assert.equal((await mentorship.publicExport()).mentors[0].photo, undefined);
+  assert.equal(await mentorship.photoOf('ada-esempio'), null);
+
+  await mentorship.saveSite(me, ADA(), 'mentor', {
+    consent: { value: 'yes', note: 'Email di prova' },
+  });
+  assert.equal((await siteOfAda(me)).unpublishedChanges, true);
+  await mentorship.publish(me, ADA(), 'mentor');
+  const out = await mentorship.publicExport();
+  assert.match(out.mentors[0].photo, /^\/assets\/img\/mentors\/ada-esempio-[0-9a-f]{8}\.jpg$/);
+  // Paths only: the bytes are served one by one.
+  assert.ok(!JSON.stringify(out).includes(JPEG.split(',')[1]));
+  const bytes = await mentorship.photoOf('ada-esempio');
+  assert.deepEqual(bytes, Buffer.from(JPEG.split(',')[1], 'base64'));
+  const snap = await mentorship.snapshotData();
+  assert.equal(snap.photos['ada-esempio'], JPEG.split(',')[1]);
+
+  await mentorship.saveSite(me, ADA(), 'mentor', { consent: { value: 'no' } });
+  assert.equal((await mentorship.publicExport()).mentors[0].photo, undefined);
+  assert.equal(await mentorship.photoOf('ada-esempio'), null);
+  assert.deepEqual((await mentorship.snapshotData()).photos, {});
+
+  // Not in the YAML: unpublishing removes the board's entry altogether.
+  await mentorship.unpublish(me, ADA(), 'mentor');
+  assert.deepEqual(await mentorship.publicExport(), { live: true, mentors: [], hidden: [] });
+  const [line] = await audit.recent({ subjectKey: ADA() });
+  assert.equal(line.action, 'unpublish');
+});
+
+test('the API saves, publishes and unpublishes an entry only for the mentorship team', async () => {
+  await setRoles();
+  const maria = await member('Maria', ['r-mentors']);
+  const paolo = await member('Paolo', ['r-people']);
+  const post = (user, action, body) =>
+    call({ method: 'POST', url: `/api/app/crm/mentorship?action=${action}`, user, body });
+  const entry = { key: ADA(), kind: 'mentor', entry: fullEntry() };
+  assert.equal((await post(paolo, 'site-entry', entry)).statusCode, 403);
+  const saved = await post(maria, 'site-entry', entry);
+  assert.equal(saved.statusCode, 200);
+  assert.equal(saved.body.entryFrom, 'draft');
+  assert.deepEqual(saved.body.missing, []);
+  assert.equal((await post(paolo, 'publish', { key: ADA(), kind: 'mentor' })).statusCode, 403);
+  const refused = await post(maria, 'publish', { key: ADA(), kind: 'mentor' });
+  assert.equal(refused.statusCode, 400);
+  assert.equal(refused.body.error, 'Only selected mentors go on the site');
+  await post(maria, 'update', { key: ADA(), kind: 'mentor', status: 'selected' });
+  const done = await post(maria, 'publish', { key: ADA(), kind: 'mentor' });
+  assert.equal(done.statusCode, 200);
+  assert.equal(done.body.site.published.by, 'Maria');
+  assert.equal(typeof done.body.build.started, 'boolean');
+  assert.equal((await post(paolo, 'unpublish', { key: ADA(), kind: 'mentor' })).statusCode, 403);
+  const off = await post(maria, 'unpublish', { key: ADA(), kind: 'mentor' });
+  assert.equal(off.statusCode, 200);
+  assert.equal(off.body.site.published, null);
+});
+
+test('the site’s build reads the published mentors and their photos, nothing else', async () => {
+  const content = require('../api/content');
+  const get = async (url) => {
+    const res = {
+      statusCode: 200,
+      headers: {},
+      setHeader(k, v) {
+        this.headers[k] = v;
+      },
+      end(body) {
+        this.body = body;
+      },
+    };
+    await content({ method: 'GET', url, headers: {}, socket: {} }, res);
+    return res;
+  };
+  const me = await admin();
+  await mentorship.update(me, ADA(), 'mentor', { status: 'selected' });
+  await mentorship.saveSite(me, ADA(), 'mentor', {
+    photo: JPEG,
+    consent: { value: 'yes', note: 'Email di prova' },
+  });
+  await mentorship.saveEntry(me, ADA(), 'mentor', fullEntry());
+  await mentorship.publish(me, ADA(), 'mentor');
+  const list = await get('/api/content?part=mentors');
+  assert.equal(JSON.parse(list.body).mentors[0].id, 'ada-esempio');
+  const photo = await get('/api/content?part=mentor-photo&id=ada-esempio');
+  assert.equal(photo.headers['Content-Type'], 'image/jpeg');
+  assert.equal(photo.headers['Cache-Control'], 'public, max-age=300');
+  assert.deepEqual(photo.body, Buffer.from(JPEG.split(',')[1], 'base64'));
+  assert.equal((await get('/api/content?part=mentor-photo&id=nobody')).statusCode, 404);
+  assert.equal((await get('/api/content?part=mentor-photo&id=../x')).statusCode, 404);
+});

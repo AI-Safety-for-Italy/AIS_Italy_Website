@@ -106,7 +106,7 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600;8..60,700&family=Hanken+Grotesk:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" />
 
   {# ── CSS ─────────────────────────────────────────────────────── #}
-  <link rel="stylesheet" href="/assets/css/style.css" />
+  <link rel="stylesheet" href="/assets/css/style.css?v={{ build }}" />
 
   {# ══════════════════════════════════════════════════════════════
      STRUCTURED DATA (JSON-LD)
@@ -134,7 +134,7 @@
           "width": 512,
           "height": 512
         },
-        "description": "Italy's grassroots community reducing risks from advanced AI through awareness, education, and collaboration.",
+        "description": "{% if lang == 'it' %}La community italiana dal basso che riduce i rischi dell'IA avanzata con divulgazione, formazione e collaborazione.{% else %}Italy's grassroots community reducing risks from advanced AI through awareness, education, and collaboration.{% endif %}",
         "knowsAbout": ["AI safety", "AI alignment", "AI governance", "Existential risk from AI", "Machine learning interpretability"],
         "contactPoint": {
           "@type": "ContactPoint",
@@ -270,13 +270,13 @@
 </head>
 <body style="background-color: var(--bg-primary); color: var(--text-primary);">
     {# The meeting-poll pages get a bare logo header and footer line instead. #}
-    {% if meetHead %}{% include "meet-header.njk" %}{% else %}{% include "header.njk" %}{% endif %}
+    {% if appShell %}{# the frame of app.njk draws its own #}{% elif noHeader %}{# the page draws its own brand #}{% elif meetHead %}{% include "meet-header.njk" %}{% else %}{% include "header.njk" %}{% endif %}
 
     <main id="main">
         {% block content %}{% endblock %}
     </main>
 
-    {% if meetHead %}{% include "meet-footer.njk" %}{% else %}{% include "footer.njk" %}{% endif %}
+    {% if appShell %}{% elif noFooter %}{# the page draws its own line #}{% elif meetHead %}{% include "meet-footer.njk" %}{% else %}{% include "footer.njk" %}{% endif %}
 
     {# Cookie consent for GA4. Rendered only when site.analytics.gaId is set
        (production). main.js shows it until the visitor picks, and gtag.js is
@@ -297,6 +297,6 @@
        External + deferred so it is fetched once and cached across pages
        instead of being re-parsed inline on every one. The only inline
        script is the pre-paint theme bootstrap in <head>. #}
-    <script src="/assets/js/main.js" defer></script>
+    {% if not meetHead %}<script src="/assets/js/main.js?v={{ build }}" defer></script>{% endif %}
 </body>
 </html>

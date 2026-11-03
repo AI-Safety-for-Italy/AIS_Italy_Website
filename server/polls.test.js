@@ -410,7 +410,9 @@ test('polls from before accounts existed belong to the admin', async () => {
   await pglite.query(
     `insert into polls (token, title, duration_minutes) values ('old', 'Old poll', 60)`
   );
-  db.setDb(pglite); // re-runs the schema, as a new deployment would
+  // A database from before has no schema version yet: the schema runs.
+  await pglite.query('delete from schema_version');
+  db.setDb(pglite);
   await db.ensureSchema();
   const { rows } = await pglite.query(
     `select u.kind from polls p join app_users u on u.id = p.owner_id where p.token = 'old'`
@@ -436,7 +438,7 @@ test('each user sees and changes only their own polls', async () => {
 });
 
 test('poll endpoints refuse requests without a session', async () => {
-  for (const file of ['../api/app/polls', '../api/app/poll']) {
+  for (const file of ['./routes/app/polls', './routes/app/poll']) {
     const res = fakeResponse();
     await require(file)(fakeRequest({ method: 'GET', url: '/x?id=1' }), res);
     assert.equal(res.statusCode, 401);
@@ -794,7 +796,7 @@ test('answering through the API notifies the owner of a new answer only', async 
 });
 
 test('only the admin can change email settings', async () => {
-  const handler = require('../api/app/settings');
+  const handler = require('./routes/app/settings');
   const user = await auth.upsertDiscordUser({ discordId: '9', name: 'Member' });
   const res = fakeResponse();
   await handler(
@@ -842,7 +844,7 @@ test('choosing a time can email the invite, and changing it sends the cancellati
   await polls.submitResponse(token, { name: 'Giulia', email: 'g@example.org' });
   await polls.submitResponse(token, { name: 'Marco', email: 'm@example.org' });
 
-  const handler = require('../api/app/poll');
+  const handler = require('./routes/app/poll');
   const cookie = `${auth.COOKIE}=${auth.makeSession(me)}`;
   const call = async (method, query, body) => {
     const res = fakeResponse();
@@ -1086,7 +1088,7 @@ test('a recurring poll keeps its rule and sends a recurring invitation', async (
   await polls.submitResponse(token, { name: 'Giulia', email: 'g@example.org' });
   const [slot] = (await polls.getPollAdmin(id, me)).slots;
 
-  const handler = require('../api/app/poll');
+  const handler = require('./routes/app/poll');
   const cookie = `${auth.COOKIE}=${auth.makeSession(me)}`;
   const res = fakeResponse();
   await handler(
@@ -1113,4 +1115,128 @@ test('a recurring poll keeps its rule and sends a recurring invitation', async (
   // Switching it off through an edit makes later invitations one-off.
   const off = await polls.updatePoll(id, { recurrence: null }, me);
   assert.equal(off.recurrence, null);
+});
+
+test('the schema runs again only when schema.js has changed', async () => {
+  const pglite = new PGlite();
+  db.setDb(pglite);
+  await db.ensureSchema();
+  const version = async () => (await pglite.query('select version from schema_version')).rows;
+  assert.deepEqual(await version(), [{ version: db.SCHEMA_VERSION }]);
+  // Same version: a new instance does not run the DDL (a dropped index stays dropped).
+  await pglite.query('drop index polls_owner');
+  db.setDb(pglite);
+  await db.ensureSchema();
+  const index = async () =>
+    (await pglite.query(`select 1 from pg_indexes where indexname = 'polls_owner'`)).rows.length;
+  assert.equal(await index(), 0);
+  // Another version (schema.js changed): it runs and records the new one.
+  await pglite.query(`update schema_version set version = 'older'`);
+  db.setDb(pglite);
+  await db.ensureSchema();
+  assert.equal(await index(), 1);
+  assert.deepEqual(await version(), [{ version: db.SCHEMA_VERSION }]);
+});
+
+// ── Sharing, as for forms ────────────────────────────────────────────────────
+
+test('a poll shared by role or by name is seen, not changed; only followers hear of it', async () => {
+  const mail = require('./mail');
+  const sent = [];
+  process.env.MEET_FAKE_MAIL = '0';
+  mail.setTransportFactory(() => ({ sendMail: async (m) => sent.push(m), close() {} }));
+  await mail.saveSettings({ host: 'smtp.x', port: 465, fromEmail: 'tech@ais4i.it', password: 'p' });
+  try {
+    const anna = await auth.upsertDiscordUser({ discordId: 'test-Anna', name: 'Anna' });
+    const ugo = await auth.upsertDiscordUser({ discordId: 'test-Ugo', name: 'Ugo' });
+    const tea = await auth.upsertDiscordUser({
+      discordId: 'test-Tea',
+      name: 'Tea',
+      roles: ['r-board'],
+    });
+    const sid = await auth.upsertDiscordUser({ discordId: 'test-Sid', name: 'Sid' });
+    for (const [u, address] of [
+      [anna, 'anna@example.org'],
+      [ugo, 'ugo@example.org'],
+      [tea, 'tea@example.org'],
+    ]) {
+      await auth.updateProfile(u.id, { notifyChannel: 'email', notifyEmail: address });
+    }
+    const { id, token } = await polls.createPoll(basePoll(), anna.id);
+    await polls.submitResponse(token, { name: 'Bea', email: 'bea@example.org', votes: {} });
+
+    // Not shared yet: nobody else sees it.
+    await rejects(polls.getPollFor(id, ugo), 404);
+    assert.equal((await polls.listPolls(ugo)).length, 0);
+
+    // The owner shares it with a role and a person; nobody else may.
+    await rejects(polls.setSharing(id, { people: [] }, ugo.id), 404);
+    await polls.setSharing(
+      id,
+      {
+        roles: [{ id: 'r-board', name: 'Board' }],
+        people: [{ discordId: 'test-Ugo', name: 'Ugo' }],
+      },
+      anna.id
+    );
+    await rejects(
+      polls.setSharing(id, { people: [{ discordId: 'no spaces', name: 'x' }] }, anna.id),
+      400
+    );
+
+    // Ugo and Tea see it, without the voters' emails or the voting link.
+    for (const who of [ugo, tea]) {
+      const seen = await polls.getPollFor(id, who);
+      assert.equal(seen.canManage, false);
+      assert.equal(seen.ownerName, 'Anna');
+      assert.equal(seen.responses[0].name, 'Bea');
+      assert.equal(seen.responses[0].email, undefined);
+      assert.equal(seen.token, undefined);
+      // …and change nothing.
+      await rejects(polls.updatePoll(id, { title: 'Mine now' }, who.id), 404);
+      await rejects(polls.deletePoll(id, who.id), 404);
+    }
+    await rejects(polls.getPollFor(id, sid), 404);
+    const [card] = await polls.listPolls(ugo);
+    assert.equal(card.canManage, false);
+    assert.equal(card.notifyMe, false);
+    assert.deepEqual(
+      card.access.map((a) => [a.kind, a.name]),
+      [
+        ['person', 'Anna'],
+        ['person', 'Ugo'],
+        ['role', 'Board'],
+      ]
+    );
+
+    // A new answer: only the owner follows it so far.
+    const message = { subject: 'New answer', lines: ['Someone answered.'] };
+    await polls.notifyFollowers(id, message);
+    assert.deepEqual(
+      sent.map((m) => m.to),
+      ['anna@example.org']
+    );
+    // Tea follows it, the owner stops: only Tea is told.
+    await polls.setNotifyMe(id, tea, true);
+    await polls.setNotifyMe(id, anna, false);
+    sent.length = 0;
+    await polls.notifyFollowers(id, message);
+    assert.deepEqual(
+      sent.map((m) => m.to),
+      ['tea@example.org']
+    );
+    // Tea loses the role: she is not told any more, and no longer sees it.
+    await db.query(`update app_users set roles = '{}' where id = $1`, [tea.id]);
+    sent.length = 0;
+    await polls.notifyFollowers(id, message);
+    assert.equal(sent.length, 0);
+    await rejects(polls.getPollFor(id, { ...tea, row: undefined }), 404);
+    // Settings lists the polls one sees, with the switch.
+    assert.deepEqual(
+      (await polls.followable(ugo)).map((p) => [p.title, p.notifyMe]),
+      [['Board meeting', false]]
+    );
+  } finally {
+    process.env.MEET_FAKE_MAIL = '1';
+  }
 });

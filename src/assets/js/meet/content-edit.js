@@ -52,17 +52,13 @@
 
   state.appendChild(M.loading());
 
-  Promise.all([M.me, M.permissions])
+  Promise.all([
+    M.me,
+    M.permissions,
+    itemId ? M.api('GET', '/api/app/content?id=' + encodeURIComponent(itemId)) : null,
+  ])
     .then(function (r) {
-      var perms = r[1];
-      if (itemId) {
-        return M.api('GET', '/api/app/content?id=' + encodeURIComponent(itemId)).then(function (
-          item
-        ) {
-          start(perms, item);
-        });
-      }
-      start(perms, null);
+      start(r[1], r[2]);
     })
     .catch(function (err) {
       M.clear(state);
@@ -112,12 +108,12 @@
 
     if (item) {
       fill(item.form);
-      document.getElementById('pageTitle').textContent = item.title;
+      setTitle(item.title);
       document.title = 'Edit: ' + item.title + ' | AI Safety for Italy';
       document.getElementById('deletedNotice').hidden = !item.deleted;
       deleteBtn.hidden = item.deleted;
       saveBtn.textContent = item.deleted ? 'Publish again' : 'Save changes';
-      document.querySelectorAll('.admin-tabs a[aria-current]').forEach(function (a) {
+      document.querySelectorAll('.ap-tabs a[aria-current]').forEach(function (a) {
         a.removeAttribute('aria-current');
       });
       showHistory(item);
@@ -128,12 +124,16 @@
         time: '18:30',
         details: [PRESETS.where],
       });
-      document.getElementById('pageTitle').textContent =
-        type === 'event' ? 'New event' : 'New seminar';
+      setTitle(type === 'event' ? 'New event' : 'New seminar');
     }
     form.hidden = false;
     dirty = false;
     updatePreview();
+  }
+
+  function setTitle(text) {
+    var h = document.getElementById('apTitle');
+    if (h) h.textContent = text;
   }
 
   function fill(f) {

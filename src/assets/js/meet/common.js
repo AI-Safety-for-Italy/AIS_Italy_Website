@@ -78,7 +78,9 @@
   }
 
   var toastTimer;
-  function toast(message, isError) {
+  /** A short message at the bottom. `action` ({ label, run }) adds a button,
+   * e.g. Undo, and keeps the message up a little longer. */
+  function toast(message, isError, action) {
     var el = document.querySelector('.toast');
     if (!el) {
       el = h('div', { class: 'toast', role: 'status', 'aria-live': 'polite' });
@@ -86,11 +88,31 @@
     }
     el.textContent = message;
     el.classList.toggle('is-error', Boolean(isError));
+    el.classList.toggle('has-action', Boolean(action));
+    if (action) {
+      el.appendChild(
+        h(
+          'button',
+          {
+            type: 'button',
+            class: 'toast-action',
+            onclick: function () {
+              el.classList.remove('is-visible');
+              action.run();
+            },
+          },
+          action.label
+        )
+      );
+    }
     el.classList.add('is-visible');
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(function () {
-      el.classList.remove('is-visible');
-    }, 2600);
+    toastTimer = setTimeout(
+      function () {
+        el.classList.remove('is-visible');
+      },
+      action ? 6000 : 2600
+    );
   }
 
   function loading(label) {
@@ -145,6 +167,9 @@
             err.status = res.status;
             err.field = data.field;
             err.code = data.code;
+            err.data = data;
+            // A form's answers: { questionId: message } (server/forms/schema.js).
+            err.errors = data.errors;
             throw err;
           }
           return data;
@@ -558,7 +583,14 @@
     };
   }
 
+  // The one email rule; the server twin is server/email.js.
+  var EMAIL = /^[^\s@<>()",;:]+@[^\s@<>()",;:]+\.[^\s@<>()",;:]{2,}$/;
+  function isEmail(text) {
+    return typeof text === 'string' && text.length <= 254 && EMAIL.test(text);
+  }
+
   window.Meet = {
+    isEmail: isEmail,
     recurrenceText: recurrenceText,
     recurrenceFields: recurrenceFields,
     h: h,
