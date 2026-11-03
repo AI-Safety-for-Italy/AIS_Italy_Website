@@ -108,8 +108,35 @@
     return M.api('POST', API + '?action=link', { member: member.id, discordId: account.discordId })
       .then(function (r) {
         update(r.member);
-        M.toast(member.name + ' linked to ' + (account.displayName || account.name));
+        M.toast(member.name + ' linked to ' + (account.displayName || account.name), false, {
+          label: 'Undo',
+          run: function () {
+            unlink(r.member);
+          },
+        });
         render();
+        M.communityStatus.refresh();
+      })
+      .catch(function (err) {
+        if (err.status === 401) return M.appError(err);
+        M.toast(err.message, true);
+      });
+  }
+
+  /** Back to "To link": a wrong pick undone. The roles already given stay. */
+  function unlink(member) {
+    return M.api('POST', API + '?action=link', { member: member.id, discordId: null })
+      .then(function (r) {
+        update(r.member);
+        delete suggestions[member.id];
+        if (check && check.members) {
+          check.members = check.members.filter(function (c) {
+            return c.id !== member.id;
+          });
+        }
+        M.toast(member.name + ' unlinked');
+        render();
+        suggestAll();
         M.communityStatus.refresh();
       })
       .catch(function (err) {
@@ -326,6 +353,48 @@
                   },
                 },
                 'Check again'
+              )
+            );
+          })
+        )
+      );
+    }
+    var linked = data.members.filter(function (m) {
+      return m.discordId;
+    });
+    if (linked.length) {
+      section.appendChild(
+        h(
+          'details',
+          { class: 'dc-absent' },
+          h('summary', null, 'Linked (' + linked.length + ')'),
+          linked.map(function (m) {
+            return h(
+              'div',
+              { class: 'dc-row is-quiet' },
+              h(
+                'div',
+                { class: 'dc-who' },
+                h('strong', null, m.name),
+                h(
+                  'small',
+                  null,
+                  m.discordUsername
+                    ? (m.discordName ? m.discordName + ' · ' : '') + '@' + m.discordUsername
+                    : 'Discord account ' + m.discordId
+                )
+              ),
+              h(
+                'button',
+                {
+                  type: 'button',
+                  class: 'link-button',
+                  title: 'Not them: back to the ones to link (roles already given stay)',
+                  onclick: function () {
+                    unlink(m);
+                  },
+                },
+                'Unlink'
               )
             );
           })
