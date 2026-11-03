@@ -429,6 +429,14 @@ In the sidebar: Members → Board, with its own permission, **Members board**
 before the split got `community` too, once (`migration_community_key` in
 `server/schema.js`).
 
+**The Permissions page** lists first the association's Discord roles (Admin,
+Direttivo, Organizzatori, Partecipanti: by id for the two in
+`DISCORD_ROLE_PARTICIPANT` / `DISCORD_ROLE_ORGANIZER`, else by name,
+`isMainRole`); the others, the working groups' roles used as tags among
+them, are folded under "Other roles", still editable. A person shows what
+they already hold through their Discord roles as yellow, locked switches
+("From role: Direttivo"), changed on the role.
+
 **Discord** (Members → Board → Discord): the old sheet has no Discord
 username, so most imported members are not linked. *To link* lists them, each
 with the server's accounts that may be them (the bot's member search by full

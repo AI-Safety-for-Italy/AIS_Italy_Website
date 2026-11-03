@@ -9613,3 +9613,56 @@ a.hub-todo-card:hover {
   width: auto;
   max-width: 240px;
 }
+
+/* Permissions: the roles other than the association's, folded; and what a
+   person holds through their Discord roles (settings-permissions.js). */
+.perm-others {
+  margin-top: 6px;
+}
+
+.perm-others summary {
+  padding: 6px 8px;
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.perm-others summary:hover {
+  background: var(--bg-overlay);
+}
+
+.perm-others-note {
+  margin-left: 6px;
+  color: var(--text-tertiary);
+  font-size: 11.5px;
+}
+
+.perm-row.is-inherited,
+.perm-row.is-inherited:hover {
+  background: var(--warning-light);
+  cursor: default;
+}
+
+.perm-row.is-inherited .fe-switch-input,
+.perm-row.is-inherited .fe-switch-input:checked {
+  background: var(--warning);
+  cursor: default;
+  opacity: 1;
+}
+
+.perm-from-role {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 8px;
+  border-radius: var(--radius-full);
+  background: var(--warning);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  vertical-align: 1px;
+}
+
+[data-theme='dark'] .perm-from-role {
+  color: #1c1203;
+}
