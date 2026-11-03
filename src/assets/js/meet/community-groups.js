@@ -3,7 +3,8 @@
  * the Discord role each one is, and who coordinates each: the only place
  * coordinators are chosen. On Discord they are roles; here only
  * tags, never permissions. A new group needs its role made on Discord first.
- * The site shows the change once published (community-site.js). */
+ * The website shows the change once updated, from the bar on top
+ * (community-status.js). */
 (function () {
   'use strict';
   var M = window.Meet;
@@ -19,7 +20,6 @@
     .then(function (r) {
       groups = r[1].groups;
       members = r[1].members;
-      M.communitySite.draw(r[1].site);
       render();
     })
     .catch(function (err) {
@@ -77,7 +77,7 @@
     M.api('POST', '/api/app/community?action=order', { ids: ids })
       .then(function (r) {
         groups = r.groups;
-        M.communitySite.changed();
+        M.communityStatus.refresh();
         render();
       })
       .catch(M.appError);
@@ -253,7 +253,7 @@
               M.api('DELETE', '/api/app/community?group=' + encodeURIComponent(g.id))
                 .then(function (r) {
                   groups = r.groups;
-                  M.communitySite.changed();
+                  M.communityStatus.refresh();
                   M.toast('Removed');
                   render();
                 })
@@ -319,7 +319,7 @@
         .then(function (d) {
           groups = d.groups;
           editing = null;
-          M.communitySite.changed();
+          M.communityStatus.refresh();
           M.toast(g ? 'Saved' : 'Group added');
           render();
         })

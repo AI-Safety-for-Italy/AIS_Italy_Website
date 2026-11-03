@@ -366,10 +366,9 @@ async function updateMember(user, id, body) {
     [row.id, sealDetails(row.id, next), publish, discordId]
   );
   const updated = await loadMember(row.id);
-  // A newly linked account gets its tags on Discord, and loses no role.
+  // Linked: no longer "not on Discord". Its roles follow with "Give the roles".
   if (discordId && discordId !== row.discord_id) {
     await db.query('update community_members set discord_absent = false where id = $1', [row.id]);
-    await syncRoles(updated, { addOnly: true });
   }
   await audit.record(user, 'community-member', row.id, { publish, linked: Boolean(discordId) });
   return { member: memberOut(updated, await groupsByMember()) };
@@ -424,19 +423,9 @@ async function setTags(user, body) {
       }
     }
   });
-  // Only the roles of the groups changed: a role given by hand on Discord
-  // for another group stays (the check of roles and tags shows it).
-  const roleOf = (g) => groups.find((x) => x.id === g).discordRoleId;
-  let discordFailed = 0;
-  for (const row of rows) {
-    if (!row.discord_id) continue;
-    let ok = true;
-    if (b.action === 'add') ok = await discordRole(row.discord_id, roleOf(b.group), true);
-    if (b.action === 'remove' || b.action === 'move')
-      ok = await discordRole(row.discord_id, roleOf(b.group), false);
-    if (b.action === 'move') ok = (await discordRole(row.discord_id, roleOf(b.to), true)) && ok;
-    if (!ok) discordFailed++;
-  }
+  // Discord is not touched here: the tags are what Discord should have, and
+  // "Give the roles" (sendTags) brings it there; a role whose tag was taken
+  // away shows among the differences, to take away or keep.
   await audit.record(user, 'community-tags', null, {
     action: b.action,
     group: b.group,
@@ -444,7 +433,7 @@ async function setTags(user, body) {
     count: rows.length,
   });
   const groupsNow = await groupsByMember();
-  return { members: rows.map((r) => memberOut(r, groupsNow)), discordFailed };
+  return { members: rows.map((r) => memberOut(r, groupsNow)) };
 }
 
 /**
@@ -523,7 +512,8 @@ function cleanTags(tags, groups) {
 /**
  * Makes a member a coordinator of a group (`on`), or takes it back: the only
  * way someone coordinates (Working groups). A coordinator not in the group is
- * put in it, with its role on Discord; taken back, they still take part.
+ * put in it (its role follows with "Give the roles"); taken back, they still
+ * take part.
  * Returns { members } as listMembers has them.
  */
 async function setCoordinator(user, { group, member, on } = {}) {
@@ -537,7 +527,6 @@ async function setCoordinator(user, { group, member, on } = {}) {
        on conflict (member_id, group_id) do update set level = 'coordination'`,
       [row.id, g.id]
     );
-    if (row.discord_id) await discordRole(row.discord_id, g.discordRoleId, true);
   } else {
     await db.query(
       `update member_groups set level = 'stable' where member_id = $1 and group_id = $2`,
@@ -703,9 +692,10 @@ async function linkDiscord(user, id, discordId) {
     [row.id, next, sealDiscordInfo(row.id, info)]
   );
   const updated = await loadMember(row.id);
-  const discordFailed = next ? !(await syncRoles(updated, { addOnly: true })) : false;
+  // Discord changes only with "Give the roles" (sendTags): linking says who
+  // they are, nothing more.
   await audit.record(user, 'community-discord', row.id, { action: next ? 'link' : 'unlink' });
-  return { member: memberOut(updated, await groupsByMember()), discordFailed };
+  return { member: memberOut(updated, await groupsByMember()) };
 }
 
 /** Marks a member as checked and not on Discord (or not any more), with a note. */
@@ -727,13 +717,35 @@ async function markAbsent(user, id, { absent, note } = {}) {
   return { member: memberOut(await loadMember(row.id), await groupsByMember()) };
 }
 
+// Why the last serverList() came back empty-handed, in words for the team
+// (the import's preview shows it), or null when it read the list.
+let listProblem = null;
+
+/** What Discord's refusal to list the members means, for the team. */
+function listRefusal(res) {
+  const code = res.body && res.body.code;
+  if (res.status === 403)
+    return 'Discord refused to list the server’s members: turn on “Server Members Intent” for the bot (Developer Portal → the application → Bot → Privileged Gateway Intents), and check the bot is on the server';
+  if (res.status === 401)
+    return 'Discord did not accept the bot’s token (DISCORD_BOT_TOKEN_AIS_TEAM_AREA)';
+  if (res.status === 404 || code === 10004)
+    return 'Discord does not know the server (DISCORD_GUILD_ID), or the bot is not on it';
+  return `Discord did not list the members (${res.status}${code ? `, code ${code}` : ''})`;
+}
+
 /**
  * Everyone on the Discord server, bots left out, in pages of 1000; null when
  * the bot may not read the list (no bot here, or the Server Members intent
- * off in the Developer Portal).
+ * off in the Developer Portal): `listProblem` then says why, and the reason
+ * is in the logs too.
  */
 async function serverList() {
-  if (!permissions.botConfigured()) return null;
+  listProblem = null;
+  if (!permissions.botConfigured()) {
+    listProblem =
+      'the Discord bot is not set up on this deployment (DISCORD_BOT_TOKEN_AIS_TEAM_AREA and DISCORD_GUILD_ID)';
+    return null;
+  }
   const guild = process.env.DISCORD_GUILD_ID;
   const out = [];
   let after = '0';
@@ -741,10 +753,19 @@ async function serverList() {
     let res = null;
     try {
       res = await botCall(`/guilds/${guild}/members?limit=1000&after=${after}`);
-    } catch {
+    } catch (err) {
+      listProblem = 'Discord did not answer in time: try again in a moment';
+      console.error('Listing the Discord members failed', err.message);
       return null;
     }
-    if (!res.ok || !Array.isArray(res.body)) return null;
+    if (!res.ok || !Array.isArray(res.body)) {
+      listProblem = listRefusal(res);
+      console.error(
+        `Listing the Discord members failed (${res.status})`,
+        (res.body && res.body.message) || ''
+      );
+      return null;
+    }
     out.push(...res.body.filter((m) => m.user && !m.user.bot));
     if (res.body.length < 1000) break;
     after = res.body[res.body.length - 1].user.id;
@@ -795,6 +816,17 @@ async function roleCheck(user) {
   await access.authorize(user, 'community');
   if (!permissions.botConfigured())
     throw new HttpError(503, 'The Discord bot is not set up here: nothing to compare with');
+  const result = await differences();
+  await audit.record(user, 'community-discord', null, {
+    action: 'check',
+    checked: result.checked,
+    differences: result.members.length,
+  });
+  return result;
+}
+
+/** roleCheck's comparison, without the audit line (also for the status bar). */
+async function differences() {
   const groups = await listGroups();
   const { rows } = await db.query('select * from community_members where discord_id is not null');
   const tags = await groupsByMember();
@@ -836,12 +868,43 @@ async function roleCheck(user) {
       members.push({ id: row.id, name, discord, notOnServer: false, missing, extra });
   }
   members.sort((a, b) => a.name.localeCompare(b.name, 'it'));
-  await audit.record(user, 'community-discord', null, {
-    action: 'check',
-    checked: rows.length,
-    differences: members.length,
-  });
   return { members, groups, checked: rows.length, failed };
+}
+
+/**
+ * Where the members board stands, for the bar on top of its tabs: three
+ * questions, each answered with counts only.
+ *   accounts  { members, linked, absent, toLink }: who is who on Discord
+ *   roles     { available, problem?, missing, missingMembers, extra, gone }:
+ *             tags here without their role there (fixed by "Give the roles"),
+ *             roles there without a tag here, linked accounts gone from the
+ *             server; read from Discord, so `available` false without the bot
+ *   site      { live, publishedAt, pending, changes }: the public directory
+ */
+async function status(user) {
+  await access.authorize(user, 'community');
+  const { rows } = await db.query('select discord_id, discord_absent from community_members');
+  const linked = rows.filter((r) => r.discord_id).length;
+  const absent = rows.filter((r) => !r.discord_id && r.discord_absent).length;
+  const accounts = { members: rows.length, linked, absent, toLink: rows.length - linked - absent };
+  let roles;
+  if (!permissions.botConfigured()) {
+    roles = {
+      available: false,
+      problem: 'the Discord bot is not set up on this deployment',
+    };
+  } else {
+    const d = await differences();
+    roles = {
+      available: true,
+      missing: d.members.reduce((n, m) => n + m.missing.length, 0),
+      missingMembers: d.members.filter((m) => m.missing.length).length,
+      extra: d.members.reduce((n, m) => n + m.extra.length, 0),
+      gone: d.members.filter((m) => m.notOnServer).length,
+      failed: d.failed,
+    };
+  }
+  return { accounts, roles, site: await siteState() };
 }
 
 // Role changes per call: Discord limits how fast roles change, and a call
@@ -1060,7 +1123,7 @@ async function matchDiscord(people) {
   const byEmail = await discordByEmail(people.map((p) => p.email));
   Object.entries(byEmail).forEach(([email, d]) => (out[email] = { ...d, by: 'email' }));
   const server = await serverList();
-  if (!server) return { matches: out, byName: false };
+  if (!server) return { matches: out, byName: false, problem: listProblem };
   const { rows } = await db.query(
     'select discord_id, person_key from community_members where discord_id is not null'
   );
@@ -1099,7 +1162,7 @@ async function matchDiscord(people) {
       by: 'name',
     };
   }
-  return { matches: out, byName: true };
+  return { matches: out, byName: true, problem: null };
 }
 
 async function discordByEmail(emails) {
@@ -1122,7 +1185,7 @@ async function importPreview(user, csvText) {
   await access.authorize(user, 'community', { fresh: true });
   const groups = await listGroups();
   const people = peopleFromSheet(csvText, groups);
-  const { matches: discord, byName } = await matchDiscord(people);
+  const { matches: discord, byName, problem } = await matchDiscord(people);
   const { rows } = await db.query(
     'select person_key from community_members where person_key is not null'
   );
@@ -1148,8 +1211,10 @@ async function importPreview(user, csvText) {
       byName: out.filter((p) => p.discord && p.discord.by === 'name').length,
       already: out.filter((p) => p.exists).length,
     },
-    // Whether the server's list could be read, for matching by name.
+    // Whether the server's list could be read, for matching by name, and
+    // if not, why.
     byName,
+    byNameProblem: problem,
   };
 }
 
@@ -1282,7 +1347,27 @@ async function siteState() {
     was &&
     canonical({ groups: was.groups, members: was.members }) ===
       canonical({ groups: now.groups, members: now.members });
-  return { live: Boolean(was), publishedAt: was ? was.publishedAt : null, pending: !same };
+  // How many people and groups the site would show differently: added,
+  // removed or changed (the ids are positions, so left out).
+  const keyed = (list) =>
+    new Set(list.map((x) => canonical({ ...x, id: x.id && typeof x.id === 'number' ? 0 : x.id })));
+  const diff = (a, b) => [...a].filter((x) => !b.has(x)).length;
+  let changes = 0;
+  if (was) {
+    for (const k of ['members', 'groups']) {
+      const before = keyed(was[k] || []);
+      const after = keyed(now[k] || []);
+      changes += Math.max(diff(before, after), diff(after, before));
+    }
+  } else {
+    changes = now.members.length + now.groups.length;
+  }
+  return {
+    live: Boolean(was),
+    publishedAt: was ? was.publishedAt : null,
+    pending: !same,
+    changes: same ? 0 : Math.max(changes, 1),
+  };
 }
 /**
  * What the site would show now: the groups, and the members who consented,
@@ -1349,6 +1434,7 @@ module.exports = {
   linkDiscord,
   markAbsent,
   roleCheck,
+  status,
   sendTags,
   resolveRole,
 };

@@ -17,6 +17,7 @@
 //   POST   ?action=link { member, discordId | null } -> linked (roles given, none taken)
 //   POST   ?action=absent { member, absent, note? }  -> checked: not on Discord
 //   GET    ?action=check                 -> roles on Discord against tags here
+//   GET    ?action=status                -> { accounts, roles, site }: the bar on top of the tabs
 //   POST   ?action=send-tags             -> some of the missing roles given: { given, failed, remaining }
 //   POST   ?action=resolve { member, group, action: give|take|tag|untag|ok, level?, kind? }
 // Tag changes reach Discord at once; the site only on publish.
@@ -36,6 +37,10 @@ module.exports = route({
     }
     if (action === 'check') {
       sendJson(res, 200, await community.roleCheck(user));
+      return;
+    }
+    if (action === 'status') {
+      sendJson(res, 200, await community.status(user));
       return;
     }
     if (people !== undefined) {
