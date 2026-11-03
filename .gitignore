@@ -113,6 +113,7 @@ __pycache__/
 _content-snapshot.json
 _community-snapshot.json
 _mentors-snapshot.json
+_highlights-snapshot.json
 # Mentor photos the build writes from the published copy (server/mentors-build.js)
 src/assets/img/mentors/*-[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f].jpg
 

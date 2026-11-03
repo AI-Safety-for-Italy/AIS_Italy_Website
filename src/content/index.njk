@@ -22,6 +22,13 @@ seoDescription_it: "AI Safety for Italy è la community italiana che lavora per 
    hero. The stats strip reads its numbers from the data files, so it stays
    true as members and local groups are added. #}
 {% set featured = events.upcoming_events | selectattr("featured") | selectattr("hero") | first %}
+{% if highlights.live %}
+{% set spots = highlights.spotlights %}
+{% elif featured %}
+{% set spots = [featured.hero] %}
+{% else %}
+{% set spots = [] %}
+{% endif %}
 {% set memberCount = members.members | length %}
 {% set groupCount = community.local_groups.cities | length %}
 
@@ -38,43 +45,64 @@ seoDescription_it: "AI Safety for Italy è la community italiana che lavora per 
             </div>
         </div>
 
-        {% if featured %}
-        {# Everything the card says comes from the entry's `hero` block in
-           events.yaml, so it fits an event as well as an open call. #}
-        {% set card = featured.hero %}
-        <article class="event-card hero-enter" id="{{ featured.anchor }}">
-            <div class="event-card-body">
-                <div class="event-card-top">
-                    <span class="mono-label red live-label"><span class="live-dot" aria-hidden="true"></span><span data-en="{{ card.label }}" data-it="{{ card.label_it }}">{{ card.label }}</span></span>
-                    {% if card.meta %}<span class="mono-label" data-en="{{ card.meta }}" data-it="{{ card.meta_it }}">{{ card.meta }}</span>{% endif %}
-                </div>
-                <div class="event-card-head">
-                    {% if card.day %}
-                    <span class="date-badge" aria-hidden="true">
-                        <span class="date-badge-month" data-en="{{ card.month }}" data-it="{{ card.month_it }}">{{ card.month }}</span>
-                        <span class="date-badge-day">{{ card.day }}</span>
-                    </span>
-                    {% endif %}
-                    <div>
-                        <h2 data-en="{{ card.title }}" data-it="{{ card.title_it }}">{{ card.title }}</h2>
-                        {% for line in card.lines %}
-                        <p class="event-card-when" data-en="{{ line.text }}" data-it="{{ line.text_it }}">{{ line.text }}</p>
-                        {% endfor %}
+        {% if spots | length %}
+        {# Everything a card says comes from its spotlight (Site content →
+           Homepage, server/highlights.js) or, before that was saved, from the
+           `hero` block of the featured entry in events.yaml; so it fits an
+           event as well as an open call. With more than one switched on they
+           take turns (main.js), and the dots pick one. #}
+        <div class="spotlight hero-enter{% if spots | length > 1 %} is-rotating{% endif %}" data-spotlight>
+            <div class="spotlight-cards">
+            {% for card in spots %}
+            <article class="event-card{% if loop.first %} is-current{% endif %}"{% if featured and not highlights.live %} id="{{ featured.anchor }}"{% endif %}{% if not loop.first %} aria-hidden="true"{% endif %}>
+                <div class="event-card-body">
+                    <div class="event-card-top">
+                        <span class="mono-label red live-label"><span class="live-dot" aria-hidden="true"></span><span data-en="{{ card.label }}" data-it="{{ card.label_it }}">{{ card.label }}</span></span>
+                        {% if card.meta %}<span class="mono-label" data-en="{{ card.meta }}" data-it="{{ card.meta_it }}">{{ card.meta }}</span>{% endif %}
                     </div>
+                    <div class="event-card-head">
+                        {% if card.day %}
+                        <span class="date-badge" aria-hidden="true">
+                            <span class="date-badge-month" data-en="{{ card.month }}" data-it="{{ card.month_it }}">{{ card.month }}</span>
+                            <span class="date-badge-day">{{ card.day }}</span>
+                        </span>
+                        {% endif %}
+                        <div>
+                            <h2 data-en="{{ card.title }}" data-it="{{ card.title_it }}">{{ card.title }}</h2>
+                            {% for line in card.lines %}
+                            <p class="event-card-when" data-en="{{ line.text }}" data-it="{{ line.text_it }}">{{ line.text }}</p>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <p class="event-card-summary" data-en="{{ card.summary }}" data-it="{{ card.summary_it }}">{{ card.summary }}</p>
+                    {% if card.notice %}
+                    <p class="note-orange" data-en="{{ card.notice }}" data-it="{{ card.notice_it or card.notice }}">{{ card.notice }}</p>
+                    {% endif %}
+                    {% if card.details_link %}
+                    <a href="{{ card.details_link }}" class="text-link" data-en="{{ card.details_text }}" data-it="{{ card.details_text_it }}">{{ card.details_text }}</a>
+                    {% endif %}
                 </div>
-                <p class="event-card-summary" data-en="{{ card.summary }}" data-it="{{ card.summary_it }}">{{ card.summary }}</p>
-                {% if card.notice %}
-                <p class="note-orange" data-en="{{ card.notice }}" data-it="{{ card.notice_it or card.notice }}">{{ card.notice }}</p>
+                {% if card.primary_link or card.secondary_link %}
+                <div class="event-card-actions">
+                    {% if card.primary_link %}
+                    <a href="{{ card.primary_link }}"{% if "://" in card.primary_link %} target="_blank" rel="noopener noreferrer"{% endif %} class="event-card-primary" data-en="{{ card.primary_text }}" data-it="{{ card.primary_text_it }}">{{ card.primary_text }}</a>
+                    {% endif %}
+                    {% if card.secondary_link %}
+                    <a href="{{ card.secondary_link }}"{% if "://" in card.secondary_link %} target="_blank" rel="noopener noreferrer"{% endif %} class="event-card-secondary" data-en="{{ card.secondary_text }}" data-it="{{ card.secondary_text_it }}">{{ card.secondary_text }}</a>
+                    {% endif %}
+                </div>
                 {% endif %}
-                <a href="{{ card.details_link }}" class="text-link" data-en="{{ card.details_text }}" data-it="{{ card.details_text_it }}">{{ card.details_text }}</a>
+            </article>
+            {% endfor %}
             </div>
-            <div class="event-card-actions">
-                <a href="{{ card.primary_link }}"{% if "://" in card.primary_link %} target="_blank" rel="noopener noreferrer"{% endif %} class="event-card-primary" data-en="{{ card.primary_text }}" data-it="{{ card.primary_text_it }}">{{ card.primary_text }}</a>
-                {% if card.secondary_link %}
-                <a href="{{ card.secondary_link }}"{% if "://" in card.secondary_link %} target="_blank" rel="noopener noreferrer"{% endif %} class="event-card-secondary" data-en="{{ card.secondary_text }}" data-it="{{ card.secondary_text_it }}">{{ card.secondary_text }}</a>
-                {% endif %}
+            {% if spots | length > 1 %}
+            <div class="spotlight-dots" role="group" aria-label="Highlights">
+                {% for card in spots %}
+                <button type="button" class="spotlight-dot{% if loop.first %} is-current{% endif %}" aria-label="{{ card.title }}"{% if loop.first %} aria-current="true"{% endif %}></button>
+                {% endfor %}
             </div>
-        </article>
+            {% endif %}
+        </div>
         {% endif %}
     </div>
 </section>

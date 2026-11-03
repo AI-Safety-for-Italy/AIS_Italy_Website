@@ -1,0 +1,63 @@
+---
+title: Banners & spotlight
+# The banners above every page and the boxes beside the home page hero
+# (server/highlights.js), for whoever holds `homepage`; the API checks it.
+permalink: /app/content/homepage/
+tool: content
+section: homepage
+pageTitle: Banners & spotlight
+noindex: true
+excludeFromSitemap: true
+eleventyExcludeFromCollections: true
+seoTitle: 'Banners & spotlight | AI Safety for Italy'
+---
+{% extends "app.njk" %}
+{% block page %}
+    <form id="hlForm" novalidate hidden>
+      <div class="hl-langbar">
+        <span class="panel-note">Previews in</span>
+        <div class="lang-toggle" role="group" aria-label="Preview language" id="previewLang">
+          <button type="button" data-lang="en" aria-pressed="true">EN</button>
+          <button type="button" data-lang="it" aria-pressed="false">IT</button>
+        </div>
+      </div>
+      <section class="panel hl-panel">
+        <div class="panel-head">
+          <h2>Banners</h2>
+          <button type="button" class="btn btn-outline btn-sm" id="addBanner">+ Add banner</button>
+        </div>
+        <p class="panel-note">The bar above every page of the site. The banners switched on cross it one after the other; with none on, there is no bar. Up to three.</p>
+        <div class="hl-list" id="banners"></div>
+      </section>
+
+      <section class="panel hl-panel">
+        <div class="panel-head">
+          <h2>Home page spotlight</h2>
+          <span class="hl-add">
+            <select class="form-input is-compact" id="addKind" aria-label="Kind of box">
+              <option value="mentorship">Mentorship</option>
+              <option value="event">Event</option>
+              <option value="seminar">Seminar</option>
+              <option value="other">Other</option>
+            </select>
+            <button type="button" class="btn btn-outline btn-sm" id="addSpotlight">+ Add box</button>
+          </span>
+        </div>
+        <p class="panel-note">The box beside the home page title. With more than one switched on they take turns, in this order; with none on, the title stands alone.</p>
+        <div class="hl-list" id="spotlights"></div>
+      </section>
+
+      <div class="form-error" id="formError" role="alert" hidden style="margin-top:1.25rem"></div>
+
+      <div class="action-bar">
+        <p id="saveNote">Saving updates the site in about 3 minutes.</p>
+        <button class="btn btn-primary" type="submit" id="saveBtn">Save and update the site</button>
+      </div>
+    </form>
+    <div id="formState"></div>
+
+<script src="/assets/js/meet/common.js?v={{ build }}" defer></script>
+<script src="/assets/js/meet/app-common.js?v={{ build }}" defer></script>
+<script src="/assets/js/meet/content-common.js?v={{ build }}" defer></script>
+<script src="/assets/js/meet/content-homepage.js?v={{ build }}" defer></script>
+{% endblock %}

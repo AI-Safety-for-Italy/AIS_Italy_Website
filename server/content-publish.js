@@ -40,6 +40,8 @@ async function triggerBuild() {
     contentBuild.writeSnapshot(await content.exportForBuild());
     // The community directory too, as last published (server/community.js).
     require('./community-build').writeSnapshot(await require('./community').publicExport());
+    // The banners and the home page boxes (server/highlights.js).
+    require('./highlights-build').writeSnapshot(await require('./highlights').publicExport());
     // And the mentors published from the board (server/crm/mentorship.js).
     try {
       require('./mentors-build').writeSnapshot(await require('./crm/mentorship').snapshotData());

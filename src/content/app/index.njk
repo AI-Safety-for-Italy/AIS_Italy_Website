@@ -42,6 +42,22 @@ pageTitle: Home
     <h3 class="ap-section-title" id="hubToolsTitle">Your tools</h3>
     <div class="hub-tools">
       {%- for t in tools %}
+      {%- if t.sections %}
+      {#- A tool in parts (Site content): the box opens the tool, and each part
+          has its own link, shown to whoever holds that part's key. #}
+      <div class="hub-tool has-parts"{% if t.area %} data-area="{{ t.area }}" hidden{% endif %}{% if t.needsAny %} data-needs-any="{{ t.needsAny | join(' ') }}"{% endif %}>
+        <span class="hub-tool-icon hub-tool-icon--{{ t.key }}" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{{ t.icon | safe }}</svg></span>
+        <span class="hub-tool-body">
+          <a class="hub-tool-link" href="{{ t.url }}"><strong>{{ t.title }}</strong></a>
+          <span>{{ t.text }}</span>
+          <span class="hub-tool-parts">
+            {%- for s in t.sections %}
+            <a class="hub-tool-part" href="{{ s.url }}" data-needs="{{ s.needs }}" hidden>{{ s.label }}</a>
+            {%- endfor %}
+          </span>
+        </span>
+      </div>
+      {%- else %}
       <a class="hub-tool" href="{{ t.url }}"{% if t.area %} data-area="{{ t.area }}" hidden{% endif %}{% if t.needsAny %} data-needs-any="{{ t.needsAny | join(' ') }}"{% endif %}>
         <span class="hub-tool-icon hub-tool-icon--{{ t.key }}" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{{ t.icon | safe }}</svg></span>
         <span class="hub-tool-body">
@@ -49,6 +65,7 @@ pageTitle: Home
           <span>{{ t.text }}</span>
         </span>
       </a>
+      {%- endif %}
       {%- endfor %}
     </div>
   </section>
