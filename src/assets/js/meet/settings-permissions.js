@@ -62,6 +62,7 @@
         return {
           roleId: role.id,
           roleName: role.name,
+          main: role.main,
           permissions: saved ? saved.permissions.slice() : [],
         };
       });
@@ -71,6 +72,7 @@
         roles.push({
           roleId: id,
           roleName: byId[id].roleName,
+          main: byId[id].main,
           permissions: byId[id].permissions.slice(),
           unlisted: data.roles.length > 0,
         });
@@ -84,11 +86,18 @@
           userId: p.userId,
           name: p.name,
           avatarUrl: p.avatarUrl,
+          roles: p.roles || [],
           permissions: p.permissions.slice(),
         };
       });
       candidates = data.candidates;
-      selected = roles[0] || people[0] || null;
+      selected =
+        roles.filter(function (r) {
+          return r.main;
+        })[0] ||
+        roles[0] ||
+        people[0] ||
+        null;
       render();
     })
     .catch(function (err) {
@@ -203,20 +212,60 @@
     );
   }
 
+  function roleItem(r) {
+    return navItem(
+      r,
+      r.roleName,
+      h('span', { class: 'perm-role-dot', 'aria-hidden': 'true' }),
+      r.unlisted ? 'No longer on Discord' : null
+    );
+  }
+
+  // The association's roles (Admin, Direttivo, Organizzatori, Partecipanti)
+  // first; the others (the working groups' roles, used as tags, and the
+  // rest) folded under "Other roles", open when one of them is picked.
+  var othersOpen = false;
   function renderNav() {
     M.clear(roleList);
-    roles.forEach(function (r) {
-      roleList.appendChild(
-        navItem(
-          r,
-          r.roleName,
-          h('span', { class: 'perm-role-dot', 'aria-hidden': 'true' }),
-          r.unlisted ? 'No longer on Discord' : null
-        )
-      );
+    var main = roles.filter(function (r) {
+      return r.main;
+    });
+    var others = roles.filter(function (r) {
+      return !r.main;
+    });
+    // Without the association's roles found (no bot here), all are shown.
+    if (!main.length) {
+      main = roles;
+      others = [];
+    }
+    main.forEach(function (r) {
+      roleList.appendChild(roleItem(r));
     });
     if (!roles.length) {
       roleList.appendChild(h('p', { class: 'perm-empty' }, 'No roles yet.'));
+    }
+    if (others.length) {
+      var withKeys = others.filter(function (r) {
+        return r.permissions.length;
+      }).length;
+      var fold = h(
+        'details',
+        {
+          class: 'perm-others',
+          ontoggle: function () {
+            othersOpen = fold.open;
+          },
+        },
+        h(
+          'summary',
+          null,
+          'Other roles (' + others.length + ')',
+          withKeys ? h('span', { class: 'perm-others-note' }, withKeys + ' with permissions') : null
+        ),
+        others.map(roleItem)
+      );
+      fold.open = othersOpen || others.indexOf(selected) !== -1;
+      roleList.appendChild(fold);
     }
 
     M.clear(peopleList);
@@ -301,13 +350,14 @@
       )
     );
 
+    var inherited = isPerson ? fromRoles(selected) : {};
     groups().forEach(function (g) {
       var count = h('span', { class: 'perm-group-count' });
       // A switch changes its group's count and the list on the left only:
       // drawing the whole page again would send it back to the top.
       function showCount() {
         var on = g.keys.filter(function (k) {
-          return selected.permissions.indexOf(k.key) !== -1;
+          return selected.permissions.indexOf(k.key) !== -1 || inherited[k.key];
         }).length;
         count.className = 'perm-group-count' + (on ? ' is-on' : '');
         count.textContent = on + ' / ' + g.keys.length;
@@ -336,10 +386,17 @@
             input.checked = selected.permissions.indexOf(k.key) !== -1;
             // Some keys go to people by name only, never to a Discord role.
             var forPeopleOnly = k.peopleOnly && !isPerson;
-            input.disabled = locked(k) || forPeopleOnly;
+            // A person already holding it through a Discord role: shown on,
+            // and changed on that role, not here.
+            var viaRoles = inherited[k.key];
+            if (viaRoles) input.checked = true;
+            input.disabled = locked(k) || forPeopleOnly || Boolean(viaRoles);
             return h(
               'label',
-              { class: 'perm-row' + (input.disabled ? ' is-locked' : '') },
+              {
+                class:
+                  'perm-row' + (viaRoles ? ' is-inherited' : input.disabled ? ' is-locked' : ''),
+              },
               h(
                 'span',
                 { class: 'perm-row-text' },
@@ -347,7 +404,13 @@
                   'strong',
                   null,
                   shortLabel(k, g),
-                  input.disabled
+                  viaRoles
+                    ? h(
+                        'span',
+                        { class: 'perm-from-role', title: 'Change it on the role' },
+                        'From role: ' + viaRoles.join(', ')
+                      )
+                    : input.disabled
                     ? h(
                         'span',
                         {
@@ -366,6 +429,26 @@
         )
       );
     });
+  }
+
+  /**
+   * What a person holds through their Discord roles, as the roles stand on
+   * this page (unsaved changes included): { key: [role names] }. The keys
+   * given to people only never come from a role.
+   */
+  function fromRoles(person) {
+    var out = {};
+    roles.forEach(function (r) {
+      if ((person.roles || []).indexOf(r.roleId) === -1) return;
+      r.permissions.forEach(function (key) {
+        var k = keys.filter(function (x) {
+          return x.key === key;
+        })[0];
+        if (!k || k.peopleOnly) return;
+        (out[key] = out[key] || []).push(r.roleName);
+      });
+    });
+    return out;
   }
 
   function render() {
@@ -397,7 +480,13 @@
       return c.userId === pick.value;
     })[0];
     if (!who) return;
-    var row = { userId: who.userId, name: who.name, avatarUrl: who.avatarUrl, permissions: [] };
+    var row = {
+      userId: who.userId,
+      name: who.name,
+      avatarUrl: who.avatarUrl,
+      roles: who.roles || [],
+      permissions: [],
+    };
     people.push(row);
     selected = row;
     markDirty();

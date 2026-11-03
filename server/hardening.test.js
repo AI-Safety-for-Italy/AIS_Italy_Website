@@ -539,3 +539,32 @@ test('a key no longer known, still stored on a role, is dropped, not refused', a
   );
   assert.deepEqual((await permissions.listRolePermissions())[0].permissions, ['forms']);
 });
+
+test('the Permissions page tells the association’s roles apart, and each person’s roles', async () => {
+  const permissionsApi = require('./routes/app/permissions');
+  process.env.DISCORD_ROLE_PARTICIPANT = '900';
+  await permissions.saveRolePermissions([
+    { roleId: '900', roleName: 'Members (renamed)', permissions: ['seminar'] },
+    { roleId: 'r-dir', roleName: 'Direttivo', permissions: ['event'] },
+    { roleId: 'r-sem', roleName: 'Seminari', permissions: ['forms'] },
+  ]);
+  const ugo = await member('Ugo', ['r-dir', 'r-sem']);
+  await permissions.savePermissions(
+    {
+      roles: await permissions.listRolePermissions(),
+      people: [{ userId: ugo.id, permissions: ['forms'] }],
+    },
+    await admin()
+  );
+  const res = await call(permissionsApi, { url: '/api/app/permissions', user: await admin() });
+  assert.deepEqual(
+    res.body.table.map((r) => [r.roleName, r.main]),
+    [
+      ['Direttivo', true],
+      ['Members (renamed)', true],
+      ['Seminari', false],
+    ]
+  );
+  assert.deepEqual(res.body.people.find((p) => p.name === 'Ugo').roles, ['r-dir', 'r-sem']);
+  delete process.env.DISCORD_ROLE_PARTICIPANT;
+});

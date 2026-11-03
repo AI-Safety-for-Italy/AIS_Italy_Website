@@ -391,6 +391,23 @@ async function guildRoles() {
   return roles;
 }
 
+// The roles that say what someone is in the association, listed on the
+// Permissions page; the others (the working groups' roles, used as tags, and
+// the rest) are under "Other roles". Found by id for the two the site knows
+// (DISCORD_ROLE_PARTICIPANT, DISCORD_ROLE_ORGANIZER), else by name.
+const MAIN_ROLE_NAMES = ['admin', 'direttivo', 'organizzatori', 'partecipanti'];
+
+function isMainRole(role) {
+  const ids = [process.env.DISCORD_ROLE_PARTICIPANT, process.env.DISCORD_ROLE_ORGANIZER];
+  if (role.id && ids.includes(role.id)) return true;
+  const name = String(role.name || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase();
+  return MAIN_ROLE_NAMES.includes(name);
+}
+
 /** Rows of the permissions table: [{ roleId, roleName, permissions }]. */
 async function listRolePermissions() {
   const { rows } = await db.query(
@@ -405,16 +422,21 @@ async function listRolePermissions() {
   }));
 }
 
-/** People given permissions by name: [{ userId, name, avatarUrl, permissions }]. */
+/**
+ * People given permissions by name: [{ userId, name, avatarUrl, permissions,
+ * roles }], `roles` their Discord role ids as last read (what they hold
+ * through them shows beside their own).
+ */
 async function listUserPermissions() {
   const { rows } = await db.query(
-    `select p.user_id, u.name, u.avatar_url, p.permissions from user_permissions p
+    `select p.user_id, u.name, u.avatar_url, u.roles, p.permissions from user_permissions p
      join app_users u on u.id = p.user_id order by lower(u.name)`
   );
   return rows.map((r) => ({
     userId: r.user_id,
     name: r.name,
     avatarUrl: r.avatar_url,
+    roles: r.roles || [],
     permissions: r.permissions.filter((k) => KEYS.includes(k)),
   }));
 }
@@ -422,9 +444,14 @@ async function listUserPermissions() {
 /** Who can be given permissions by name: everyone who signed in with Discord. */
 async function discordPeople() {
   const { rows } = await db.query(
-    `select id, name, avatar_url from app_users where kind = 'discord' order by lower(name)`
+    `select id, name, avatar_url, roles from app_users where kind = 'discord' order by lower(name)`
   );
-  return rows.map((r) => ({ userId: r.id, name: r.name, avatarUrl: r.avatar_url }));
+  return rows.map((r) => ({
+    userId: r.id,
+    name: r.name,
+    avatarUrl: r.avatar_url,
+    roles: r.roles || [],
+  }));
 }
 
 /**
@@ -624,6 +651,7 @@ module.exports = {
   PERMISSIONS,
   KEYS,
   PEOPLE_ONLY,
+  isMainRole,
   areas,
   DEV_ROLES,
   DEV_DEFAULTS,
