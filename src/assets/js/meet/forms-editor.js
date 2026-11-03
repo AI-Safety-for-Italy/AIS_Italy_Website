@@ -46,6 +46,7 @@
     single: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/>',
     multi: '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 12l3 3 5-6"/>',
     dropdown: '<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M13.5 11l2 2 2-2"/>',
+    ranking: '<path d="M10 6h10M10 12h10M10 18h10"/><path d="M4 5l1.5-1v4M3.5 14h3l-3 4h3"/>',
     scale: '<path d="M5 18v-6M10 18V8M15 18v-4M20 18V5"/>',
     yes_no: '<rect x="3" y="7" width="18" height="10" rx="5"/><circle cx="16" cy="12" r="2.5"/>',
     section: '<path d="M4 6h16M4 18h16M8 12h8"/>',
@@ -70,10 +71,14 @@
       tint: 'text',
       keys: ['short_text', 'long_text', 'email', 'url', 'number', 'date'],
     },
-    { name: 'Choice', tint: 'choice', keys: ['single', 'multi', 'dropdown', 'scale', 'yes_no'] },
+    {
+      name: 'Choice',
+      tint: 'choice',
+      keys: ['single', 'multi', 'dropdown', 'ranking', 'scale', 'yes_no'],
+    },
     { name: 'Structure', tint: 'structure', keys: ['section', 'info', 'consent'] },
   ];
-  var CHOICE = ['single', 'multi', 'dropdown'];
+  var CHOICE = ['single', 'multi', 'dropdown', 'ranking'];
   var STATUS = { draft: 'Draft', open: 'Open', closed: 'Closed' };
   var LANG_NAMES = { it: 'Italian', en: 'English' };
 
@@ -459,6 +464,7 @@
         single: 'Scegli una risposta',
         multi: 'Scegli una o più risposte',
         dropdown: 'Scegli dall’elenco',
+        ranking: 'Metti in ordine',
         scale: 'Quanto?',
         date: 'Data',
         yes_no: 'Sì o no?',
@@ -476,6 +482,7 @@
         single: 'Choose one',
         multi: 'Choose any',
         dropdown: 'Choose from the list',
+        ranking: 'Put these in order',
         scale: 'How much?',
         date: 'Date',
         yes_no: 'Yes or no?',
@@ -767,6 +774,25 @@
               h('span', { class: 'fe-mark' + (square ? ' is-square' : '') }),
               h('span', null, lang === 'it' ? 'Altro…' : 'Other…')
             )
+          : null
+      );
+    }
+    if (item.type === 'ranking') {
+      return h(
+        'div',
+        { class: 'fe-mock-options' },
+        item.options.slice(0, 6).map(function (o, i) {
+          var text = tx(o.label);
+          return h(
+            'div',
+            { class: 'fe-mock-option fe-mock-rank' + (text ? '' : ' is-missing') },
+            h('span', { class: 'fe-mock-rank-num' }, String(i + 1)),
+            h('span', null, text || main(o.label) || '—'),
+            h('span', { class: 'fe-mock-rank-grip', 'aria-hidden': 'true' }, '⋮⋮')
+          );
+        }),
+        item.options.length > 6
+          ? h('div', { class: 'fe-mock-more' }, '+' + (item.options.length - 6) + ' more')
           : null
       );
     }
@@ -1971,6 +1997,8 @@
       {
         type: 'button',
         class: 'btn btn-danger-outline btn-sm',
+        // Deleting is for the form's owners, not for who was given “Can edit”.
+        hidden: form.canOwn === false ? true : null,
         onclick: function () {
           var warn = form.responses
             ? 'Delete this form AND its ' + form.responses + ' answers? This cannot be undone.'

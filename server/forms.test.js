@@ -1688,3 +1688,49 @@ test('the sign-up form offers the working groups as they are, and its answers be
   assert.equal(details.profile, 'https://giulia.example');
   assert.equal(details.publish, true);
 });
+
+test('a ranking question: every option once, in the order given', () => {
+  const s = schemaLib.cleanSchema({
+    languages: ['it'],
+    title: { it: 'Priorità' },
+    items: [
+      {
+        id: 'rank',
+        type: 'ranking',
+        label: { it: 'Metti in ordine' },
+        required: true,
+        other: true, // no “Other” for a ranking
+        options: [
+          { id: 'op_a', label: { it: 'Seminari' } },
+          { id: 'op_b', label: { it: 'Meetup' } },
+          { id: 'op_c', label: { it: 'Mentorship' } },
+        ],
+      },
+    ],
+  });
+  assert.equal(s.items[0].other, undefined);
+  const { answers } = schemaLib.cleanAnswers(s, { rank: ['op_c', 'op_a', 'op_b'] });
+  assert.deepEqual(answers.rank, ['op_c', 'op_a', 'op_b']);
+  assert.equal(
+    schemaLib.answerText(s, s.items[0], answers.rank),
+    '1. Mentorship; 2. Seminari; 3. Meetup'
+  );
+  for (const bad of [
+    ['op_a', 'op_b'],
+    ['op_a', 'op_b', 'op_b'],
+    ['op_a', 'op_b', 'op_x'],
+    'op_a,op_b,op_c',
+    { order: [] },
+  ]) {
+    assert.throws(
+      () => schemaLib.cleanAnswers(s, { rank: bad }),
+      (err) => err.status === 400 && Boolean(err.details.errors.rank),
+      JSON.stringify(bad)
+    );
+  }
+  // Required: no order at all is refused.
+  assert.throws(
+    () => schemaLib.cleanAnswers(s, {}),
+    (err) => err.status === 400
+  );
+});

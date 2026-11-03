@@ -32,6 +32,9 @@ const TYPES = {
   single: { answer: true, choice: true, label: 'One choice' },
   multi: { answer: true, choice: true, label: 'Several choices' },
   dropdown: { answer: true, choice: true, label: 'Drop-down' },
+  // The options put in order by the person: the answer is every option's id,
+  // first to last.
+  ranking: { answer: true, choice: true, label: 'Ranking' },
   scale: { answer: true, label: 'Scale' },
   date: { answer: true, label: 'Date' },
   yes_no: { answer: true, label: 'Yes / no' },
@@ -159,7 +162,7 @@ function cleanItem(raw, languages, seen) {
         }),
       };
     });
-    if (type !== 'dropdown' && it.other) item.other = true;
+    if ((type === 'single' || type === 'multi') && it.other) item.other = true;
     if (type === 'multi') {
       const max = int(it.maxChoices, 1, item.options.length, where);
       if (max) item.maxChoices = max;
@@ -345,6 +348,16 @@ function cleanOne(item, raw) {
     case 'multi':
     case 'dropdown':
       return cleanChoice(item, raw);
+    case 'ranking': {
+      // Every option once, in the order given.
+      if (!Array.isArray(raw)) return { error: 'Put the options in order' };
+      if (!raw.length) return { empty: true };
+      const ids = item.options.map((o) => o.id);
+      const order = raw.map(String);
+      if (order.length !== ids.length || ids.some((id) => !order.includes(id)))
+        return { error: 'Put every option in order' };
+      return { value: order };
+    }
     case 'scale': {
       if (raw === '') return { empty: true };
       const n = Number(raw);
@@ -421,6 +434,13 @@ function answerText(schema, item, value) {
       if (value.other) labels.push(value.other);
       return labels.join(', ');
     }
+    case 'ranking':
+      return (Array.isArray(value) ? value : [])
+        .map((id, i) => {
+          const o = item.options.find((x) => x.id === id);
+          return `${i + 1}. ${o ? textIn(schema, o.label, lang) : id}`;
+        })
+        .join('; ');
     case 'yes_no':
       return value === 'yes' ? (lang === 'en' ? 'Yes' : 'Sì') : 'No';
     case 'consent':

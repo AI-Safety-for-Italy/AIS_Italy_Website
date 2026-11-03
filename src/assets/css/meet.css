@@ -4592,6 +4592,114 @@ textarea.fm-input.fm-other-input {
   border-top: 1px solid var(--border-default);
 }
 
+/* A ranking question (forms-render.js, rankingField): rows dragged into order. */
+.fm-rank-hint {
+  margin: 0 0 0.6rem;
+  font-size: 0.92rem;
+  color: var(--text-secondary);
+}
+
+.fm-rank {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.fm-rank-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 0.6rem 0.65rem 0.4rem;
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  background: var(--card-bg);
+  font-size: 1.02rem;
+  font-weight: 500;
+  line-height: 1.35;
+  cursor: grab;
+  user-select: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.fm-rank-row:hover {
+  border-color: var(--accent);
+}
+
+.fm-rank-row.is-dragging {
+  cursor: grabbing;
+  border-color: var(--accent);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+  position: relative;
+  z-index: 1;
+}
+
+.fm-rank-grip {
+  flex: none;
+  width: 14px;
+  height: 22px;
+  /* Six dots, drawn by the background: a handle a finger can hold. */
+  background-image: radial-gradient(circle, var(--text-tertiary) 1.5px, transparent 1.6px);
+  background-size: 7px 7px;
+  background-position: 0 1px;
+  touch-action: none;
+  cursor: grab;
+}
+
+.fm-rank-num {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: 50%;
+  background: var(--accent-50);
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.fm-rank-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.fm-rank-moves {
+  flex: none;
+  display: inline-flex;
+  gap: 0.2rem;
+}
+
+.fm-rank-move {
+  display: inline-grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.fm-rank-move svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.fm-rank-move:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.fm-rank-move:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
 .fm-choice {
   display: flex;
   align-items: center;
@@ -6320,6 +6428,29 @@ textarea.fm-input.fm-other-input {
   background: var(--bg-secondary, var(--card-bg));
   font-size: 0.9rem;
   font-weight: 500;
+}
+
+.fr-rank {
+  margin: 0;
+  padding-left: 1.4rem;
+}
+
+.fe-mock-rank-num {
+  display: inline-grid;
+  place-items: center;
+  width: 1.3rem;
+  height: 1.3rem;
+  border-radius: 50%;
+  background: var(--accent-50);
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.fe-mock-rank-grip {
+  margin-left: auto;
+  color: var(--text-tertiary);
+  letter-spacing: -0.2em;
 }
 
 .fe-person-edit {

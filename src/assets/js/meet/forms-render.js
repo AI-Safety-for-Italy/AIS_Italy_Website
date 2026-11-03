@@ -62,6 +62,13 @@
       consent: 'Please accept to continue',
       other: 'Other',
       otherPlaceholder: 'Write here…',
+      rankHint:
+        'Drag the options, or use the arrows, to put them in order: the first is your top choice.',
+      moveUp: 'Move up',
+      moveDown: 'Move down',
+      position: function (n, of) {
+        return n + ' of ' + of;
+      },
       yes: 'Yes',
       no: 'No',
       choose: 'Choose…',
@@ -128,6 +135,13 @@
       consent: 'Per continuare devi accettare',
       other: 'Altro',
       otherPlaceholder: 'Scrivi qui…',
+      rankHint:
+        'Trascina le opzioni, o usa le frecce, per metterle in ordine: la prima è quella che preferisci.',
+      moveUp: 'Sposta su',
+      moveDown: 'Sposta giù',
+      position: function (n, of) {
+        return n + ' di ' + of;
+      },
       yes: 'Sì',
       no: 'No',
       choose: 'Scegli…',
@@ -498,6 +512,139 @@
       return { control: select, focus: select };
     }
 
+    // The options in an order of the person's own: dragged (a mouse anywhere
+    // on the row, a finger on its handle, so the page still scrolls) or moved
+    // with the arrows. The answer is every option's id, first to last; until
+    // moved, the order shown is the answer.
+    function rankingField(item) {
+      var ids = item.options.map(function (o) {
+        return o.id;
+      });
+      var saved = values[item.id];
+      var order =
+        Array.isArray(saved) &&
+        saved.length === ids.length &&
+        ids.every(function (id) {
+          return saved.indexOf(id) !== -1;
+        })
+          ? saved.slice()
+          : ids.slice();
+      values[item.id] = order.slice();
+      var byId = {};
+      item.options.forEach(function (o) {
+        byId[o.id] = o;
+      });
+      var list = h('ol', { class: 'fm-rank', role: 'list' });
+
+      function commit() {
+        values[item.id] = [].map.call(list.children, function (row) {
+          return row.getAttribute('data-option');
+        });
+        renumber();
+        changed();
+      }
+      function renumber() {
+        var n = list.children.length;
+        [].forEach.call(list.children, function (row, i) {
+          row.querySelector('.fm-rank-num').textContent = String(i + 1);
+          row.setAttribute(
+            'aria-label',
+            S.position(i + 1, n) + ': ' + row.getAttribute('data-text')
+          );
+          row.querySelector('[data-move="-1"]').disabled = i === 0;
+          row.querySelector('[data-move="1"]').disabled = i === n - 1;
+        });
+      }
+      function move(row, delta) {
+        var to = delta < 0 ? row.previousElementSibling : row.nextElementSibling;
+        if (!to) return;
+        list.insertBefore(row, delta < 0 ? to : to.nextElementSibling);
+        commit();
+      }
+
+      var dragging = null;
+      function startDrag(row, e) {
+        e.preventDefault();
+        dragging = { row: row, id: e.pointerId };
+        row.classList.add('is-dragging');
+        try {
+          row.setPointerCapture(e.pointerId);
+        } catch (err) {
+          /* the drag still follows the pointer inside the list */
+        }
+      }
+      function onMove(e) {
+        if (!dragging || e.pointerId !== dragging.id) return;
+        var row = dragging.row;
+        var before = null;
+        [].some.call(list.children, function (other) {
+          if (other === row) return false;
+          var box = other.getBoundingClientRect();
+          if (e.clientY < box.top + box.height / 2) {
+            before = other;
+            return true;
+          }
+          return false;
+        });
+        if (before !== row.nextElementSibling || (!before && row !== list.lastElementChild))
+          list.insertBefore(row, before);
+      }
+      function endDrag(e) {
+        if (!dragging || e.pointerId !== dragging.id) return;
+        dragging.row.classList.remove('is-dragging');
+        dragging = null;
+        commit();
+      }
+
+      order.forEach(function (id) {
+        var o = byId[id];
+        var text = t(o.label);
+        var grip = h('span', { class: 'fm-rank-grip', 'aria-hidden': 'true' });
+        var arrow = function (delta) {
+          return h('button', {
+            type: 'button',
+            class: 'fm-rank-move',
+            'data-move': String(delta),
+            title: delta < 0 ? S.moveUp : S.moveDown,
+            'aria-label': (delta < 0 ? S.moveUp : S.moveDown) + ': ' + text,
+            html:
+              '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="' +
+              (delta < 0 ? 'M6 15l6-6 6 6' : 'M6 9l6 6 6-6') +
+              '"/></svg>',
+            onclick: function () {
+              move(row, delta);
+              // The same arrow stays under the keyboard as the row moves.
+              var again = row.querySelector('[data-move="' + delta + '"]');
+              (again.disabled ? row.querySelector('[data-move="' + -delta + '"]') : again).focus();
+            },
+          });
+        };
+        var row = h(
+          'li',
+          { class: 'fm-rank-row', 'data-option': id, 'data-text': text },
+          grip,
+          h('span', { class: 'fm-rank-num', 'aria-hidden': 'true' }),
+          h('span', { class: 'fm-rank-text' }, text),
+          h('span', { class: 'fm-rank-moves' }, arrow(-1), arrow(1))
+        );
+        row.addEventListener('pointerdown', function (e) {
+          if (e.button !== 0 || e.target.closest('button')) return;
+          // A finger drags from the handle only; elsewhere it scrolls the page.
+          if (e.pointerType !== 'mouse' && !e.target.closest('.fm-rank-grip')) return;
+          startDrag(row, e);
+        });
+        row.addEventListener('pointermove', onMove);
+        row.addEventListener('pointerup', endDrag);
+        row.addEventListener('pointercancel', endDrag);
+        list.appendChild(row);
+      });
+      renumber();
+      return {
+        control: h('div', null, h('p', { class: 'fm-rank-hint' }, S.rankHint), list),
+        focus: list.querySelector('button:not([disabled])'),
+      };
+    }
+
     function scaleField(item) {
       var row = h('div', { class: 'fm-scale', role: 'radiogroup' });
       for (var n = item.min; n <= item.max; n++) {
@@ -576,6 +723,7 @@
         made = textField(item, item.type);
       else if (item.type === 'single' || item.type === 'multi') made = choiceField(item);
       else if (item.type === 'dropdown') made = dropdownField(item);
+      else if (item.type === 'ranking') made = rankingField(item);
       else if (item.type === 'scale') made = scaleField(item);
       else if (item.type === 'yes_no') made = yesNoField(item);
       else if (item.type === 'consent') made = consentField(item);
