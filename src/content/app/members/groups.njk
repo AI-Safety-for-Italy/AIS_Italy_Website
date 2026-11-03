@@ -13,11 +13,11 @@ seoTitle: 'Working groups | AI Safety for Italy'
 ---
 {% extends "app.njk" %}
 {% block page %}
-    <div class="site-bar panel" id="siteBar" hidden></div>
+    <div class="panel members-status" id="membersStatus" hidden></div>
     <div id="groupsView"></div>
 
 <script src="/assets/js/meet/common.js?v={{ build }}" defer></script>
 <script src="/assets/js/meet/app-common.js?v={{ build }}" defer></script>
-<script src="/assets/js/meet/community-site.js?v={{ build }}" defer></script>
+<script src="/assets/js/meet/community-status.js?v={{ build }}" defer></script>
 <script src="/assets/js/meet/community-groups.js?v={{ build }}" defer></script>
 {% endblock %}

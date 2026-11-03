@@ -439,29 +439,39 @@ they already hold through their Discord roles as yellow, locked switches
 everyone's roles again from Discord (`refreshPeopleRoles`), so a role taken
 away there no longer shows as held.
 
+**The members board, in three questions.** A bar on top of its tabs
+(Members, Working groups, Discord; `status` in `server/community.js`,
+`community-status.js`) says where things stand, each with one action:
+
+1. *Discord accounts*: how many members are linked to their Discord account,
+   and "Link the N →" to the Discord tab for the others.
+2. *Discord roles*: the tags here are what Discord should have; "Give the
+   roles" gives the missing ones (`sendTags`, 15 per call), none taken away.
+   **Nothing else changes Discord**: importing, linking, changing tags and
+   naming coordinators only change the board (approving an application still
+   puts the person on the server with their role). Roles there without a tag,
+   and accounts gone from the server, are reviewed on the Discord tab.
+3. *Website*: how many changes the Community page does not show yet, and
+   "Update the website" (the public directory: consented members, their
+   public fields, the groups).
+
 **Importing the old sheet** matches each person to Discord before anything
 is stored, as the preview shows: by email (they signed in here with
 Discord), else by name (the sheet's name, letter for letter, is the
 nickname, display name or username of one account on the server and of no
 other, nor anyone else's; it needs the bot to read the server's list, the
-Server Members intent). Importing sends nothing to Discord: "Send tags to
-Discord" (Discord tab) gives the roles of everyone's tags, 15 per call, none
-taken away.
+Server Members intent, and the preview says why when it cannot).
 
-**Discord** (Members → Board → Discord): the old sheet has no Discord
-username, so the members not matched on import are not linked. *To link* lists them, each
-with the server's accounts that may be them (the bot's member search by full
-name, then each word; best match first), a manual search, and "Not on
-Discord" (with a note) once checked. Linking keeps who they are there
-(username, display name; encrypted). *Roles and tags* reads everyone's roles
-on Discord (the member list in pages, or one by one without the Server
-Members intent) against their tags here: a tag without its role, or a working
-group's role without the tag, each settled either way or left as it is
-(`member_role_ok`, not listed again). Roles are only **given** when someone
-is linked, imported or approved, and a tag change touches its group's role
-only: a role given by hand on Discord is never taken away silently, it shows
-in the check. Without the bot (a developer's machine) nothing reaches
-Discord: the search is empty and the check says so.
+**Discord tab** (Members → Board → Discord): *To link* lists the members not
+linked yet, each with the server's accounts that may be them (the bot's
+member search by full name, then each word; best match first; "That's them"
+links), a manual search, and "Not on Discord" (with a note). The one place
+where who is who is set; who they are there (username, display name) is
+kept, encrypted. *Roles that differ from the tags* lists, for those linked,
+a working group's role without the tag, a tag whose role was left out, and
+accounts gone from the server: each settled either way or left as it is
+(`member_role_ok`, not listed again). Without the bot (a developer's
+machine) nothing reaches Discord, and the bar and the tab say so.
 
 **The sidebar's groups.** Tools that belong together are listed under one
 entry that opens on them (`group` and `navLabel` in `src/data/tools.js`,
@@ -503,7 +513,7 @@ each shown to who holds that part's key, with its own faces; each list
   consent to be shown; the old sheet is imported once (CSV, preview first,
   the rules of `update-members.py`), matching people to their Discord account
   by the email of a sign-in here. Details are encrypted like an application's.
-- **The site changes only on "Publish to the site".** That stores a copy of
+- **The site changes only on "Update the website"** (the bar on top). That stores a copy of
   what the site may show (consented members, their public fields, the groups)
   and starts a build; another build (a seminar) shows the same copy. Never
   published, the YAML stays the site; "Back to the old directory" undoes it.

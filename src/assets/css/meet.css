@@ -9709,3 +9709,71 @@ a.hub-todo-card:hover {
   background: var(--warning-light);
   color: var(--warning);
 }
+
+/* The bar on top of the members board's tabs (community-status.js): three
+   rows, accounts, roles, website, each with its count and one action. */
+.members-status {
+  display: grid;
+  gap: 0;
+  margin-bottom: 16px;
+  padding: 4px 16px;
+}
+
+.members-status[hidden] {
+  display: none;
+}
+
+.ms-row {
+  display: grid;
+  grid-template-columns: 18px 150px minmax(0, 1fr) auto;
+  gap: 8px 12px;
+  align-items: center;
+  padding: 10px 0;
+  border-top: 1px solid var(--border-muted);
+  font-size: 13.5px;
+}
+
+.ms-row:first-child {
+  border-top: 0;
+}
+
+.ms-mark {
+  color: var(--warning);
+  font-weight: 700;
+  text-align: center;
+}
+
+.ms-row.is-done .ms-mark {
+  color: var(--accent);
+}
+
+.ms-text {
+  color: var(--text-secondary);
+}
+
+.ms-action {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.ms-back {
+  font-size: 12.5px;
+}
+
+@media (max-width: 720px) {
+  .ms-row {
+    grid-template-columns: 18px minmax(0, 1fr);
+  }
+
+  .ms-text,
+  .ms-action {
+    grid-column: 2;
+  }
+
+  .ms-action {
+    justify-content: flex-start;
+  }
+}

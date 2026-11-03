@@ -1,12 +1,13 @@
-/* /app/members/discord/: the community's members and their Discord accounts
- * (/api/app/community, server/community.js).
- *   Send tags  the roles of everyone's tags given on Discord, a few at a time
- *              (importing sends nothing there), none taken away.
- *   To link    the members not linked yet, each with the accounts of the
- *              server that may be them (by name), a search, and "Not on
- *              Discord" once checked. Linking gives the roles of their tags.
- *   Roles      everyone linked, their roles on Discord against their tags
- *              here: each difference settled one way or the other, or left.
+/* /app/members/discord/: who each member is on Discord, and the roles there
+ * that differ from the tags here (/api/app/community, server/community.js).
+ *   To link      the members not linked yet, each with the accounts of the
+ *                server that may be them (by name), a search, and "Not on
+ *                Discord" once checked. Linking changes nothing on Discord:
+ *                the roles follow with "Give the roles" in the bar on top
+ *                (community-status.js).
+ *   Differences  roles on Discord without a tag here, tags whose role is
+ *                left out, accounts gone from the server: each settled, or
+ *                left as it is.
  * What comes from Discord goes on the page as text (h() makes text nodes). */
 (function () {
   'use strict';
@@ -30,6 +31,7 @@
         data = r[1];
         render();
         suggestAll();
+        if (!check) runCheck();
       })
       .catch(function (err) {
         if (err.status === 403) {
@@ -106,13 +108,9 @@
     return M.api('POST', API + '?action=link', { member: member.id, discordId: account.discordId })
       .then(function (r) {
         update(r.member);
-        M.toast(
-          member.name +
-            ' linked to ' +
-            (account.displayName || account.name) +
-            (r.discordFailed ? '; Discord did not take every role' : '; their tags are on Discord')
-        );
+        M.toast(member.name + ' linked to ' + (account.displayName || account.name));
         render();
+        M.communityStatus.refresh();
       })
       .catch(function (err) {
         if (err.status === 401) return M.appError(err);
@@ -129,6 +127,7 @@
       .then(function (r) {
         update(r.member);
         render();
+        M.communityStatus.refresh();
       })
       .catch(function (err) {
         if (err.status === 401) return M.appError(err);
@@ -142,7 +141,7 @@
       {
         type: 'button',
         class: 'dc-account' + (account.score === 3 ? ' is-strong' : ''),
-        title: 'Link ' + member.name + ' to this account',
+        title: member.name + ' is this account',
         onclick: function () {
           link(member, account);
         },
@@ -157,7 +156,7 @@
         h('strong', null, account.displayName || account.name),
         account.username ? h('small', null, '@' + account.username) : null
       ),
-      h('span', { class: 'dc-link' }, 'Link')
+      h('span', { class: 'dc-link' }, 'That’s them')
     );
   }
 
@@ -253,13 +252,13 @@
       h(
         'div',
         { class: 'panel-head', style: 'margin:0' },
-        h('h2', null, 'To link'),
+        h('h2', { id: 'link' }, 'To link'),
         h('span', { class: 'dc-count' + (list.length ? ' is-on' : '') }, String(list.length))
       ),
       h(
         'p',
         { class: 'panel-note', style: 'margin:0' },
-        'Members not linked to a Discord account yet: their tags are not roles on Discord. Pick their account among those found by name, or search it. Linking gives them the roles of their tags and takes none away. Someone who is not on Discord at all: mark it, so they leave this list.'
+        'Who each one is on Discord: pick their account among those with their name, or search it. Someone not on Discord at all: mark it, and they leave this list. Linking changes nothing on Discord; their roles follow with “Give the roles” above.'
       )
     );
     if (!list.length) {
@@ -336,97 +335,6 @@
     return section;
   }
 
-  // ── Sending the tags ───────────────────────────────────────────────────
-
-  var sending = null; // { given, failed, remaining } while and after sending
-
-  /** Calls send-tags until nothing is left, showing how far it is. */
-  function sendTags(button) {
-    var linked = data.members.filter(function (m) {
-      return m.discordId && m.groups.length;
-    }).length;
-    if (
-      !window.confirm(
-        'Give the ' +
-          linked +
-          ' linked members with tags the roles they do not have yet on Discord? No role is taken away.'
-      )
-    )
-      return;
-    button.disabled = true;
-    sending = { given: 0, failed: 0, remaining: null };
-    render();
-    (function step() {
-      M.api('POST', API + '?action=send-tags', {})
-        .then(function (r) {
-          sending.given += r.given;
-          sending.failed += r.failed;
-          sending.remaining = r.remaining;
-          render();
-          // Again while some are left and this call did something.
-          if (r.remaining > 0 && r.given + r.failed > 0) return step();
-          sending.done = true;
-          render();
-          M.toast(
-            sending.given +
-              ' roles given on Discord' +
-              (sending.failed ? '; ' + sending.failed + ' did not go: send again later' : '')
-          );
-          if (check) runCheck();
-        })
-        .catch(function (err) {
-          sending.done = true;
-          render();
-          if (err.status === 401) return M.appError(err);
-          M.toast(err.message, true);
-        });
-    })();
-  }
-
-  function sendSection() {
-    var button = h(
-      'button',
-      {
-        type: 'button',
-        class: 'btn btn-primary btn-sm',
-        disabled: sending && !sending.done ? true : null,
-        onclick: function () {
-          sendTags(button);
-        },
-      },
-      'Send tags to Discord'
-    );
-    var status = null;
-    if (sending) {
-      status = h(
-        'p',
-        { class: 'form-note', style: 'margin:0', role: 'status' },
-        sending.done
-          ? 'Done: ' +
-              sending.given +
-              ' roles given' +
-              (sending.failed ? ', ' + sending.failed + ' did not go' : '') +
-              '.'
-          : 'Sending… ' +
-              sending.given +
-              ' given' +
-              (sending.remaining !== null ? ', ' + sending.remaining + ' left' : '')
-      );
-    }
-    return h(
-      'section',
-      { class: 'panel dc-panel' },
-      h('div', { class: 'panel-head', style: 'margin:0' }, h('h2', null, 'Send tags to Discord')),
-      h(
-        'p',
-        { class: 'panel-note', style: 'margin:0' },
-        'Importing the sheet sends nothing to Discord. Once the members are linked (below), this gives each of them the roles of their tags they do not have yet. No role is taken away: those given by hand show in “Roles and tags”.'
-      ),
-      h('div', null, button),
-      status
-    );
-  }
-
   // ── Roles on Discord against tags here ─────────────────────────────────
 
   function runCheck(button) {
@@ -439,9 +347,19 @@
       .catch(function (err) {
         if (button) button.disabled = false;
         if (err.status === 401) return M.appError(err);
+        // No bot here: said in the section, not as an error.
+        if (err.status === 503) {
+          check = { unavailable: err.message };
+          return render();
+        }
         M.toast(err.message, true);
       });
   }
+
+  // Roles given from the bar on top: the differences change.
+  document.addEventListener('members-roles-given', function () {
+    runCheck();
+  });
 
   function resolve(member, group, action, kind) {
     return M.api('POST', API + '?action=resolve', {
@@ -464,6 +382,7 @@
         });
         if (action === 'tag' || action === 'untag') load();
         else render();
+        M.communityStatus.refresh();
       })
       .catch(function (err) {
         if (err.status === 401) return M.appError(err);
@@ -526,7 +445,7 @@
           runCheck(button);
         },
       },
-      check ? 'Check again' : 'Check the roles on Discord'
+      'Check again'
     );
     var section = h(
       'section',
@@ -534,8 +453,8 @@
       h(
         'div',
         { class: 'panel-head', style: 'margin:0' },
-        h('h2', null, 'Roles and tags'),
-        check
+        h('h2', { id: 'roles' }, 'Roles that differ from the tags'),
+        check && check.members
           ? h(
               'span',
               { class: 'dc-count' + (check.members.length ? ' is-on' : '') },
@@ -548,11 +467,15 @@
         { class: 'panel-note', style: 'margin:0' },
         'For the ' +
           linked +
-          ' members linked: the roles they have on Discord against their tags here, working groups only. Each difference can be settled either way, or left as it is (it is not listed again).'
+          ' members linked, the working groups’ roles they have on Discord that differ from their tags here. Settle each one either way, or leave it as it is: it is not listed again.'
       ),
       h('div', null, button)
     );
     if (!check) return section;
+    if (check.unavailable) {
+      section.appendChild(h('p', { class: 'form-note', style: 'margin:0' }, check.unavailable));
+      return section;
+    }
     if (check.failed) {
       section.appendChild(
         h(
@@ -633,7 +556,7 @@
     // Drawn again after each change: the page stays where it was.
     var y = window.scrollY;
     M.clear(view);
-    view.appendChild(h('div', { class: 'dc-page' }, sendSection(), linkSection(), checkSection()));
+    view.appendChild(h('div', { class: 'dc-page' }, linkSection(), checkSection()));
     window.scrollTo(0, y);
   }
 })();

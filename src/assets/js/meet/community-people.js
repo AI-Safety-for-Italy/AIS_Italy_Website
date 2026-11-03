@@ -1,9 +1,9 @@
 /* /app/members/people/: the community's members (/api/app/community,
  * server/community.js). Their working groups are tags: picked people can be
- * put in a group, taken out, or moved to another, and Discord follows at
- * once; the site only when "Publish to the site" is pressed
- * (community-site.js). Also: one person's details and Discord account, and
- * the import of the old members sheet, with a preview first. */
+ * put in a group, taken out, or moved to another. Discord and the website
+ * follow only from the bar on top ("Give the roles", "Update the website",
+ * community-status.js). Also: one person's details, and the import of the
+ * old members sheet, with a preview first. */
 (function () {
   'use strict';
   var M = window.Meet;
@@ -21,7 +21,6 @@
     Promise.all([M.me, M.api('GET', '/api/app/community')])
       .then(function (r) {
         data = r[1];
-        M.communitySite.draw(data.site);
         render();
       })
       .catch(function (err) {
@@ -172,12 +171,8 @@
             return byId[m.id] || m;
           });
           picked = {};
-          M.toast(
-            r.discordFailed
-              ? 'Saved; Discord did not take ' + r.discordFailed + ' of the changes'
-              : 'Saved, and on Discord'
-          );
-          M.communitySite.changed();
+          M.toast('Saved');
+          M.communityStatus.refresh();
           return M.api('GET', '/api/app/community');
         })
         .then(function (d) {
@@ -326,68 +321,37 @@
 
   var dialog = document.getElementById('memberDialog');
   var editing = null;
-  var discordPick = null;
 
   function edit(m) {
     editing = m;
-    discordPick = undefined;
     document.getElementById('memberTitle').textContent = m.name;
     document.getElementById('mName').value = m.name;
     document.getElementById('mProfile').value = m.profile;
     document.getElementById('mLocation').value = m.location;
     document.getElementById('mAreas').value = m.areas;
     document.getElementById('mPublish').checked = m.publish;
-    document.getElementById('mDiscord').textContent = m.discordId
-      ? 'Linked (' + m.discordId + '). Pick another below to change it.'
-      : 'Not linked: pick their account, and they get their tags on Discord.';
-    document.getElementById('mDiscordSearch').value = '';
-    document.getElementById('mDiscordResults').hidden = true;
+    // Who they are on Discord is set on the Discord tab only.
+    var info = document.getElementById('mDiscord');
+    M.clear(info);
+    info.appendChild(
+      document.createTextNode(
+        m.discordId
+          ? 'Linked to ' +
+              (m.discordName || m.discordUsername || m.discordId) +
+              (m.discordUsername ? ' (@' + m.discordUsername + ')' : '') +
+              '. '
+          : m.discordAbsent
+          ? 'Checked: not on Discord. '
+          : 'Not linked yet. '
+      )
+    );
+    info.appendChild(h('a', { href: '/app/members/discord/#link' }, 'Discord tab →'));
     document.getElementById('memberError').hidden = true;
     dialog.showModal();
   }
 
   document.getElementById('memberCancel').addEventListener('click', function () {
     dialog.close();
-  });
-
-  var searchTimer = null;
-  document.getElementById('mDiscordSearch').addEventListener('input', function (e) {
-    var q = e.target.value.trim();
-    var results = document.getElementById('mDiscordResults');
-    clearTimeout(searchTimer);
-    if (q.length < 2) {
-      results.hidden = true;
-      return;
-    }
-    searchTimer = setTimeout(function () {
-      M.api('GET', '/api/app/community?people=' + encodeURIComponent(q))
-        .then(function (d) {
-          M.clear(results);
-          if (!d.people.length)
-            results.appendChild(h('p', { class: 'fe-people-none' }, 'Nobody found'));
-          d.people.forEach(function (p) {
-            results.appendChild(
-              h(
-                'button',
-                {
-                  type: 'button',
-                  class: 'fe-people-hit',
-                  onclick: function () {
-                    discordPick = p.discordId;
-                    document.getElementById('mDiscord').textContent =
-                      'Will be linked to ' + p.name + ' (' + p.discordId + ') on saving.';
-                    results.hidden = true;
-                  },
-                },
-                M.avatar(p, 24),
-                h('span', null, p.name)
-              )
-            );
-          });
-          results.hidden = false;
-        })
-        .catch(M.appError);
-    }, 250);
   });
 
   document.getElementById('memberForm').addEventListener('submit', function (e) {
@@ -401,7 +365,6 @@
       areas: document.getElementById('mAreas').value,
       publish: document.getElementById('mPublish').checked,
     };
-    if (discordPick !== undefined) body.discordId = discordPick;
     M.api('PUT', '/api/app/community?member=' + encodeURIComponent(editing.id), body)
       .then(function (r) {
         data.members = data.members.map(function (m) {
@@ -409,7 +372,7 @@
         });
         dialog.close();
         M.toast('Saved');
-        M.communitySite.changed();
+        M.communityStatus.refresh();
         render();
       })
       .catch(function (e2) {
@@ -488,7 +451,10 @@
             ' by email, ' +
             c.byName +
             ' by name' +
-            (preview.byName ? '' : ': the bot cannot read the server’s members here') +
+            (preview.byName
+              ? ''
+              : ': not by name here, ' +
+                (preview.byNameProblem || 'the bot cannot read the server’s members')) +
             ') · ' +
             c.already +
             ' already here (tags added, nothing else changed)'

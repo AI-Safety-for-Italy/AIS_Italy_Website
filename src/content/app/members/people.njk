@@ -14,7 +14,7 @@ seoTitle: 'Members | AI Safety for Italy'
 ---
 {% extends "app.njk" %}
 {% block page %}
-    <div class="site-bar panel" id="siteBar" hidden></div>
+    <div class="panel members-status" id="membersStatus" hidden></div>
     <div id="peopleView"></div>
 
     <dialog class="meet-dialog" id="memberDialog" aria-labelledby="memberTitle">
@@ -29,10 +29,6 @@ seoTitle: 'Members | AI Safety for Italy'
           <div>
             <span class="form-label">Discord account</span>
             <p class="panel-note" id="mDiscord" style="margin:0 0 .4rem"></p>
-            <div class="fe-people-search">
-              <input class="form-input is-compact" id="mDiscordSearch" type="search" placeholder="Search a member of the Discord server…" autocomplete="off">
-              <div class="fe-people-results" id="mDiscordResults" hidden></div>
-            </div>
           </div>
           <p class="form-error" id="memberError" hidden></p>
         </div>
@@ -45,6 +41,6 @@ seoTitle: 'Members | AI Safety for Italy'
 
 <script src="/assets/js/meet/common.js?v={{ build }}" defer></script>
 <script src="/assets/js/meet/app-common.js?v={{ build }}" defer></script>
-<script src="/assets/js/meet/community-site.js?v={{ build }}" defer></script>
+<script src="/assets/js/meet/community-status.js?v={{ build }}" defer></script>
 <script src="/assets/js/meet/community-people.js?v={{ build }}" defer></script>
 {% endblock %}

@@ -285,7 +285,7 @@ test('the old sheet comes in after a preview: approved people, consent, the stab
   });
 });
 
-test('tags are added, moved and removed for several people, and Discord follows', async () => {
+test('tags are added, moved and removed for several people; Discord only with "Give the roles"', async () => {
   const user = await board();
   await auth.upsertDiscordUser({
     discordId: '700000002',
@@ -298,14 +298,14 @@ test('tags are added, moved and removed for several people, and Discord follows'
   botCalls = [];
 
   await community.setTags(user, { members: ids, action: 'add', group: 'events', level: 'stable' });
-  assert.ok(roleCalls().includes('PUT 700000002/roles/1566887735308845169'));
+  // The tags say what Discord should have; Discord is not touched.
+  assert.deepEqual(roleCalls(), []);
   let now = (await community.listMembers(user)).members;
   assert.ok(now.every((m) => m.groups.some((g) => g.group === 'events')));
 
   botCalls = [];
   await community.setTags(user, { members: ids, action: 'move', group: 'events', to: 'community' });
-  assert.ok(roleCalls().includes('DELETE 700000002/roles/1566887735308845169'));
-  assert.ok(roleCalls().includes('PUT 700000002/roles/1566887710659051550'));
+  assert.deepEqual(roleCalls(), []);
   now = (await community.listMembers(user)).members;
   assert.ok(now.every((m) => !m.groups.some((g) => g.group === 'events')));
 
@@ -316,10 +316,13 @@ test('tags are added, moved and removed for several people, and Discord follows'
   );
   await rejects(community.setTags(user, { members: [], action: 'remove', group: 'events' }), 400);
 
-  // Linking someone's Discord account gives them their tags there.
+  // Linking someone says who they are on Discord, and changes nothing there;
+  // "Give the roles" gives them the roles of their tags.
   const ciro = now.find((m) => m.name === 'Ciro Tre');
   botCalls = [];
   await community.updateMember(user, ciro.id, { discordId: '700000003', publish: true });
+  assert.deepEqual(roleCalls(), []);
+  await community.sendTags(user);
   assert.ok(roleCalls().includes('PUT 700000003/roles/1566887710659051550'));
   await rejects(community.updateMember(user, ciro.id, { discordId: '700000002' }), 409);
 
@@ -599,7 +602,8 @@ test('members not linked: their accounts suggested by name, linked, or marked no
   assert.equal(linked.member.discordId, '800000001');
   assert.equal(linked.member.discordUsername, 'adauno');
   assert.equal(linked.member.discordName, 'Ada Uno');
-  assert.ok(roleCalls().every((c) => c.startsWith('PUT 800000001/')));
+  // Nothing changes on Discord: her hand-given role stays, none is added yet.
+  assert.deepEqual(roleCalls(), []);
   assert.ok(people[0].roles.includes(ROLE.events));
   // Who she is on Discord is stored encrypted.
   const { rows } = await db.query(
@@ -681,7 +685,7 @@ test('roles on Discord against tags here: each difference settled, or left', asy
   assert.equal(check.members[0].notOnServer, true);
 });
 
-test('a tag changes the role of its group only, not the roles given by hand', async () => {
+test('a tag change leaves Discord as it is', async () => {
   const user = await board();
   await community.importConfirm(user, SHEET);
   const ada = (await community.listMembers(user)).members.find((m) => m.name === 'Ada Uno');
@@ -696,7 +700,7 @@ test('a tag changes the role of its group only, not the roles given by hand', as
     group: 'events',
     level: 'stable',
   });
-  assert.deepEqual(roleCalls(), [`PUT 800000009/roles/${ROLE.events}`]);
+  assert.deepEqual(roleCalls(), []);
 });
 
 test('coordinators are chosen on Working groups only', async () => {
@@ -716,14 +720,14 @@ test('coordinators are chosen on Working groups only', async () => {
   assert.deepEqual(after.find((m) => m.id === ada.id).groups, [
     { group: 'mentorship', level: 'coordination' },
   ]);
-  // Someone not in the group is put in it, with its role on Discord.
+  // Someone not in the group is put in it; the role follows with "Give the roles".
   botCalls = [];
   after = (await community.setCoordinator(user, { group: 'events', member: ciro.id, on: true }))
     .members;
   assert.deepEqual(after.find((m) => m.id === ciro.id).groups, [
     { group: 'events', level: 'coordination' },
   ]);
-  assert.ok(roleCalls().includes('PUT 700000003/roles/1566887735308845169'));
+  assert.deepEqual(roleCalls(), []);
   // Putting a coordinator in the group again from Members keeps them coordinating.
   await community.setTags(user, { members: [ada.id], action: 'add', group: 'mentorship' });
   after = (await community.listMembers(user)).members;
@@ -823,4 +827,81 @@ test('the tags go to Discord a few at a time, until none is left', async () => {
   assert.deepEqual(second, { given: 9, failed: 0, remaining: 0 });
   assert.deepEqual(await community.sendTags(user), { given: 0, failed: 0, remaining: 0 });
   assert.ok(people.every((p) => p.roles.length === 2));
+});
+
+test('the preview says why it cannot match by name', async () => {
+  const user = await board();
+  // Discord refuses the list: the intent is off.
+  permissions.setFetch(async (url, init = {}) => {
+    botCalls.push({ url, method: init.method || 'GET' });
+    if (/\/members\?limit=1000/.test(url))
+      return {
+        ok: false,
+        status: 403,
+        json: async () => ({ message: 'Missing Access', code: 50001 }),
+      };
+    const { rows } = await db.query('select roles from app_users where discord_id = $1', [
+      (/\/members\/(\d+)$/.exec(url) || [])[1] || '',
+    ]);
+    return { ok: true, status: 200, json: async () => ({ roles: rows[0] ? rows[0].roles : [] }) };
+  });
+  let preview = await community.importPreview(user, SHEET);
+  assert.equal(preview.byName, false);
+  assert.match(preview.byNameProblem, /Server Members Intent/);
+
+  // No bot on this deployment at all.
+  delete process.env.DISCORD_BOT_TOKEN_AIS_TEAM_AREA;
+  preview = await community.importPreview(user, SHEET);
+  assert.match(preview.byNameProblem, /not set up on this deployment/);
+
+  // The list read: no problem.
+  process.env.DISCORD_BOT_TOKEN_AIS_TEAM_AREA = 'bot';
+  server([{ id: '800000031', username: 'adauno', globalName: 'Ada Uno', roles: [] }]);
+  preview = await community.importPreview(user, SHEET);
+  assert.equal(preview.byName, true);
+  assert.equal(preview.byNameProblem, null);
+});
+
+test('the bar on top: accounts, roles and website, in counts', async () => {
+  const user = await board();
+  await community.importConfirm(user, SHEET);
+  const list = (await community.listMembers(user)).members;
+  const bea = list.find((m) => m.name === 'Bea Due'); // tags: mentorship, seminars
+  const ciro = list.find((m) => m.name === 'Ciro Tre');
+  const people = [{ id: '800000041', username: 'bea', roles: [ROLE.events] }];
+  server(people);
+  await community.linkDiscord(user, bea.id, '800000041');
+  await community.markAbsent(user, ciro.id, { absent: true });
+
+  let s = await community.status(user);
+  assert.deepEqual(s.accounts, { members: 3, linked: 1, absent: 1, toLink: 1 });
+  assert.deepEqual(
+    { ...s.roles, failed: undefined },
+    { available: true, missing: 2, missingMembers: 1, extra: 1, gone: 0, failed: undefined }
+  );
+  assert.equal(s.site.live, false);
+  assert.ok(s.site.changes > 0);
+
+  // "Give the roles": the missing ones; the hand-given one stays to review.
+  await community.sendTags(user);
+  s = await community.status(user);
+  assert.equal(s.roles.missing, 0);
+  assert.equal(s.roles.extra, 1);
+
+  // The website: up to date once updated, one change after a new tag.
+  await community.publishSite(user);
+  s = await community.status(user);
+  assert.deepEqual([s.site.live, s.site.pending, s.site.changes], [true, false, 0]);
+  await community.setTags(user, { members: [ciro.id], action: 'add', group: 'events' });
+  s = await community.status(user);
+  assert.equal(s.site.pending, false); // Ciro is not shown on the site: no change there
+  await community.setTags(user, { members: [bea.id], action: 'add', group: 'events' });
+  s = await community.status(user);
+  assert.deepEqual([s.site.pending, s.site.changes], [true, 1]);
+
+  // Without the bot, the roles are not readable here, and the bar says so.
+  delete process.env.DISCORD_BOT_TOKEN_AIS_TEAM_AREA;
+  s = await community.status(user);
+  assert.equal(s.roles.available, false);
+  assert.match(s.roles.problem, /not set up/);
 });
