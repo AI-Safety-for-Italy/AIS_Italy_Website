@@ -63,7 +63,20 @@
       other: 'Other',
       otherPlaceholder: 'Write here…',
       rankHint:
-        'Drag the options, or use the arrows, to put them in order: the first is your top choice.',
+        'Drag the options, or use the arrows, to put them in order: the first is your top choice. Leave out with ×, put back with +.',
+      leftOut: 'Left out',
+      leaveOut: 'Leave out',
+      rankIt: 'Rank',
+      ranked: function (n, count, mode) {
+        if (!count) return n + ' ranked';
+        return n + ' ranked: ' + (mode === 'atLeast' ? 'rank at least ' : 'rank ') + count;
+      },
+      rankExactly: function (n) {
+        return 'Rank exactly ' + n;
+      },
+      rankAtLeast: function (n) {
+        return 'Rank at least ' + n;
+      },
       moveUp: 'Move up',
       moveDown: 'Move down',
       position: function (n, of) {
@@ -136,7 +149,22 @@
       other: 'Altro',
       otherPlaceholder: 'Scrivi qui…',
       rankHint:
-        'Trascina le opzioni, o usa le frecce, per metterle in ordine: la prima è quella che preferisci.',
+        'Trascina le opzioni, o usa le frecce, per metterle in ordine: la prima è quella che preferisci. Scarta con ×, rimetti con +.',
+      leftOut: 'Scartate',
+      leaveOut: 'Scarta',
+      rankIt: 'Metti in classifica',
+      ranked: function (n, count, mode) {
+        if (!count) return n + ' in classifica';
+        return (
+          n + ' in classifica: ' + (mode === 'atLeast' ? 'mettine almeno ' : 'mettine ') + count
+        );
+      },
+      rankExactly: function (n) {
+        return 'Mettine in classifica esattamente ' + n;
+      },
+      rankAtLeast: function (n) {
+        return 'Mettine in classifica almeno ' + n;
+      },
       moveUp: 'Sposta su',
       moveDown: 'Sposta giù',
       position: function (n, of) {
@@ -514,52 +542,144 @@
 
     // The options in an order of the person's own: dragged (a mouse anywhere
     // on the row, a finger on its handle, so the page still scrolls) or moved
-    // with the arrows. The answer is every option's id, first to last; until
-    // moved, the order shown is the answer.
+    // with the arrows. Options can be left out (x) and put back (+). The answer
+    // is the ids ranked, first to last. With a number to rank the list starts
+    // empty; without one, every option starts ranked in the order shown.
     function rankingField(item) {
       var ids = item.options.map(function (o) {
         return o.id;
       });
-      var saved = values[item.id];
-      var order =
-        Array.isArray(saved) &&
-        saved.length === ids.length &&
-        ids.every(function (id) {
-          return saved.indexOf(id) !== -1;
-        })
-          ? saved.slice()
-          : ids.slice();
-      values[item.id] = order.slice();
       var byId = {};
       item.options.forEach(function (o) {
         byId[o.id] = o;
       });
+      var saved = values[item.id];
+      var valid =
+        Array.isArray(saved) &&
+        saved.every(function (id, k) {
+          return byId[id] && saved.indexOf(id) === k;
+        });
+      var order = valid ? saved.slice() : item.rankCount ? [] : ids.slice();
+      values[item.id] = order.slice();
       var list = h('ol', { class: 'fm-rank', role: 'list' });
+      var rest = h('ul', { class: 'fm-rank fm-rank-rest', role: 'list' });
+      var restBox = h(
+        'div',
+        { class: 'fm-rank-restbox' },
+        h('p', { class: 'fm-rank-label' }, S.leftOut),
+        rest
+      );
+      var counter = h('p', { class: 'fm-rank-count', 'aria-live': 'polite' });
 
       function commit() {
-        values[item.id] = [].map.call(list.children, function (row) {
-          return row.getAttribute('data-option');
-        });
-        renumber();
+        values[item.id] = order.slice();
         changed();
       }
-      function renumber() {
-        var n = list.children.length;
-        [].forEach.call(list.children, function (row, i) {
-          row.querySelector('.fm-rank-num').textContent = String(i + 1);
-          row.setAttribute(
-            'aria-label',
-            S.position(i + 1, n) + ': ' + row.getAttribute('data-text')
-          );
-          row.querySelector('[data-move="-1"]').disabled = i === 0;
-          row.querySelector('[data-move="1"]').disabled = i === n - 1;
+      function button(cls, label, path, onclick) {
+        return h('button', {
+          type: 'button',
+          class: cls,
+          title: label,
+          'aria-label': label,
+          html:
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="' +
+            path +
+            '"/></svg>',
+          onclick: onclick,
         });
       }
-      function move(row, delta) {
-        var to = delta < 0 ? row.previousElementSibling : row.nextElementSibling;
-        if (!to) return;
-        list.insertBefore(row, delta < 0 ? to : to.nextElementSibling);
+      function moveTo(id, to) {
+        order.splice(order.indexOf(id), 1);
+        order.splice(to, 0, id);
         commit();
+      }
+      // Redraws both lists from `order`; `focus` puts the keyboard back on a button.
+      function draw(focus) {
+        M.clear(list);
+        M.clear(rest);
+        order.forEach(function (id, i) {
+          var text = t(byId[id].label);
+          var up = button('fm-rank-move', S.moveUp + ': ' + text, 'M6 15l6-6 6 6', function () {
+            moveTo(id, i - 1);
+            draw({ id: id, move: 'up' });
+          });
+          var down = button('fm-rank-move', S.moveDown + ': ' + text, 'M6 9l6 6 6-6', function () {
+            moveTo(id, i + 1);
+            draw({ id: id, move: 'down' });
+          });
+          var drop = button(
+            'fm-rank-move fm-rank-drop',
+            S.leaveOut + ': ' + text,
+            'M7 7l10 10M17 7L7 17',
+            function () {
+              order.splice(i, 1);
+              commit();
+              draw({ id: id, add: true });
+            }
+          );
+          up.disabled = i === 0;
+          down.disabled = i === order.length - 1;
+          up.setAttribute('data-move', 'up');
+          down.setAttribute('data-move', 'down');
+          var row = h(
+            'li',
+            {
+              class: 'fm-rank-row',
+              'data-option': id,
+              'aria-label': S.position(i + 1, order.length) + ': ' + text,
+            },
+            h('span', { class: 'fm-rank-grip', 'aria-hidden': 'true' }),
+            h('span', { class: 'fm-rank-num', 'aria-hidden': 'true' }, String(i + 1)),
+            h('span', { class: 'fm-rank-text' }, text),
+            h('span', { class: 'fm-rank-moves' }, up, down, drop)
+          );
+          row.addEventListener('pointerdown', function (e) {
+            if (e.button !== 0 || e.target.closest('button')) return;
+            // A finger drags from the handle only; elsewhere it scrolls the page.
+            if (e.pointerType !== 'mouse' && !e.target.closest('.fm-rank-grip')) return;
+            startDrag(row, e);
+          });
+          row.addEventListener('pointermove', onMove);
+          row.addEventListener('pointerup', endDrag);
+          row.addEventListener('pointercancel', endDrag);
+          list.appendChild(row);
+        });
+        ids.forEach(function (id) {
+          if (order.indexOf(id) !== -1) return;
+          var text = t(byId[id].label);
+          var add = button(
+            'fm-rank-move fm-rank-add',
+            S.rankIt + ': ' + text,
+            'M12 5v14M5 12h14',
+            function () {
+              order.push(id);
+              commit();
+              draw({ id: id, move: 'up' });
+            }
+          );
+          rest.appendChild(
+            h(
+              'li',
+              { class: 'fm-rank-row is-out', 'data-option': id },
+              h('span', { class: 'fm-rank-text' }, text),
+              add
+            )
+          );
+        });
+        list.hidden = !order.length;
+        restBox.hidden = order.length === ids.length;
+        counter.textContent = S.ranked(order.length, item.rankCount, item.rankMode);
+        if (focus) {
+          var where = focus.add ? rest : list;
+          var row = where.querySelector('[data-option="' + focus.id + '"]');
+          var b =
+            row &&
+            (focus.add
+              ? row.querySelector('button')
+              : row.querySelector('[data-move="' + focus.move + '"]:not([disabled])') ||
+                row.querySelector('button:not([disabled])'));
+          if (b) b.focus();
+        }
       }
 
       var dragging = null;
@@ -593,55 +713,24 @@
         if (!dragging || e.pointerId !== dragging.id) return;
         dragging.row.classList.remove('is-dragging');
         dragging = null;
+        order = [].map.call(list.children, function (row) {
+          return row.getAttribute('data-option');
+        });
         commit();
+        draw();
       }
 
-      order.forEach(function (id) {
-        var o = byId[id];
-        var text = t(o.label);
-        var grip = h('span', { class: 'fm-rank-grip', 'aria-hidden': 'true' });
-        var arrow = function (delta) {
-          return h('button', {
-            type: 'button',
-            class: 'fm-rank-move',
-            'data-move': String(delta),
-            title: delta < 0 ? S.moveUp : S.moveDown,
-            'aria-label': (delta < 0 ? S.moveUp : S.moveDown) + ': ' + text,
-            html:
-              '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="' +
-              (delta < 0 ? 'M6 15l6-6 6 6' : 'M6 9l6 6 6-6') +
-              '"/></svg>',
-            onclick: function () {
-              move(row, delta);
-              // The same arrow stays under the keyboard as the row moves.
-              var again = row.querySelector('[data-move="' + delta + '"]');
-              (again.disabled ? row.querySelector('[data-move="' + -delta + '"]') : again).focus();
-            },
-          });
-        };
-        var row = h(
-          'li',
-          { class: 'fm-rank-row', 'data-option': id, 'data-text': text },
-          grip,
-          h('span', { class: 'fm-rank-num', 'aria-hidden': 'true' }),
-          h('span', { class: 'fm-rank-text' }, text),
-          h('span', { class: 'fm-rank-moves' }, arrow(-1), arrow(1))
-        );
-        row.addEventListener('pointerdown', function (e) {
-          if (e.button !== 0 || e.target.closest('button')) return;
-          // A finger drags from the handle only; elsewhere it scrolls the page.
-          if (e.pointerType !== 'mouse' && !e.target.closest('.fm-rank-grip')) return;
-          startDrag(row, e);
-        });
-        row.addEventListener('pointermove', onMove);
-        row.addEventListener('pointerup', endDrag);
-        row.addEventListener('pointercancel', endDrag);
-        list.appendChild(row);
-      });
-      renumber();
+      draw();
       return {
-        control: h('div', null, h('p', { class: 'fm-rank-hint' }, S.rankHint), list),
-        focus: list.querySelector('button:not([disabled])'),
+        control: h(
+          'div',
+          null,
+          h('p', { class: 'fm-rank-hint' }, S.rankHint),
+          counter,
+          list,
+          restBox
+        ),
+        focus: list.querySelector('button:not([disabled])') || rest.querySelector('button'),
       };
     }
 
@@ -780,6 +869,7 @@
         v === null ||
         v === '' ||
         v === false ||
+        (Array.isArray(v) && !v.length) ||
         (typeof v === 'object' && v.selected && !v.selected.length && !(v.other && v.other.trim()));
       if (empty) return item.required ? (item.type === 'consent' ? S.consent : S.required) : null;
       var text = typeof v === 'string' ? v.trim() : '';
@@ -800,6 +890,12 @@
       }
       if (item.type === 'long_text' && item.maxWords && words(text) > item.maxWords) {
         return S.tooManyWords(item.maxWords);
+      }
+      if (item.type === 'ranking' && item.rankCount) {
+        if (item.rankMode === 'atLeast' && v.length < item.rankCount)
+          return S.rankAtLeast(item.rankCount);
+        if (item.rankMode !== 'atLeast' && v.length !== item.rankCount)
+          return S.rankExactly(item.rankCount);
       }
       if (item.type === 'multi' && item.maxChoices) {
         var count = v.selected.length + (v.other && v.other.trim() ? 1 : 0);

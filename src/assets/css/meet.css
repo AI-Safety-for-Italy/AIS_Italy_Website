@@ -4695,6 +4695,49 @@ textarea.fm-input.fm-other-input {
   color: var(--accent);
 }
 
+/* Ranking: the count, the options left out (× to leave out, + to put back). */
+.fm-rank-count {
+  margin: 0 0 0.6rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.fm-rank-restbox {
+  margin-top: 1rem;
+}
+
+.fm-rank-label {
+  margin: 0 0 0.45rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.fm-rank-row.is-out {
+  cursor: default;
+  border-style: dashed;
+  background: transparent;
+  color: var(--text-secondary);
+  padding-left: 0.9rem;
+}
+
+.fm-rank-drop:hover:not(:disabled) {
+  border-color: var(--secondary-600, #b42318);
+  color: var(--secondary-600, #b42318);
+}
+
+.fe-rank-count {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.fe-rank-count select {
+  width: auto;
+}
+
 .fm-rank-move:disabled {
   opacity: 0.35;
   cursor: default;
