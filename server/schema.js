@@ -268,14 +268,30 @@ create table if not exists crm_notes (
 
 create index if not exists crm_notes_person on crm_notes (person_key, created_at);
 
--- A mentor's draft for the public site: bio and a 400x400 JPEG, encrypted
--- together. Publishing still goes through data/mentors.yaml.
+-- A mentor's draft for the public site: bio, a 400x400 JPEG, consent and the
+-- entry being written, encrypted together.
 create table if not exists crm_site_profiles (
   person_key text primary key,
   data_encrypted text not null,
   updated_by uuid references app_users(id) on delete set null,
   updated_by_name text,
   updated_at timestamptz not null default now()
+);
+
+-- A mentor's entry as published on /mentorship/ from the board: public data,
+-- so in clear. id is the entry's id there; a hidden row takes the
+-- data/mentors.yaml entry of that id off the site. photo is the JPEG in
+-- base64, kept only with the mentor's consent.
+create table if not exists mentor_site_entries (
+  id text primary key,
+  person_key text,
+  entry jsonb not null,
+  photo text,
+  photo_hash text,
+  hidden boolean not null default false,
+  published_by uuid references app_users(id) on delete set null,
+  published_by_name text,
+  published_at timestamptz not null default now()
 );
 
 -- Mentor and mentee pairs. Ending one keeps the row (status 'ended').

@@ -3943,18 +3943,88 @@ dialog.crm-panel {
   text-decoration: none;
 }
 
-.crm-bio-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  flex-wrap: wrap;
-  font-size: 12px;
+.crm-chip-pill.is-amber {
+  background: color-mix(in srgb, var(--crm-st-applied) 16%, var(--card-bg));
+  color: var(--text-primary);
 }
 
-.crm-bio-actions {
+.crm-site.is-wide {
+  grid-column: 1 / -1;
+}
+
+.crm-se,
+.crm-se-group {
+  display: grid;
+  gap: 10px;
+}
+
+.crm-se-group[hidden] {
+  display: none;
+}
+
+.crm-se h3 {
+  margin: 4px 0 0;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.crm-se-pair {
+  display: grid;
+  gap: 10px 14px;
+}
+
+@media (min-width: 720px) {
+  .crm-se-pair {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.crm-se-field {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.crm-se-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  font-size: 13px;
+}
+
+.crm-se-checks legend {
+  float: left;
+  width: 100%;
+  margin-bottom: 4px;
+  padding: 0;
+}
+
+.crm-se-checks label {
   display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.crm-se-field.is-missing,
+.crm-se-checks.is-missing {
+  padding-left: 8px;
+  border-left: 3px solid var(--crm-st-applied);
+}
+
+.crm-se-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 6px;
+}
+
+.crm-site-live a {
+  overflow-wrap: anywhere;
 }
 
 .crm-pair-form {

@@ -72,6 +72,8 @@
     'add-note': 'added a note',
     'set-match': 'pairing',
     'site-draft': 'edited the website draft',
+    publish: 'published them on the site',
+    unpublish: 'took them off the site',
     export: 'copied the emails',
     denied: 'was refused',
   };
@@ -776,9 +778,63 @@
     });
   }
 
+  // The site entry's fields by path; most come in pairs, Italian | English.
+  var ENTRY_LABELS = {
+    name: 'Name',
+    affiliation: 'Affiliation',
+    tracks: 'Tracks',
+    areas: 'Areas',
+    role: 'Role',
+    bio: 'Bio',
+    language: 'Language',
+    orientation: 'Orientation',
+    'project.title': 'Project title',
+    'project.summary': 'Project summary',
+    'project.description': 'Project description',
+    'project.mentee': 'Ideal mentee',
+    'project.deliverable': 'Deliverable',
+  };
+  // [path, max length, textarea rows]
+  var PROJECT_FIELDS = [
+    ['project.title', 200, 0],
+    ['project.summary', 1000, 3],
+    ['project.description', 4000, 6],
+    ['project.mentee', 1000, 3],
+    ['project.deliverable', 1000, 3],
+  ];
+  var LINK_FIELDS = ['website', 'linkedin', 'scholar', 'github'];
+
+  /** 'project.summary_it' -> 'Project summary (IT)'. */
+  function missingLabel(path) {
+    var base = path.replace(/_it$/, '');
+    var label = ENTRY_LABELS[base] || path;
+    if (base === 'name' || base === 'affiliation' || base === 'tracks' || base === 'areas')
+      return label;
+    return label + (base === path ? ' (EN)' : ' (IT)');
+  }
+
   function siteBox(p, onPhoto) {
     var box = h('section', { class: 'crm-card-box crm-site' });
     var site = p.site;
+    // The entry being edited survives redraws (a photo or consent saved meanwhile).
+    var entry = JSON.parse(JSON.stringify(site.entry));
+    var dirty = false;
+    var open = !site.published || site.unpublishedChanges;
+    var liveLine = null;
+
+    function failed(err) {
+      err.shown = true;
+      if (err.status === 401) M.appError(err);
+      else M.toast(err.status === 413 ? 'The photo is too large' : err.message, true);
+      throw err;
+    }
+
+    function took(r) {
+      site = r;
+      p.site = r;
+      onPhoto();
+      draw();
+    }
 
     function save(body) {
       return M.api(
@@ -786,16 +842,60 @@
         API + '?action=site',
         Object.assign({ key: p.key, kind: 'mentor' }, body)
       )
+        .then(took)
+        .catch(failed);
+    }
+
+    function saveEntry() {
+      return M.api('POST', API + '?action=site-entry', {
+        key: p.key,
+        kind: 'mentor',
+        entry: entry,
+      })
         .then(function (r) {
-          site = r;
-          p.site = r;
-          onPhoto();
-          draw();
+          entry = JSON.parse(JSON.stringify(r.entry));
+          dirty = false;
+          liveLine = null;
+          took(r);
+        })
+        .catch(failed);
+    }
+
+    function publish() {
+      if (!window.confirm('Publish ' + (entry.name || p.name) + ' on the mentorship page?')) return;
+      (dirty ? saveEntry() : Promise.resolve())
+        .then(function () {
+          return M.api('POST', API + '?action=publish', { key: p.key, kind: 'mentor' });
+        })
+        .then(function (r) {
+          liveLine = r.build;
+          open = false;
+          took(r.site);
+          M.toast('Published: live in about 3 minutes');
+        })
+        .catch(function (err) {
+          if (err.data && err.data.missing) {
+            site.missing = err.data.missing;
+            draw();
+          }
+          if (err.shown) return;
+          if (err.status === 401) M.appError(err);
+          else M.toast(err.message, true);
+        });
+    }
+
+    function unpublish() {
+      if (!window.confirm('Take ' + (entry.name || p.name) + ' off the mentorship page?')) return;
+      M.api('POST', API + '?action=unpublish', { key: p.key, kind: 'mentor' })
+        .then(function (r) {
+          liveLine = null;
+          open = true;
+          took(r.site);
+          M.toast('Unpublished: gone in about 3 minutes');
         })
         .catch(function (err) {
           if (err.status === 401) M.appError(err);
-          else M.toast(err.status === 413 ? 'The photo is too large' : err.message, true);
-          throw err;
+          else M.toast(err.message, true);
         });
     }
 
@@ -885,6 +985,213 @@
       return row;
     }
 
+    // ── The site entry editor ──
+    function editor() {
+      var missing = site.missing || [];
+      var publishBtn;
+
+      function get(path) {
+        var parts = path.split('.');
+        return parts.length > 1 ? entry[parts[0]][parts[1]] : entry[path];
+      }
+      function set(path, value) {
+        var parts = path.split('.');
+        if (parts.length > 1) entry[parts[0]][parts[1]] = value;
+        else entry[path] = value;
+      }
+      function touch() {
+        dirty = true;
+        // The server checks again what is missing once the edits are saved.
+        if (publishBtn) publishBtn.disabled = false;
+      }
+      function field(path, label, max, rows, attrs) {
+        var input = h(
+          rows ? 'textarea' : 'input',
+          Object.assign(
+            {
+              class: 'form-input is-compact',
+              name: path,
+              maxlength: max ? String(max) : null,
+              rows: rows ? String(rows) : null,
+            },
+            attrs
+          )
+        );
+        input.value = get(path) == null ? '' : get(path);
+        input.addEventListener('input', function () {
+          set(path, input.value);
+          touch();
+        });
+        return h(
+          'label',
+          { class: 'crm-se-field' + (missing.indexOf(path) >= 0 ? ' is-missing' : '') },
+          h('span', { class: 'crm-field-label' }, label),
+          input
+        );
+      }
+      function pair(path, max, rows) {
+        var label = ENTRY_LABELS[path];
+        return h(
+          'div',
+          { class: 'crm-se-pair' },
+          field(path + '_it', label + ' · Italiano', max, rows),
+          field(path, label + ' · English', max, rows)
+        );
+      }
+      function checks(name, items) {
+        return h(
+          'fieldset',
+          { class: 'crm-se-checks' + (missing.indexOf(name) >= 0 ? ' is-missing' : '') },
+          h('legend', { class: 'crm-field-label' }, ENTRY_LABELS[name]),
+          items.map(function (it) {
+            var box = h('input', { type: 'checkbox', name: name, value: it.id });
+            box.checked = entry[name].indexOf(it.id) >= 0;
+            box.addEventListener('change', function () {
+              entry[name] = items
+                .filter(function (x) {
+                  return x.id === it.id ? box.checked : entry[name].indexOf(x.id) >= 0;
+                })
+                .map(function (x) {
+                  return x.id;
+                });
+              touch();
+              shown();
+            });
+            return h('label', null, box, ' ' + it.label);
+          })
+        );
+      }
+
+      var orientation = h('div', { class: 'crm-se-group' }, pair('orientation', 1000, 3));
+      var project = h(
+        'div',
+        { class: 'crm-se-group' },
+        h('h3', null, 'Project'),
+        entry.co_mentors.length
+          ? h(
+              'p',
+              { class: 'crm-quiet crm-small' },
+              'Co-mentor with ' +
+                entry.co_mentors.join(', ') +
+                ': the project can stay on their entry.'
+            )
+          : null,
+        PROJECT_FIELDS.map(function (f) {
+          return pair(f[0], f[1], f[2]);
+        })
+      );
+      function shown() {
+        orientation.hidden = entry.tracks.indexOf('orientation') < 0;
+        project.hidden = entry.tracks.indexOf('projects') < 0;
+      }
+      shown();
+
+      var places = field('places', 'Places (optional)', 0, 0, {
+        type: 'number',
+        min: '1',
+        max: '50',
+      });
+      var placesInput = places.querySelector('input');
+      placesInput.addEventListener('input', function () {
+        var n = parseInt(placesInput.value, 10);
+        entry.places = n > 0 ? n : null;
+      });
+
+      var saveBtn = h(
+        'button',
+        {
+          type: 'button',
+          class: 'btn btn-outline btn-sm',
+          onclick: function () {
+            saveBtn.disabled = true;
+            saveEntry()
+              .then(function () {
+                M.toast('Draft saved');
+              })
+              .catch(function () {
+                saveBtn.disabled = false;
+              });
+          },
+        },
+        'Save draft'
+      );
+      publishBtn = h(
+        'button',
+        { type: 'button', class: 'btn btn-primary btn-sm', onclick: publish },
+        site.published ? 'Publish the changes' : 'Publish'
+      );
+      publishBtn.disabled = !dirty && missing.length > 0;
+
+      return h(
+        'div',
+        { class: 'crm-se' },
+        site.entryFrom === 'application' || site.entryFrom === 'yaml'
+          ? h(
+              'p',
+              { class: 'crm-quiet crm-small' },
+              site.entryFrom === 'application'
+                ? 'Prefilled from the application — check and translate.'
+                : 'Prefilled from the current site entry.'
+            )
+          : null,
+        h(
+          'div',
+          { class: 'crm-se-pair' },
+          field('name', 'Name', 200),
+          field('affiliation', 'Affiliation', 200)
+        ),
+        pair('role', 200),
+        checks('tracks', site.vocab.tracks),
+        checks('areas', site.vocab.areas),
+        pair('bio', 1500, 5),
+        pair('language', 200, 0),
+        orientation,
+        project,
+        h(
+          'div',
+          { class: 'crm-se-group' },
+          h('h3', null, 'Links'),
+          h(
+            'div',
+            { class: 'crm-se-pair' },
+            LINK_FIELDS.map(function (k) {
+              return field(
+                'links.' + k,
+                k === 'scholar' ? 'Google Scholar' : k[0].toUpperCase() + k.slice(1),
+                300,
+                0,
+                {
+                  type: 'url',
+                  placeholder: 'https://…',
+                }
+              );
+            })
+          )
+        ),
+        h('div', { class: 'crm-se-pair' }, places),
+        missing.length
+          ? h(
+              'p',
+              { class: 'crm-warn', role: 'note' },
+              'Missing before publishing: ' + missing.map(missingLabel).join(', ')
+            )
+          : null,
+        h(
+          'div',
+          { class: 'crm-se-actions' },
+          site.published
+            ? h(
+                'button',
+                { type: 'button', class: 'btn btn-outline btn-sm', onclick: unpublish },
+                'Unpublish'
+              )
+            : null,
+          saveBtn,
+          publishBtn
+        )
+      );
+    }
+
     function draw() {
       M.clear(box);
       var consent = site.consent;
@@ -903,51 +1210,14 @@
             if (!err.status) M.toast(err.message, true);
           });
       });
-      var bio = h('textarea', {
-        class: 'form-input',
-        id: 'siteBio',
-        rows: '5',
-        maxlength: '1200',
-        placeholder: 'Two or three lines for the mentorship page…',
-      });
-      bio.value = site.bio || '';
-      var counter = h('span', { class: 'crm-quiet' });
-      function count() {
-        counter.textContent = bio.value.length + ' / 1200';
-      }
-      bio.addEventListener('input', count);
-      count();
-      var saveBtn = h(
-        'button',
-        {
-          type: 'button',
-          class: 'btn btn-primary btn-sm',
-          onclick: function () {
-            saveBtn.disabled = true;
-            save({ bio: bio.value.trim() })
-              .then(function () {
-                M.toast('Bio saved');
-              })
-              .catch(function () {
-                saveBtn.disabled = false;
-              });
-          },
-        },
-        'Save bio'
-      );
 
-      box.appendChild(
-        h(
-          'div',
-          { class: 'crm-site-head' },
-          h('h2', null, 'On the website'),
-          h(
-            'span',
-            { class: 'crm-chip-pill' + (site.entry ? ' is-green' : '') },
-            site.entry ? 'Published' : 'Draft'
-          )
-        )
-      );
+      var chip = !site.published
+        ? h('span', { class: 'crm-chip-pill' }, 'Draft')
+        : site.unpublishedChanges
+        ? h('span', { class: 'crm-chip-pill is-amber' }, 'Changes not published')
+        : h('span', { class: 'crm-chip-pill is-green' }, 'Published');
+      var entryUrl = site.published ? '/mentorship/#' + site.published.id : null;
+      box.appendChild(h('div', { class: 'crm-site-head' }, h('h2', null, 'On the website'), chip));
       box.appendChild(
         h(
           'p',
@@ -955,11 +1225,25 @@
           'Consent to publish: ',
           h('strong', null, consent === 'yes' ? 'yes' : consent === 'no' ? 'no' : 'not asked'),
           ' · ',
-          site.entry
-            ? ['On the site: ', h('a', { href: site.entry.url }, 'open the entry')]
+          entryUrl
+            ? ['On the site: ', h('a', { href: entryUrl }, 'open the entry')]
             : 'Not on the site yet'
         )
       );
+      if (liveLine && entryUrl) {
+        box.appendChild(
+          h(
+            'p',
+            { class: 'crm-warn crm-site-live', role: 'status' },
+            liveLine.started === false
+              ? 'Saved, but the site build did not start' +
+                  (liveLine.detail ? ' (' + liveLine.detail + ')' : '') +
+                  '. It goes live with the next build: '
+              : 'Live in about 3 minutes: ',
+            h('a', { href: entryUrl }, entryUrl)
+          )
+        );
+      }
       box.appendChild(consentRow());
       if (consent !== 'yes') {
         box.appendChild(
@@ -1019,23 +1303,28 @@
           )
         )
       );
-      box.appendChild(h('label', { class: 'crm-field-label', for: 'siteBio' }, 'Short bio'));
-      box.appendChild(bio);
+      if (site.photo && consent !== 'yes') {
+        box.appendChild(
+          h('p', { class: 'crm-quiet crm-small' }, 'The photo goes on the site only with a yes.')
+        );
+      }
       box.appendChild(
         h(
-          'div',
-          { class: 'crm-bio-row' },
-          counter,
-          h(
-            'span',
-            { class: 'crm-bio-actions' },
-            copyButton('Copy bio', function () {
-              return bio.value;
-            }),
-            saveBtn
-          )
+          'button',
+          {
+            type: 'button',
+            class: 'crm-fold crm-se-toggle',
+            'aria-expanded': open ? 'true' : 'false',
+            onclick: function () {
+              open = !open;
+              draw();
+            },
+          },
+          h('span', null, open ? 'Site entry' : 'Edit the site entry'),
+          h('span', { class: 'crm-chevron', html: ICON_CHEVRON })
         )
       );
+      if (open) box.appendChild(editor());
       if (site.updatedAt) {
         box.appendChild(
           h(
@@ -1048,15 +1337,22 @@
           )
         );
       }
-      box.appendChild(
-        h(
-          'p',
-          { class: 'crm-quiet crm-small' },
-          'Publishing still happens by adding the mentor to data/mentors.yaml.'
-        )
-      );
+      place();
     }
+
+    // Open, the editor takes the page's full width, above the two columns.
+    function place() {
+      var cols = box.closest('.crm-cols');
+      if (!cols) return;
+      var side = cols.querySelector('.crm-col-side');
+      box.classList.toggle('is-wide', open);
+      if (open && box.parentNode !== cols) cols.insertBefore(box, cols.firstChild);
+      else if (!open && box.parentNode !== side) side.insertBefore(box, side.firstChild);
+    }
+
     draw();
+    // Not on the page yet: the caller appends it right after.
+    Promise.resolve().then(place);
     return box;
   }
 
