@@ -85,7 +85,8 @@ test('every tool has a unique key, app urls and at least one page', () => {
 test('every tool and tab url is the permalink of a page', () => {
   const permalinks = new Set(pages.map((p) => p.data.permalink));
   for (const tool of [...tools, appSettings]) {
-    for (const url of [tool.url, ...tool.tabs.map((t) => t.url)]) {
+    const sections = (tool.sections || []).map((x) => x.url);
+    for (const url of [tool.url, ...tool.tabs.map((t) => t.url), ...sections]) {
       assert.ok(permalinks.has(pathOf(url)), `${tool.key}: no page has permalink ${pathOf(url)}`);
     }
   }
@@ -99,10 +100,51 @@ test('the permissions named by the Settings tabs exist', () => {
 
 test('the areas and permissions named by the tools exist', () => {
   for (const tool of tools) {
-    assert.ok(tool.area === null || areas.includes(tool.area), `${tool.key}: area ${tool.area}`);
-    for (const item of [...tool.tabs, ...tool.actions]) {
+    // 'upgrade' is worked out by /api/auth (a participant who may ask to
+    // become an organizer), not a permission's area.
+    assert.ok(
+      tool.area === null || tool.area === 'upgrade' || areas.includes(tool.area),
+      `${tool.key}: area ${tool.area}`
+    );
+    for (const key of tool.needsAny || []) {
+      assert.ok(permissionKeys.includes(key), `${tool.key}: needsAny ${key}`);
+    }
+    for (const item of [...(tool.sections || []), ...tool.tabs, ...tool.actions]) {
       if (item.needs === undefined) continue;
       assert.ok(permissionKeys.includes(item.needs), `${tool.key}: needs ${item.needs}`);
     }
   }
+});
+
+// /assets/css and /assets/js are served with a one-year cache (vercel.json):
+// a link without ?v={{ build }} would keep the old file after a deploy.
+test('every stylesheet and script under /assets/ carries the build version', () => {
+  const SRC = path.join(__dirname, '..', 'src');
+  const files = (function walk(dir) {
+    return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) return entry.name === 'assets' ? [] : walk(full);
+      return /\.(njk|html|md)$/.test(entry.name) ? [full] : [];
+    });
+  })(SRC);
+  const missing = [];
+  for (const file of files) {
+    const text = fs.readFileSync(file, 'utf8');
+    for (const m of text.matchAll(/(?:href|src)="(\/assets\/(?:css|js)\/[^"]*)"/g)) {
+      if (!m[1].includes('?v={{ build }}')) missing.push(`${path.relative(SRC, file)}: ${m[1]}`);
+    }
+  }
+  assert.deepEqual(missing, []);
+});
+
+test('the groups of tools exist, and their tools stand together', () => {
+  const groups = require('../src/data/toolGroups');
+  const seen = [];
+  tools.forEach((tool, i) => {
+    if (!tool.group) return;
+    assert.ok(groups[tool.group], `${tool.key}: unknown group ${tool.group}`);
+    if (tools[i - 1] && tools[i - 1].group === tool.group) return;
+    assert.ok(!seen.includes(tool.group), `${tool.group}: its tools are not next to each other`);
+    seen.push(tool.group);
+  });
 });

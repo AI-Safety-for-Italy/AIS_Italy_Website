@@ -1,0 +1,22 @@
+---
+title: Summary
+# Every applicant with every score and the board's status, for the admins of
+# the selection (`review_admin`); the API checks it.
+permalink: /app/review/summary/
+tool: review
+tab: summary
+pageTitle: Summary
+wide: true
+noindex: true
+excludeFromSitemap: true
+eleventyExcludeFromCollections: true
+seoTitle: 'Summary | Mentee selection | AI Safety for Italy'
+---
+{% extends "app.njk" %}
+{% block page %}
+    <div id="rvSummary"></div>
+
+<script src="/assets/js/meet/common.js?v={{ build }}" defer></script>
+<script src="/assets/js/meet/app-common.js?v={{ build }}" defer></script>
+<script src="/assets/js/meet/review-summary.js?v={{ build }}" defer></script>
+{% endblock %}

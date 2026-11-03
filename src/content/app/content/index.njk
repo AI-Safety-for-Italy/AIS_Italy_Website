@@ -1,43 +1,37 @@
 ---
 title: Site content
-# The content tool: seminars and events published straight to the site by the
-# members whose Discord roles allow it (server/content.js).
+# The content tool's page: a box per part (`sections` of the tool in
+# src/data/tools.js), shown to whoever holds its key, with who holds it.
+# Each box opens that part's list (seminars.njk, events.njk).
 permalink: /app/content/
 tool: content
-tab: content
 noindex: true
 excludeFromSitemap: true
 eleventyExcludeFromCollections: true
 seoTitle: 'Site content | AI Safety for Italy'
 ---
 {% extends "app.njk" %}
-{% block actions %}
-<a class="btn btn-primary btn-sm" href="/app/content/edit/?type=seminar" data-needs="seminar" hidden>+ New seminar</a>
-<a class="btn btn-outline btn-sm" href="/app/content/edit/?type=event" data-needs="event" hidden>+ New event</a>
-{% endblock %}
 {% block page %}
-    {# One <span>: .notice lays out its children side by side (icon + text). #}
-    <div class="notice" id="notLive" hidden style="margin-bottom:1.5rem">
-      <span>
-        <strong>Not switched on yet.</strong> What you publish here is saved, but the site still shows the seminars and events written in the code.
-        <span data-needs="manage" hidden>“Switch on” copies them here and puts the site on this list: from then on, seminars and events are edited only here.</span>
-        <span id="askToSwitch">Someone with “Manage permissions” can switch it on.</span>
-        <button type="button" class="btn btn-primary btn-sm" id="switchOn" data-needs="manage" hidden style="margin-top:.75rem;display:block">Switch on</button>
-      </span>
+    {%- set contentTool = tools | where("key", "content") | first %}
+    <p class="panel-note" style="margin:0 0 1rem">What you can publish on the site.</p>
+    <div class="hub-tools content-parts">
+      {%- for s in contentTool.sections %}
+      <div class="hub-tool content-part" data-needs="{{ s.needs }}" hidden>
+        <span class="hub-tool-icon hub-tool-icon--content" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{{ s.icon | safe }}</svg></span>
+        <span class="hub-tool-body">
+          <a class="content-part-link" href="{{ s.url }}"><strong>{{ s.label }}</strong></a>
+          <span>{{ s.text }}</span>
+          <span class="content-part-faces" data-section="{{ s.key }}"></span>
+        </span>
+      </div>
+      {%- endfor %}
     </div>
-    <h2 class="ap-section-title">Seminars &amp; events</h2>
-    <div id="contentList"></div>
-    <div class="panel content-activity" id="activityPanel" hidden>
-      <div class="panel-head"><h2>Recent changes</h2></div>
-      <ul class="activity-list" id="activity"></ul>
+    <div class="empty-state" id="contentNone" hidden>
+      <h3>No access</h3>
+      <p>Your roles do not let you publish anything on the site yet.</p>
     </div>
-    <p class="panel-note" id="switchOffRow" hidden style="margin-top:2rem">
-      If something goes wrong, the site can go back to the seminars and events written in the code; nothing here is deleted.
-      <button type="button" class="link-button" id="switchOff">Switch off</button>
-    </p>
 
-<script src="/assets/js/meet/common.js" defer></script>
-<script src="/assets/js/meet/app-common.js" defer></script>
-<script src="/assets/js/meet/content-common.js" defer></script>
-<script src="/assets/js/meet/content-list.js" defer></script>
+<script src="/assets/js/meet/common.js?v={{ build }}" defer></script>
+<script src="/assets/js/meet/app-common.js?v={{ build }}" defer></script>
+<script src="/assets/js/meet/content-home.js?v={{ build }}" defer></script>
 {% endblock %}

@@ -36,18 +36,38 @@
 
     <p class="ap-nav-heading">Tools</p>
     {%- for t in tools %}
-    <a class="ap-link" href="{{ t.url }}" data-tool="{{ t.key }}"{% if t.area %} data-area="{{ t.area }}" hidden{% endif %}{% if t.key == tool %} aria-current="page"{% endif %}>
+    {%- if not t.group %}
+    <a class="ap-link" href="{{ t.url }}" data-tool="{{ t.key }}"{% if t.area %} data-area="{{ t.area }}" hidden{% endif %}{% if t.needsAny %} data-needs-any="{{ t.needsAny | join(' ') }}"{% endif %}{% if t.key == tool %} aria-current="page"{% endif %}>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{{ t.icon | safe }}</svg>
       <span class="ap-link-label">{{ t.title }}</span>
       <span class="ap-count" data-ap-count="{{ t.key }}" hidden></span>
     </a>
+    {%- elif loop.first or tools[loop.index0 - 1].group != t.group %}
+    {#- A group (src/data/toolGroups.js): one entry opening on its tools,
+        drawn at its first tool. Shown by app-common.js when one of them is. -#}
+    {%- set g = toolGroups[t.group] %}
+    {%- set members = tools | where("group", t.group) %}
+    {%- set here = members | where("key", tool) | length %}
+    <div class="ap-group{% if here %} is-open{% endif %}" data-group="{{ t.group }}" hidden>
+      <button type="button" class="ap-link ap-group-toggle" aria-expanded="{{ 'true' if here else 'false' }}" aria-controls="apGroup-{{ t.group }}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{{ g.icon | safe }}</svg>
+        <span class="ap-link-label">{{ g.title }}</span>
+        <svg class="ap-group-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+      </button>
+      <div class="ap-sub" id="apGroup-{{ t.group }}">
+        {%- for m in members %}
+        <a class="ap-link" href="{{ m.url }}" data-tool="{{ m.key }}"{% if m.area %} data-area="{{ m.area }}" hidden{% endif %}{% if m.needsAny %} data-needs-any="{{ m.needsAny | join(' ') }}"{% endif %}{% if m.key == tool %} aria-current="page"{% endif %}>
+          <span class="ap-link-label">{{ m.navLabel or m.title }}</span>
+          <span class="ap-count" data-ap-count="{{ m.key }}" hidden></span>
+        </a>
+        {%- endfor %}
+      </div>
+    </div>
+    {%- endif %}
     {%- endfor %}
 
     <div class="ap-nav-bottom">
-      <a class="ap-link" href="/app/settings/"{% if tool == "settings" %} aria-current="page"{% endif %}>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>
-        <span class="ap-link-label">Settings</span>
-      </a>
+      {#- Settings is in the profile menu below (app-common.js, showUser). -#}
       <div class="app-user ap-user" id="appUser"></div>
     </div>
   </nav>
@@ -66,6 +86,8 @@
       </div>
       <div class="ap-top-actions">
         {% block actions %}{% endblock %}
+        {#- Who can open this tool (app-common.js, /api/app/access). -#}
+        {%- if current and current.faces %}<span class="ap-access" id="apAccess" data-tool="{{ current.key }}"{% if section %} data-section="{{ section }}"{% endif %}></span>{% endif %}
         <button type="button" class="ap-search" id="apSearchOpen" aria-haspopup="dialog" aria-keyshortcuts="Control+K Meta+K">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
           <span class="ap-search-label">Search</span>
@@ -96,4 +118,5 @@
     app-common.js keeps those the member may use. -#}
 <script type="application/json" id="apTools">{{ tools | dump | safe }}</script>
 <script type="application/json" id="apSettings">{{ appSettings | dump | safe }}</script>
+<script type="application/json" id="apToolGroups">{{ toolGroups | dump | safe }}</script>
 {% endblock %}

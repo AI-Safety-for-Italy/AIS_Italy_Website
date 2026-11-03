@@ -12,7 +12,6 @@
 // The other keys (the content tool) skip the first check and keep the rest.
 // Hiding a button is never the protection: this is.
 
-const db = require('./db');
 const { HttpError } = require('./http');
 const permissions = require('./permissions');
 const audit = require('./crm/audit');
@@ -20,18 +19,21 @@ const audit = require('./crm/audit');
 const MAX_SESSION_AGE_MS = 24 * 60 * 60 * 1000;
 
 const CRM_KEYS = permissions.PERMISSIONS.filter((p) => p.area === 'crm').map((p) => p.key);
-// The forms (server/forms/) and the member applications (server/members.js)
-// hold personal data too and go through this door.
+// The forms (server/forms/), the member applications (server/members.js), the
+// community's members (server/community.js) and the mentee selection
+// (server/crm/review.js) hold personal data too and go through this door.
 // So does handing out those keys (`manage_all`, area settings).
 const GUARDED_KEYS = permissions.PERMISSIONS.filter((p) =>
-  ['crm', 'forms', 'members', 'settings'].includes(p.area)
+  ['crm', 'forms', 'members', 'community', 'review', 'settings'].includes(p.area)
 ).map((p) => p.key);
 
 async function requireRecentLogin(user, now = Date.now()) {
-  const { rows } = await db.query('select last_login_at from app_users where id = $1', [user.id]);
-  const last = rows[0] && rows[0].last_login_at;
+  const row = await permissions.rowOf(user);
+  const last = row && row.last_login_at;
   if (!last || now - new Date(last).getTime() > MAX_SESSION_AGE_MS) {
-    throw new HttpError(401, 'Please sign in again to use this tool');
+    // `reauth` tells the login page not to send a still-valid session straight
+    // back here, which would loop between the two pages.
+    throw new HttpError(401, 'Please sign in again to use this tool', { code: 'reauth' });
   }
 }
 

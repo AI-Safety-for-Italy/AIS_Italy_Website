@@ -26,11 +26,21 @@
     }
   }
 
-  function toLogin() {
-    remember(null);
-    window.location.replace(
-      '/app/login/?next=' + encodeURIComponent(window.location.pathname + window.location.search)
-    );
+  var leaving = false;
+  // `reauth`: the session is valid but too old for a tool holding personal
+  // data (server/access.js), so the login page must ask again rather than
+  // send it straight back here.
+  function toLogin(reauth) {
+    // Several requests can answer 401 together: go to the login once.
+    if (!leaving) {
+      leaving = true;
+      remember(null);
+      window.location.replace(
+        '/app/login/?next=' +
+          encodeURIComponent(window.location.pathname + window.location.search) +
+          (reauth ? '&reauth=1' : '')
+      );
+    }
     return new Promise(function () {});
   }
 
@@ -62,9 +72,6 @@
       ),
       h('a', { href: '/app/', role: 'menuitem' }, 'Tools'),
       h('a', { href: '/app/settings/', role: 'menuitem' }, 'Settings'),
-      user.kind === 'admin'
-        ? h('a', { href: '/app/polls/settings/', role: 'menuitem' }, 'General settings')
-        : null,
       h(
         'button',
         {
@@ -142,15 +149,120 @@
     return info.user;
   });
 
+  /**
+   * A member's own "Notify me" switch, saved at once: { on (null: none to
+   * show), label, save(on) -> promise of the new state }.
+   */
+  M.followSwitch = function (opts) {
+    if (opts.on === null || opts.on === undefined) return null;
+    var current = Boolean(opts.on);
+    var input = h('input', {
+      type: 'checkbox',
+      role: 'switch',
+      class: 'fe-switch-input',
+      'aria-label': opts.label,
+      onchange: function () {
+        input.disabled = true;
+        opts
+          .save(input.checked)
+          .then(function (on) {
+            current = Boolean(on);
+            M.toast(current ? 'You will hear about new answers' : 'Notifications off for this one');
+          })
+          .catch(function (err) {
+            input.checked = current;
+            M.appError(err);
+          })
+          .then(function () {
+            input.disabled = false;
+          });
+      },
+    });
+    input.checked = current;
+    return h(
+      'label',
+      { class: 'fl-notify', title: 'Hear about new answers, on your channel from Settings' },
+      h('span', null, 'Notify me'),
+      input
+    );
+  };
+
+  /**
+   * Who can see something, as faces (roles by initial), the name and why on
+   * hover: [{ kind: 'person' | 'role', name, avatarUrl, what }]. A few, then +n.
+   */
+  M.accessFaces = function (who) {
+    who = who || [];
+    if (!who.length) return h('span');
+    var shown = who.slice(0, 6);
+    var row = h('div', { class: 'fl-faces', 'aria-label': 'Who can see this' });
+    shown.forEach(function (a) {
+      var label = a.name + ' — ' + a.what;
+      row.appendChild(
+        h(
+          'span',
+          {
+            class: 'fl-face' + (a.kind === 'role' ? ' is-role' : ''),
+            title: label,
+            tabindex: '0',
+            'aria-label': label,
+          },
+          a.kind === 'role'
+            ? h('span', { class: 'app-avatar is-initial' }, a.name.charAt(0).toUpperCase())
+            : avatar({ name: a.name, avatarUrl: a.avatarUrl }, 26)
+        )
+      );
+    });
+    if (who.length > shown.length) {
+      var rest = who.slice(shown.length);
+      row.appendChild(
+        h(
+          'span',
+          {
+            class: 'fl-face fl-more',
+            tabindex: '0',
+            title: rest
+              .map(function (a) {
+                return a.name + ' — ' + a.what;
+              })
+              .join('\n'),
+          },
+          '+' + rest.length
+        )
+      );
+    }
+    return row;
+  };
+
+  // Who can open this tool, at the top of its pages (src/components/app.njk).
+  var accessSlot = document.getElementById('apAccess');
+  if (accessSlot) {
+    M.api(
+      'GET',
+      '/api/app/access?tool=' +
+        encodeURIComponent(accessSlot.getAttribute('data-tool')) +
+        (accessSlot.getAttribute('data-section')
+          ? '&section=' + encodeURIComponent(accessSlot.getAttribute('data-section'))
+          : '')
+    )
+      .then(function (r) {
+        accessSlot.appendChild(M.accessFaces(r.access));
+      })
+      .catch(function () {
+        /* no faces: the page itself says what is wrong */
+      });
+  }
+
   /** Shared handling for an API call that failed. */
   M.appError = function (err) {
-    if (err.status === 401) return toLogin();
+    if (err.status === 401) return toLogin(err.code === 'reauth');
     M.toast(err.message, true);
   };
 
   // ── The frame (src/components/app.njk): tools, counts, menu, search ──────
 
   var AREAS_CACHE = 'ais-areas';
+  var PERMS_CACHE = 'ais-perms';
   var shell = document.getElementById('apShell');
   var registry = [];
   var settings = {};
@@ -166,10 +278,29 @@
     document.querySelectorAll('[data-area]').forEach(function (el) {
       el.hidden = !areas[el.getAttribute('data-area')];
     });
-    if (!perms) return;
-    document.querySelectorAll('[data-needs]').forEach(function (el) {
-      el.hidden = perms.indexOf(el.getAttribute('data-needs')) === -1;
+    if (perms) {
+      // A tab or button that needs a key: hidden without it.
+      document.querySelectorAll('[data-needs]').forEach(function (el) {
+        el.hidden = perms.indexOf(el.getAttribute('data-needs')) === -1;
+      });
+      // A tool that needs one of some keys besides its area.
+      document.querySelectorAll('[data-needs-any]').forEach(function (el) {
+        var area = el.getAttribute('data-area');
+        el.hidden =
+          (area && !areas[area]) ||
+          !el
+            .getAttribute('data-needs-any')
+            .split(' ')
+            .some(function (k) {
+              return perms.indexOf(k) !== -1;
+            });
+      });
+    }
+    // A group of tools shows when one of its tools does.
+    document.querySelectorAll('.ap-group').forEach(function (group) {
+      group.hidden = !group.querySelector('.ap-sub .ap-link:not([hidden])');
     });
+    if (!perms) return;
     if (isAdmin !== undefined) {
       document.querySelectorAll('.ap-tabs .admin-only').forEach(function (el) {
         el.hidden = !isAdmin;
@@ -177,11 +308,21 @@
     }
   }
 
+  // A group of tools in the sidebar opens and closes on its entry.
+  document.querySelectorAll('.ap-group-toggle').forEach(function (button) {
+    button.addEventListener('click', function () {
+      var open = button.getAttribute('aria-expanded') !== 'true';
+      button.setAttribute('aria-expanded', open ? 'true' : 'false');
+      button.parentNode.classList.toggle('is-open', open);
+    });
+  });
+
   if (shell) {
     // Last visit's tools at once, so the sidebar does not jump.
     try {
       var cached = JSON.parse(window.localStorage.getItem(AREAS_CACHE) || 'null');
-      if (cached) showAllowed(cached);
+      var cachedPerms = JSON.parse(window.localStorage.getItem(PERMS_CACHE) || 'null');
+      if (cached) showAllowed(cached, cachedPerms || undefined);
     } catch (e) {
       /* nothing cached */
     }
@@ -191,6 +332,7 @@
       showAllowed(areas, info.permissions || [], info.user.kind === 'admin');
       try {
         window.localStorage.setItem(AREAS_CACHE, JSON.stringify(areas));
+        window.localStorage.setItem(PERMS_CACHE, JSON.stringify(info.permissions || []));
       } catch (e) {
         /* the sidebar just shows a moment later next time */
       }
@@ -198,14 +340,17 @@
   }
 
   /** What waits for the member in each tool: { tools: { key: { count, label, url } } }. */
-  M.overview = shell
-    ? M.me
-        .then(function () {
-          return M.api('GET', '/api/app/overview');
-        })
-        .catch(function () {
-          return { tools: {} };
-        })
+  // Asked together with /api/auth, not after it; it only resolves once the
+  // session is confirmed, so a signed-out visitor is sent to the login first.
+  var overviewReq = shell
+    ? M.api('GET', '/api/app/overview').catch(function () {
+        return { tools: {} };
+      })
+    : null;
+  M.overview = overviewReq
+    ? M.me.then(function () {
+        return overviewReq;
+      })
     : Promise.resolve({ tools: {} });
 
   M.overview.then(function (data) {
@@ -256,6 +401,13 @@
     var out = [{ label: 'Home', hint: 'Personal area', url: '/app/' }];
     registry.forEach(function (tool) {
       if (tool.area && !areas[tool.area]) return;
+      if (
+        tool.needsAny &&
+        !tool.needsAny.some(function (k) {
+          return perms.indexOf(k) !== -1;
+        })
+      )
+        return;
       out.push({ label: tool.title, hint: 'Tool', url: tool.url });
       (tool.tabs || []).forEach(function (tab) {
         if (tab.needs && perms.indexOf(tab.needs) === -1) return;

@@ -13,7 +13,7 @@ email to send the invite from their own calendar.
 | `/app/polls/`                                    | The member's own polls (not linked anywhere, not indexed)                            |
 | `/app/settings/`                                 | Settings: the member's own notifications                                             |
 | `/app/settings/permissions/`                     | Who may do what, per Discord role and per person (`manage`, and the admin)           |
-| `/app/polls/settings/`                           | General settings: the sending mailbox (admin only)                                   |
+| `/app/settings/mail/`                            | Mail settings: the sending mailbox (admin only)                                      |
 | `/meet/?p=…`, `/it/meet/?p=…`                    | The voting page people get the link to                                               |
 | `api/`                                           | Vercel Functions: `auth`, `discord`, `app/polls`, `app/poll`, `app/settings`, `poll` |
 | `server/`                                        | Shared server code: database, auth, Discord, polls, mail, calendar files             |
@@ -47,11 +47,19 @@ the terminal instead of sent. Set `DATABASE_URL`, the `DISCORD_*` variables or
 | `DISCORD_ROLES_IDS`     | Roles allowed in, comma-separated (Server Settings → Roles → Copy ID)         |
 | `SITE_URL`              | **Production only**: `https://www.ais4i.it`, for the links in emails          |
 
+The CRM, the forms and the member applications need more, each set on
+**both** Production and Preview, with different values on each:
+`CRM_ENCRYPTION_KEY`, `CRM_KEY_SECRET` (without them the public forms answer
+503), `DISCORD_ROLE_PARTICIPANT`, `DISCORD_ROLE_ORGANIZER`,
+`GOOGLE_SERVICE_ACCOUNT_JSON`, and on Production `CRON_SECRET`; see their
+sections below.
+
 Never set `MEET_DEV_LOGIN` on Vercel: it is ignored there anyway (the stand-in
-sign-in works only off Vercel), but it has no business in a deployment. In
-production the shared admin password opens the site's content and the
-permissions table only; the CRM, form answers and member applications need a
-Discord sign-in.
+sign-in works only off Vercel), but it has no business in a deployment. On
+every deployment (production and the previews, which are public) the shared
+admin password opens the site's content and the permissions table only; the
+CRM, form answers and member applications need a Discord sign-in. Only on a
+developer machine does it open everything.
 
 On the Discord application, add a redirect for every host the site runs on:
 `https://www.ais4i.it/api/discord`, `https://ais4i-dev.vercel.app/api/discord`
@@ -66,7 +74,7 @@ and lets in only members of `DISCORD_GUILD_ID` holding one of
 ### Email
 
 Invites to invite-only polls and owner notifications are sent over SMTP from
-the mailbox the admin sets up on `/app/polls/settings/` (General settings,
+the mailbox the admin sets up on `/app/settings/mail/` (Settings → Mail settings,
 signed in with the admin password). For `tech@ais4i.it` on register.it the server is the one in the
 mailbox's settings (e.g. `authsmtp.securemail.pro`, port 465), the username is
 the full address. "Send a test email" checks it. The password is stored
@@ -97,6 +105,18 @@ Tuesday" or "the last Thursday" (monthly). The calendar invitation and the
 downloadable file carry an RRULE with the times in the poll's time zone and a
 VTIMEZONE, so the meeting stays at the same local time across daylight-saving
 changes; "Change time" cancels the whole series. See `server/recurrence.js`.
+
+### Sharing a poll
+
+A poll is its owner's. On the poll's page ("Who sees the poll") they share it
+with Discord roles and with people by name (any member of the server, found
+through the bot): those see it in their list ("Shared with you") and on its
+page, with the answers but not the voters' emails, the guests or the voting
+link, and change nothing. Seeing is not following: each turns on "Notify me"
+(on the card, the poll's page, or Settings → Notifications) to hear about new
+answers; the owner follows their own poll until they switch it off. Each card
+shows, at the bottom, who sees the poll (name and why on hover). Columns
+`share_roles`, `share_people`, `notify_choices` of `polls`.
 
 ### Notifications
 
@@ -135,7 +155,8 @@ online at the next build, which publishing starts (about 3 minutes).
 
 | Where                                 | What                                                                       |
 | ------------------------------------- | -------------------------------------------------------------------------- |
-| `/app/content/`                       | The list, newest first, and the latest changes                             |
+| `/app/content/`                       | A box per part (seminars, events), each with who can use it                |
+| `/app/content/seminars/`, `/events/`  | The seminars, the events: newest first, and their latest changes           |
 | `/app/content/edit/`                  | The form (`?type=seminar`, `?type=event`, or `?id=…`), with a live preview |
 | `server/routes/app/content.js`        | The API                                                                    |
 | `server/content.js`                   | Validation, the entry each item becomes, versions, the import              |
@@ -192,7 +213,9 @@ switch off), against `DATABASE_URL` / `MEET_DATABASE_URL` or, with `--local`,
 the local database.
 
 Locally, `npm run dev:meet` offers stand-ins for the Discord roles on the
-login page; `node scripts/content-migrate.js --local` (with the server
+login page (Admin, Direttivo, Organizzatori, Partecipanti, one click each;
+a fresh local database gives each a starting set of permissions,
+`permissions.DEV_DEFAULTS`, to see what each one sees); `node scripts/content-migrate.js --local` (with the server
 stopped) imports into the local database; publishing rewrites
 `_content-snapshot.json`, which the watching build picks up.
 
@@ -220,17 +243,47 @@ Phases 0 (foundations) and 1 (the mentorship board) are here.
   for, with a warning. Pairing sets both to Matched; ending a pair sets them back
   to Selected and keeps the ended pair.
 
+**The mentee selection** (`/app/review/`; `server/crm/review.js`,
+`server/routes/app/crm/review.js`): reviewers score the mentees' applications
+without knowing who they are, and a summary ranks them.
+
+- **Who.** The panel's admins hold `review_admin`, a key given to people by
+  name only (never to a Discord role) and only by the shared admin. They pick
+  the reviewers on _Grid & reviewers_ from anyone who signed in with Discord
+  (`review_reviewers`; reviewers hold no permission key). A reviewer sees the
+  applications under a code and their own scores, never a name, the others'
+  scores or the summary. Neither needs `mentorship`.
+- **Two parts, scored apart**, each on its own grid (criteria 1 to 5, each with
+  a weight, edited by the admins): the **CV** (the CV and profile links: not
+  anonymous, a CV says who someone is) and the **answers** to the application
+  form, with the name, role, affiliation, emails, links, handles and phone
+  numbers taken out (`scrub`, best effort). A mentee's code differs between the
+  two parts, so a reviewer doing both cannot pair a CV with its answers. A
+  reviewer who knows the person steps aside instead of scoring.
+- **Summary** (admins only): every applicant with the names, each part's mean
+  over the complete reviews, how far the reviewers differ, the overall score
+  (the parts' means, weighted) and each review with its comment (encrypted).
+  "Hide names" shows the codes only, to discuss before the names.
+- **The status is the board's.** Changing it in the summary moves the mentee
+  on the board (`mentorship.update`) and the other way round: there is one
+  status. Declined applicants leave the reviewers' lists. Matched is still
+  set by pairing on the board. The board's history of a person leaves out the
+  selection's lines, so it does not tell who reviewed whom.
+- Scores go with the application they score (`server/retention.js`).
+
 The foundations it stands on:
 
 The rules, which later phases must keep:
 
-- **Personal data stays in the Google Sheets the forms write to.** The board
-  reads them (`server/sheets.js`, read-only scope, fixed in the code) and never
-  copies emails, CVs or answers into the database. Reads are cached in memory
-  for two minutes, never on disk.
-- **The database holds only what is operational**, pointing at a person by an
-  opaque key (`personKey` in `server/crm/crypto.js`: an HMAC of the email, not
-  the email). Free notes are encrypted with AES-256-GCM, bound to their person.
+- **Personal data in the database is always encrypted.** The board keeps its
+  own copy of each person (`crm_records`, `server/crm/records.js`): imported
+  once from the Google Sheets (`server/sheets.js`, read-only scope, fixed in
+  the code), added by hand, or sent by a form. Each record, emails and answers
+  included, is stored encrypted with AES-256-GCM (`data_encrypted`), bound to
+  its row; so are form answers and member applications.
+- **What is operational points at a person by an opaque key** (`personKey` in
+  `server/crm/crypto.js`: an HMAC of the email, not the email): stages,
+  pairs, followers. Free notes are encrypted too, bound to their person.
 - **Permissions per part**, checked on the server on every request
   (`server/access.js`): `mentorship`, `people`, `finance`, `crm_admin`,
   set on the same Permissions page as the content tool's. A CRM permission
@@ -260,11 +313,14 @@ edited by `crm_admin`; the sheets are shared, as Viewer, with the service
 account one at a time. `server/crm/sources.js` maps the sheets' columns to
 fields by header text, so a form that gains a question does not break the board.
 
-# Forms (`/app/forms/`, `/form/?f=…`, in progress)
+# Forms (`/app/forms/`, `/form/?f=…`)
 
-Forms made and answered on the platform instead of Google Forms. **F0 (the
-engine) and F1 (the editor and the public page) are here**; answers review,
-analysis and the linked Google Sheet come next.
+Forms made and answered on the platform instead of Google Forms: the engine,
+the editor, the public page and the answers (review, charts, CSV export) are
+here; a linked Google Sheet is not. The site's join buttons open the form with
+the link `iscrizione`, and "Apply as a mentee" the one with
+`candidatura-mentee`: both must exist and be open on each environment, and
+only a forms admin can give a form those links.
 
 - **The editor** (`/app/forms/`, permission `forms`, or `forms_admin` for all
   forms): start blank or from a template modelled on the current Google
@@ -273,10 +329,23 @@ analysis and the linked Google Sheet come next.
   chosen one on the right; texts in Italian and English; a preview drawn by
   the public page's own code; settings (draft / open / closed, dates, link,
   one answer per email, telling the owner about new answers (by email or
-  Discord DM, as on their settings page; never what the answer says), which
-  Discord roles read the answers) and the public link. How long answers are
-  kept is not set yet: deleting them on a schedule needs a job, which comes
-  later.
+  Discord DM, as on their settings page; never what the answer says),
+  emailing each person a copy of their answers (to the form's first email
+  question, from the mailbox in Mail settings; on by default), which
+  Discord roles and which people (any member of the Discord server, found
+  by name) read the answers) and the public link, which the forms list
+  also copies straight from each card. Answers are deleted
+  24 months after they were sent (see "Keeping time of personal data").
+- **Following**: seeing a form is not following it. Each person who reads
+  the answers turns "Notify me" on (the form's card, or the editor) to be
+  told about new answers on the channel from their Settings, and to have
+  them counted on their home page; the owner follows their own form until
+  they switch it off. The member applications board has the same switch
+  (`server/follows.js`).
+- **Tags** on answers: New and Seen to start (opening a new answer marks it
+  Seen, once); whoever reads the answers adds more, or removes one no answer
+  carries. On the sign-up form the board's decision shows as the answer's
+  tag (Approved, Rejected).
 - **Answers** (the editor's Answers tab; also the only tab for the Discord
   roles a form lets read its answers): a summary with a chart per question
   (bars, columns or donut, sortable, the choice remembered per form), numbers
@@ -312,7 +381,8 @@ Security (`server/forms/`):
 # Member applications (`/app/members/`)
 
 The registration form's submissions, reviewed by members whose Discord roles
-hold **Member applications** (ticked on Site content → Permissions).
+hold **Member applications** (`members`, ticked on Settings → Permissions).
+In the sidebar: Members → Applications.
 
 | Where                   | What                                                         |
 | ----------------------- | ------------------------------------------------------------ |
@@ -349,6 +419,112 @@ data.
   and its role must sit above the two roles it gives.
 
 Locally (`npm run dev:meet`, no Discord) the link joins at once.
+
+# The community: members and working groups (`/app/members/people/`, `/groups/`)
+
+The directory of members and the working groups, kept in the database instead
+of the old members sheet (`scripts/update-members.py`, `data/members.yaml`).
+In the sidebar: Members → Board, with its own permission, **Members board**
+(`community`), given apart from the applications. Whoever held `members`
+before the split got `community` too, once (`migration_community_key` in
+`server/schema.js`).
+
+**The Permissions page** lists first the association's Discord roles (Admin,
+Direttivo, Organizzatori, Partecipanti: by id for the two in
+`DISCORD_ROLE_PARTICIPANT` / `DISCORD_ROLE_ORGANIZER`, else by name,
+`isMainRole`); the others, the working groups' roles used as tags among
+them, are folded under "Other roles", still editable. A person shows what
+they already hold through their Discord roles as yellow, locked switches
+("From role: Direttivo"), changed on the role. Opening the page reads
+everyone's roles again from Discord (`refreshPeopleRoles`), so a role taken
+away there no longer shows as held.
+
+**The members board, in three questions.** A bar on top of its tabs
+(Members, Working groups, Discord; `status` in `server/community.js`,
+`community-status.js`) says where things stand, each with one action:
+
+1. *Discord accounts*: how many members are linked to their Discord account,
+   and "Link the N →" to the Discord tab for the others.
+2. *Discord roles*: the tags here are what Discord should have; "Give the
+   roles" gives the missing ones (`sendTags`, 15 per call), none taken away.
+   **Nothing else changes Discord**: importing, linking, changing tags and
+   naming coordinators only change the board (approving an application still
+   puts the person on the server with their role). Roles there without a tag,
+   and accounts gone from the server, are reviewed on the Discord tab.
+3. *Website*: how many changes the Community page does not show yet, and
+   "Update the website" (the public directory: consented members, their
+   public fields, the groups).
+
+**Importing the old sheet** matches each person to Discord before anything
+is stored, as the preview shows: by email (they signed in here with
+Discord), else by name (the sheet's name, letter for letter, is the
+nickname, display name or username of one account on the server and of no
+other, nor anyone else's; it needs the bot to read the server's list, the
+Server Members intent, and the preview says why when it cannot).
+
+**Discord tab** (Members → Board → Discord): *To link* lists the members not
+linked yet, each with the server's accounts that may be them (the bot's
+member search by full name, then each word; best match first; "That's them"
+links), a manual search, and "Not on Discord" (with a note). The one place
+where who is who is set; who they are there (username, display name) is
+kept, encrypted. *Roles that differ from the tags* lists, for those linked,
+a working group's role without the tag, a tag whose role was left out, and
+accounts gone from the server: each settled either way or left as it is
+(`member_role_ok`, not listed again). Without the bot (a developer's
+machine) nothing reaches Discord, and the bar and the tab say so.
+
+**The sidebar's groups.** Tools that belong together are listed under one
+entry that opens on them (`group` and `navLabel` in `src/data/tools.js`,
+the groups in `src/data/toolGroups.js`): Mentorship → Board, Selection;
+Members → Applications, Board. Each tool keeps its own permission area, so
+a group shows only the tools one may open, and the Permissions page lists
+the keys under the same names ("Mentorship › Selection").
+
+**Site content** is one entry, shown to whoever holds `seminar` or `event`
+(`needsAny`; holding only "Manage permissions" opens nothing to publish, so
+no empty tool). Its page has a box per part (`sections` in `tools.js`),
+each shown to who holds that part's key, with its own faces; each list
+(`?type=` on the API) is refused to who may not publish that kind.
+
+| Where                         | What                                                                 |
+| ----------------------------- | -------------------------------------------------------------------- |
+| `/app/members/`               | Applications: approve with a role and the working groups as tags     |
+| `/app/members/people/`        | Members: tags in bulk (add, remove, move), details, Discord, import  |
+| `/app/members/groups/`        | Working groups: names, descriptions, order, the Discord role of each |
+| `/app/organizer/`             | A participant asks to become an organizer (an upgrade on the board)  |
+| `server/community.js`         | Groups, members, tags, Discord roles, the import, publishing         |
+| `server/community-build.js`   | What the site's build takes: the published copy, or the YAML         |
+| `/api/content?part=community` | The published copy, for the build (public, consented members only)   |
+
+- **Working groups are tags.** Each is a Discord role (`work_groups`, the
+  eight first ones seeded with their role ids). Being in a group gives its role
+  on Discord, leaving it takes it away; here it opens nothing. A new group
+  needs its role made on Discord first (and the bot's role above it). The
+  sign-up form's group questions take their options from this table
+  (`optionsFrom: 'work_groups'`), so the form follows the groups.
+- **Coordinators.** Chosen on Working groups only (each group's card: add,
+  take back). Forms no longer ask who would coordinate; the old sheet's
+  "Coordinamento", older forms' answers, applications and Members' tags all
+  mean taking part. Once on each database, the coordination declared before
+  became taking part (`migration_coordinators`). Stable participation gives
+  the tag (occasional does not).
+- **Members** (`community_members`, `member_groups`): someone approved on the
+  board joins the list when they enter Discord, with their tags and their
+  consent to be shown; the old sheet is imported once (CSV, preview first,
+  the rules of `update-members.py`), matching people to their Discord account
+  by the email of a sign-in here. Details are encrypted like an application's.
+- **The site changes only on "Update the website"** (the bar on top). That stores a copy of
+  what the site may show (consented members, their public fields, the groups)
+  and starts a build; another build (a seminar) shows the same copy. Never
+  published, the YAML stays the site; "Back to the old directory" undoes it.
+- **Becoming an organizer.** A participant (Participant role, not Organizer)
+  answers the organizers' part from `/app/organizer/`; it reaches the board
+  flagged as an upgrade. Approving gives the Organizer role and the tags at
+  once (no join link) and tells them.
+
+Once the directory is published from the dashboard, the scheduled job that
+rebuilt `data/members.yaml` from the sheet (`update-members.yml`) only changes
+the fallback: it can be switched off.
 
 # Keeping time of personal data
 

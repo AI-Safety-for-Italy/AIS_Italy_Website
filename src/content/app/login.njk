@@ -28,12 +28,17 @@ seoTitle: 'Sign in | AI Safety for Italy'
 
       <form class="form-grid" id="devLogin" hidden>
         <p class="notice" style="margin:0"><span>⚙</span><span>Local development: stands in for Discord.</span></p>
+        <div class="dev-personas" id="devPersonas" hidden>
+          <p class="form-label" style="margin:0">Try it as</p>
+          <div class="dev-persona-list" id="devPersonaList"></div>
+          <p class="panel-note" style="margin:0">Or make up someone below, with the roles you want.</p>
+        </div>
         <div>
           <label class="form-label" for="devName">Name</label>
           <input class="form-input" id="devName" value="Test user" maxlength="60">
         </div>
         <fieldset class="dev-roles" id="devRoles" hidden>
-          <legend class="form-label">Discord roles <span class="panel-note">(stand-ins, for the content tool)</span></legend>
+          <legend class="form-label">Discord roles <span class="panel-note">(stand-ins)</span></legend>
         </fieldset>
         <button class="btn btn-primary" type="submit">Sign in as this user</button>
       </form>
@@ -52,6 +57,6 @@ seoTitle: 'Sign in | AI Safety for Italy'
   </div>
 </section>
 
-<script src="/assets/js/meet/common.js" defer></script>
-<script src="/assets/js/meet/login.js" defer></script>
+<script src="/assets/js/meet/common.js?v={{ build }}" defer></script>
+<script src="/assets/js/meet/login.js?v={{ build }}" defer></script>
 {% endblock %}

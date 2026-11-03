@@ -14,6 +14,7 @@ const ACTIONS = new Set([
   'view-note',
   'set-match',
   'publish',
+  'unpublish',
   'export',
   'read-sheet',
   'change-settings',
@@ -21,9 +22,19 @@ const ACTIONS = new Set([
   'crm-import',
   'crm-add',
   'crm-remove',
+  'site-draft',
   'denied',
   // Forms (server/forms/): subject_key is the form or response id.
   'form-create',
+  'form-notify-me',
+  'community-list',
+  'community-member',
+  'community-tags',
+  'community-groups',
+  'community-import',
+  // Linking members to Discord and checking their roles against their tags.
+  'community-discord',
+  'form-tags',
   'form-edit',
   'form-settings',
   'form-delete',
@@ -40,6 +51,13 @@ const ACTIONS = new Set([
   'member-resend',
   // The daily deletion of what is past its keeping time (server/retention.js).
   'retention-cleanup',
+  // The mentee selection (server/crm/review.js): subject_key is the person
+  // key; detail says which part and that it was scored, never the scores.
+  'review-list',
+  'review-score',
+  'review-summary',
+  'review-settings',
+  'review-reviewers',
   // Who may do what (server/permissions.js): detail lists the keys changed.
   'permissions-change',
 ]);

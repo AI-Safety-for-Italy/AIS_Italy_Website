@@ -30,6 +30,48 @@
     return h('span', { class: 'badge fe-badge fe-badge-' + key }, label);
   }
 
+  // Copies the public link without opening the form. A draft's link answers
+  // "not found" until the form is opened, so the toast says so.
+  function copyButton(f) {
+    var link = location.origin + '/form/?f=' + encodeURIComponent(f.slug);
+    return h(
+      'button',
+      {
+        type: 'button',
+        class: 'btn btn-outline btn-sm fl-copy',
+        title: link,
+        'aria-label': 'Copy the public link of ' + f.title,
+        onclick: function () {
+          M.copy(
+            link,
+            f.status === 'draft' ? 'Link copied: it works once the form is open' : 'Link copied'
+          );
+        },
+      },
+      'Copy link'
+    );
+  }
+
+  // This member's own switch, saved at once (app-common.js, followSwitch).
+  function notifySwitch(f) {
+    return M.followSwitch({
+      on: f.notifyMe,
+      label: 'Notify me about answers to ' + f.title,
+      save: function (on) {
+        return M.api('PUT', '/api/app/forms?id=' + encodeURIComponent(f.id) + '&part=notify-me', {
+          on: on,
+        }).then(function (r) {
+          f.notifyMe = r.notifyMe;
+          return r.notifyMe;
+        });
+      },
+    });
+  }
+
+  function faces(f) {
+    return M.accessFaces(f.access);
+  }
+
   function card(f) {
     var edit = '/app/forms/edit/?id=' + encodeURIComponent(f.id);
     // The card opens the form (its questions, or its answers for those who
@@ -59,6 +101,7 @@
         'div',
         { class: 'poll-item-side' },
         badge(f),
+        copyButton(f),
         h(
           'a',
           {
@@ -69,16 +112,17 @@
           h('strong', null, String(f.responses)),
           h('span', null, (f.responses === 1 ? 'answer' : 'answers') + ' →')
         )
-      )
+      ),
+      h('div', { class: 'fl-foot' }, faces(f), notifySwitch(f))
     );
   }
 
-  Promise.all([M.me, M.areas])
+  // The list is asked for together with the sign-in, not after it.
+  Promise.all([M.me, M.permissions, M.api('GET', '/api/app/forms')])
     .then(function (r) {
-      newBtn.hidden = !r[1].forms;
-      return M.api('GET', '/api/app/forms');
-    })
-    .then(function (data) {
+      var data = r[2];
+      // Making forms needs a forms permission; reading some answers does not.
+      newBtn.hidden = r[1].indexOf('forms') === -1 && r[1].indexOf('forms_admin') === -1;
       M.clear(list);
       if (!data.forms.length) {
         list.appendChild(

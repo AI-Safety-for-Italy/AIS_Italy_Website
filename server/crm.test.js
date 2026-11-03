@@ -189,30 +189,40 @@ test('a permission opens only its own area', () => {
     crm: true,
     forms: false,
     members: false,
+    community: false,
+    review: false,
   });
   assert.deepEqual(permissions.areas(['seminar']), {
     content: true,
     crm: false,
     forms: false,
     members: false,
+    community: false,
+    review: false,
   });
   assert.deepEqual(permissions.areas(['manage', 'finance']), {
     content: true,
     crm: true,
     forms: false,
     members: false,
+    community: false,
+    review: false,
   });
   assert.deepEqual(permissions.areas([]), {
     content: false,
     crm: false,
     forms: false,
     members: false,
+    community: false,
+    review: false,
   });
   assert.deepEqual(permissions.areas(permissions.KEYS), {
     content: true,
     crm: true,
     forms: true,
     members: true,
+    community: true,
+    review: true,
   });
 });
 
@@ -236,14 +246,32 @@ test('a CRM-only member is shut out of the content tool, and the other way round
   );
 
   const seenByMentor = (await call(authApi, { url: '/api/auth', user: mentor })).body;
-  assert.deepEqual(seenByMentor.areas, { content: false, crm: true, forms: false, members: false });
+  assert.deepEqual(seenByMentor.areas, {
+    content: false,
+    crm: true,
+    forms: false,
+    members: false,
+    community: false,
+    review: false,
+    upgrade: false,
+  });
   const seenByWriter = (await call(authApi, { url: '/api/auth', user: writer })).body;
-  assert.deepEqual(seenByWriter.areas, { content: true, crm: false, forms: false, members: false });
+  assert.deepEqual(seenByWriter.areas, {
+    content: true,
+    crm: false,
+    forms: false,
+    members: false,
+    community: false,
+    review: false,
+    upgrade: false,
+  });
   assert.deepEqual((await call(authApi, { url: '/api/auth' })).body.areas, {
     content: false,
     crm: false,
     forms: false,
     members: false,
+    community: false,
+    review: false,
   });
 });
 
@@ -294,7 +322,13 @@ test('a sign-in older than a day has to be done again', async () => {
   await db.query(`update app_users set last_login_at = now() - interval '25 hours' where id = $1`, [
     mentor.id,
   ]);
-  await rejects(access.authorize(mentor, 'mentorship'), 401);
+  // Marked `reauth`, so the login page asks again instead of sending the
+  // still-valid session straight back (which looped between the two pages).
+  await assert.rejects(access.authorize(mentor, 'mentorship'), (err) => {
+    assert.equal(err.status, 401);
+    assert.equal(err.details.code, 'reauth');
+    return true;
+  });
   // Signing in again (which stamps last_login_at) lets them back in.
   const again = await member('Maria', ['r-mentors']);
   await access.authorize(again, 'mentorship');

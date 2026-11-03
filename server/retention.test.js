@@ -222,3 +222,21 @@ test('the cleanup runs only with the secret, and not at all without one set', as
   delete process.env.CRON_SECRET;
   assert.equal((await call({ authorization: 'Bearer ' })).statusCode, 503);
 });
+
+test("a mentor's draft for the site goes with their last record, not before the first import", async () => {
+  await db.query(`insert into crm_site_profiles (person_key, data_encrypted) values ('gone', 'x')`);
+  // Nothing imported yet: the draft stays.
+  await retention.cleanup();
+  assert.equal((await db.query('select 1 from crm_site_profiles')).rows.length, 1);
+  await db.query(`insert into crm_site_profiles (person_key, data_encrypted) values ('kept', 'x')`);
+  await db.query(
+    `insert into crm_records (id, source, person_key, origin, data_encrypted)
+     values (gen_random_uuid(), 'mentors_prospective', 'kept', 'board', 'x')`
+  );
+  assert.equal((await retention.cleanup()).siteDrafts, 1);
+  const { rows } = await db.query('select person_key from crm_site_profiles');
+  assert.deepEqual(
+    rows.map((r) => r.person_key),
+    ['kept']
+  );
+});

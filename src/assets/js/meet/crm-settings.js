@@ -247,11 +247,10 @@
     });
   }
 
-  M.me
-    .then(function () {
-      return M.api('GET', '/api/app/crm/mentorship?action=sources');
+  Promise.all([M.me, M.api('GET', '/api/app/crm/mentorship?action=sources')])
+    .then(function (r) {
+      draw(r[1]);
     })
-    .then(draw)
     .catch(function (err) {
       if (err.status === 403) {
         M.clear(form);

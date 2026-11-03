@@ -44,6 +44,12 @@
       chars: function (n, max) {
         return n + ' / ' + max;
       },
+      words: function (n, max) {
+        return n + ' / ' + max + ' words';
+      },
+      tooManyWords: function (n) {
+        return 'At most ' + n + ' words';
+      },
       tooLong: function (n) {
         return 'At most ' + n + ' characters';
       },
@@ -84,7 +90,6 @@
       questions: function (n) {
         return n === 1 ? '1 question' : n + ' questions';
       },
-      privacy: 'Answers are stored encrypted and read only by the people running this form.',
       closesOn: 'Open until ',
       language: 'Language',
       goBack: function (part) {
@@ -104,6 +109,12 @@
       },
       chars: function (n, max) {
         return n + ' / ' + max;
+      },
+      words: function (n, max) {
+        return n + ' / ' + max + ' parole';
+      },
+      tooManyWords: function (n) {
+        return 'Al massimo ' + n + ' parole';
       },
       tooLong: function (n) {
         return 'Al massimo ' + n + ' caratteri';
@@ -145,7 +156,6 @@
       questions: function (n) {
         return n === 1 ? '1 domanda' : n + ' domande';
       },
-      privacy: 'Le risposte sono conservate cifrate e lette solo da chi gestisce questo modulo.',
       closesOn: 'Aperto fino al ',
       language: 'Lingua',
       goBack: function (part) {
@@ -164,7 +174,6 @@
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
     alert:
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg>',
-    lock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>',
     clock:
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
   };
@@ -304,6 +313,28 @@
       return h('p', { class: 'fm-error', role: 'alert', hidden: true });
     }
 
+    // Text that may run over more than one line: the box grows with it.
+    // "Other" keeps Enter for going on, as a one-line field does, and
+    // Shift+Enter starts a new line; a paragraph takes Enter as a new line.
+    function multiline(box, enterGoesOn) {
+      function fit() {
+        box.style.height = 'auto';
+        box.style.height = box.scrollHeight + 2 + 'px';
+      }
+      box.addEventListener('input', fit);
+      if (enterGoesOn) {
+        box.addEventListener('keydown', function (e) {
+          if (e.key !== 'Enter' || e.shiftKey || e.isComposing) return;
+          e.preventDefault();
+          if (box.form) box.form.requestSubmit();
+        });
+      }
+      // Once it is on the page (and when a hidden page is shown).
+      requestAnimationFrame(fit);
+      box.addEventListener('focus', fit);
+      return box;
+    }
+
     function textField(item, kind) {
       var tag = kind === 'long_text' ? 'textarea' : 'input';
       var attrs = { class: 'fm-input', id: 'fm-' + item.id, name: item.id };
@@ -326,10 +357,21 @@
       if (item.maxLength) attrs.maxlength = String(item.maxLength);
       var input = h(tag, attrs);
       if (values[item.id] !== undefined) input.value = values[item.id];
+      if (tag === 'textarea') multiline(input, false);
       var counter =
-        kind === 'long_text' && item.maxLength ? h('span', { class: 'fm-counter' }) : null;
+        kind === 'long_text' && (item.maxWords || item.maxLength)
+          ? h('span', { class: 'fm-counter' })
+          : null;
+      // A word limit is what the person sees counted; otherwise characters.
       function count() {
-        if (counter) counter.textContent = S.chars(input.value.length, item.maxLength);
+        if (!counter) return;
+        if (item.maxWords) {
+          var n = words(input.value);
+          counter.textContent = S.words(n, item.maxWords);
+          counter.classList.toggle('is-over', n > item.maxWords);
+        } else {
+          counter.textContent = S.chars(input.value.length, item.maxLength);
+        }
       }
       count();
       input.addEventListener('input', function () {
@@ -362,6 +404,7 @@
       });
       var otherInput = null;
       var otherBox = null;
+      var otherWrap = null;
       function sync() {
         var selected = [];
         group.querySelectorAll('input[data-option]').forEach(function (i) {
@@ -370,7 +413,13 @@
         var value = { selected: selected };
         if (otherBox && otherBox.checked) value.other = otherInput.value;
         values[item.id] = value;
-        if (otherInput) otherInput.disabled = !otherBox.checked;
+        if (otherInput) {
+          // "Other" ticked: a full line to write on opens below it.
+          var opening = otherWrap.hidden && otherBox.checked;
+          otherWrap.hidden = !otherBox.checked;
+          otherInput.disabled = !otherBox.checked;
+          if (opening) otherInput.focus();
+        }
         changed();
       }
       item.options.forEach(function (o) {
@@ -404,8 +453,9 @@
           name: 'fm-' + item.id,
           onchange: sync,
         });
-        otherInput = h('input', {
-          class: 'fm-input fm-other-input',
+        otherInput = h('textarea', {
+          class: 'fm-input fm-other-input fm-short',
+          rows: '1',
           maxlength: '300',
           placeholder: S.otherPlaceholder,
           'aria-label': S.other,
@@ -414,15 +464,18 @@
         otherBox.checked = Boolean(current.other);
         otherInput.value = current.other || '';
         otherInput.disabled = !otherBox.checked;
+        multiline(otherInput, true);
+        otherWrap = h('div', { class: 'fm-other-box' }, otherInput);
+        otherWrap.hidden = !otherBox.checked;
         group.appendChild(
           h(
             'label',
             { class: 'fm-choice fm-choice-other' },
             otherBox,
-            h('span', { class: 'fm-choice-text' }, S.other),
-            otherInput
+            h('span', { class: 'fm-choice-text' }, S.other)
           )
         );
+        group.appendChild(otherWrap);
       }
       return { control: group, focus: group.querySelector('input') };
     }
@@ -596,6 +649,9 @@
         text.length < item.minLength
       ) {
         return S.tooShort(item.minLength);
+      }
+      if (item.type === 'long_text' && item.maxWords && words(text) > item.maxWords) {
+        return S.tooManyWords(item.maxWords);
       }
       if (item.type === 'multi' && item.maxChoices) {
         var count = v.selected.length + (v.other && v.other.trim() ? 1 : 0);
@@ -940,7 +996,52 @@
 
   // ── The page around it ──────────────────────────────────────────────────
 
-  function frame(root, aside, main) {
+  // The logo on top of the green panel, leading to the homepage (not in the
+  // editor's preview, where leaving would lose the edits).
+  function brand(preview, lang) {
+    return h(
+      preview ? 'span' : 'a',
+      preview
+        ? { class: 'fm-brand' }
+        : { class: 'fm-brand', href: home(lang), 'aria-label': 'AI Safety for Italy: homepage' },
+      h('img', { src: '/assets/img/ais4i-logo.svg', alt: '', width: 40, height: 40 }),
+      h('span', null, 'AI Safety ', h('span', { class: 'fm-brand-accent' }, 'for Italy'))
+    );
+  }
+
+  function home(lang) {
+    return lang === 'it' ? '/it/' : '/';
+  }
+
+  // The site's footer line, at the bottom of the form's column, on the
+  // public page only (form.njk's #fmFooter; the editor's preview has none).
+  function footer(lang) {
+    var source = document.getElementById('fmFooter');
+    if (!source) return null;
+    return h(
+      'footer',
+      { class: 'fm-foot' },
+      h(
+        'span',
+        null,
+        source.getAttribute('data-copy-' + lang) || source.getAttribute('data-copy-it')
+      ),
+      h(
+        'span',
+        { class: 'footer-flag', 'aria-hidden': 'true' },
+        h('i', null),
+        h('i', null),
+        h('i', null)
+      )
+    );
+  }
+
+  /** Words in a text, as the server counts them (server/forms/schema.js). */
+  function words(text) {
+    return (String(text).match(/\S+/g) || []).length;
+  }
+
+  function frame(root, aside, main, lang) {
     M.clear(root);
     root.classList.add('fm-root');
     root.appendChild(
@@ -948,7 +1049,7 @@
         'div',
         { class: 'fm-shell' },
         h('aside', { class: 'fm-aside' }, h('div', { class: 'fm-aside-inner' }, aside)),
-        h('div', { class: 'fm-body' }, main)
+        h('div', { class: 'fm-body' }, h('div', { class: 'fm-main' }, main), footer(lang))
       )
     );
   }
@@ -1015,14 +1116,14 @@
     frame(
       root,
       [
-        h('p', { class: 'fm-eyebrow' }, opts.eyebrow || 'AI Safety for Italy'),
+        opts.eyebrow ? h('p', { class: 'fm-eyebrow' }, opts.eyebrow) : brand(opts.preview, lang),
         h('h1', { class: 'fm-title' }, t(schema.title)),
         intro ? md(intro, 'fm-intro') : null,
         h('p', { class: 'fm-meta' }, h('span', null, S.questions(total)), closes),
         steps,
-        h('p', { class: 'fm-privacy' }, icon('lock'), h('span', null, S.privacy)),
       ],
-      [langToggle ? h('div', { class: 'fm-topline' }, langToggle) : null, view]
+      [langToggle ? h('div', { class: 'fm-topline' }, langToggle) : null, view],
+      lang
     );
 
     var current = opts.page || 0;
@@ -1098,10 +1199,7 @@
   M.formNotice = function (root, title, text, lang) {
     frame(
       root,
-      [
-        h('p', { class: 'fm-eyebrow' }, 'AI Safety for Italy'),
-        h('h1', { class: 'fm-title' }, title),
-      ],
+      [brand(false, lang), h('h1', { class: 'fm-title' }, title)],
       h(
         'div',
         { class: 'fm-notice' },
@@ -1109,10 +1207,11 @@
         h('p', null, text),
         h(
           'a',
-          { class: 'btn btn-outline', href: '/' },
+          { class: 'btn btn-outline', href: home(lang) },
           lang === 'en' ? 'Go to the site' : 'Vai al sito'
         )
-      )
+      ),
+      lang
     );
   };
 

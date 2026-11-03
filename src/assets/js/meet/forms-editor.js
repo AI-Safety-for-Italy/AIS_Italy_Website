@@ -224,8 +224,81 @@
     savedEl.hidden = true;
   }
 
+  // ── Unsaved changes ──────────────────────────────────────────────────────
+  // The questions (dirty) and the Settings tab (settingsDirty) are saved by
+  // their own buttons. Leaving with either unsaved asks first, as Discord
+  // does: following a link, closing the tab, or leaving the Settings tab.
+  var settingsDirty = false;
+  function markSettingsDirty() {
+    settingsDirty = true;
+  }
+  function unsaved() {
+    return dirty || settingsDirty;
+  }
+
+  var leaveDialog = null;
+  function confirmLeave(go) {
+    if (!leaveDialog) {
+      leaveDialog = h(
+        'dialog',
+        { class: 'leave-dialog', 'aria-labelledby': 'leaveTitle' },
+        h('h2', { id: 'leaveTitle' }, 'Unsaved changes'),
+        h('p', null, 'You have changes that are not saved. Leave anyway and lose them?'),
+        h(
+          'div',
+          { class: 'leave-actions' },
+          h('button', { type: 'button', class: 'btn btn-outline', value: 'stay' }, 'Stay'),
+          h(
+            'button',
+            { type: 'button', class: 'btn btn-danger', value: 'leave' },
+            'Leave without saving'
+          )
+        )
+      );
+      document.body.appendChild(leaveDialog);
+    }
+    var buttons = leaveDialog.querySelectorAll('button');
+    buttons[0].onclick = function () {
+      leaveDialog.close();
+      // The save button shakes, to show where to go.
+      [saveBtn, document.querySelector('#tab-settings .btn-primary')].forEach(function (b) {
+        if (!b || b.hidden) return;
+        b.classList.remove('is-shaking');
+        void b.offsetWidth;
+        b.classList.add('is-shaking');
+      });
+    };
+    buttons[1].onclick = function () {
+      leaveDialog.close();
+      go();
+    };
+    leaveDialog.showModal();
+    buttons[0].focus();
+  }
+
+  // Links out of the page (the sidebar, the back arrow, the crumbs…).
+  document.addEventListener(
+    'click',
+    function (e) {
+      if (!unsaved() || e.defaultPrevented || e.button !== 0) return;
+      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      var a = e.target.closest && e.target.closest('a[href]');
+      if (!a || a.target === '_blank' || a.hasAttribute('download')) return;
+      var to = new URL(a.href, location.href);
+      if (to.pathname === location.pathname && to.search === location.search) return;
+      e.preventDefault();
+      e.stopPropagation();
+      confirmLeave(function () {
+        dirty = false;
+        settingsDirty = false;
+        location.href = a.href;
+      });
+    },
+    true
+  );
+
   window.addEventListener('beforeunload', function (e) {
-    if (dirty) {
+    if (unsaved()) {
       e.preventDefault();
       e.returnValue = '';
     }
@@ -247,18 +320,16 @@
   }
 
   state.appendChild(M.loading());
-  M.me
-    .then(function () {
-      return Promise.all([
-        M.api('GET', '/api/app/forms?id=' + encodeURIComponent(id)),
-        M.api('GET', '/api/app/forms?meta=1').catch(function () {
-          return null;
-        }),
-      ]);
-    })
+  Promise.all([
+    M.me,
+    M.api('GET', '/api/app/forms?id=' + encodeURIComponent(id)),
+    M.api('GET', '/api/app/forms?meta=1').catch(function () {
+      return null;
+    }),
+  ])
     .then(function (r) {
-      meta = r[1];
-      loaded(r[0]);
+      meta = r[2];
+      loaded(r[1]);
     })
     .catch(fail);
 
@@ -352,7 +423,19 @@
     } else answers.reload();
   }
   window.addEventListener('hashchange', function () {
-    if (form) setTab(location.hash.slice(1));
+    if (!form) return;
+    var next = location.hash.slice(1);
+    // Leaving the Settings tab with changes not saved: ask, and stay put
+    // (the address too) unless told to go.
+    if (tab === 'settings' && next !== 'settings' && settingsDirty) {
+      history.replaceState(null, '', '#settings');
+      confirmLeave(function () {
+        settingsDirty = false;
+        location.hash = next;
+      });
+      return;
+    }
+    setTab(next);
   });
 
   // The number of answers, on the tab and under the title; deleting one in the
@@ -888,13 +971,26 @@
         'trash',
         'Delete',
         function () {
-          if (!window.confirm('Delete this question?')) return;
+          // No confirm(): nothing is lost until Save, and Undo puts it back
+          // (with the conditions that pointed at it, which fixConditions drops).
+          var before = JSON.parse(JSON.stringify(schema.items));
+          var wasSelected = selected;
           schema.items.splice(index, 1);
           if (selected === item.id) selected = '__form';
           markDirty();
           fixConditions();
           renderCanvas();
           renderProps();
+          M.toast('Question deleted', false, {
+            label: 'Undo',
+            run: function () {
+              schema.items = before;
+              selected = wasSelected;
+              markDirty();
+              renderCanvas();
+              renderProps();
+            },
+          });
         },
         'is-danger'
       )
@@ -1179,6 +1275,45 @@
       );
 
     if (item.type === 'short_text' || item.type === 'long_text') {
+      // The same question, as a one-line field or as a paragraph box.
+      var size = h('div', { class: 'seg fe-seg', role: 'radiogroup', 'aria-label': 'Box' });
+      [
+        ['short_text', 'Small: one line'],
+        ['long_text', 'Large: paragraph'],
+      ].forEach(function (pair) {
+        size.appendChild(
+          h(
+            'button',
+            {
+              type: 'button',
+              'aria-pressed': String(item.type === pair[0]),
+              onclick: function () {
+                if (item.type === pair[0]) return;
+                item.type = pair[0];
+                if (item.type === 'short_text') {
+                  if (item.maxLength > 300) item.maxLength = 300;
+                  delete item.maxWords;
+                }
+                markDirty();
+                renderCanvas();
+                renderProps();
+              },
+            },
+            pair[1]
+          )
+        );
+      });
+      props.appendChild(
+        sec(
+          field(
+            'Box',
+            size,
+            item.type === 'short_text'
+              ? 'For a name, a role, a city: one line.'
+              : 'For longer answers: a large box where Enter starts a new line.'
+          )
+        )
+      );
       props.appendChild(
         sec(
           h(
@@ -1206,6 +1341,24 @@
                 { type: 'number', min: '1', max: item.type === 'short_text' ? '300' : '8000' }
               )
             )
+          )
+        )
+      );
+    }
+    if (item.type === 'long_text') {
+      props.appendChild(
+        sec(
+          field(
+            'Max words',
+            textInput(
+              item.maxWords,
+              function (v) {
+                if (v) item.maxWords = Number(v);
+                else delete item.maxWords;
+              },
+              { type: 'number', min: '1', max: '2000', placeholder: 'No limit' }
+            ),
+            'The page counts the words as people write, and an answer over the limit is refused.'
           )
         )
       );
@@ -1373,6 +1526,25 @@
   }
 
   function optionsEditor(item) {
+    // Options kept elsewhere: the working groups, as Member applications →
+    // Working groups has them (server/forms/forms.js, withLiveOptions).
+    if (item.optionsFrom === 'work_groups') {
+      return h(
+        'div',
+        { class: 'fe-options' },
+        h(
+          'p',
+          { class: 'form-note', style: 'margin:0' },
+          'The options are the working groups, as they are in Member applications → Working groups: ' +
+            item.options
+              .map(function (o) {
+                return tx(o.label);
+              })
+              .join(', ') +
+            '. Change them there: this question follows.'
+        )
+      );
+    }
     var box = h('div', { class: 'fe-options' });
     function draw() {
       M.clear(box);
@@ -1663,6 +1835,16 @@
   function renderSettings() {
     var box = document.getElementById('tab-settings');
     M.clear(box);
+    settingsDirty = false;
+    if (!box.dataset.watched) {
+      box.dataset.watched = '1';
+      ['input', 'change'].forEach(function (type) {
+        box.addEventListener(type, function (e) {
+          if (e.target.closest('[data-instant]')) return;
+          markSettingsDirty();
+        });
+      });
+    }
     var s = form.settings;
     var status = form.status;
     var seg = h('div', { class: 'seg fe-seg', role: 'radiogroup', 'aria-label': 'Status' });
@@ -1674,6 +1856,7 @@
           'aria-pressed': String(key === status),
           onclick: function () {
             status = key;
+            markSettingsDirty();
             seg.querySelectorAll('button').forEach(function (x) {
               x.setAttribute('aria-pressed', String(x === b));
             });
@@ -1697,13 +1880,42 @@
       class: 'form-input is-compact',
       value: form.slug,
       maxlength: '60',
-      pattern: '[a-z0-9-]+',
+      pattern: '[a-z0-9\\-]+',
     });
     slug.disabled = form.responses > 0;
     var once = h('input', { type: 'checkbox', role: 'switch', class: 'fe-switch-input' });
     once.checked = s.oneResponsePerEmail;
-    var notify = h('input', { type: 'checkbox', role: 'switch', class: 'fe-switch-input' });
-    notify.checked = s.notifyOwner;
+    // This member's own switch, saved at once: not a setting of the form.
+    var notify = h('input', {
+      type: 'checkbox',
+      role: 'switch',
+      class: 'fe-switch-input',
+      'data-instant': '',
+      onchange: function () {
+        notify.disabled = true;
+        M.api('PUT', '/api/app/forms?id=' + encodeURIComponent(id) + '&part=notify-me', {
+          on: notify.checked,
+        })
+          .then(function (r) {
+            form.notifyMe = r.notifyMe;
+            M.toast(r.notifyMe ? 'You will hear about new answers' : 'Notifications off for you');
+          })
+          .catch(function (err) {
+            notify.checked = form.notifyMe;
+            if (err.status === 401) return M.appError(err);
+            M.toast(err.message, true);
+          })
+          .then(function () {
+            notify.disabled = false;
+          });
+      },
+    });
+    notify.checked = Boolean(form.notifyMe);
+    var copy = h('input', { type: 'checkbox', role: 'switch', class: 'fe-switch-input' });
+    copy.checked = Boolean(s.sendCopy);
+    var hasEmail = ((schema && schema.items) || []).some(function (i) {
+      return i.type === 'email';
+    });
 
     var roles = (meta && meta.roles) || [];
     var roleBox = h('div', { class: 'fe-roles' });
@@ -1733,7 +1945,9 @@
     });
 
     var join = joinPanel();
+    var people = readersPicker();
     var board = crmPanel();
+    var integrations = integrationsPanel(join, board);
     var error = h('p', { class: 'form-error', hidden: true });
     var save = h('button', { type: 'button', class: 'btn btn-primary' }, 'Save settings');
     save.addEventListener('click', function () {
@@ -1745,10 +1959,11 @@
         closesAt: closes.value ? new Date(closes.value).toISOString() : null,
         settings: {
           oneResponsePerEmail: once.checked,
-          notifyOwner: notify.checked,
+          sendCopy: copy.checked,
           // Only whoever holds “Forms: all forms” may change the link to the board.
           membership: join.editable() ? join.value() : undefined,
           crm: board.editable() ? board.value() : undefined,
+          readers: people.value(),
         },
         accessRoles: Array.prototype.map.call(
           roleBox.querySelectorAll('input:checked'),
@@ -1761,6 +1976,7 @@
       M.api('PUT', '/api/app/forms?id=' + encodeURIComponent(id) + '&part=settings', body)
         .then(function (data) {
           M.toast('Settings saved');
+          settingsDirty = false;
           var keepDirty = dirty;
           var keepSchema = schema;
           loaded(data);
@@ -1823,15 +2039,33 @@
             field('Closes on (optional)', closes)
           ),
           h('label', { class: 'fe-switch' }, h('span', null, 'One answer per email address'), once),
-          h('label', { class: 'fe-switch' }, h('span', null, 'Tell me about new answers'), notify),
+          form.notifyMe === null || form.notifyMe === undefined
+            ? null
+            : h(
+                'label',
+                { class: 'fe-switch' },
+                h('span', null, 'Notify me about new answers'),
+                notify
+              ),
+          h(
+            'label',
+            { class: 'fe-switch' },
+            h('span', null, 'Email each person a copy of their answers'),
+            copy
+          ),
+          h(
+            'p',
+            { class: 'form-note', style: 'margin:0' },
+            hasEmail
+              ? 'The copy goes to the address given in the first email question, from the mailbox in Settings → Mail settings.'
+              : 'Add an email question for the copy to have somewhere to go.'
+          ),
           h(
             'p',
             { class: 'form-note', style: 'margin:0' },
             'Answers are kept for 12 months after they are sent, then deleted.'
           )
         ),
-        join.panel,
-        board.panel,
         h(
           'div',
           { class: 'panel form-grid' },
@@ -1856,21 +2090,56 @@
           h(
             'p',
             { class: 'panel-note', style: 'margin:0' },
-            'Always: you, as the form’s owner, and whoever holds the “Forms: all forms” permission. Tick the Discord roles of the team that reviews them: they can read the answers, not change the form.'
+            'Always: the form’s owner, and whoever holds the “Forms: all forms” permission. Add the team that reviews them, by role or by person: they read the answers, they do not change the form.'
           ),
           readersNote(),
+          h('h3', { class: 'fe-subhead' }, 'Roles'),
           roles.length || form.accessRoles.length
             ? roleBox
             : h(
                 'p',
                 { class: 'form-note' },
                 'The Discord bot is not set up here, so the roles cannot be listed.'
-              )
+              ),
+          h('h3', { class: 'fe-subhead' }, 'People'),
+          people.node,
+          h(
+            'p',
+            { class: 'form-note', style: 'margin:0' },
+            'Seeing the answers is not following them: each person turns on “Notify me” on the form’s card to hear about new answers, on the channel from their Settings.'
+          )
         ),
+        integrations,
         error,
         h('div', { class: 'action-bar' }, del, save)
       )
     );
+  }
+
+  // Where the answers also go (the member applications, the mentorship
+  // board), folded away at the bottom. Each is shown only to those whose
+  // roles open that area; changing it still needs "Forms: all forms".
+  function integrationsPanel(join, board) {
+    var inner = h('div', { class: 'form-grid' });
+    var box = h(
+      'details',
+      { class: 'panel fe-integrations' },
+      h('summary', null, 'Other integrations'),
+      inner
+    );
+    box.hidden = true;
+    M.permissions.then(function (perms) {
+      var members = perms.indexOf('members') !== -1;
+      var mentorship = perms.indexOf('mentorship') !== -1;
+      if (members) inner.appendChild(join.panel);
+      if (mentorship) inner.appendChild(board.panel);
+      box.hidden = !members && !mentorship;
+      // Open when one is already in use.
+      box.open = Boolean(
+        (members && form.settings.membership) || (mentorship && form.settings.crm)
+      );
+    });
+    return box;
   }
 
   // Who can read the answers today besides the ticked roles (names only).
@@ -2051,6 +2320,140 @@
 
   // The mentorship board: each answer also becomes a person on one of its
   // lists. Only whoever holds “Forms: all forms” can change it; the others see what it does.
+  // Members of the Discord server who read the answers by name (and hear of
+  // new ones unless they switch it off), picked by the form's managers.
+  function readersPicker() {
+    var editable = true;
+    var chosen = ((form.settings && form.settings.readers) || []).slice();
+    var list = h('div', { class: 'fe-people' });
+    var results = h('div', { class: 'fe-people-results', role: 'listbox', hidden: true });
+    var search = h('input', {
+      class: 'form-input is-compact',
+      type: 'search',
+      placeholder: 'Search a member of the Discord server…',
+      // Searching changes nothing until someone is picked.
+      'data-instant': '',
+      'aria-label': 'Search a member of the Discord server',
+      autocomplete: 'off',
+    });
+
+    function drawList() {
+      M.clear(list);
+      if (!chosen.length) {
+        list.appendChild(
+          h('p', { class: 'form-note', style: 'margin:0' }, 'Nobody added by name.')
+        );
+        return;
+      }
+      chosen.forEach(function (p) {
+        list.appendChild(
+          h(
+            'span',
+            {
+              class: 'fe-person',
+            },
+            M.avatar({ name: p.name, avatarUrl: p.avatarUrl }, 22),
+            h('span', null, p.name),
+            editable
+              ? h(
+                  'button',
+                  {
+                    type: 'button',
+                    class: 'fe-person-x',
+                    'aria-label': 'Remove ' + p.name,
+                    title: 'Remove',
+                    onclick: function () {
+                      chosen.splice(chosen.indexOf(p), 1);
+                      markSettingsDirty();
+                      drawList();
+                    },
+                  },
+                  '×'
+                )
+              : null
+          )
+        );
+      });
+    }
+
+    var timer = null;
+    var asked = 0;
+    function find() {
+      var q = search.value.trim();
+      if (q.length < 2) {
+        results.hidden = true;
+        return;
+      }
+      var mine = ++asked;
+      M.api(
+        'GET',
+        '/api/app/forms?id=' + encodeURIComponent(id) + '&people=' + encodeURIComponent(q)
+      )
+        .then(function (data) {
+          if (mine !== asked) return;
+          M.clear(results);
+          var fresh = data.people.filter(function (p) {
+            return !chosen.some(function (c) {
+              return c.discordId === p.discordId;
+            });
+          });
+          if (!fresh.length) {
+            results.appendChild(h('p', { class: 'fe-people-none' }, 'Nobody found'));
+          }
+          fresh.forEach(function (p) {
+            results.appendChild(
+              h(
+                'button',
+                {
+                  type: 'button',
+                  role: 'option',
+                  class: 'fe-people-hit',
+                  onclick: function () {
+                    chosen.push(p);
+                    markSettingsDirty();
+                    search.value = '';
+                    results.hidden = true;
+                    drawList();
+                    search.focus();
+                  },
+                },
+                M.avatar(p, 24),
+                h('span', null, p.name)
+              )
+            );
+          });
+          results.hidden = false;
+        })
+        .catch(function (err) {
+          if (err.status === 401) return M.appError(err);
+          M.toast(err.message, true);
+        });
+    }
+    search.addEventListener('input', function () {
+      clearTimeout(timer);
+      timer = setTimeout(find, 250);
+    });
+    search.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') results.hidden = true;
+    });
+
+    drawList();
+    var node = h(
+      'div',
+      { class: 'form-grid' },
+      list,
+      h('div', { class: 'fe-people-search' }, search, results)
+    );
+    return {
+      node: node,
+      value: function () {
+        return chosen.map(function (p) {
+          return { discordId: p.discordId, name: p.name };
+        });
+      },
+    };
+  }
+
   function crmPanel() {
     var panel = h('div', { class: 'panel form-grid' });
     var lists = [

@@ -8,6 +8,7 @@
 
 const db = require('./db');
 const permissions = require('./permissions');
+const follows = require('./follows');
 
 const COUNTS = {
   // Own polls where everyone invited has answered: a time to choose.
@@ -26,29 +27,27 @@ const COUNTS = {
     };
   },
 
-  // New answers to the forms this member manages or reads.
+  // New answers to the forms this member follows ("Notify me"): seeing a
+  // form is not following it.
   async forms(user, ctx) {
     if (!ctx.areas.forms) return null;
-    const all = ctx.perms.includes('forms_admin');
-    const { rows } = await db.query(
-      `select count(*)::int as n from form_responses r join forms f on f.id = r.form_id
-       where r.status = 'new' and r.deleted_at is null
-         and ($1 or f.owner_id = $2 or f.access_roles && $3::text[])`,
-      [all, user.id, ctx.roles]
-    );
+    const n = await require('./forms/forms').followedNewAnswers(user);
     return {
-      count: rows[0].n,
-      label: rows[0].n === 1 ? 'new answer' : 'new answers',
+      count: n,
+      label: n === 1 ? 'new answer' : 'new answers',
       url: '/app/forms/',
     };
   },
 
-  // Applications nobody has decided on yet.
+  // Applications nobody has decided on yet, for those following the board.
   async members(user, ctx) {
     if (!ctx.perms.includes('members')) return null;
-    const { rows } = await db.query(
-      `select count(*)::int as n from member_applications where status = 'pending'`
-    );
+    const following = await follows.isFollowing(user.id, 'members');
+    const { rows } = following
+      ? await db.query(
+          `select count(*)::int as n from member_applications where status = 'pending'`
+        )
+      : { rows: [{ n: 0 }] };
     return {
       count: rows[0].n,
       label: rows[0].n === 1 ? 'application to review' : 'applications to review',
@@ -59,13 +58,17 @@ const COUNTS = {
 
 /** { tools: { <key>: { count, label, url, … } } } for the tools this user may open. */
 async function overview(user) {
-  const perms = await permissions.forUser(user);
-  const ctx = { perms, areas: permissions.areas(perms), roles: await permissions.rolesOf(user) };
+  const [perms, roles] = await Promise.all([permissions.forUser(user), permissions.rolesOf(user)]);
+  const areas = permissions.areas(perms);
+  // Reading some form's answers opens the forms tool too (api/auth.js).
+  if (!areas.forms) areas.forms = await require('./forms/forms').readsAny(user);
+  const ctx = { perms, areas, roles };
+  // The counts do not depend on each other: all at once.
+  const results = await Promise.all(Object.values(COUNTS).map((count) => count(user, ctx)));
   const tools = {};
-  for (const [key, count] of Object.entries(COUNTS)) {
-    const result = await count(user, ctx);
-    if (result) tools[key] = result;
-  }
+  Object.keys(COUNTS).forEach((key, i) => {
+    if (results[i]) tools[key] = results[i];
+  });
   return { tools };
 }
 

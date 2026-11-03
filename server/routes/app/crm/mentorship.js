@@ -1,6 +1,7 @@
 // /api/app/crm/mentorship: the mentorship board. Every call needs the
 // `mentorship` permission (server/access.js); changes re-read the Discord
-// roles first. Everything read or changed is on the audit trail.
+// roles first, except `update` (stage, track, owner), which trusts a check
+// from the last five minutes as reads do. Everything read or changed is on the audit trail.
 //   GET                                   -> the board: { mentors, mentees, matches, … }
 //   GET  ?key=…&kind=mentor|mentee        -> one person, with notes and history
 //   POST ?action=update  { key, kind, status?, track?, owner?: 'me'|'none' }
@@ -9,12 +10,21 @@
 //   POST ?action=end-match { id }
 //   POST ?action=add { first_name, last_name, email, … }  -> a mentor to contact, by hand
 //   POST ?action=remove { recordId }      -> removes someone added by hand
+//   POST ?action=site { key, kind: 'mentor', bio?, photo?: JPEG data URL | null,
+//        consent?: { value: 'yes' | 'no', note } | null }
+//        -> the mentor's draft for the public site (encrypted)
+//   POST ?action=site-entry { key, kind: 'mentor', entry }  -> saves the entry for
+//        /mentorship/ as a draft; returns the site part of the person
+//   POST ?action=publish { key, kind: 'mentor' }  -> { site, build }: the entry goes on
+//        /mentorship/ with the next build (selected or matched mentors, entry complete)
+//   POST ?action=unpublish { key, kind: 'mentor' } -> { site, build }
+//   POST ?action=emails { kind, keys }    -> { people: [{ name, email }] }, to copy
 //   POST ?action=import&source=… [{ csv }] -> copies that sheet (or its CSV) onto the board (crm_admin)
 //        replacing an earlier import also needs { replace: true, adminPassword }; without
 //        them -> 409 { code: 'confirm_overwrite', existing }
 //   GET  ?action=sources                  -> { sources, serviceAccount } (crm_admin)
 //   PUT  ?action=sources { <source>: { spreadsheetId, tab } }  -> the same, saved (crm_admin)
-const { route, sendJson, readJson, getQuery, HttpError } = require('../../../http');
+const { route, sendJson, readJson, getQuery, HttpError, siteUrl } = require('../../../http');
 const { requireUser, checkAdminPassword } = require('../../../auth');
 const access = require('../../../access');
 const crypto = require('../../../crm/crypto');
@@ -99,9 +109,33 @@ module.exports = route({
       );
       return;
     }
-    const { user } = await door(req, { write: true });
     const { action } = query;
-    const body = await readJson(req);
+    // A stage change trusts roles checked in the last five minutes, as reads
+    // do, so the board stays quick; every other change asks Discord again.
+    const { user } = await door(req, { write: action !== 'update' });
+    // A 400x400 JPEG as a data URL is up to about 270 kB.
+    const body = (await readJson(req, action === 'site' ? { max: 400_000 } : undefined)) || {};
+    if (action === 'site') {
+      sendJson(res, 200, await mentorship.saveSite(user, body.key, body.kind, body));
+      return;
+    }
+    if (action === 'site-entry') {
+      sendJson(res, 200, await mentorship.saveEntry(user, body.key, body.kind, body.entry));
+      return;
+    }
+    if (action === 'publish') {
+      const siteOrigin = siteUrl(req);
+      sendJson(res, 200, await mentorship.publish(user, body.key, body.kind, { siteOrigin }));
+      return;
+    }
+    if (action === 'unpublish') {
+      sendJson(res, 200, await mentorship.unpublish(user, body.key, body.kind));
+      return;
+    }
+    if (action === 'emails') {
+      sendJson(res, 200, await mentorship.emails(user, body.kind, body.keys));
+      return;
+    }
     if (action === 'add') {
       sendJson(res, 201, await mentorship.addProspect(user, body));
       return;

@@ -1,0 +1,24 @@
+---
+title: Become an organizer
+# For a participant: the organizers' part of the sign-up form, answered here
+# and sent to the member applications board as an upgrade (server/members.js).
+permalink: /app/organizer/
+tool: organizer
+noindex: true
+excludeFromSitemap: true
+eleventyExcludeFromCollections: true
+seoTitle: 'Become an organizer | AI Safety for Italy'
+---
+{% extends "app.njk" %}
+{% block page %}
+    <div class="organizer-page">
+      <p class="panel-note" style="margin-top:0">Organizers take part in one or more working groups and help run the community. Tell us where you would like to help: the team reviews it, and once approved you get the Organizer role on Discord with your groups.</p>
+      <div class="panel" id="organizerView"></div>
+    </div>
+
+<script src="/assets/js/meet/common.js?v={{ build }}" defer></script>
+<script src="/assets/js/meet/app-common.js?v={{ build }}" defer></script>
+<script src="/assets/js/meet/markdown-lite.js?v={{ build }}" defer></script>
+<script src="/assets/js/meet/forms-render.js?v={{ build }}" defer></script>
+<script src="/assets/js/meet/organizer.js?v={{ build }}" defer></script>
+{% endblock %}

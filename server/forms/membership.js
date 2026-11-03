@@ -11,11 +11,28 @@
 // roles                    { optionId: 'participant' | 'organizer' } for the
 //                          options of roleItem; other options ask for no role
 //
+// and, all optional, what the community directory takes (server/community.js):
+// profileItem (link), cityItem / countryItem (short answers), areasItem
+// (choices), publishItem (yes/no: consent to show the profile), and the
+// working groups: groupsItem (stable participation), choices whose options
+// are the groups; they become the person's tags, which whoever approves can
+// change. coordItem is read only on forms made before coordinators were
+// chosen on Working groups: it counts as taking part, like groupsItem.
+//
 // The answers are also kept, encrypted, with the form like any other form's.
 const { HttpError } = require('../http');
 const schemaLib = require('./schema');
 
 const ROLES = ['participant', 'organizer'];
+const EXTRAS = {
+  profileItem: ['url', 'short_text'],
+  cityItem: ['short_text'],
+  countryItem: ['short_text'],
+  areasItem: ['multi', 'single', 'dropdown'],
+  publishItem: ['yes_no'],
+  groupsItem: ['multi'],
+  coordItem: ['multi'],
+};
 // The address the site's join buttons open (src/data/site.js, forms.mailingList):
 // the registration form must have it, or those buttons find no form.
 const JOIN_SLUG = 'iscrizione';
@@ -58,6 +75,17 @@ function clean(schema, input) {
     roles: {},
   };
   if (mapping.nameItem === mapping.surnameItem) mapping.surnameItem = null;
+  // These may be asked only of some (the organizers' part): no "always shown".
+  for (const [key, types] of Object.entries(EXTRAS)) {
+    const id = input[key];
+    if (id === undefined || id === null || id === '') continue;
+    const found = item(schema, String(id));
+    if (!found || !types.includes(found.type))
+      throw new HttpError(400, `The ${key} question must be one of: ${types.join(', ')}`, {
+        field: 'membership',
+      });
+    mapping[key] = found.id;
+  }
   if (mapping.roleItem) {
     const options = new Set(item(schema, mapping.roleItem).options.map((o) => o.id));
     const roles = input.roles && typeof input.roles === 'object' ? input.roles : {};
@@ -105,7 +133,36 @@ function toApplication(schema, mapping, answers) {
       value: schemaLib.answerText(schema, it, answers[it.id]),
     });
   }
-  return { name, email, requestedRole, answers: list };
+  const pickedIds = (key) =>
+    mapping[key] && answers[mapping[key]] ? answers[mapping[key]].selected || [] : [];
+  const textOf = (key) =>
+    mapping[key] && typeof answers[mapping[key]] === 'string' ? answers[mapping[key]] : '';
+  // Who coordinates is chosen on Working groups, never from a form: an
+  // older form's "coordinate" answer counts as taking part.
+  const tags = [];
+  [...pickedIds('groupsItem'), ...pickedIds('coordItem')].forEach((group) => {
+    if (!tags.some((t) => t.group === group)) tags.push({ group, level: 'stable' });
+  });
+  const city = textOf('cityItem');
+  const country = textOf('countryItem');
+  const areasItem = mapping.areasItem && item(schema, mapping.areasItem);
+  return {
+    name,
+    email,
+    requestedRole,
+    answers: list,
+    tags,
+    profile: textOf('profileItem'),
+    location:
+      city && country && city.toLowerCase() === country.toLowerCase()
+        ? country
+        : [city, country].filter(Boolean).join(', '),
+    areas:
+      areasItem && answers[areasItem.id]
+        ? schemaLib.answerText(schema, areasItem, answers[areasItem.id])
+        : '',
+    publish: mapping.publishItem ? answers[mapping.publishItem] === 'yes' : false,
+  };
 }
 
 module.exports = { ROLES, JOIN_SLUG, clean, usable, toApplication };

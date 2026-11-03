@@ -19,17 +19,6 @@ const AREAS = [
   ['xrisk', 'Rischi catastrofici / esistenziali'],
 ];
 
-const GROUPS = [
-  ['mentorship', 'Programma di mentorship'],
-  ['governance', 'Governance, fundraising e finanze'],
-  ['communication', 'Comunicazione'],
-  ['technical', 'Infrastruttura tecnica'],
-  ['community', 'Comunità e networking'],
-  ['events', 'Eventi'],
-  ['seminars', 'Seminari'],
-  ['education', 'Didattica e divulgazione'],
-];
-
 const options = (pairs) => pairs.map(([id, it]) => ({ id, label: { it } }));
 const q = (id, type, it, extra = {}) => ({ id, type, label: { it }, ...extra });
 
@@ -177,6 +166,12 @@ const TEMPLATES = {
         q('co_mentor', 'short_text', 'Nome completo del co-mentor', {
           help: { it: 'Se il progetto ne prevede uno.' },
         }),
+        q(
+          'publish',
+          'yes_no',
+          'Acconsenti alla pubblicazione di nome, foto, breve bio e progetto nella pagina Mentorship del sito?',
+          { required: true }
+        ),
       ],
     }),
   },
@@ -280,9 +275,11 @@ const TEMPLATES = {
           other: true,
         }),
         q('goals', 'long_text', 'Cosa ti piacerebbe ottenere partecipando alla community?'),
-        // Only for those who want to take part: the Discord-only answer skips them.
-        q('groups', 'multi', 'A quali gruppi di lavoro vorresti contribuire?', {
-          options: options(GROUPS),
+        // Only for those who want to take part: the Discord-only answer skips
+        // them. The groups are the community's working groups as they are
+        // (Member applications → Working groups), and become the person's tags.
+        q('groups', 'multi', 'In quali gruppi di lavoro vorresti partecipare stabilmente?', {
+          optionsFrom: 'work_groups',
           showIf: ACTIVE,
         }),
         q('hours', 'number', 'Quante ore vuoi dedicare ad AI Safety Italy ogni mese?', {
@@ -290,6 +287,15 @@ const TEMPLATES = {
           max: 200,
           showIf: ACTIVE,
         }),
+        q('experience', 'long_text', 'Hai esperienza pregressa rilevante che vuoi segnalare?', {
+          showIf: ACTIVE,
+        }),
+        q(
+          'initiative',
+          'long_text',
+          "Hai già in mente un'iniziativa specifica che vorresti proporre o supportare?",
+          { showIf: ACTIVE }
+        ),
         q(
           'publish',
           'yes_no',
@@ -309,6 +315,12 @@ const MEMBERSHIP = {
     emailItem: 'email',
     roleItem: 'involvement',
     roles: { active: 'organizer', discord: 'participant' },
+    profileItem: 'profile',
+    cityItem: 'city',
+    countryItem: 'country',
+    areasItem: 'areas',
+    publishItem: 'publish',
+    groupsItem: 'groups',
   },
 };
 
@@ -332,6 +344,14 @@ function slugFor(key) {
   return (TEMPLATES[key] && TEMPLATES[key].slug) || null;
 }
 
+/** The addresses the site links to (the templates' own): only forms admins
+ * may give them to a form, so nobody else can catch those answers. */
+function reservedSlugs() {
+  return Object.values(TEMPLATES)
+    .map((t) => t.slug)
+    .filter(Boolean);
+}
+
 function list() {
   return Object.entries(TEMPLATES).map(([key, t]) => ({ key, label: t.label }));
 }
@@ -341,4 +361,4 @@ function schemaFor(key, title) {
   return template.schema(title);
 }
 
-module.exports = { list, schemaFor, membershipFor, crmFor, slugFor };
+module.exports = { list, schemaFor, membershipFor, crmFor, slugFor, reservedSlugs };

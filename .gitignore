@@ -111,6 +111,10 @@ __pycache__/
 .meet-dev-db*/
 # Published content the local server hands to the build (server/content-build.js)
 _content-snapshot.json
+_community-snapshot.json
+_mentors-snapshot.json
+# Mentor photos the build writes from the published copy (server/mentors-build.js)
+src/assets/img/mentors/*-[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f].jpg
 
 # Local credentials (e.g. the Google OAuth client for scripts/meet-google-auth.js)
 .secrets/

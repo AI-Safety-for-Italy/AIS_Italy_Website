@@ -1,18 +1,19 @@
-/* /app/content/: the seminars and events on the site, coming ones first, and
- * the latest changes. */
+/* /app/content/seminars/, /app/content/events/: the seminars or the events
+ * on the site (data-type of #contentList), coming ones first, and the latest
+ * changes to them. */
 (function () {
   'use strict';
   var M = window.Meet;
   var h = M.h;
 
   var list = document.getElementById('contentList');
+  var type = list.getAttribute('data-type');
+  var plural = type === 'event' ? 'events' : 'seminars';
   list.appendChild(M.loading());
 
-  M.me
-    .then(function () {
-      return M.api('GET', '/api/app/content');
-    })
-    .then(function (data) {
+  Promise.all([M.me, M.api('GET', '/api/app/content?type=' + encodeURIComponent(type))])
+    .then(function (r) {
+      var data = r[1];
       var manage = data.permissions.indexOf('manage') !== -1;
       document.getElementById('notLive').hidden = data.live;
       document.getElementById('askToSwitch').hidden = manage;
@@ -36,8 +37,8 @@
           h(
             'div',
             { class: 'empty-state' },
-            h('h3', null, 'Nothing published from here yet'),
-            h('p', null, 'Seminars and events published with this tool are listed here.')
+            h('h3', null, 'No ' + plural + ' published from here yet'),
+            h('p', null, 'The ' + plural + ' published with this tool are listed here.')
           )
         );
       }
@@ -61,11 +62,7 @@
             'div',
             { class: 'empty-state' },
             h('h3', null, 'No access'),
-            h(
-              'p',
-              null,
-              err.message + '. Ask the Direttivo if you should publish seminars or events.'
-            )
+            h('p', null, err.message + '. Ask the Direttivo if you should publish ' + plural + '.')
           )
         );
         return;

@@ -67,7 +67,8 @@ function authorizeUrl({ state, redirectUri, scope = SCOPES }) {
 }
 
 async function getJson(fetchImpl, url, init, what) {
-  const res = await fetchImpl(url, init);
+  // Signing in waits on Discord: 10 seconds at most.
+  const res = await fetchImpl(url, { signal: AbortSignal.timeout(10_000), ...init });
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
     const err = new LoginError('failed', `${what} failed (${res.status})`);

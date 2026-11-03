@@ -55,7 +55,12 @@ async function setRoles(table) {
 }
 
 const TABLE = [
-  { roleId: 'r-direttivo', roleName: 'Direttivo', permissions: permissions.KEYS },
+  {
+    roleId: 'r-direttivo',
+    roleName: 'Direttivo',
+    // Every key a role can hold: some go to people only.
+    permissions: permissions.KEYS.filter((k) => !permissions.PEOPLE_ONLY.includes(k)),
+  },
   {
     roleId: 'r-communication',
     roleName: 'communication',
@@ -590,4 +595,66 @@ test('publishing starts the deploy workflow and tells the team channel', async (
       delete process.env[k];
     }
   }
+});
+
+test('the seminars and the events are listed apart, each for who may publish it', async () => {
+  await setRoles([{ roleId: 'r-events', roleName: 'Events', permissions: ['event'] }]);
+  const eva = await member('Eva', ['r-events']);
+  const api = require('./routes/app/content');
+  const get = async (url) => {
+    const res = {
+      statusCode: 200,
+      headers: {},
+      setHeader(k, v) {
+        this.headers[k] = v;
+      },
+      end(text) {
+        this.body = text ? JSON.parse(text) : null;
+      },
+    };
+    const headers = { cookie: `${auth.COOKIE}=${auth.makeSession(eva.id)}` };
+    await api({ method: 'GET', url, headers, socket: {} }, res);
+    return res;
+  };
+  assert.equal((await get('/api/app/content?type=event')).statusCode, 200);
+  assert.equal((await get('/api/app/content?type=seminar')).statusCode, 403);
+  assert.equal((await get('/api/app/content?type=other')).statusCode, 400);
+});
+
+test('each part of the content tool shows who can use it, to who can use it', async () => {
+  await setRoles([
+    { roleId: 'r-events', roleName: 'Events team', permissions: ['event'] },
+    { roleId: 'r-talks', roleName: 'Seminar team', permissions: ['seminar', 'manage'] },
+  ]);
+  const eva = await member('Eva', ['r-events']);
+  const accessApi = require('./routes/app/access');
+  const get = async (url) => {
+    const res = {
+      statusCode: 200,
+      headers: {},
+      setHeader(k, v) {
+        this.headers[k] = v;
+      },
+      end(text) {
+        this.body = text ? JSON.parse(text) : null;
+      },
+    };
+    const headers = { cookie: `${auth.COOKIE}=${auth.makeSession(eva.id)}` };
+    await accessApi({ method: 'GET', url, headers, socket: {} }, res);
+    return res;
+  };
+  const events = await get('/api/app/access?tool=content&section=events');
+  assert.deepEqual(events.body.access, [
+    { kind: 'role', name: 'Events team', what: 'Role: Events' },
+  ]);
+  assert.equal((await get('/api/app/access?tool=content&section=seminars')).statusCode, 403);
+  // The whole tool: who can publish something, by what.
+  const all = (await get('/api/app/access?tool=content')).body.access;
+  assert.deepEqual(
+    all.map((a) => [a.name, a.what]),
+    [
+      ['Events team', 'Role: Events'],
+      ['Seminar team', 'Role: Seminars'],
+    ]
+  );
 });

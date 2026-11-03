@@ -27,6 +27,8 @@
     },
   };
 
+  var linked = { it: 'it', en: 'en' }[new URLSearchParams(location.search).get('lang')] || null;
+
   function preferred(languages) {
     var saved = null;
     try {
@@ -40,6 +42,8 @@
       ? 'it'
       : 'en';
     if (saved && languages.indexOf(saved) !== -1) return saved;
+    // The site page the link came from (/it/ pages add ?lang=it).
+    if (languages.indexOf(linked) !== -1) return linked;
     if (languages.indexOf(browser) !== -1) return browser;
     return languages[0];
   }
@@ -90,7 +94,7 @@
     });
   }
 
-  var guess = /^it\b/i.test(navigator.language || '') ? 'it' : 'en';
+  var guess = linked || (/^it\b/i.test(navigator.language || '') ? 'it' : 'en');
   if (!slug) {
     M.formNotice(view, TEXT[guess].notFound, TEXT[guess].notFoundText, guess);
     return;

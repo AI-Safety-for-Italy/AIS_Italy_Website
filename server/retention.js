@@ -10,6 +10,9 @@
 //     were created. Those that came from a form go with their answer;
 //   - what the team wrote about a person on the board (notes, status, pairs)
 //     goes when their last record does.
+//   - a mentor's draft for the site (photo and bio) goes with their last
+//     record on the board;
+//   - the scores of the mentee selection go with the application they score.
 // Longer, only what a purpose needs:
 //   - approved applications stay as the record of who is a member and how
 //     they joined, but after 12 months the answers to the sign-up questions
@@ -59,12 +62,31 @@ async function cleanup() {
     [MONTHS, MONTHS_PARTICIPANTS]
   );
   const forgotten = await forgetUnlisted();
+  // A mentor's draft for the site (photo and bio) goes with their last record.
+  // Not while the board is empty (before the first import): nothing to match.
+  const { rows: any } = await db.query('select 1 from crm_records limit 1');
+  const siteDrafts = any.length
+    ? await db.query(
+        `delete from crm_site_profiles p
+         where not exists (select 1 from crm_records r where r.person_key = p.person_key)
+         returning p.person_key`
+      )
+    : { rows: [] };
+  // The mentee selection's scores go with the application they score.
+  const reviewScores = await db.query(
+    `delete from review_scores s
+     where not exists (select 1 from crm_records r
+                       where r.person_key = s.person_key and r.source = 'mentees_applications')
+     returning s.person_key`
+  );
   const counts = {
     answers: answers.rows.length,
     applications: applications.rows.length,
     approvedTrimmed: trimmed,
     boardRecords: boardRecords.rows.length,
     boardNotes: forgotten,
+    siteDrafts: siteDrafts.rows.length,
+    reviewScores: reviewScores.rows.length,
   };
   await audit.record({ id: null, name: 'retention job' }, 'retention-cleanup', null, {
     months: MONTHS,

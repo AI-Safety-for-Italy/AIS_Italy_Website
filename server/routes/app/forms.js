@@ -4,6 +4,9 @@
 //   GET    ?id=…                -> one form for the editor
 //   GET    ?id=…&view=responses -> its answers, decrypted (audited)
 //   GET    ?id=…&view=export    -> the answers as a CSV file (managers, audited)
+//   GET    ?id=…&people=<name>  -> Discord members to add to the readers (managers)
+//   PUT    ?id=…&part=notify-me { on }      -> this user hears of new answers, or not
+//   PUT    ?id=…&part=tags { add } | { remove } -> the tags the answers can carry
 //   POST   { title, schema? }   -> a new draft  -> { id, slug }
 //   PUT    ?id=…&part=schema    { schema }      -> { version }
 //   PUT    ?id=…&part=settings  { status, opensAt, closesAt, slug, settings, accessRoles }
@@ -26,11 +29,13 @@ async function signedIn(req) {
 module.exports = route({
   async GET(req, res) {
     const user = await signedIn(req);
-    const { id, view, meta } = getQuery(req);
+    const { id, view, meta, people } = getQuery(req);
     if (meta) {
       sendJson(res, 200, await forms.meta(user));
     } else if (!id) {
       sendJson(res, 200, { forms: await forms.list(user) });
+    } else if (people !== undefined) {
+      sendJson(res, 200, await forms.searchPeople(user, id, people));
     } else if (view === 'responses') {
       sendJson(res, 200, await forms.responses(user, id));
     } else if (view === 'export') {
@@ -54,6 +59,9 @@ module.exports = route({
     const body = await readJson(req);
     if (part === 'schema') sendJson(res, 200, await forms.saveSchema(user, id, body.schema));
     else if (part === 'settings') sendJson(res, 200, await forms.updateSettings(user, id, body));
+    else if (part === 'notify-me')
+      sendJson(res, 200, await forms.setNotifyMe(user, id, Boolean(body.on)));
+    else if (part === 'tags') sendJson(res, 200, await forms.editTags(user, id, body));
     else if (part === 'response')
       sendJson(res, 200, await forms.setResponseStatus(user, id, response, body.status));
     else throw new HttpError(400, 'Which part?');

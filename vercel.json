@@ -1,6 +1,14 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": "_site",
+  "git": {
+    "deploymentEnabled": {
+      "main": false,
+      "dev": false,
+      "design-improvements": false
+    }
+  },
+  "regions": ["fra1"],
   "headers": [
     {
       "source": "/robots.txt",
@@ -43,6 +51,24 @@
       ]
     },
     {
+      "source": "/assets/(css|js)/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/assets/(img|fonts)/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=86400"
+        }
+      ]
+    },
+    {
       "source": "/api/(.*)",
       "headers": [
         {
@@ -71,6 +97,11 @@
   ],
   "devCommand": "npm start",
   "redirects": [
+    {
+      "source": "/app/polls/settings/",
+      "destination": "/app/settings/mail/",
+      "permanent": true
+    },
     {
       "source": "/app/content/permissions/",
       "destination": "/app/settings/permissions/",
@@ -122,7 +153,7 @@
   "functions": {
     "api/app.js": {
       "maxDuration": 60,
-      "includeFiles": "data/events.yaml"
+      "includeFiles": "data/*.yaml"
     },
     "api/poll.js": {
       "maxDuration": 30

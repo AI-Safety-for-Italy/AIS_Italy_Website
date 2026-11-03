@@ -44,20 +44,19 @@
 
   function load() {
     list.appendChild(M.loading());
-    M.me
-      .then(function () {
-        return M.api('GET', '/api/app/members');
-      })
-      .then(function (d) {
+    Promise.all([M.me, M.api('GET', '/api/app/members')])
+      .then(function (r) {
+        var d = r[1];
         data = d;
         var missing = [];
-        if (!d.mailReady) missing.push('email sending (admin → General settings)');
+        if (!d.mailReady) missing.push('email sending (admin → Settings → Mail settings)');
         d.roles.forEach(function (r) {
           if (!r.ready) missing.push('the Discord id of the ' + r.label + ' role');
         });
         document.getElementById('setupNote').hidden = !missing.length;
         document.getElementById('setupText').textContent =
           'Approving needs ' + missing.join(' and ') + ', which is not set up yet.';
+        follow(d.following);
         render();
       })
       .catch(function (err) {
@@ -131,7 +130,9 @@
 
   function row(a) {
     var meta = [a.email, 'Applied ' + when(a.createdAt)];
-    if (a.requestedRole) meta.push('Asks: ' + roleLabel(a.requestedRole));
+    if (a.kind === 'upgrade')
+      meta = ['On Discord as ' + (a.discordName || a.name), 'Asked ' + when(a.createdAt)];
+    else if (a.requestedRole) meta.push('Asks: ' + roleLabel(a.requestedRole));
     var head = h(
       'button',
       {
@@ -159,7 +160,17 @@
       h(
         'div',
         { class: 'poll-item-side' },
-        a.duplicates
+        a.kind === 'upgrade'
+          ? h(
+              'span',
+              {
+                class: 'badge badge-upgrade',
+                title: 'A participant asking to become an organizer',
+              },
+              'Upgrade'
+            )
+          : null,
+        a.duplicates && a.kind !== 'upgrade'
           ? h('span', { class: 'panel-note' }, 'Applied ' + (a.duplicates + 1) + ' times')
           : null,
         badge(a)
@@ -185,7 +196,52 @@
     return box;
   }
 
+  // The working groups as tags, under the role: each click puts the person
+  // in the group or takes them out. Precompiled from the form; who
+  // coordinates is chosen on Working groups. On Discord the groups become roles, never
+  // permissions here.
+  function tagPicker(start) {
+    var tags = {};
+    (start || []).forEach(function (t) {
+      tags[t.group] = true;
+    });
+    var box = h('div', { class: 'tag-picker', role: 'group', 'aria-label': 'Working groups' });
+    function draw() {
+      M.clear(box);
+      (data.groups || []).forEach(function (g) {
+        var on = Boolean(tags[g.id]);
+        box.appendChild(
+          h(
+            'button',
+            {
+              type: 'button',
+              class: 'tag-chip' + (on ? ' is-stable' : ''),
+              'aria-pressed': String(on),
+              onclick: function () {
+                if (on) delete tags[g.id];
+                else tags[g.id] = true;
+                draw();
+              },
+            },
+            g.title
+          )
+        );
+      });
+    }
+    draw();
+    return {
+      node: box,
+      value: function () {
+        return Object.keys(tags).map(function (group) {
+          return { group: group, level: 'stable' };
+        });
+      },
+    };
+  }
+
   function decideForm(a) {
+    var tags = tagPicker(a.tags);
+    var upgrade = a.kind === 'upgrade';
     var group = h('div', {
       class: 'choice-group',
       role: 'radiogroup',
@@ -205,7 +261,7 @@
     var approve = h(
       'button',
       { type: 'button', class: 'btn btn-primary btn-sm' },
-      'Approve and send the Discord link'
+      upgrade ? 'Approve: make them an organizer' : 'Approve and send the Discord link'
     );
     var reject = h('button', { type: 'button', class: 'btn btn-outline btn-sm' }, 'Reject');
 
@@ -216,7 +272,8 @@
       approve.disabled = reject.disabled = true;
       M.api('POST', '/api/app/members?action=decide&id=' + encodeURIComponent(a.id), {
         decision: decision,
-        role: picked && picked.value,
+        role: upgrade ? 'organizer' : picked && picked.value,
+        tags: tags.value(),
         note: note.value,
       })
         .then(function (r) {
@@ -224,12 +281,14 @@
           M.toast(
             decision === 'reject'
               ? 'Rejected.'
+              : upgrade
+              ? a.name + ' is now an organizer.'
               : r.invite.sent
               ? 'Approved: the link is on its way to ' + a.email + '.'
               : 'Approved, but the email was not sent (' +
                 r.invite.detail +
                 '). Use “Send the link again”.',
-            decision === 'approve' && !r.invite.sent
+            decision === 'approve' && !upgrade && !r.invite.sent
           );
         })
         .catch(function (err) {
@@ -247,8 +306,15 @@
     return h(
       'div',
       null,
-      h('p', { class: 'form-label' }, 'Discord role'),
-      group,
+      upgrade ? null : h('p', { class: 'form-label' }, 'Discord role'),
+      upgrade ? null : group,
+      h(
+        'p',
+        { class: 'form-label', style: 'margin-top:.9rem' },
+        'Working groups',
+        h('span', { class: 'panel-note' }, ' · tags on Discord, not permissions here')
+      ),
+      tags.node,
       h('div', { style: 'margin:.75rem 0' }, note),
       h('div', { class: 'wk-nav' }, approve, a.status === 'pending' ? reject : null)
     );
@@ -321,4 +387,27 @@
   }
 
   load();
+  // "Notify me": told about new applications (and counted on the home
+  // page) only when following the board. Null: no channel of one's own.
+  function follow(on) {
+    var box = document.getElementById('followBoard');
+    var input = document.getElementById('followInput');
+    box.hidden = on === null || on === undefined;
+    input.checked = Boolean(on);
+    input.onchange = function () {
+      input.disabled = true;
+      M.api('POST', '/api/app/members?action=follow', { on: input.checked })
+        .then(function (r) {
+          M.toast(r.following ? 'You will hear about new applications' : 'Notifications off');
+        })
+        .catch(function (err) {
+          input.checked = !input.checked;
+          if (err.status === 401) return M.appError(err);
+          M.toast(err.message, true);
+        })
+        .then(function () {
+          input.disabled = false;
+        });
+    };
+  }
 })();

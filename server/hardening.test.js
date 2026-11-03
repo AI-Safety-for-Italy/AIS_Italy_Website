@@ -307,28 +307,37 @@ test('without manage, the permissions page is refused', async () => {
 
 // ── 3. The admin password and personal data in production ──────────────────
 
-test('in production the admin password opens content and permissions, not personal data', async () => {
-  const root = await admin();
-  assert.ok((await permissions.forUser(root)).includes('forms_admin'));
-  process.env.VERCEL_ENV = 'preview';
-  assert.ok((await permissions.forUser(root)).includes('members'));
-  process.env.VERCEL_ENV = 'production';
-  const perms = await permissions.forUser(root);
-  assert.ok(perms.includes('manage'));
-  for (const key of [
-    'mentorship',
-    'people',
-    'finance',
-    'crm_admin',
-    'forms',
-    'forms_admin',
-    'members',
-  ]) {
-    assert.ok(!perms.includes(key), key);
-  }
-  const info = (await call(authApi, { url: '/api/auth', user: root })).body;
-  assert.deepEqual(info.areas, { content: true, crm: false, forms: false, members: false });
-});
+for (const env of ['production', 'preview']) {
+  test(`on Vercel (${env}) the admin password opens content and permissions, not personal data`, async () => {
+    const root = await admin();
+    assert.ok((await permissions.forUser(root)).includes('forms_admin'));
+    process.env.VERCEL = '1';
+    process.env.VERCEL_ENV = env;
+    const perms = await permissions.forUser(root);
+    assert.ok(perms.includes('manage'));
+    for (const key of [
+      'mentorship',
+      'people',
+      'finance',
+      'crm_admin',
+      'forms',
+      'forms_admin',
+      'members',
+    ]) {
+      assert.ok(!perms.includes(key), key);
+    }
+    const info = (await call(authApi, { url: '/api/auth', user: root })).body;
+    assert.deepEqual(info.areas, {
+      content: true,
+      crm: false,
+      forms: false,
+      members: false,
+      community: false,
+      review: false,
+      upgrade: false,
+    });
+  });
+}
 
 // ── 6. The private pages cannot be framed by another site ──────────────────
 
@@ -471,4 +480,129 @@ test('/api/app/* reaches each handler through one function, on Vercel and locall
   assert.equal(res.statusCode, 404);
   const vercel = require('../vercel.json');
   assert.ok(vercel.rewrites.some((r) => r.source === '/api/app/:route*'));
+});
+
+// ── Speed: what a request costs ──────────────────────────────────────────────
+
+test('an API answer says how long it took and how many queries it made', async () => {
+  const appApi = require('../api/app');
+  await db.query(
+    `insert into content_role_permissions (role_id, role_name, permissions)
+     values ('r-team', 'Team', '{members,forms}')`
+  );
+  const user = await auth.upsertDiscordUser({
+    discordId: 'd-team',
+    name: 'Team',
+    roles: ['r-team'],
+  });
+  const res = await call(appApi, { url: '/api/app/overview', user });
+  assert.equal(res.statusCode, 200);
+  const timing = res.headers['Server-Timing'];
+  assert.match(timing, /^total;dur=[\d.]+, db;dur=[\d.]+;desc="\d+ queries"/);
+  // The user's row is read once and reused by the permission checks: the
+  // sign-in, the permissions, then the three counts (polls, forms, members).
+  assert.equal(Number(/"(\d+) queries"/.exec(timing)[1]), 5);
+});
+
+test('a slow Discord does not hold a request: the stored roles stand', async () => {
+  process.env.DISCORD_BOT_TOKEN_AIS_TEAM_AREA = 'bot';
+  process.env.DISCORD_GUILD_ID = 'guild1';
+  // What a timeout looks like to the code: fetch rejects.
+  permissions.setFetch(() =>
+    Promise.reject(Object.assign(new Error('timeout'), { name: 'TimeoutError' }))
+  );
+  const user = await auth.upsertDiscordUser({
+    discordId: 'd-slow',
+    name: 'Slow',
+    roles: ['r-old'],
+  });
+  await permissions.refreshRoles(user);
+  assert.deepEqual(await permissions.rolesOf(user), ['r-old']);
+  await assert.rejects(permissions.guildRoles(), (err) => err.status === 502);
+  delete process.env.DISCORD_GUILD_ID;
+});
+
+// ── 8. A permission since retired does not block saving the table ──────────
+
+test('a key no longer known, still stored on a role, is dropped, not refused', async () => {
+  const root = await admin();
+  await db.query(
+    `insert into content_role_permissions (role_id, role_name, permissions)
+     values ('r-old', 'Direttivo', '{forms,forms_admin,forms_notify}')`
+  );
+  const [row] = await permissions.listRolePermissions();
+  assert.deepEqual(row.permissions, ['forms', 'forms_admin']);
+  // The page sends back what it was given, minus one key: saved.
+  await permissions.savePermissions(
+    { roles: [{ ...row, permissions: ['forms'] }], people: [] },
+    root
+  );
+  assert.deepEqual((await permissions.listRolePermissions())[0].permissions, ['forms']);
+});
+
+test('the Permissions page tells the association’s roles apart, and each person’s roles', async () => {
+  const permissionsApi = require('./routes/app/permissions');
+  process.env.DISCORD_ROLE_PARTICIPANT = '900';
+  await permissions.saveRolePermissions([
+    { roleId: '900', roleName: 'Members (renamed)', permissions: ['seminar'] },
+    { roleId: 'r-dir', roleName: 'Direttivo', permissions: ['event'] },
+    { roleId: 'r-sem', roleName: 'Seminari', permissions: ['forms'] },
+  ]);
+  const ugo = await member('Ugo', ['r-dir', 'r-sem']);
+  await permissions.savePermissions(
+    {
+      roles: await permissions.listRolePermissions(),
+      people: [{ userId: ugo.id, permissions: ['forms'] }],
+    },
+    await admin()
+  );
+  const res = await call(permissionsApi, { url: '/api/app/permissions', user: await admin() });
+  assert.deepEqual(
+    res.body.table.map((r) => [r.roleName, r.main, r.rank]),
+    [
+      ['Direttivo', true, 1],
+      ['Members (renamed)', true, 3],
+      ['Seminari', false, -1],
+    ]
+  );
+  assert.deepEqual(res.body.people.find((p) => p.name === 'Ugo').roles, ['r-dir', 'r-sem']);
+  delete process.env.DISCORD_ROLE_PARTICIPANT;
+});
+
+test('the Permissions page reads again from Discord the roles people hold now', async () => {
+  const permissionsApi = require('./routes/app/permissions');
+  await permissions.saveRolePermissions([
+    { roleId: '901', roleName: 'Direttivo', permissions: ['event'] },
+  ]);
+  const ugo = await member('Ugo', ['901']);
+  await permissions.savePermissions(
+    {
+      roles: await permissions.listRolePermissions(),
+      people: [{ userId: ugo.id, permissions: ['forms'] }],
+    },
+    await admin()
+  );
+  // On Discord, Ugo is no longer Direttivo; the server's list says so.
+  Object.assign(process.env, { DISCORD_BOT_TOKEN_AIS_TEAM_AREA: 'bot', DISCORD_GUILD_ID: 'g1' });
+  const { rows } = await db.query('select discord_id from app_users where id = $1', [ugo.id]);
+  permissions.setFetch(async (url) => {
+    if (/\/members\?limit=1000/.test(url))
+      return {
+        ok: true,
+        status: 200,
+        json: async () => [{ user: { id: rows[0].discord_id }, roles: ['555'] }],
+      };
+    if (/\/roles$/.test(url)) return { ok: true, status: 200, json: async () => [] };
+    return { ok: false, status: 404, json: async () => ({}) };
+  });
+  try {
+    const res = await call(permissionsApi, { url: '/api/app/permissions', user: await admin() });
+    assert.deepEqual(res.body.people.find((p) => p.name === 'Ugo').roles, ['555']);
+  } finally {
+    delete process.env.DISCORD_BOT_TOKEN_AIS_TEAM_AREA;
+    delete process.env.DISCORD_GUILD_ID;
+    permissions.setFetch(() => {
+      throw new Error('no network in tests');
+    });
+  }
 });

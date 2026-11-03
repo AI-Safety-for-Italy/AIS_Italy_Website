@@ -15,9 +15,11 @@ const {
 } = require('../server/http');
 const crypto = require('../server/crm/crypto');
 const forms = require('../server/forms/forms');
+const members = require('../server/members');
 
-// The owner's notification goes out before answering (a Vercel function may
-// be frozen once it has replied), but never holds the person up for long.
+// The owner's notification and the person's copy of their answers go out
+// before answering (a Vercel function may be frozen once it has replied), but
+// never hold the person up for long, and never fail the answer.
 const NOTIFY_BUDGET_MS = 8000;
 
 function ready() {
@@ -37,9 +39,20 @@ module.exports = route({
     if (result.formId) {
       let timer;
       await Promise.race([
-        forms
-          .notifyOwner(result.formId, siteUrl(req))
-          .catch((err) => console.error('Notification failed', err)),
+        Promise.all([
+          forms
+            .notifyOwner(result.formId, siteUrl(req))
+            .catch((err) => console.error('Notification failed', err)),
+          forms
+            .sendCopy(result.copy, siteUrl(req))
+            .catch((err) => console.error('Copy failed', err)),
+          // A sign-up: whoever follows the member applications hears of it.
+          result.application
+            ? members
+                .notifyFollowers(siteUrl(req))
+                .catch((err) => console.error('Notification failed', err))
+            : null,
+        ]),
         new Promise((resolve) => (timer = setTimeout(resolve, NOTIFY_BUDGET_MS))),
       ]);
       clearTimeout(timer);

@@ -8,7 +8,17 @@
 // Both expose `query(text, params) -> { rows }`, which is all the rest of the
 // server code relies on.
 
+const crypto = require('crypto');
+const { AsyncLocalStorage } = require('async_hooks');
 const SCHEMA = require('./schema');
+
+// Which version of schema.js the database already has: running ~70 DDL
+// statements (some take table locks) on every cold start made the first
+// request of each instance slow, so they run only when schema.js changes.
+const SCHEMA_VERSION = crypto.createHash('sha256').update(SCHEMA).digest('hex').slice(0, 16);
+
+// Per-request counters for the Server-Timing header (server/timing.js).
+const requestStats = new AsyncLocalStorage();
 
 let db = null;
 let schemaReady = null;
@@ -26,22 +36,40 @@ function getDb() {
   const url = process.env.MEET_DATABASE_URL || process.env.DATABASE_URL;
   if (!url) throw new Error('DATABASE_URL is not set');
   const { Pool } = require('pg');
-  // A serverless instance handles one request at a time, so a couple of
-  // connections is plenty; Neon's pooler absorbs the churn between instances.
-  db = new Pool({ connectionString: url, max: 2, idleTimeoutMillis: 10_000 });
+  // Connections stay open between clicks (a new one costs TCP, TLS and the
+  // login: several round trips); a few, so Promise.all really runs in
+  // parallel. Neon's pooler absorbs the connections of many instances.
+  db = new Pool({ connectionString: url, max: 5, idleTimeoutMillis: 5 * 60_000 });
   return db;
 }
 
-// The schema is idempotent DDL, applied once per process on first use, so a
-// fresh database needs no separate migration step.
+/** The version of the schema the database has, or null (never applied). */
+async function appliedVersion(conn) {
+  try {
+    const { rows } = await conn.query('select version from schema_version limit 1');
+    return rows[0] ? rows[0].version : null;
+  } catch {
+    return null; // no schema_version table yet
+  }
+}
+
+// The schema is idempotent DDL, so a fresh database needs no separate
+// migration step. Each process checks the version first (one query) and runs
+// the DDL only when schema.js has changed since it was last applied.
 function ensureSchema() {
   if (!schemaReady) {
     schemaReady = (async () => {
       const conn = getDb();
+      if ((await appliedVersion(conn)) === SCHEMA_VERSION) return;
+      // In the same batch as the DDL, so under its advisory lock.
+      const batch = `${SCHEMA}
+create table if not exists schema_version (version text not null);
+delete from schema_version;
+insert into schema_version (version) values ('${SCHEMA_VERSION}');`;
       // PGlite runs a multi-statement string through exec(); pg's simple query
       // protocol accepts one in query() as long as there are no parameters.
-      if (typeof conn.exec === 'function') await conn.exec(SCHEMA);
-      else await conn.query(SCHEMA);
+      if (typeof conn.exec === 'function') await conn.exec(batch);
+      else await conn.query(batch);
     })().catch((err) => {
       schemaReady = null;
       throw err;
@@ -52,7 +80,15 @@ function ensureSchema() {
 
 async function query(text, params = []) {
   await ensureSchema();
-  return getDb().query(text, params);
+  const stats = requestStats.getStore();
+  if (!stats) return getDb().query(text, params);
+  const started = performance.now();
+  try {
+    return await getDb().query(text, params);
+  } finally {
+    stats.queries++;
+    stats.dbMs += performance.now() - started;
+  }
 }
 
 /**
@@ -79,4 +115,4 @@ async function transaction(fn) {
   }
 }
 
-module.exports = { query, transaction, setDb, ensureSchema };
+module.exports = { query, transaction, setDb, ensureSchema, requestStats, SCHEMA_VERSION };

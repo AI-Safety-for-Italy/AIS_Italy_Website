@@ -10,10 +10,14 @@
 // /api/app?__route=<route>; the local server (scripts/meet-dev.js) calls this
 // file with the original path. A new tool adds its handler below.
 const { sendJson } = require('../server/http');
+const { withTiming } = require('../server/timing');
 
 const ROUTES = {
+  access: require('../server/routes/app/access'),
+  community: require('../server/routes/app/community'),
   content: require('../server/routes/app/content'),
   'crm/mentorship': require('../server/routes/app/crm/mentorship'),
+  'crm/review': require('../server/routes/app/crm/review'),
   forms: require('../server/routes/app/forms'),
   members: require('../server/routes/app/members'),
   overview: require('../server/routes/app/overview'),
@@ -31,13 +35,13 @@ function routeOf(req) {
   return name.replace(/\/+$/, '');
 }
 
-module.exports = (req, res) => {
+module.exports = withTiming((req, res) => {
   const handler = Object.prototype.hasOwnProperty.call(ROUTES, routeOf(req))
     ? ROUTES[routeOf(req)]
     : null;
   if (!handler) return sendJson(res, 404, { error: 'Not found' });
   return handler(req, res);
-};
+});
 
 module.exports.routeOf = routeOf;
 module.exports.ROUTES = ROUTES;

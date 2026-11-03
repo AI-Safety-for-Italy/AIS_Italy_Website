@@ -8,6 +8,8 @@ const { isEmail } = require('./email');
 const mail = require('./mail');
 const recurrence = require('./recurrence');
 const { HttpError } = require('./http');
+const permissions = require('./permissions');
+const notify = require('./notify');
 
 const VOTE = { NO: 0, MAYBE: 1, YES: 2 };
 const MAX_SLOTS = 200;
@@ -160,6 +162,181 @@ async function loadSlotsAndVotes(pollId) {
   return { slots, responses, byResponse, counts };
 }
 
+// ── Sharing ──────────────────────────────────────────────────────────────────
+// A poll is its owner's; they may share it with Discord roles and people by
+// name, who then see it and its answers (not the voters' emails) and change
+// nothing. Seeing a poll is not following it: each one turns "Notify me" on
+// for themselves (the owner's is the poll's `notify`).
+
+const MAX_SHARED = 25;
+const SHARE_ID = /^[\w-]{1,40}$/;
+
+/** Who is asking: { roles, discordId }, from the row of this request when read. */
+async function whoIs(user) {
+  if (!user || user.kind !== 'discord') return { roles: [], discordId: null };
+  const roles = await permissions.rolesOf(user);
+  if (user.row) return { roles, discordId: user.row.discord_id || null };
+  const { rows } = await db.query('select discord_id from app_users where id = $1', [user.id]);
+  return { roles, discordId: (rows[0] && rows[0].discord_id) || null };
+}
+
+function sharedWith(poll, who) {
+  const roles = (poll.share_roles || []).map((r) => r.id);
+  if (roles.some((r) => who.roles.includes(r))) return true;
+  return (
+    Boolean(who.discordId) && (poll.share_people || []).some((p) => p.discordId === who.discordId)
+  );
+}
+
+function canRead(poll, user, who) {
+  return poll.owner_id === user.id || sharedWith(poll, who);
+}
+
+/** Whether this user hears of new answers: null when they cannot (no channel). */
+function notifyMeOf(poll, user, who) {
+  if (poll.owner_id === user.id) return Boolean(poll.notify);
+  if (user.kind !== 'discord' || !who.discordId) return null;
+  return (poll.notify_choices || {})[who.discordId] === true;
+}
+
+/** A poll this user may see, owner or shared; anyone else's answers 404. */
+async function loadReadablePoll(id, user) {
+  const poll = await loadPoll('id', uuid(id));
+  const who = await whoIs(user);
+  if (!canRead(poll, user, who)) throw new HttpError(404, 'Poll not found');
+  return { poll, who };
+}
+
+function cleanShare(body) {
+  const b = body || {};
+  const list = (value, key, field) => {
+    if (value === undefined) return undefined;
+    if (!Array.isArray(value)) throw new HttpError(400, 'Expected a list', { field });
+    const seen = new Set();
+    const out = [];
+    for (const item of value) {
+      const id = String((item && item[key]) || '');
+      if (!SHARE_ID.test(id)) throw new HttpError(400, 'Unknown entry', { field });
+      if (seen.has(id)) continue;
+      seen.add(id);
+      out.push({
+        [key]: id,
+        name: String((item && item.name) || id)
+          .trim()
+          .slice(0, 100),
+      });
+    }
+    if (out.length > MAX_SHARED) throw new HttpError(400, `At most ${MAX_SHARED}`, { field });
+    return out;
+  };
+  return { roles: list(b.roles, 'id', 'roles'), people: list(b.people, 'discordId', 'people') };
+}
+
+/** Who the poll is shared with (owner only): { roles, people } as saved. */
+async function setSharing(id, body, ownerId) {
+  const poll = await loadOwnPoll(id, ownerId);
+  const next = cleanShare(body);
+  await db.query(
+    `update polls set share_roles = $2, share_people = $3, updated_at = now() where id = $1`,
+    [
+      poll.id,
+      JSON.stringify(next.roles === undefined ? poll.share_roles : next.roles),
+      JSON.stringify(next.people === undefined ? poll.share_people : next.people),
+    ]
+  );
+  return getPollAdmin(poll.id, ownerId);
+}
+
+/** Switches this user's own notifications for one poll they see. */
+async function setNotifyMe(id, user, on) {
+  const { poll, who } = await loadReadablePoll(id, user);
+  if (notifyMeOf(poll, user, who) === null)
+    throw new HttpError(400, 'This account has no channel to be told on');
+  if (poll.owner_id === user.id) {
+    await db.query('update polls set notify = $2 where id = $1', [poll.id, Boolean(on)]);
+  } else {
+    const choices = { ...(poll.notify_choices || {}), [who.discordId]: Boolean(on) };
+    await db.query('update polls set notify_choices = $2 where id = $1', [
+      poll.id,
+      JSON.stringify(choices),
+    ]);
+  }
+  return { id: poll.id, notifyMe: Boolean(on) };
+}
+
+/**
+ * Tells whoever follows the poll about something new on it: the owner
+ * (unless they switched it off), and those it is shared with who switched it
+ * on and still see it, each on their own channels. Returns the channels used.
+ */
+async function notifyFollowers(pollId, message) {
+  const poll = await loadPoll('id', uuid(pollId));
+  const used = new Set();
+  const add = async (fn) => {
+    try {
+      (await fn()).forEach((c) => used.add(c));
+    } catch (err) {
+      console.error('Notification failed', err.message);
+    }
+  };
+  if (poll.notify && poll.owner_id) await add(() => notify.notifyUser(poll.owner_id, message));
+  for (const [discordId, on] of Object.entries(poll.notify_choices || {})) {
+    if (!on) continue;
+    const { rows } = await db.query('select id, kind from app_users where discord_id = $1', [
+      discordId,
+    ]);
+    if (!rows[0] || rows[0].id === poll.owner_id) continue;
+    const reader = { id: rows[0].id, kind: rows[0].kind };
+    const who = { roles: await permissions.rolesOf(reader), discordId };
+    if (!sharedWith(poll, who)) continue;
+    await add(() => notify.notifyUser(reader.id, message));
+  }
+  return [...used];
+}
+
+/** Members of the Discord server to share a poll with (its owner only). */
+async function searchPeople(id, ownerId, query) {
+  await loadOwnPoll(id, ownerId);
+  return { people: await permissions.searchMembers(query) };
+}
+
+/** Who can see a poll, for the faces on its card: [{ kind, name, avatarUrl, what }]. */
+function accessOf(poll, owners) {
+  const owner = owners[poll.owner_id];
+  const choices = poll.notify_choices || {};
+  const out = [];
+  if (owner) {
+    out.push({
+      kind: 'person',
+      name: owner.name,
+      avatarUrl: owner.avatar_url,
+      what: 'Owner' + (poll.notify ? ' · notified' : ''),
+    });
+  }
+  (poll.share_people || []).forEach((p) =>
+    out.push({
+      kind: 'person',
+      name: p.name,
+      avatarUrl: owners[`d:${p.discordId}`] || null,
+      what: 'Sees the poll' + (choices[p.discordId] === true ? ' · notified' : ''),
+    })
+  );
+  (poll.share_roles || []).forEach((r) =>
+    out.push({ kind: 'role', name: r.name, what: 'Role: sees the poll' })
+  );
+  return out;
+}
+
+/** The polls this user sees, with whether they follow each: for Settings. */
+async function followable(user) {
+  const who = await whoIs(user);
+  const { rows } = await db.query('select * from polls order by created_at desc');
+  return rows
+    .filter((p) => canRead(p, user, who))
+    .map((p) => ({ id: p.id, title: p.title, notifyMe: notifyMeOf(p, user, who) }))
+    .filter((p) => p.notifyMe !== null);
+}
+
 function describe(poll) {
   return {
     id: poll.id,
@@ -189,7 +366,14 @@ function slotList(slots, counts, durationMinutes) {
   }));
 }
 
-async function listPolls(ownerId) {
+/**
+ * The polls this user sees, newest first: their own, and those shared with
+ * them (`user` may be just an id: then only their own). Each says whether
+ * they manage it, follow it, and who else sees it.
+ */
+async function listPolls(userOrId) {
+  const user = typeof userOrId === 'string' ? { id: userOrId, kind: 'discord' } : userOrId;
+  const who = typeof userOrId === 'string' ? { roles: [], discordId: null } : await whoIs(user);
   const { rows } = await db.query(
     `select p.*,
        (select count(*)::int from poll_responses r where r.poll_id = p.id) as response_count,
@@ -197,9 +381,30 @@ async function listPolls(ownerId) {
        (select min(starts_at) from poll_slots s where s.poll_id = p.id) as first_slot,
        (select max(starts_at) from poll_slots s where s.poll_id = p.id) as last_slot,
        (select starts_at from poll_slots s where s.id = p.final_slot_id) as final_start
-     from polls p where p.owner_id = $1 order by p.created_at desc`,
-    [uuid(ownerId, 'owner')]
+     from polls p
+     where p.owner_id = $1
+        or p.share_roles @> any (select jsonb_build_array(jsonb_build_object('id', r)) from unnest($2::text[]) r)
+        or ($3::text is not null and p.share_people @> jsonb_build_array(jsonb_build_object('discordId', $3::text)))
+     order by p.created_at desc`,
+    [uuid(user.id, 'owner'), who.roles, who.discordId]
   );
+  // The faces: owners by id, and the avatars of people shared with.
+  const owners = {};
+  const ownerIds = [...new Set(rows.map((p) => p.owner_id).filter(Boolean))];
+  const sharedIds = [
+    ...new Set(rows.flatMap((p) => (p.share_people || []).map((x) => x.discordId))),
+  ];
+  if (ownerIds.length || sharedIds.length) {
+    const { rows: users } = await db.query(
+      `select id, name, avatar_url, discord_id from app_users
+       where id = any($1::uuid[]) or discord_id = any($2::text[])`,
+      [ownerIds, sharedIds]
+    );
+    users.forEach((u) => {
+      owners[u.id] = u;
+      if (u.discord_id) owners[`d:${u.discord_id}`] = u.avatar_url;
+    });
+  }
   return rows.map((p) => ({
     ...describe(p),
     responseCount: p.response_count,
@@ -207,15 +412,21 @@ async function listPolls(ownerId) {
     firstSlot: p.first_slot && new Date(p.first_slot).toISOString(),
     lastSlot: p.last_slot && new Date(p.last_slot).toISOString(),
     finalStart: p.final_start && new Date(p.final_start).toISOString(),
+    canManage: p.owner_id === user.id,
+    notifyMe: notifyMeOf(p, user, who),
+    access: accessOf(p, owners),
   }));
 }
-
 /** Everything about a poll, emails included, for its owner. */
 async function getPollAdmin(id, ownerId) {
   const poll = await loadOwnPoll(id, ownerId);
   const { slots, responses, byResponse, counts } = await loadSlotsAndVotes(poll.id);
   return {
     ...describe(poll),
+    canManage: true,
+    notifyMe: Boolean(poll.notify),
+    shareRoles: poll.share_roles || [],
+    sharePeople: poll.share_people || [],
     finalSlotId: poll.final_slot_id,
     slots: slotList(slots, counts, poll.duration_minutes),
     responses: responses.map((r) => ({
@@ -230,6 +441,34 @@ async function getPollAdmin(id, ownerId) {
   };
 }
 
+/**
+ * A poll for whoever may see it: everything for its owner (getPollAdmin);
+ * for those it is shared with, the poll and the answers, without the
+ * voters' emails, the guests or the links that let people vote.
+ */
+async function getPollFor(id, user) {
+  const { poll, who } = await loadReadablePoll(id, user);
+  if (poll.owner_id === user.id) return getPollAdmin(poll.id, user.id);
+  const { slots, responses, byResponse, counts } = await loadSlotsAndVotes(poll.id);
+  const { rows } = await db.query('select name from app_users where id = $1', [poll.owner_id]);
+  const { token, ...rest } = describe(poll); // eslint-disable-line no-unused-vars
+  return {
+    ...rest,
+    canManage: false,
+    notifyMe: notifyMeOf(poll, user, who),
+    ownerName: rows[0] ? rows[0].name : null,
+    finalSlotId: poll.final_slot_id,
+    slots: slotList(slots, counts, poll.duration_minutes),
+    responses: responses.map((r) => ({
+      id: r.id,
+      name: r.name,
+      votes: byResponse.get(r.id),
+      updatedAt: new Date(r.updated_at).toISOString(),
+    })),
+    invites: [],
+    invitedToMeeting: [],
+  };
+}
 async function listInvites(pollId) {
   const { rows } = await db.query(
     `select id, email, response_id, sent_at, send_error from poll_invites
@@ -745,6 +984,12 @@ module.exports = {
   isOpen,
   listPolls,
   getPollAdmin,
+  getPollFor,
+  setSharing,
+  setNotifyMe,
+  notifyFollowers,
+  searchPeople,
+  followable,
   getPollPublic,
   createPoll,
   updatePoll,

@@ -1,7 +1,8 @@
 ---
 title: Home
 # Landing page after sign-in: what waits for the member in each tool, the
-# tools their roles open, and quick actions. Tools come from src/data/tools.js;
+# tools their roles open. Tools come from src/data/tools.js (their actions
+# are offered by the search, Ctrl+K);
 # the counts from /api/app/overview (hub.js).
 permalink: /app/
 noindex: true
@@ -16,21 +17,16 @@ pageTitle: Home
   <div class="hub-head">
     <div>
       <p class="hub-date" id="hubDate"></p>
-      <h2 class="hub-hello" id="hello">Ciao</h2>
+      <h2 class="hub-hello" id="hello">Hi</h2>
       <script>
         /* Greet last visit's user at once; hub.js confirms it. */
         (function () {
           try {
             var u = JSON.parse(localStorage.getItem('ais-user') || 'null');
-            if (u && u.name) document.getElementById('hello').textContent = 'Ciao, ' + u.name.split(' ')[0];
+            if (u && u.name) document.getElementById('hello').textContent = 'Hi, ' + u.name.split(' ')[0];
           } catch (e) {}
         })();
       </script>
-    </div>
-    <div class="hub-actions" id="hubActions">
-      {%- for t in tools %}{% for a in t.actions %}
-      <a class="btn {% if t.key == 'polls' %}btn-primary{% else %}btn-outline{% endif %} btn-sm" href="{{ a.url }}"{% if a.needs %} data-needs="{{ a.needs }}" hidden{% elif t.area %} data-area="{{ t.area }}" hidden{% endif %}>{{ a.label }}</a>
-      {%- endfor %}{% endfor %}
     </div>
   </div>
 
@@ -46,7 +42,7 @@ pageTitle: Home
     <h3 class="ap-section-title" id="hubToolsTitle">Your tools</h3>
     <div class="hub-tools">
       {%- for t in tools %}
-      <a class="hub-tool" href="{{ t.url }}"{% if t.area %} data-area="{{ t.area }}" hidden{% endif %}>
+      <a class="hub-tool" href="{{ t.url }}"{% if t.area %} data-area="{{ t.area }}" hidden{% endif %}{% if t.needsAny %} data-needs-any="{{ t.needsAny | join(' ') }}"{% endif %}>
         <span class="hub-tool-icon hub-tool-icon--{{ t.key }}" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{{ t.icon | safe }}</svg></span>
         <span class="hub-tool-body">
           <strong>{{ t.title }}</strong>
@@ -58,7 +54,7 @@ pageTitle: Home
   </section>
 </div>
 
-<script src="/assets/js/meet/common.js" defer></script>
-<script src="/assets/js/meet/app-common.js" defer></script>
-<script src="/assets/js/meet/hub.js" defer></script>
+<script src="/assets/js/meet/common.js?v={{ build }}" defer></script>
+<script src="/assets/js/meet/app-common.js?v={{ build }}" defer></script>
+<script src="/assets/js/meet/hub.js?v={{ build }}" defer></script>
 {% endblock %}
