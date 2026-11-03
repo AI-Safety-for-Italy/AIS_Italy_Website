@@ -435,7 +435,9 @@ Direttivo, Organizzatori, Partecipanti: by id for the two in
 `isMainRole`); the others, the working groups' roles used as tags among
 them, are folded under "Other roles", still editable. A person shows what
 they already hold through their Discord roles as yellow, locked switches
-("From role: Direttivo"), changed on the role.
+("From role: Direttivo"), changed on the role. Opening the page reads
+everyone's roles again from Discord (`refreshPeopleRoles`), so a role taken
+away there no longer shows as held.
 
 **Importing the old sheet** matches each person to Discord before anything
 is stored, as the preview shows: by email (they signed in here with

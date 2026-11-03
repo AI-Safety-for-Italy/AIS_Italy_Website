@@ -345,6 +345,73 @@ async function refreshIfStale(user, { maxAgeMs = 5 * 60 * 1000 } = {}) {
   if (!checked || Date.now() - new Date(checked).getTime() > maxAgeMs) await refreshRoles(user);
 }
 
+// At most this many members read one by one, when the bot may not read the
+// server's list (the Server Members intent): the Permissions page waits.
+const MAX_ONE_BY_ONE = 25;
+
+/**
+ * Reads again from Discord the roles of these users (app_users ids, those
+ * given permissions by name first) and stores them, so the Permissions page
+ * shows what each holds through their roles as they are now, not as at their
+ * last sign-in. The server's list when the bot may read it, else one by one
+ * (MAX_ONE_BY_ONE). Someone no longer on the server keeps no role. Without
+ * the bot, or when Discord does not answer, the stored roles stand.
+ */
+async function refreshPeopleRoles(userIds) {
+  if (!botConfigured() || !userIds.length) return;
+  const { rows } = await db.query(
+    `select id, discord_id from app_users
+     where id = any($1::uuid[]) and kind = 'discord' and discord_id is not null
+       and discord_id not like 'dev-%'`,
+    [userIds]
+  );
+  if (!rows.length) return;
+  const order = new Map(userIds.map((id, i) => [id, i]));
+  rows.sort((a, b) => order.get(a.id) - order.get(b.id));
+  const wanted = new Set(rows.map((r) => r.discord_id));
+  const roles = new Map();
+  const guild = process.env.DISCORD_GUILD_ID;
+  let listed = true;
+  let after = '0';
+  try {
+    for (let page = 0; page < 20; page++) {
+      const res = await bot(`/guilds/${guild}/members?limit=1000&after=${after}`);
+      if (!res.ok || !Array.isArray(res.body)) {
+        listed = false;
+        break;
+      }
+      res.body.forEach(
+        (m) => m.user && wanted.has(m.user.id) && roles.set(m.user.id, m.roles || [])
+      );
+      if (res.body.length < 1000) break;
+      after = res.body[res.body.length - 1].user.id;
+    }
+  } catch {
+    listed = false;
+  }
+  if (listed) {
+    wanted.forEach((d) => !roles.has(d) && roles.set(d, []));
+  } else {
+    roles.clear();
+    for (const r of rows.slice(0, MAX_ONE_BY_ONE)) {
+      try {
+        const res = await bot(`/guilds/${guild}/members/${r.discord_id}`);
+        if (res.ok) roles.set(r.discord_id, res.body.roles || []);
+        else if (res.status === 404) roles.set(r.discord_id, []);
+      } catch {
+        break; // Discord slow: the stored roles stand for the rest
+      }
+    }
+  }
+  for (const r of rows) {
+    if (!roles.has(r.discord_id)) continue;
+    await db.query('update app_users set roles = $2, roles_checked_at = now() where id = $1', [
+      r.id,
+      roles.get(r.discord_id),
+    ]);
+  }
+}
+
 /** The Discord role ids stored for a user (none for the shared admin). */
 async function rolesOf(user) {
   if (user.kind === 'admin') return [];
@@ -652,6 +719,7 @@ module.exports = {
   KEYS,
   PEOPLE_ONLY,
   isMainRole,
+  refreshPeopleRoles,
   areas,
   DEV_ROLES,
   DEV_DEFAULTS,

@@ -568,3 +568,41 @@ test('the Permissions page tells the association’s roles apart, and each perso
   assert.deepEqual(res.body.people.find((p) => p.name === 'Ugo').roles, ['r-dir', 'r-sem']);
   delete process.env.DISCORD_ROLE_PARTICIPANT;
 });
+
+test('the Permissions page reads again from Discord the roles people hold now', async () => {
+  const permissionsApi = require('./routes/app/permissions');
+  await permissions.saveRolePermissions([
+    { roleId: '901', roleName: 'Direttivo', permissions: ['event'] },
+  ]);
+  const ugo = await member('Ugo', ['901']);
+  await permissions.savePermissions(
+    {
+      roles: await permissions.listRolePermissions(),
+      people: [{ userId: ugo.id, permissions: ['forms'] }],
+    },
+    await admin()
+  );
+  // On Discord, Ugo is no longer Direttivo; the server's list says so.
+  Object.assign(process.env, { DISCORD_BOT_TOKEN_AIS_TEAM_AREA: 'bot', DISCORD_GUILD_ID: 'g1' });
+  const { rows } = await db.query('select discord_id from app_users where id = $1', [ugo.id]);
+  permissions.setFetch(async (url) => {
+    if (/\/members\?limit=1000/.test(url))
+      return {
+        ok: true,
+        status: 200,
+        json: async () => [{ user: { id: rows[0].discord_id }, roles: ['555'] }],
+      };
+    if (/\/roles$/.test(url)) return { ok: true, status: 200, json: async () => [] };
+    return { ok: false, status: 404, json: async () => ({}) };
+  });
+  try {
+    const res = await call(permissionsApi, { url: '/api/app/permissions', user: await admin() });
+    assert.deepEqual(res.body.people.find((p) => p.name === 'Ugo').roles, ['555']);
+  } finally {
+    delete process.env.DISCORD_BOT_TOKEN_AIS_TEAM_AREA;
+    delete process.env.DISCORD_GUILD_ID;
+    permissions.setFetch(() => {
+      throw new Error('no network in tests');
+    });
+  }
+});

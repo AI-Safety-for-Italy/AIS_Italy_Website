@@ -17,6 +17,11 @@ module.exports = route({
   async GET(req, res) {
     const user = await requireUser(req);
     const perms = await access.authorize(user, 'manage');
+    // Everyone's Discord roles as they are now, those with keys of their own
+    // first: what a person holds through them shows from these.
+    const own = (await permissions.listUserPermissions()).map((p) => p.userId);
+    const all = (await permissions.discordPeople()).map((p) => p.userId);
+    await permissions.refreshPeopleRoles([...new Set([...own, ...all])]);
     const [roles, table, people, candidates] = await Promise.all([
       permissions.guildRoles(),
       permissions.listRolePermissions(),
