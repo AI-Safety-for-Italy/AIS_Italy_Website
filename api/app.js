@@ -20,6 +20,7 @@ const ROUTES = {
   'crm/review': require('../server/routes/app/crm/review'),
   forms: require('../server/routes/app/forms'),
   highlights: require('../server/routes/app/highlights'),
+  'local-groups': require('../server/routes/app/local-groups'),
   members: require('../server/routes/app/members'),
   overview: require('../server/routes/app/overview'),
   permissions: require('../server/routes/app/permissions'),

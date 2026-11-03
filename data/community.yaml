@@ -23,8 +23,10 @@ benefits:
 # Local groups, shown on the community page as pins on the map of Italy and
 # as a list beside it; the home page counts them. x/y are pre-projected into
 # that SVG's 0 0 420 560 viewBox (Mercator, same projection as the outline),
-# so a new city needs its projected x/y, not lat/lon. Cities carry no links on
-# purpose: people reach a group by joining AIS4I through the sign-up form.
+# so a new city needs its projected x/y, not lat/lon. A city may carry a `link`
+# (https), which its name then opens. Once published from the dashboard (Site
+# content → Local groups), the site takes the cities from there instead
+# (server/local-groups-build.js) and these stay as the fallback.
 local_groups:
   title: 'Find your local group'
   title_it: 'Trova il tuo gruppo locale'
