@@ -506,6 +506,9 @@ async function restoreVersion(user, itemId, versionId) {
   );
   if (!rows.length) throw new HttpError(404, 'Version not found');
   const entry = { ...rows[0].entry, anchor: row.slug };
+  // An old version can be of the other type: it needs that type's permission too.
+  if (!perms.includes(entry.category))
+    throw new HttpError(403, 'Your Discord roles do not allow editing this');
   await db.transaction(async (tx) => {
     await tx.query(
       `update content_items set type = $2, day = $3, entry = $4, deleted = false,
@@ -532,6 +535,8 @@ async function importEntries(entries, userName = 'Import from events.yaml') {
       skipped++;
       continue;
     }
+    // The id is dropped on purpose: an import always creates a new entry.
+    // eslint-disable-next-line no-unused-vars
     const { id: _id, ...entry } = raw;
     // Markdown versions of the hand-written HTML, so the form can edit them.
     for (const key of ['description', 'description_past']) {

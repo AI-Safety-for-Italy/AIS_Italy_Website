@@ -51,14 +51,15 @@ function isConfigured() {
   return missingSettings().length === 0 && config().roleIds.length > 0;
 }
 
-function authorizeUrl({ state, redirectUri }) {
+/** `scope` is the sign-in's by default; the join link asks for guilds.join. */
+function authorizeUrl({ state, redirectUri, scope = SCOPES }) {
   return (
     'https://discord.com/oauth2/authorize?' +
     new URLSearchParams({
       client_id: config().clientId,
       redirect_uri: redirectUri,
       response_type: 'code',
-      scope: SCOPES,
+      scope,
       state,
       prompt: 'none',
     })
@@ -66,7 +67,8 @@ function authorizeUrl({ state, redirectUri }) {
 }
 
 async function getJson(fetchImpl, url, init, what) {
-  const res = await fetchImpl(url, init);
+  // Signing in waits on Discord: 10 seconds at most.
+  const res = await fetchImpl(url, { signal: AbortSignal.timeout(10_000), ...init });
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
     const err = new LoginError('failed', `${what} failed (${res.status})`);
@@ -82,9 +84,53 @@ async function getJson(fetchImpl, url, init, what) {
  * { discordId, name, avatarUrl, email, roles }. Throws LoginError when the
  * person is not in the server or lacks an allowed role. A role is allowed when
  * it is in DISCORD_ROLES_IDS or when `allowRoles(roles)` (optional, async)
- * says so: the content tool lets in the roles it grants permissions to.
+ * says so: the permissions page lets in the roles it grants keys to, and the
+ * people (by Discord user id, the second argument) it grants keys to by name.
  */
 async function verify({ code, redirectUri, allowRoles }, fetchImpl = fetch) {
+  const c = config();
+  const { auth, user } = await exchange({ code, redirectUri }, fetchImpl);
+
+  let member;
+  try {
+    member = await getJson(
+      fetchImpl,
+      `${API}/users/@me/guilds/${c.guildId}/member`,
+      auth,
+      'Reading the server membership'
+    );
+  } catch (err) {
+    // 404 (Unknown Guild / Unknown Member): not in the server.
+    if (err.status === 404) throw new LoginError('not_member');
+    throw err;
+  }
+  const roles = member.roles || [];
+  const allowed =
+    roles.some((role) => c.roleIds.includes(role)) ||
+    (allowRoles && (await allowRoles(roles, user.id)));
+  if (!allowed) throw new LoginError('missing_role');
+
+  // A per-server avatar wins over the account one, like in Discord itself.
+  let avatarUrl = null;
+  if (member.avatar) {
+    avatarUrl = `https://cdn.discordapp.com/guilds/${c.guildId}/users/${user.id}/avatars/${member.avatar}.png?size=64`;
+  } else if (user.avatar) {
+    avatarUrl = `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=64`;
+  }
+  return {
+    discordId: user.id,
+    name: member.nick || user.global_name || user.username,
+    avatarUrl,
+    email: user.verified ? user.email || null : null,
+    roles,
+  };
+}
+
+/**
+ * Turns the code Discord sent back into an access token and the profile it
+ * belongs to: { accessToken, auth (headers for further calls), user }.
+ */
+async function exchange({ code, redirectUri }, fetchImpl = fetch) {
   const c = config();
   const token = await getJson(
     fetchImpl,
@@ -104,39 +150,7 @@ async function verify({ code, redirectUri, allowRoles }, fetchImpl = fetch) {
   );
   const auth = { headers: { Authorization: `Bearer ${token.access_token}` } };
   const user = await getJson(fetchImpl, `${API}/users/@me`, auth, 'Reading the profile');
-
-  let member;
-  try {
-    member = await getJson(
-      fetchImpl,
-      `${API}/users/@me/guilds/${c.guildId}/member`,
-      auth,
-      'Reading the server membership'
-    );
-  } catch (err) {
-    // 404 (Unknown Guild / Unknown Member): not in the server.
-    if (err.status === 404) throw new LoginError('not_member');
-    throw err;
-  }
-  const roles = member.roles || [];
-  const allowed =
-    roles.some((role) => c.roleIds.includes(role)) || (allowRoles && (await allowRoles(roles)));
-  if (!allowed) throw new LoginError('missing_role');
-
-  // A per-server avatar wins over the account one, like in Discord itself.
-  let avatarUrl = null;
-  if (member.avatar) {
-    avatarUrl = `https://cdn.discordapp.com/guilds/${c.guildId}/users/${user.id}/avatars/${member.avatar}.png?size=64`;
-  } else if (user.avatar) {
-    avatarUrl = `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=64`;
-  }
-  return {
-    discordId: user.id,
-    name: member.nick || user.global_name || user.username,
-    avatarUrl,
-    email: user.verified ? user.email || null : null,
-    roles,
-  };
+  return { accessToken: token.access_token, auth, user };
 }
 
-module.exports = { LoginError, isConfigured, missingSettings, authorizeUrl, verify };
+module.exports = { LoginError, isConfigured, missingSettings, authorizeUrl, verify, exchange };

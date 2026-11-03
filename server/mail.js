@@ -1,5 +1,5 @@
 // Outgoing email (invites to invite-only polls, notifications to owners),
-// sent over SMTP with the settings the admin saves on /app/polls/settings/.
+// sent over SMTP with the settings the admin saves on /app/settings/mail/.
 //
 // The SMTP password is kept encrypted (AES-256-GCM, key derived from
 // SESSION_SECRET), so the database alone does not reveal it. Rotating
@@ -10,6 +10,7 @@
 
 const crypto = require('crypto');
 const db = require('./db');
+const { isEmail } = require('./email');
 const { HttpError } = require('./http');
 
 const KEY = 'smtp';
@@ -51,17 +52,22 @@ async function publicSettings() {
     user: s.user,
     fromEmail: s.fromEmail,
     fromName: s.fromName,
+    formsEmail: s.formsEmail || '',
     hasPassword: Boolean(s.password),
   };
 }
 
+/** The address every new form answer is announced to, or null (then: the form's owner). */
+async function formsAddress() {
+  const s = await readSettings();
+  return (s && s.formsEmail) || null;
+}
+
 async function isConfigured() {
-  if (process.env.MEET_FAKE_MAIL === '1') return true;
+  if (process.env.MEET_FAKE_MAIL === '1' && !process.env.VERCEL) return true;
   const s = await readSettings();
   return Boolean(s && s.host && s.fromEmail && s.password);
 }
-
-const EMAIL = /^[^\s@<>(),;:"]+@[^\s@<>(),;:"]+\.[^\s@<>(),;:"]+$/;
 
 /** Saves SMTP settings. An empty password keeps the one already stored. */
 async function saveSettings(body) {
@@ -73,12 +79,18 @@ async function saveSettings(body) {
     .toLowerCase();
   if (!host || host.length > 200) throw new HttpError(400, 'Enter the SMTP server');
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new HttpError(400, 'Invalid port');
-  if (!EMAIL.test(fromEmail)) throw new HttpError(400, 'Enter a valid sender address');
+  if (!isEmail(fromEmail)) throw new HttpError(400, 'Enter a valid sender address');
+  const formsEmail = String(body.formsEmail || '')
+    .trim()
+    .toLowerCase();
+  if (formsEmail && !isEmail(formsEmail))
+    throw new HttpError(400, 'Enter a valid address for form answers');
   const value = {
     host,
     port,
     user: String(body.user || '').trim(),
     fromEmail,
+    formsEmail,
     fromName:
       String(body.fromName || '')
         .trim()
@@ -127,7 +139,7 @@ function logFake(message) {
  * not attempted. Throws HttpError(503) when email is not set up.
  */
 async function sendBatch(messages, { pauseMs = BATCH_PAUSE_MS } = {}) {
-  if (process.env.MEET_FAKE_MAIL === '1') {
+  if (process.env.MEET_FAKE_MAIL === '1' && !process.env.VERCEL) {
     messages.forEach(logFake);
     return messages.map(() => ({ ok: true }));
   }
@@ -198,6 +210,7 @@ async function send(message) {
 
 module.exports = {
   publicSettings,
+  formsAddress,
   saveSettings,
   isConfigured,
   send,

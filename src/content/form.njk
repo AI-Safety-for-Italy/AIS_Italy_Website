@@ -1,0 +1,37 @@
+---
+title: Form
+# The page a form's link opens: /form/?f=<slug>. Which form, and in which
+# language, comes from the API (assets/js/meet/forms-public.js): this page is
+# an empty shell, never indexed, with nothing personal in its HTML.
+permalink: /form/
+noindex: true
+excludeFromSitemap: true
+eleventyExcludeFromCollections: true
+meetHead: true
+# No bar on top: the green panel carries the logo (forms-render.js, brand()).
+noHeader: true
+# Nor a footer bar: its line sits at the bottom of the form's column (#fmFooter).
+noFooter: true
+seoTitle: 'Form | AI Safety for Italy'
+---
+{% extends "base.njk" %}
+{% block content %}
+<div class="fm-root is-bare" id="formView">
+  <div class="fm-shell">
+    <aside class="fm-aside">
+      <div class="fm-aside-inner">
+        <a class="fm-brand" href="/" aria-label="AI Safety for Italy: homepage"><img src="/assets/img/ais4i-logo.svg" alt="" width="40" height="40"><span>AI Safety <span class="fm-brand-accent">for Italy</span></span></a>
+        <h1 class="fm-title"><span class="skeleton skeleton-title" aria-hidden="true"></span></h1>
+      </div>
+    </aside>
+    <div class="fm-body" aria-busy="true"></div>
+  </div>
+</div>
+
+<span hidden id="fmFooter" data-copy-en="{{ translations.en.footer.copyright }}" data-copy-it="{{ translations.it.footer.copyright }}"></span>
+
+<script src="/assets/js/meet/common.js?v={{ build }}" defer></script>
+<script src="/assets/js/meet/markdown-lite.js?v={{ build }}" defer></script>
+<script src="/assets/js/meet/forms-render.js?v={{ build }}" defer></script>
+<script src="/assets/js/meet/forms-public.js?v={{ build }}" defer></script>
+{% endblock %}

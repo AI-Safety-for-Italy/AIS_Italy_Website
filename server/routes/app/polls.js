@@ -1,0 +1,32 @@
+// /api/app/polls: the signed-in user's polls, and those shared with them.
+//   GET   -> { polls: [...] }  (each with canManage, notifyMe and access)
+//   POST  { title, description, location, durationMinutes, timezone, deadline,
+//           hideResponses, notify, inviteOnly, invitees, slots: [ISO start, ...] }
+//         -> { id, token, invites: { sent, failed } }
+// An invite-only poll emails each guest their personal link straight away.
+const { route, sendJson, readJson, siteUrl } = require('../../http');
+const { requireUser } = require('../../auth');
+const polls = require('../../polls');
+const notify = require('../../notify');
+
+module.exports = route({
+  async GET(req, res) {
+    const user = await requireUser(req);
+    sendJson(res, 200, { polls: await polls.listPolls(user) });
+  },
+  async POST(req, res) {
+    const user = await requireUser(req);
+    const created = await polls.createPoll(await readJson(req), user.id);
+    let invites = { sent: 0, failed: 0 };
+    if (created.invites.length) {
+      const poll = await polls.getPollAdmin(created.id, user.id);
+      invites = await notify.sendInvites({
+        poll,
+        ownerId: user.id,
+        invites: created.invites,
+        origin: siteUrl(req),
+      });
+    }
+    sendJson(res, 201, { id: created.id, token: created.token, invites });
+  },
+});

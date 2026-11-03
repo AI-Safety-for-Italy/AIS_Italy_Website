@@ -1,0 +1,25 @@
+---
+title: Events
+# The events on the site (server/content.js), for whoever holds `event`;
+# the API checks it. The page is the shared list (content-list-page.njk).
+permalink: /app/content/events/
+tool: content
+section: events
+pageTitle: Events
+contentType: event
+noindex: true
+excludeFromSitemap: true
+eleventyExcludeFromCollections: true
+seoTitle: 'Events | AI Safety for Italy'
+---
+{% extends "app.njk" %}
+{% block actions %}
+<a class="btn btn-primary btn-sm" href="/app/content/edit/?type=event" data-needs="event" hidden>+ New event</a>
+{% endblock %}
+{% block page %}
+{% include "content-list-page.njk" %}
+<script src="/assets/js/meet/common.js?v={{ build }}" defer></script>
+<script src="/assets/js/meet/app-common.js?v={{ build }}" defer></script>
+<script src="/assets/js/meet/content-common.js?v={{ build }}" defer></script>
+<script src="/assets/js/meet/content-list.js?v={{ build }}" defer></script>
+{% endblock %}

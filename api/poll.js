@@ -5,18 +5,20 @@
 //   GET   &check=1&name=…&email=… -> { nameTaken, emailTaken }
 //   POST  { name, email, votes: { slotId: 0|1|2 }, editToken?, inviteToken? }
 //         -> { editToken }
-const { route, sendJson, readJson, getQuery, origin } = require('../server/http');
+const { route, sendJson, readJson, getQuery, siteUrl, clientIp } = require('../server/http');
 const polls = require('../server/polls');
 const notify = require('../server/notify');
 
-// Owner notifications go out before answering (a Vercel function may be
-// frozen once it has replied), but never hold the voter up for long.
+// Notifications go out before answering (a Vercel function may be frozen
+// once it has replied), but never hold the voter up for long. A new answer
+// tells whoever follows the poll (its owner, and those it is shared with who
+// turned "Notify me" on); "everyone answered" is the owner's, to choose a time.
 const NOTIFY_BUDGET_MS = 8000;
 
 async function notifyOwner(result, site) {
   const { poll } = result;
   if (result.isNew) {
-    await notify.notifyOwner(poll.id, notify.newAnswerMessage({ ...result, origin: site }));
+    await polls.notifyFollowers(poll.id, notify.newAnswerMessage({ ...result, origin: site }));
   }
   const everyone = await polls.markAllAnswered(poll.id);
   if (everyone) {
@@ -37,10 +39,12 @@ module.exports = route({
     }
   },
   async POST(req, res) {
-    const result = await polls.submitResponse(getQuery(req).p, await readJson(req));
+    const result = await polls.submitResponse(getQuery(req).p, await readJson(req), {
+      ip: clientIp(req),
+    });
     let timer;
     await Promise.race([
-      notifyOwner(result, origin(req)).catch((err) => console.error('Notification failed', err)),
+      notifyOwner(result, siteUrl(req)).catch((err) => console.error('Notification failed', err)),
       new Promise((resolve) => (timer = setTimeout(resolve, NOTIFY_BUDGET_MS))),
     ]);
     clearTimeout(timer);

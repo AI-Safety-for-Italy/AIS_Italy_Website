@@ -74,8 +74,8 @@ mentors:
     photo: '/assets/img/mentors/lorenzo-pacchiardi.jpg'
     links:
       website: 'https://www.lorenzopacchiardi.me/'
-    tracks: [projects]
-    areas: [evaluations, governance, society]
+    tracks: [projects, orientation]
+    areas: [evaluations, governance, society, careers]
     bio: 'Assistant Research Professor at the Leverhulme Centre for the Future of Intelligence, University of Cambridge, and Research Scientist at Apart Research. He sits on the AI Act scientific panel, which advises the EU AI Office on the risks of general-purpose AI models, and develops evaluations of harmful manipulation.'
     bio_it: "Assistant Research Professor al Leverhulme Centre for the Future of Intelligence dell'Università di Cambridge e Research Scientist ad Apart Research. Fa parte del panel scientifico dell'AI Act, che consiglia l'Ufficio europeo per l'IA sui rischi dei modelli per finalità generali, e sviluppa valutazioni sui rischi di manipolazione."
     project:
@@ -89,6 +89,8 @@ mentors:
       mentee_it: 'Programmazione in Python e qualche conoscenza del funzionamento degli LLM e della loro valutazione. La conoscenza del sistema elettorale italiano è un plus.'
       deliverable: 'A scientific article or a blog post'
       deliverable_it: 'Un articolo scientifico o un blogpost'
+    orientation: 'Technical AI safety research, academic careers and PhDs, AI policy and governance in the EU, AI safety nonprofits, fellowships and startups. He can help with choosing a PhD, a one-to-three-year career plan, introductions to his network and feedback on research already under way.'
+    orientation_it: "Ricerca tecnica in AI safety, percorso accademico e dottorato, AI policy e governance nell'UE, nonprofit di AI safety, fellowship e startup. Può aiutarti a scegliere un dottorato, a definire un piano di carriera a uno-tre anni, con introduzioni al suo network e con feedback su ricerche già avviate."
     language: 'Italian, English'
     language_it: 'Italiano, inglese'
 
@@ -98,8 +100,8 @@ mentors:
     photo: '/assets/img/mentors/stefano-vergani.jpg'
     links:
       linkedin: 'https://www.linkedin.com/in/stefano-vergani-b2a931238/'
-    tracks: [projects]
-    areas: [governance, security]
+    tracks: [projects, orientation]
+    areas: [governance, security, careers]
     bio: 'A particle physicist working on edge AI and quantum AI, he also works on AI safety and national security: at GovAI on the impact of AI on nuclear deterrence, and at ERA as a resident fellow on hardware verification. He supervises a team at SPAR on AI risks to satellites and advises a member of the UK House of Lords on science and AI safety.'
     bio_it: "Fisico delle particelle, lavora su edge AI e quantum AI e si occupa di AI safety e sicurezza nazionale: a GovAI studia l'impatto dell'IA sulla deterrenza nucleare, a ERA è resident fellow su progetti di hardware verification. Supervisiona un team di SPAR sui rischi dell'IA per i satelliti e consiglia un membro della House of Lords britannica su scienza e AI safety."
     project:
@@ -113,6 +115,8 @@ mentors:
       mentee_it: "Un team bilanciato: idealmente almeno un mentee con esperienza nella difesa e nelle forze dell'ordine, in giurisprudenza o scienze politiche, e uno con un background tecnico e una conoscenza del funzionamento dell'IA. Sono essenziali esperienza di ricerca, un certo grado di autonomia, un approccio imparziale e apolitico e un inglese di livello professionale."
       deliverable: 'A scientific article or a blog post, possibly a journal article or a policy report for an Italian audience'
       deliverable_it: 'Un articolo scientifico o un blogpost, possibilmente un articolo su rivista o un policy report per un pubblico italiano'
+    orientation: 'Technical AI safety research, academic careers and PhDs, AI policy and governance in the EU, think tanks, fellowships such as MATS, GovAI, ERA and SPAR, and moving into AI safety from other fields. He can help with fellowship applications, choosing a PhD and what to study, and a career plan.'
+    orientation_it: "Ricerca tecnica in AI safety, percorso accademico e dottorato, AI policy e governance nell'UE, think tank, fellowship come MATS, GovAI, ERA e SPAR, e la transizione verso l'AI safety da altri settori. Può aiutarti con le candidature alle fellowship, nella scelta del dottorato e di cosa studiare e con un piano di carriera."
     language: 'Italian, English'
     language_it: 'Italiano, inglese'
 
@@ -206,6 +210,7 @@ mentors:
   - id: massimiliano-mancini
     name: 'Massimiliano Mancini'
     affiliation: 'University of Trento'
+    photo: '/assets/img/mentors/massimiliano-mancini.jpg'
     co_mentors: [francesco-pinto, fabio-pizzati]
     tracks: [projects]
     areas: [evaluations, alignment, security, ethics]
@@ -230,5 +235,148 @@ mentors:
       mentee_it: "Buona conoscenza di Python, familiarità con LLM e API (preferibilmente tool calling e agenti IA), capacità di sviluppare esperimenti riproducibili e conoscenze di base di statistica per l'analisi dei risultati. Non è richiesta esperienza nel fine-tuning o nell'addestramento di modelli."
       deliverable: 'A scientific article, a software package and a dataset'
       deliverable_it: 'Un articolo scientifico, un pacchetto software e un dataset'
+    language: 'Italian, English'
+    language_it: 'Italiano, inglese'
+
+  - id: federico-pierucci
+    name: 'Federico Pierucci'
+    affiliation: 'Icaro Foundation'
+    co_mentors: [francesco-giarrusso, matteo-prandi]
+    tracks: [projects]
+    areas: [evaluations, alignment]
+    bio: "Scientific Director of the Icaro Foundation, he works at the intersection of AI safety, ethics and computational social science. His background in computer models of social phenomena shapes how he studies the way interactions, incentives and institutions affect a system's behaviour. He is a PhD candidate at the Sant'Anna School of Advanced Studies."
+    bio_it: "Direttore scientifico della Fondazione Icaro, lavora all'incrocio tra AI safety, etica e scienze sociali computazionali. La sua esperienza nei modelli computazionali di fenomeni sociali orienta il modo in cui studia come interazioni, incentivi e istituzioni influenzano il comportamento di un sistema. È dottorando alla Scuola Superiore Sant'Anna."
+    project:
+      title: 'EAAB - Eval Awareness Agentic Benchmarks'
+      title_it: 'EAAB - Eval Awareness Agentic Benchmarks'
+      summary: 'An open benchmark of agentic tasks to measure when AI models realise they are being tested, and how much that changes their safety results.'
+      summary_it: 'Un benchmark aperto di compiti agentici per misurare quando i modelli di IA si accorgono di essere testati e quanto questo cambia i loro risultati di sicurezza.'
+      description: |-
+        This proposal aims to build the Evaluation Awareness Agentic Benchmark (EAAB), a benchmark to help model providers and policymakers assess evaluation awareness in AI models and its safety implications.
+
+        Evaluation awareness is a model's ability to recognise that it is being tested. Models that behave differently under test than in deployment make safety evaluations unreliable, and experiments show they can fake alignment or deliberately underperform. Existing benchmarks rely on static transcripts or single-turn prompts and track one signal of awareness at a time.
+
+        EAAB will use real-world environments where agents complete multi-step tasks with tools, to answer three questions:
+        a) How can we reliably detect evaluation awareness? We will compare reasoning traces, actions, explicit declarations and, for open-weight models, activation probes, including when awareness is not verbalised.
+        b) How much does awareness change a model's measured safety profile? We will compare the model indicators across matched eval-like and deployment-like versions of each task.
+        c) Which cues make a model realise it is being tested? We will vary environment realism, task plausibility and data realism one at a time to identify the triggers.
+
+        The result will be an open benchmark showing labs and regulators how far a model's safety results can be trusted.
+      description_it: |-
+        Questa proposta mira a costruire l'Evaluation Awareness Agentic Benchmark (EAAB), un benchmark per aiutare i fornitori di modelli e i decisori politici a misurare la consapevolezza di essere valutati (evaluation awareness) nei modelli di IA e le sue implicazioni per la sicurezza.
+
+        La consapevolezza di essere valutato è la capacità di un modello di riconoscere che è sottoposto a un test. I modelli che si comportano diversamente durante i test rispetto al deployment rendono inaffidabili le valutazioni di sicurezza, e gli esperimenti mostrano che possono simulare l'allineamento o ridurre deliberatamente le proprie prestazioni. I benchmark esistenti si basano su trascrizioni statiche o prompt a turno singolo e monitorano un solo segnale di consapevolezza alla volta.
+
+        EAAB utilizzerà ambienti del mondo reale in cui agenti svolgono compiti in più fasi usando strumenti, per rispondere a tre domande:
+        a) Come possiamo rilevare in modo affidabile questa consapevolezza? Confronteremo tracce di ragionamento, azioni, dichiarazioni esplicite e, per i modelli open-weight, sonde sulle attivazioni, anche quando la consapevolezza non viene verbalizzata.
+        b) Quanto la consapevolezza modifica il profilo di sicurezza misurato di un modello? Confronteremo gli indicatori del modello tra versioni appaiate di ciascun compito, una simile a una valutazione e una simile al deployment.
+        c) Quali segnali fanno capire a un modello di essere sotto test? Varieremo il realismo dell'ambiente, la plausibilità del compito e il realismo dei dati, uno alla volta, per individuare i fattori scatenanti.
+
+        Il risultato sarà un benchmark aperto che mostrerà a laboratori e regolatori fino a che punto ci si può fidare dei risultati di sicurezza di un modello.
+      mentee: 'Familiarity with the basics of AI, transformer architectures, AI safety and mechanistic interpretability, and with AI coding agents such as Codex or Claude Code. No specific expertise in evaluation awareness is needed.'
+      mentee_it: "Familiarità con le basi dell'IA, le architetture transformer, l'AI safety e la mechanistic interpretability, e con agenti di programmazione come Codex o Claude Code. Non serve una competenza specifica sull'evaluation awareness."
+      deliverable: 'A scientific article, a software package and a dataset'
+      deliverable_it: 'Un articolo scientifico, un pacchetto software e un dataset'
+    language: 'Italian, English'
+    language_it: 'Italiano, inglese'
+
+  - id: francesco-giarrusso
+    name: 'Francesco Giarrusso'
+    affiliation: 'Icaro Foundation'
+    co_mentors: [federico-pierucci, matteo-prandi]
+    tracks: [projects]
+    areas: [evaluations, alignment]
+
+  - id: matteo-prandi
+    name: 'Matteo Prandi'
+    affiliation: 'Sapienza University of Rome'
+    co_mentors: [federico-pierucci, francesco-giarrusso]
+    tracks: [projects]
+    areas: [evaluations, alignment]
+
+  - id: elia-torre
+    name: 'Elia Torre'
+    affiliation: 'ETH Zurich'
+    photo: '/assets/img/mentors/elia-torre.jpg'
+    links:
+      website: 'https://eliatorre.com/'
+    co_mentors: [goncalo-guiomar, michele-viscione]
+    tracks: [projects]
+    areas: [interpretability, evaluations, alignment]
+    bio: 'PhD student in machine learning and computational neuroscience at ETH Zurich and the University of Zurich. He studies how biological and artificial neural systems learn, reason and make decisions, from the interpretability of recurrent networks to reasoning in language models and its relation to human cognition.'
+    bio_it: "Dottorando in machine learning e neuroscienze computazionali all'ETH e all'Università di Zurigo. Studia come i sistemi neurali biologici e artificiali apprendono, ragionano e prendono decisioni, dall'interpretabilità delle reti ricorrenti al ragionamento nei modelli linguistici e al suo rapporto con la cognizione umana."
+    project:
+      title: 'Small Language Models of Human Cognition'
+      title_it: 'Small Language Models of Human Cognition'
+      summary: 'Bring small language models closer to how people reason, working across the whole training pipeline, from data to evaluation.'
+      summary_it: "Avvicinare i piccoli modelli linguistici al modo in cui ragionano le persone, lavorando sull'intera filiera di addestramento, dai dati alla valutazione."
+      description: |-
+        Modern LLMs solve complex problems, often beyond human capabilities, but diverge from our abstractions and reasoning. This project aims to bring them closer to how people reason and behave, intervening across the entire training pipeline, from data to evaluation. Based on their skills and interests, participants will be assigned to one of four research areas:
+
+        (1) Data. Collect and expand datasets on human behaviour, learning and language, developing scaling techniques.
+        (2) Pre-training. Derive scaling laws for the pre-training of small LLMs, relating model size and data quantity and composition to cognitive alignment.
+        (3) Mid- and Post-training. Develop mid- and post-training techniques that use human cognitive signals as training objectives.
+        (4) Evaluation. Build protocols to measure models' cognitive processes at scale, from behaviour to internal representations.
+
+        The four areas work closely together on shared data and protocols: the results of each feed into the work of the others.
+      description_it: |-
+        Gli LLM moderni risolvono problemi complessi, spesso oltre le capacità umane, ma divergono dalle nostre astrazioni e ragionamenti. Questo progetto vuole avvicinarli al modo in cui le persone ragionano e si comportano, intervenendo sull'intera filiera di addestramento, dai dati alla valutazione. In base a competenze ed interessi, i partecipanti verranno assegnati ad una delle quattro aree di ricerca:
+
+        (1) Dati. Raccogliere ed ampliare dataset sul comportamento, sull'apprendimento e sul linguaggio umano, sviluppando tecniche di scaling.
+        (2) Pre-training. Ricavare leggi di scala sul pre-training di piccoli LLM, mettendo in relazione dimensione del modello, quantità e composizione dei dati con l'allineamento cognitivo.
+        (3) Mid- e Post-training. Sviluppare tecniche di mid- e post-training che usano segnali cognitivi umani come obiettivi di addestramento.
+        (4) Evaluation. Costruire protocolli per misurare su larga scala i processi cognitivi dei modelli, dal comportamento alle rappresentazioni interne.
+
+        Le quattro aree lavorano a stretto contatto, su dati e protocolli condivisi: i risultati di ciascuna alimentano il lavoro delle altre.
+      mentee: 'Open to bachelor, master and PhD students and to professionals with a background in machine learning, cognitive science, neuroscience, linguistics or psychology. Useful skills, depending on the area: Python, PyTorch, CUDA, pre- and post-training of LLMs, cognitive science, evaluation and benchmarking, high-performance computing.'
+      mentee_it: "Aperto a studenti di triennale, magistrale e dottorato e a professionisti con un background in machine learning, scienze cognitive, neuroscienze, linguistica o psicologia. Competenze utili, a seconda dell'area: Python, PyTorch, CUDA, pre- e post-training di LLM, scienze cognitive, valutazione e benchmarking, calcolo ad alte prestazioni."
+      deliverable: 'A scientific article, a software package, a dataset and a blog post'
+      deliverable_it: 'Un articolo scientifico, un pacchetto software, un dataset e un blogpost'
+    language: 'Italian, English'
+    language_it: 'Italiano, inglese'
+
+  - id: goncalo-guiomar
+    name: 'Gonçalo Guiomar'
+    affiliation: 'ETH Zurich, University of Zurich'
+    photo: '/assets/img/mentors/goncalo-guiomar.jpg'
+    co_mentors: [elia-torre, michele-viscione]
+    tracks: [projects]
+    areas: [interpretability, evaluations, alignment]
+
+  - id: michele-viscione
+    name: 'Michele Viscione'
+    affiliation: 'ETH Zurich, University of Zurich'
+    photo: '/assets/img/mentors/michele-viscione.jpg'
+    co_mentors: [elia-torre, goncalo-guiomar]
+    tracks: [projects]
+    areas: [interpretability, evaluations, alignment]
+
+  - id: mirko-bronzi
+    name: 'Mirko Bronzi'
+    affiliation: 'LawZero'
+    photo: '/assets/img/mentors/mirko-bronzi.jpg'
+    links:
+      website: 'https://mirkobronzi.github.io/'
+    tracks: [orientation]
+    areas: [interpretability, alignment, careers]
+    bio: 'Senior ML Research Scientist at LawZero, with more than 17 years in machine learning research. He studies the internal representations of LLMs, activation monitoring and how models can manipulate their activations to evade monitoring, and mentors AI safety projects in the MATS and SPAR programs.'
+    bio_it: 'Senior ML Research Scientist a LawZero, con oltre 17 anni di ricerca in machine learning. Studia le rappresentazioni interne degli LLM, il monitoraggio delle attivazioni e la capacità dei modelli di manipolarle per eludere i controlli, e fa da mentor a progetti di AI safety nei programmi MATS e SPAR.'
+    orientation: 'Technical AI safety research, academic careers and PhDs, and roles in frontier AI labs and companies. He can help with CVs and motivation letters, fellowship applications, interview preparation, choosing a PhD, what to study, and feedback on research already under way.'
+    orientation_it: 'Ricerca tecnica in AI safety, percorso accademico e dottorato, ruoli nei frontier AI lab e nelle aziende del settore. Può aiutarti con CV e lettere motivazionali, candidature alle fellowship, preparazione ai colloqui, scelta del dottorato, cosa studiare e feedback su ricerche già avviate.'
+    language: 'Italian, English'
+    language_it: 'Italiano, inglese'
+
+  - id: damiano-fornasiere
+    name: 'Damiano Fornasiere'
+    affiliation: 'LawZero'
+    photo: '/assets/img/mentors/damiano-fornasiere.jpg'
+    links:
+      website: 'https://damianofornasiere.github.io/'
+    tracks: [orientation]
+    areas: [interpretability, evaluations, alignment, careers]
+    bio: 'Senior AI Safety Research Scientist at LawZero, previously at Mila with Yoshua Bengio, and a MATS scholar at Google DeepMind supervised by Victoria Krakovna. He works on Scientist AI, interpretability, scalable oversight, model organisms, situational awareness and meta-cognition in LLMs. His degrees, up to the PhD, are in mathematics.'
+    bio_it: 'Senior AI Safety Research Scientist a LawZero, in precedenza a Mila con Yoshua Bengio, e MATS scholar a Google DeepMind sotto la supervisione di Victoria Krakovna. Lavora su Scientist AI, interpretabilità, scalable oversight, model organisms, situational awareness e meta-cognizione negli LLM. Si è formato in matematica, fino al dottorato.'
+    orientation: 'Technical AI safety research, academic careers and PhDs, fellowships such as MATS, and moving into AI safety from other fields. He can help with CVs and statements of purpose, fellowship applications, what to study, a one-to-three-year career plan and introductions to his network.'
+    orientation_it: "Ricerca tecnica in AI safety, percorso accademico e dottorato, fellowship come MATS e la transizione verso l'AI safety da altri settori. Può aiutarti con CV e statement of purpose, candidature alle fellowship, cosa studiare, un piano di carriera a uno-tre anni e introduzioni al suo network."
     language: 'Italian, English'
     language_it: 'Italiano, inglese'

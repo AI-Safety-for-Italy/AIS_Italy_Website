@@ -1,0 +1,46 @@
+---
+title: Members
+# The community's members (server/community.js): their working groups as
+# tags (mirrored on Discord), whether the site shows them, the import of the
+# old sheet, and publishing the directory to the site. Needs `community`.
+permalink: /app/members/people/
+tool: community
+tab: people
+wide: true
+noindex: true
+excludeFromSitemap: true
+eleventyExcludeFromCollections: true
+seoTitle: 'Members | AI Safety for Italy'
+---
+{% extends "app.njk" %}
+{% block page %}
+    <div class="panel members-status" id="membersStatus" hidden></div>
+    <div id="peopleView"></div>
+
+    <dialog class="meet-dialog" id="memberDialog" aria-labelledby="memberTitle">
+      <form method="dialog" id="memberForm">
+        <div class="dialog-body form-grid">
+          <h2 id="memberTitle">Member</h2>
+          <div><label class="form-label" for="mName">Name</label><input class="form-input is-compact" id="mName" maxlength="200" required></div>
+          <div><label class="form-label" for="mProfile">Profile link</label><input class="form-input is-compact" id="mProfile" maxlength="500" placeholder="https://"></div>
+          <div><label class="form-label" for="mLocation">Place</label><input class="form-input is-compact" id="mLocation" maxlength="200"></div>
+          <div><label class="form-label" for="mAreas">Areas</label><input class="form-input is-compact" id="mAreas" maxlength="1000"></div>
+          <label class="fe-switch"><span>Shown on the site (they consented)</span><input type="checkbox" role="switch" class="fe-switch-input" id="mPublish"></label>
+          <div>
+            <span class="form-label">Discord account</span>
+            <p class="panel-note" id="mDiscord" style="margin:0 0 .4rem"></p>
+          </div>
+          <p class="form-error" id="memberError" hidden></p>
+        </div>
+        <div class="dialog-foot">
+          <button class="btn btn-outline btn-sm" type="button" id="memberCancel">Cancel</button>
+          <button class="btn btn-primary btn-sm" type="submit" id="memberSave">Save</button>
+        </div>
+      </form>
+    </dialog>
+
+<script src="/assets/js/meet/common.js?v={{ build }}" defer></script>
+<script src="/assets/js/meet/app-common.js?v={{ build }}" defer></script>
+<script src="/assets/js/meet/community-status.js?v={{ build }}" defer></script>
+<script src="/assets/js/meet/community-people.js?v={{ build }}" defer></script>
+{% endblock %}

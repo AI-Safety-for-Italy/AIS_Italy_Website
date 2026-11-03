@@ -39,6 +39,9 @@ jobs:
       - name: Check formatting
         run: npm run format:check
 
+      - name: Lint
+        run: npx eslint server api src/assets/js
+
       - name: Build site
         run: npm run build
 
@@ -61,6 +64,12 @@ jobs:
       group: deploy-${{ github.ref }}
       cancel-in-progress: true
 
+    # Vercel's own Git deploys are switched off for these branches in
+    # vercel.json (`git.deploymentEnabled`): otherwise each push to main would
+    # also go live through a dashboard build without CONTENT_SOURCE, showing the
+    # YAML's seminars and events until this job replaced it. Other branches
+    # keep Vercel's preview per push.
+    #
     # The Vercel CLI reads these from the environment to know which account and
     # project it is acting on, so no `.vercel` directory is committed.
     env:
@@ -129,13 +138,17 @@ jobs:
       # follows its latest deploy: one link to share before merging into main.
       - name: Point the dev alias at this deploy
         if: github.ref == 'refs/heads/dev'
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
-          vercel alias set "${{ steps.deploy.outputs.url }}" ais4i-dev.vercel.app --token=${{ secrets.VERCEL_TOKEN }}
+          scripts/vercel-alias.sh "${{ steps.deploy.outputs.url }}" ais4i-dev.vercel.app
           echo "Aliased to https://ais4i-dev.vercel.app" >> "$GITHUB_STEP_SUMMARY"
 
       # Same idea for the redesign branch, on its own fixed address.
       - name: Point the redesign alias at this deploy
         if: github.ref == 'refs/heads/design-improvements'
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
-          vercel alias set "${{ steps.deploy.outputs.url }}" ais4i-redesign.vercel.app --token=${{ secrets.VERCEL_TOKEN }}
+          scripts/vercel-alias.sh "${{ steps.deploy.outputs.url }}" ais4i-redesign.vercel.app
           echo "Aliased to https://ais4i-redesign.vercel.app" >> "$GITHUB_STEP_SUMMARY"

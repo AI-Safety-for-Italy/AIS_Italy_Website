@@ -54,7 +54,7 @@ module.exports = route({
       const user = await auth.upsertDiscordUser(profile);
       res.setHeader('Set-Cookie', [
         auth.cookieHeader(STATE_COOKIE, '', 0, 'Lax'),
-        auth.cookieHeader(auth.COOKIE, auth.makeSession(user.id), 7 * 86400),
+        auth.cookieHeader(auth.COOKIE, await auth.sessionFor(user.id), 7 * 86400),
       ]);
       redirect(res, NEXT.test(saved.next || '') ? saved.next : '/app/');
     } catch (err) {

@@ -1,0 +1,48 @@
+# Dumps the Neon database once a day, encrypts it and keeps it as a workflow
+# artifact for 30 days. Needs two repository secrets:
+#   NEON_BACKUP_URL     the Neon connection string WITHOUT "-pooler" in the host
+#   BACKUP_PASSPHRASE   the encryption passphrase (keep a copy outside GitHub)
+# Artifacts of a public repo can be downloaded by anyone logged in to GitHub,
+# so the dump is never uploaded unencrypted.
+#
+# Restore (download the artifact from the run, unzip it):
+#   gpg --decrypt -o db.dump db.dump.gpg
+#   docker run --rm -v "$PWD:/out" postgres:18 pg_restore --no-owner --clean -d "<url>" /out/db.dump
+name: Database backup
+
+on:
+  schedule:
+    # 02:17 UTC daily, off the hour (GitHub's scheduler queues on the hour).
+    - cron: '17 2 * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Dump and encrypt
+        env:
+          NEON_BACKUP_URL: ${{ secrets.NEON_BACKUP_URL }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          # Fail loudly: a skipped backup must show up as a failed run (and an email).
+          if [ -z "$NEON_BACKUP_URL" ] || [ -z "$BACKUP_PASSPHRASE" ]; then
+            echo "::error::NEON_BACKUP_URL or BACKUP_PASSPHRASE is not set."
+            exit 1
+          fi
+          set -o pipefail
+          # pg_dump 18 reads servers up to 18; the image saves installing the client.
+          docker run --rm -e URL="$NEON_BACKUP_URL" postgres:18 sh -c 'pg_dump "$URL" -Fc' \
+            | gpg --batch --pinentry-mode loopback --passphrase-fd 3 \
+                --symmetric --cipher-algo AES256 -o db.dump.gpg 3<<<"$BACKUP_PASSPHRASE"
+          ls -l db.dump.gpg
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: db-backup-${{ github.run_id }}
+          path: db.dump.gpg
+          retention-days: 30
+          if-no-files-found: error

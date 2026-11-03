@@ -20,12 +20,51 @@ benefits:
     description: "Get guidance on career paths in AI safety, job opportunities, and connections to organizations working in the field."
 
 
-# Working groups, in the order the community page lists them.
-# Each person in src/data/team.js names the groups they work in by `id`
-# (their `groups` list). `form_keys` are the group keys that
-# scripts/update-members.py writes into data/members.yaml for people who
-# declared stable participation or coordination on the registration form;
-# they are listed under the group as participants.
+# Local groups, shown on the community page as pins on the map of Italy and
+# as a list beside it; the home page counts them. x/y are pre-projected into
+# that SVG's 0 0 420 560 viewBox (Mercator, same projection as the outline),
+# so a new city needs its projected x/y, not lat/lon. Cities carry no links on
+# purpose: people reach a group by joining AIS4I through the sign-up form.
+local_groups:
+  title: 'Find your local group'
+  title_it: 'Trova il tuo gruppo locale'
+  join: "Join AIS4I and become part of your city's group"
+  join_it: 'Unisciti ad AIS4I ed entra a far parte del gruppo della tua città'
+  start: 'No group in your city yet?'
+  start_it: 'Non esiste ancora un gruppo nella tua città?'
+  start_link: "Join AIS4I and we'll help you start one"
+  start_link_it: 'Unisciti ad AIS4I e ti aiuteremo a crearne uno'
+  cities:
+    - name: 'Genova'
+      x: 90.6
+      y: 175.2
+    - name: 'Milano'
+      x: 98.7
+      y: 125.8
+    - name: 'Padova'
+      x: 187.5
+      y: 128.5
+    - name: 'Torino'
+      x: 49.0
+      y: 144.3
+    - name: 'Trento'
+      x: 162.5
+      y: 97.2
+    - name: 'Trieste'
+      x: 250.3
+      y: 117.0
+    - name: 'Udine'
+      x: 232.4
+      y: 97.0
+
+# Working groups, in the order the community page lists them. Once published
+# from the dashboard (Member applications → Working groups, "Publish to the
+# site"), the site takes them from there instead (server/community-build.js);
+# these stay as the fallback and match its ids. Each person in
+# src/data/team.js names the groups they work in by `id` (their `groups`
+# list). `form_keys` are the group keys that scripts/update-members.py writes
+# into data/members.yaml for people who declared stable participation or
+# coordination on the registration form; they are listed under the group.
 working_groups:
   - id: mentorship
     form_keys: ['mentorship']
@@ -33,36 +72,48 @@ working_groups:
     title_it: 'Mentorship'
     description: 'Runs the mentorship program: matches newcomers with experienced members and supports each cohort.'
     description_it: 'Gestisce il programma di mentorship: abbina chi inizia a membri esperti e segue ogni gruppo.'
-  - id: events
-    form_keys: ['events', 'community']
-    title: 'Events & local groups'
-    title_it: 'Eventi e gruppi locali'
-    description: 'Organises meetups, seminars and the city groups across Italy.'
-    description_it: 'Organizza meetup, seminari e i gruppi cittadini in tutta Italia.'
+  - id: governance-and-funding
+    form_keys: ['governance']
+    title: 'Governance & funding'
+    title_it: 'Governance e fundraising'
+    description: 'Legal structure, finances, grants and relationships with funders.'
+    description_it: 'Struttura legale, finanze, bandi e rapporti con i finanziatori.'
+  - id: seminars
+    form_keys: ['seminars']
+    title: 'Seminars'
+    title_it: 'Seminari'
+    description: 'The research seminar series: speakers, schedule and streaming.'
+    description_it: 'Il ciclo di seminari di ricerca: relatori, calendario e streaming.'
+  - id: technical
+    form_keys: ['technical']
+    title: 'Technical infrastructure'
+    title_it: 'Infrastruttura tecnica'
+    description: 'The website, internal tools and the Discord server.'
+    description_it: 'Il sito, gli strumenti interni e il server Discord.'
+  - id: education
+    form_keys: ['education']
+    title: 'Education & outreach'
+    title_it: 'Didattica e divulgazione'
+    description: 'Courses, reading groups and learning materials on AI safety.'
+    description_it: "Corsi, gruppi di lettura e materiali didattici sull'AI safety."
   - id: communications
     form_keys: ['communication']
     title: 'Communications'
     title_it: 'Comunicazione'
     description: 'Newsletter, social media, press and the public voice of the organisation.'
     description_it: "Newsletter, social, stampa e la voce pubblica dell'associazione."
-  - id: governance
-    form_keys: ['governance']
-    title: 'Governance & fundraising'
-    title_it: 'Governance e fundraising'
-    description: 'Legal structure, finances, grants and relationships with funders.'
-    description_it: 'Struttura legale, finanze, bandi e rapporti con i finanziatori.'
-  - id: education
-    form_keys: ['education', 'seminars']
-    title: 'Education'
-    title_it: 'Formazione'
-    description: 'Courses, reading groups and learning materials on AI safety.'
-    description_it: "Corsi, gruppi di lettura e materiali didattici sull'AI safety."
-  - id: tech
-    form_keys: ['technical']
-    title: 'Technical infrastructure'
-    title_it: 'Infrastruttura tecnica'
-    description: 'The website, internal tools and the Discord server.'
-    description_it: 'Il sito, gli strumenti interni e il server Discord.'
+  - id: community
+    form_keys: ['community']
+    title: 'Community & networking'
+    title_it: 'Comunità e networking'
+    description: 'Welcomes new members and keeps the community connected, online and in the city groups.'
+    description_it: 'Accoglie i nuovi membri e tiene unita la community, online e nei gruppi cittadini.'
+  - id: events
+    form_keys: ['events']
+    title: 'Events'
+    title_it: 'Eventi'
+    description: 'Organises meetups and events across Italy.'
+    description_it: 'Organizza meetup ed eventi in tutta Italia.'
 
 # The organizing team.
 #   published: false — shown locally and on preview deploys (ais4i-dev.vercel.app)

@@ -134,7 +134,7 @@ const fake = {
 };
 
 function getCalendar() {
-  if (process.env.MEET_FAKE_CALENDAR === '1') return fake;
+  if (process.env.MEET_FAKE_CALENDAR === '1' && !process.env.VERCEL) return fake;
   if (!isConfigured()) {
     throw new HttpError(503, 'Google Calendar is not connected yet (GOOGLE_* settings missing)');
   }
