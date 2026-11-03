@@ -63,6 +63,7 @@
           roleId: role.id,
           roleName: role.name,
           main: role.main,
+          rank: role.rank,
           permissions: saved ? saved.permissions.slice() : [],
         };
       });
@@ -73,6 +74,7 @@
           roleId: id,
           roleName: byId[id].roleName,
           main: byId[id].main,
+          rank: byId[id].rank,
           permissions: byId[id].permissions.slice(),
           unlisted: data.roles.length > 0,
         });
@@ -92,9 +94,13 @@
       });
       candidates = data.candidates;
       selected =
-        roles.filter(function (r) {
-          return r.main;
-        })[0] ||
+        roles
+          .filter(function (r) {
+            return r.main;
+          })
+          .sort(function (a, b) {
+            return a.rank - b.rank;
+          })[0] ||
         roles[0] ||
         people[0] ||
         null;
@@ -227,9 +233,14 @@
   var othersOpen = false;
   function renderNav() {
     M.clear(roleList);
-    var main = roles.filter(function (r) {
-      return r.main;
-    });
+    // Admin, Direttivo, Organizzatori, Partecipanti, in this order.
+    var main = roles
+      .filter(function (r) {
+        return r.main;
+      })
+      .sort(function (a, b) {
+        return a.rank - b.rank;
+      });
     var others = roles.filter(function (r) {
       return !r.main;
     });

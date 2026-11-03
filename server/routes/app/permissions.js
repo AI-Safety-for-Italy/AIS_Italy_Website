@@ -30,10 +30,17 @@ module.exports = route({
     ]);
     sendJson(res, 200, {
       keys: permissions.PERMISSIONS,
-      roles: roles.map((r) => ({ ...r, main: permissions.isMainRole(r) })),
+      // main: one of the association's roles; rank: its place among them
+      // (Admin, Direttivo, Organizzatori, Partecipanti), -1 for the others.
+      roles: roles.map((r) => ({
+        ...r,
+        main: permissions.isMainRole(r),
+        rank: permissions.mainRank(r),
+      })),
       table: table.map((r) => ({
         ...r,
         main: permissions.isMainRole({ id: r.roleId, name: r.roleName }),
+        rank: permissions.mainRank({ id: r.roleId, name: r.roleName }),
       })),
       people,
       candidates,

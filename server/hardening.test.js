@@ -558,11 +558,11 @@ test('the Permissions page tells the association’s roles apart, and each perso
   );
   const res = await call(permissionsApi, { url: '/api/app/permissions', user: await admin() });
   assert.deepEqual(
-    res.body.table.map((r) => [r.roleName, r.main]),
+    res.body.table.map((r) => [r.roleName, r.main, r.rank]),
     [
-      ['Direttivo', true],
-      ['Members (renamed)', true],
-      ['Seminari', false],
+      ['Direttivo', true, 1],
+      ['Members (renamed)', true, 3],
+      ['Seminari', false, -1],
     ]
   );
   assert.deepEqual(res.body.people.find((p) => p.name === 'Ugo').roles, ['r-dir', 'r-sem']);

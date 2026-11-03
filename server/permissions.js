@@ -464,15 +464,24 @@ async function guildRoles() {
 // (DISCORD_ROLE_PARTICIPANT, DISCORD_ROLE_ORGANIZER), else by name.
 const MAIN_ROLE_NAMES = ['admin', 'direttivo', 'organizzatori', 'partecipanti'];
 
-function isMainRole(role) {
-  const ids = [process.env.DISCORD_ROLE_PARTICIPANT, process.env.DISCORD_ROLE_ORGANIZER];
-  if (role.id && ids.includes(role.id)) return true;
+/**
+ * Where a role stands among the association's (0 Admin, 1 Direttivo,
+ * 2 Organizzatori, 3 Partecipanti: the order of the Permissions page), or -1
+ * for any other role.
+ */
+function mainRank(role) {
+  if (role.id && role.id === process.env.DISCORD_ROLE_ORGANIZER) return 2;
+  if (role.id && role.id === process.env.DISCORD_ROLE_PARTICIPANT) return 3;
   const name = String(role.name || '')
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .trim()
     .toLowerCase();
-  return MAIN_ROLE_NAMES.includes(name);
+  return MAIN_ROLE_NAMES.indexOf(name);
+}
+
+function isMainRole(role) {
+  return mainRank(role) !== -1;
 }
 
 /** Rows of the permissions table: [{ roleId, roleName, permissions }]. */
@@ -719,6 +728,7 @@ module.exports = {
   KEYS,
   PEOPLE_ONLY,
   isMainRole,
+  mainRank,
   refreshPeopleRoles,
   areas,
   DEV_ROLES,
