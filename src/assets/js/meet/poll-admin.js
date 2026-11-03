@@ -483,11 +483,17 @@
           M.appError(err);
         });
     });
-    window.addEventListener('beforeunload', function (e) {
-      if (!dirty) return;
-      e.preventDefault();
-      e.returnValue = '';
-    });
+    // Drawn again with the page: only the panel on screen counts.
+    M.unsaved(
+      function () {
+        return dirty && save.isConnected;
+      },
+      {
+        buttons: function () {
+          return [save];
+        },
+      }
+    );
 
     drawPeople();
     return h(
@@ -771,7 +777,7 @@
       return;
     M.api('DELETE', '/api/app/poll?id=' + encodeURIComponent(id))
       .then(function () {
-        window.location.href = '/app/polls/';
+        M.leaveTo('/app/polls/');
       })
       .catch(M.appError);
   }

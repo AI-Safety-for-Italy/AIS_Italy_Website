@@ -589,6 +589,182 @@
     return typeof text === 'string' && text.length <= 254 && EMAIL.test(text);
   }
 
+  // ── Unsaved changes ──────────────────────────────────────────────────────
+  // A page with changes saved by a button of its own says so with
+  // unsaved(check, opts): leaving with any unsaved then asks first, as
+  // Discord does — following a link, closing or reloading the tab. `check()`
+  // says whether there are any; `opts.buttons()` gives the save buttons, that
+  // shake on "Stay" to show where to go. A page may register more than one
+  // (e.g. two panels saved on their own). confirmLeave(go) asks the same
+  // before a leave of the page's own (a cancel), and calls go() when there is
+  // nothing to lose; the `confirm(go)` of what unsaved() returns asks for
+  // that part only (leaving a tab whose changes are its own).
+  var guards = [];
+  var leaving = false;
+  var leaveDialog = null;
+
+  function pending(only) {
+    if (leaving) return [];
+    return (only || guards).filter(function (g) {
+      return g.check();
+    });
+  }
+
+  function confirmLeave(go, only) {
+    var open = pending(only);
+    if (!open.length) return go();
+    if (!leaveDialog) {
+      // The public pages (a poll, a form) may be in Italian.
+      var it = document.documentElement.lang === 'it';
+      leaveDialog = h(
+        'dialog',
+        { class: 'leave-dialog', 'aria-labelledby': 'leaveTitle' },
+        h('h2', { id: 'leaveTitle' }, it ? 'Modifiche non salvate' : 'Unsaved changes'),
+        h(
+          'p',
+          null,
+          it
+            ? 'Ci sono modifiche non salvate. Uscire comunque e perderle?'
+            : 'You have changes that are not saved. Leave anyway and lose them?'
+        ),
+        h(
+          'div',
+          { class: 'leave-actions' },
+          h(
+            'button',
+            { type: 'button', class: 'btn btn-outline', value: 'stay' },
+            it ? 'Resta' : 'Stay'
+          ),
+          h(
+            'button',
+            { type: 'button', class: 'btn btn-danger', value: 'leave' },
+            it ? 'Esci senza salvare' : 'Leave without saving'
+          )
+        )
+      );
+      document.body.appendChild(leaveDialog);
+    }
+    var buttons = leaveDialog.querySelectorAll('button');
+    buttons[0].onclick = function () {
+      leaveDialog.close();
+      open.forEach(function (g) {
+        (g.buttons ? g.buttons() : []).forEach(function (b) {
+          if (!b || b.hidden || !b.isConnected) return;
+          b.classList.remove('is-shaking');
+          void b.offsetWidth;
+          b.classList.add('is-shaking');
+        });
+      });
+    };
+    buttons[1].onclick = function () {
+      leaveDialog.close();
+      open.forEach(function (g) {
+        if (g.discard) g.discard();
+      });
+      go();
+    };
+    leaveDialog.showModal();
+    buttons[0].focus();
+  }
+
+  function unsaved(check, opts) {
+    opts = opts || {};
+    var guard = { check: check, buttons: opts.buttons, discard: opts.discard };
+    guards.push(guard);
+    return {
+      confirm: function (go) {
+        confirmLeave(go, [guard]);
+      },
+    };
+  }
+
+  /** What the fields inside `el` hold, as one string to compare. Files and
+   * searches are left out: picking one is not a change to save. */
+  function fieldsOf(el) {
+    var out = [];
+    el.querySelectorAll('input, select, textarea').forEach(function (f) {
+      if (f.type === 'file' || f.type === 'search' || f.disabled) return;
+      if (f.closest('[data-unsaved-ignore]')) return;
+      out.push(
+        f.type === 'checkbox' || f.type === 'radio'
+          ? f.checked
+          : f.multiple
+          ? [].map.call(f.selectedOptions, function (o) {
+              return o.value;
+            })
+          : f.value
+      );
+    });
+    return JSON.stringify(out);
+  }
+
+  /** The fields inside `el` (a form, a panel) as saved: changing them and
+   * leaving asks first. Call saved() again once saved, or drawn anew from
+   * what the server sent. Fields put back as they were count as unchanged.
+   * opts.buttons() as in unsaved(); by default the submit button of `el`.
+   * opts.active() says whether `el` is in use (a dialog open); by default,
+   * while it is on the page. */
+  function watchFields(el, opts) {
+    opts = opts || {};
+    var base = fieldsOf(el);
+    var active =
+      opts.active ||
+      function () {
+        return el.isConnected;
+      };
+    function changed() {
+      return active() && fieldsOf(el) !== base;
+    }
+    var guard = unsaved(changed, {
+      buttons:
+        opts.buttons ||
+        function () {
+          return [el.querySelector('[type="submit"]')];
+        },
+    });
+    return {
+      saved: function () {
+        base = fieldsOf(el);
+      },
+      changed: changed,
+      confirm: guard.confirm,
+    };
+  }
+
+  /** Leaves for `href`, with nothing asked again on the way out. */
+  function leaveTo(href) {
+    leaving = true;
+    location.href = href;
+  }
+
+  // Links out of the page (the sidebar, the back arrow, the crumbs…).
+  document.addEventListener(
+    'click',
+    function (e) {
+      if (!guards.length || e.defaultPrevented || e.button !== 0) return;
+      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      var a = e.target.closest && e.target.closest('a[href]');
+      if (!a || a.target === '_blank' || a.hasAttribute('download')) return;
+      var to = new URL(a.href, location.href);
+      if (!/^https?:$/.test(to.protocol)) return; // mailto:, tel:
+      if (to.pathname === location.pathname && to.search === location.search) return;
+      if (!pending().length) return;
+      e.preventDefault();
+      e.stopPropagation();
+      confirmLeave(function () {
+        leaveTo(a.href);
+      });
+    },
+    true
+  );
+
+  window.addEventListener('beforeunload', function (e) {
+    if (pending().length) {
+      e.preventDefault();
+      e.returnValue = '';
+    }
+  });
+
   window.Meet = {
     isEmail: isEmail,
     recurrenceText: recurrenceText,
@@ -618,5 +794,9 @@
     groupByDay: groupByDay,
     bestSlots: bestSlots,
     resultsTable: resultsTable,
+    unsaved: unsaved,
+    watchFields: watchFields,
+    confirmLeave: confirmLeave,
+    leaveTo: leaveTo,
   };
 })();

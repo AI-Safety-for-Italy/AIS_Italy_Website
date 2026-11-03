@@ -298,12 +298,16 @@
   form.addEventListener('input', changed);
   form.addEventListener('change', changed);
 
-  window.addEventListener('beforeunload', function (e) {
-    if (dirty) {
-      e.preventDefault();
-      e.returnValue = '';
+  M.unsaved(
+    function () {
+      return dirty;
+    },
+    {
+      buttons: function () {
+        return [saveBtn];
+      },
     }
-  });
+  );
 
   document.querySelectorAll('.lang-toggle button').forEach(function (b) {
     b.addEventListener('click', function () {

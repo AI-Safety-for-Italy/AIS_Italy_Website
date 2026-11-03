@@ -110,8 +110,26 @@
     );
   }
 
+  // Scores typed and not saved: asked before another application or part
+  // takes their place (and before leaving the page).
+  var scoreFields = null;
+  function thenLeave(go) {
+    if (scoreFields) scoreFields.confirm(go);
+    else go();
+  }
+
   window.addEventListener('hashchange', function () {
-    if (partOfHash() !== view.part) start();
+    if (partOfHash() === view.part) return;
+    var next = location.hash;
+    if (scoreFields && scoreFields.changed()) {
+      // Stay put (the address too) unless told to go.
+      history.replaceState(null, '', '#' + view.part);
+      return thenLeave(function () {
+        scoreFields = null;
+        location.hash = next;
+      });
+    }
+    start();
   });
 
   // ── The page ─────────────────────────────────────────────────────────────
@@ -163,7 +181,10 @@
             class: 'rv-item' + (view.open === it.code ? ' is-selected' : ''),
             'aria-current': view.open === it.code ? 'true' : null,
             onclick: function () {
-              openItem(it.code);
+              if (view.open === it.code) return;
+              thenLeave(function () {
+                openItem(it.code);
+              });
             },
           },
           h('span', { class: 'rv-code' }, it.code),
@@ -356,6 +377,7 @@
                 if (it.code === code) it.state = r.state;
               });
               renderProgress();
+              scoreFields.saved();
               M.toast(r.state === 'partial' ? 'Saved, not complete yet' : 'Saved');
               // Once complete, on to the next one still to score.
               var next = r.state !== 'partial' && firstTodo(code);
@@ -401,6 +423,7 @@
         form
       )
     );
+    scoreFields = M.watchFields(form);
   }
 
   start();

@@ -10,6 +10,7 @@
   var rows = document.getElementById('sheetRows');
   var error = form.querySelector('.form-error');
   var sources = [];
+  var fields = null; // what is saved, against what is typed (M.watchFields)
 
   function showError(message) {
     error.textContent = message || '';
@@ -250,6 +251,7 @@
   Promise.all([M.me, M.api('GET', '/api/app/crm/mentorship?action=sources')])
     .then(function (r) {
       draw(r[1]);
+      fields = M.watchFields(form);
     })
     .catch(function (err) {
       if (err.status === 403) {
@@ -280,6 +282,7 @@
     M.api('PUT', '/api/app/crm/mentorship?action=sources', body)
       .then(function (data) {
         draw(data);
+        if (fields) fields.saved();
         M.toast('Saved');
       })
       .catch(function (err) {

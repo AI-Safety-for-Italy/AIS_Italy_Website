@@ -197,6 +197,22 @@
     );
   }
 
+  // A mentor typed in and not saved: closing or leaving asks first.
+  var addFields = M.watchFields(addForm, {
+    active: function () {
+      return addPanel.open;
+    },
+  });
+  function closeAdd() {
+    addFields.confirm(function () {
+      addPanel.close();
+    });
+  }
+  addPanel.addEventListener('cancel', function (e) {
+    e.preventDefault();
+    closeAdd();
+  });
+
   function openAdd() {
     M.clear(addForm);
     // The server reads the track from these Italian words.
@@ -243,9 +259,7 @@
           {
             class: 'btn btn-outline btn-sm',
             type: 'button',
-            onclick: function () {
-              addPanel.close();
-            },
+            onclick: closeAdd,
           },
           'Cancel'
         ),
@@ -275,6 +289,7 @@
           errorEl.hidden = false;
         });
     };
+    addFields.saved();
     addPanel.showModal();
     document.getElementById('add-first_name').focus();
   }

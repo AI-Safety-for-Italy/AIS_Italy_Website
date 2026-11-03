@@ -14,6 +14,7 @@
   var root = document.getElementById('rvSettings');
   var data = null;
   var draft = null;
+  var savedDraft = ''; // the draft as saved: the grid is unsaved while they differ
 
   function fail(err) {
     if (err.status === 401) return M.appError(err);
@@ -42,8 +43,20 @@
         return Object.assign({}, c);
       });
     });
+    savedDraft = JSON.stringify(draft);
     render();
   }
+
+  M.unsaved(
+    function () {
+      return Boolean(draft) && JSON.stringify(draft) !== savedDraft;
+    },
+    {
+      buttons: function () {
+        return [root.querySelector('.rv-grid-save')];
+      },
+    }
+  );
 
   root.appendChild(M.loading());
   Promise.all([M.me, M.api('GET', API + '?action=settings')])
@@ -168,7 +181,11 @@
       });
     }
     rerender();
-    var save = h('button', { type: 'submit', class: 'btn btn-primary btn-sm' }, 'Save the grid');
+    var save = h(
+      'button',
+      { type: 'submit', class: 'btn btn-primary btn-sm rv-grid-save' },
+      'Save the grid'
+    );
     return h(
       'form',
       {

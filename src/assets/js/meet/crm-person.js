@@ -447,6 +447,17 @@
       },
       'Add note'
     );
+    // A note typed and not added.
+    M.unsaved(
+      function () {
+        return noteInput.isConnected && Boolean(noteInput.value.trim());
+      },
+      {
+        buttons: function () {
+          return [noteBtn];
+        },
+      }
+    );
     sections.push({
       name: 'notes',
       title: 'Notes',
@@ -821,6 +832,17 @@
     var dirty = false;
     var open = !site.published || site.unpublishedChanges;
     var liveLine = null;
+    var entrySave = null; // "Save draft", as last drawn
+    M.unsaved(
+      function () {
+        return dirty && box.isConnected;
+      },
+      {
+        buttons: function () {
+          return [entrySave];
+        },
+      }
+    );
 
     function failed(err) {
       err.shown = true;
@@ -1115,6 +1137,7 @@
         },
         'Save draft'
       );
+      entrySave = saveBtn;
       publishBtn = h(
         'button',
         { type: 'button', class: 'btn btn-primary btn-sm', onclick: publish },
