@@ -323,6 +323,7 @@ for (const env of ['production', 'preview']) {
       'forms',
       'forms_admin',
       'members',
+      'local_groups',
     ]) {
       assert.ok(!perms.includes(key), key);
     }
@@ -333,6 +334,7 @@ for (const env of ['production', 'preview']) {
       forms: false,
       members: false,
       community: false,
+      localgroups: false,
       review: false,
       upgrade: false,
     });

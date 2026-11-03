@@ -43,8 +43,8 @@ module.exports = [
     faces: true,
     url: '/app/content/',
     area: 'content',
-    needsAny: ['seminar', 'event', 'homepage'],
-    text: 'Seminars, events, banners and the home page spotlight.',
+    needsAny: ['seminar', 'event', 'homepage', 'local_groups_site'],
+    text: 'Seminars, events, banners, the home page spotlight and local groups.',
     icon: '<path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/>',
     sections: [
       {
@@ -70,6 +70,16 @@ module.exports = [
         needs: 'homepage',
         text: 'The banners above every page and the boxes beside the home page hero.',
         icon: '<path d="M3 5h18v4H3z"/><rect x="12" y="12" width="9" height="8" rx="1.5"/><path d="M3 13h6M3 17h6"/>',
+      },
+      // Which groups of the local groups' board the community page's map
+      // shows, and where each city links (server/local-groups.js).
+      {
+        key: 'local-groups',
+        label: 'Local groups',
+        url: '/app/content/local-groups/',
+        needs: 'local_groups_site',
+        text: 'Which cities the community page shows, and where each links.',
+        icon: '<path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.5"/>',
       },
     ],
     tabs: [],
@@ -163,6 +173,20 @@ module.exports = [
       { key: 'discord', label: 'Discord', url: '/app/members/discord/' },
     ],
     actions: [],
+  },
+  // The local groups (server/local-groups.js): a card per city, with who
+  // leads it, their contacts and the WhatsApp link. What the site shows of
+  // them is set in Site content → Local groups.
+  {
+    key: 'localgroups',
+    faces: true,
+    title: 'Local groups',
+    url: '/app/local-groups/',
+    area: 'localgroups',
+    text: 'The city groups: who leads each, their contacts and WhatsApp.',
+    icon: '<path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.5"/>',
+    tabs: [],
+    actions: [{ label: 'New local group', url: '/app/local-groups/?new=1' }],
   },
   // For a participant on Discord, not an organizer yet: the organizers' part
   // of the sign-up form, sent to the board (server/members.js, upgrade).

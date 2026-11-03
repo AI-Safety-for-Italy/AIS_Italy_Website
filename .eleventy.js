@@ -6,6 +6,7 @@ const contentBuild = require("./server/content-build");
 const communityBuild = require('./server/community-build');
 const mentorsBuild = require('./server/mentors-build');
 const highlightsBuild = require('./server/highlights-build');
+const localGroupsBuild = require('./server/local-groups-build');
 
 const DEFAULT_LOCALE = locales[0];
 const PREFIXED_LOCALES = locales.filter(l => l.prefix);
@@ -402,7 +403,12 @@ module.exports = function(eleventyConfig) {
       // see server/highlights-build.js.
       if (filename === 'global.yaml') return highlightsBuild.global(data, await highlightsBuild.load());
       if (filename === 'members.yaml') return communityBuild.members(data, await communityBuild.load());
-      if (filename === 'community.yaml') return communityBuild.community(data, await communityBuild.load());
+      if (filename === 'community.yaml') {
+        // Its local groups' cities from Site content → Local groups; see
+        // server/local-groups-build.js.
+        const withGroups = communityBuild.community(data, await communityBuild.load());
+        return localGroupsBuild.community(withGroups, await localGroupsBuild.load());
+      }
       if (filename === 'mentors.yaml') {
         return mentorsBuild.merge(data, await (mentorsPublished || mentorsBuild.load()));
       }
@@ -419,6 +425,7 @@ module.exports = function(eleventyConfig) {
     highlightsBuild.spotlights(await highlightsBuild.load())
   );
   eleventyConfig.addWatchTarget(mentorsBuild.SNAPSHOT);
+  eleventyConfig.addWatchTarget(localGroupsBuild.SNAPSHOT);
 
   /**
    * Load all design tokens and make them globally available

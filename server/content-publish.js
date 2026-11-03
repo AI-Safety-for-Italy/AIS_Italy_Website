@@ -42,6 +42,8 @@ async function triggerBuild() {
     require('./community-build').writeSnapshot(await require('./community').publicExport());
     // The banners and the home page boxes (server/highlights.js).
     require('./highlights-build').writeSnapshot(await require('./highlights').publicExport());
+    // The local groups' cities, as last published (server/local-groups.js).
+    require('./local-groups-build').writeSnapshot(await require('./local-groups').publicExport());
     // And the mentors published from the board (server/crm/mentorship.js).
     try {
       require('./mentors-build').writeSnapshot(await require('./crm/mentorship').snapshotData());

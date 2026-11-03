@@ -34,6 +34,10 @@ const ACTIONS = new Set([
   'community-import',
   // Linking members to Discord and checking their roles against their tags.
   'community-discord',
+  // The local groups (server/local-groups.js): subject_key is the group's id.
+  'local-groups-list',
+  'local-groups-edit',
+  'local-groups-site',
   'form-tags',
   'form-edit',
   'form-settings',

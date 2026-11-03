@@ -1,0 +1,47 @@
+---
+title: Local groups
+# Site content → Local groups (server/local-groups.js): which groups of the
+# local groups' board the community page's map shows, each city's pin and,
+# if any, the page its name links to. Needs `local_groups_site`; the API
+# checks it and sends nothing of the board's leads or links.
+permalink: /app/content/local-groups/
+tool: content
+section: local-groups
+pageTitle: Local groups
+wide: true
+noindex: true
+excludeFromSitemap: true
+eleventyExcludeFromCollections: true
+seoTitle: 'Local groups | AI Safety for Italy'
+---
+{% extends "app.njk" %}
+{% block page %}
+    <div class="notice" id="lgNotLive" hidden style="margin-bottom:1.5rem">
+      <span><strong>Not published yet.</strong> The site still shows the cities written in the code. Choose the groups below and publish: from then on, the map is set here.</span>
+    </div>
+    <div class="lg-site" id="lgSite" hidden>
+      <figure class="panel lg-map-panel">
+        <svg class="lg-map" id="lgMap" viewBox="0 0 420 560" role="img" aria-label="Map of Italy with the cities the site shows">
+          {% include "italy-map-land.njk" %}
+          <g id="lgPins"></g>
+        </svg>
+        <figcaption class="panel-note" id="lgMapHint">Tick a city to put it on the map; “Move the pin”, then click the map, to place it.</figcaption>
+      </figure>
+      <div class="lg-site-side">
+        <div id="lgSiteList"></div>
+        <div class="lg-publish">
+          <button type="button" class="btn btn-primary" id="lgPublish">Publish to the site</button>
+          <span class="panel-note" id="lgState"></span>
+        </div>
+        <p class="panel-note" id="lgUnpublishRow" hidden style="margin-top:1.5rem">
+          If something goes wrong, the site can go back to the cities written in the code; nothing here is deleted.
+          <button type="button" class="link-button" id="lgUnpublish">Go back to them</button>
+        </p>
+      </div>
+    </div>
+    <div id="lgSiteMsg"></div>
+
+<script src="/assets/js/meet/common.js?v={{ build }}" defer></script>
+<script src="/assets/js/meet/app-common.js?v={{ build }}" defer></script>
+<script src="/assets/js/meet/local-groups-site.js?v={{ build }}" defer></script>
+{% endblock %}

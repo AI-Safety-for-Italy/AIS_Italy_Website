@@ -526,6 +526,33 @@ Once the directory is published from the dashboard, the scheduled job that
 rebuilt `data/members.yaml` from the sheet (`update-members.yml`) only changes
 the fallback: it can be switched off.
 
+# Local groups (`/app/local-groups/`, Site content → Local groups)
+
+A board of the city groups, and what the community page's map shows of them.
+
+| Where                                 | What                                                                       |
+| ------------------------------------- | -------------------------------------------------------------------------- |
+| `/app/local-groups/`                  | The board (`local_groups`): a column per status, or a table; CSV download  |
+| `/app/content/local-groups/`          | Which cities the map shows, each pin and link (`local_groups_site`)        |
+| `server/local-groups.js`              | The groups, their encrypted details, the CSV, publishing the map           |
+| `server/local-groups-build.js`        | What the site's build takes: the published cities, or community.yaml's     |
+| `/api/content?part=local-groups`      | The published cities, for the build (public: name, pin, link)              |
+
+- **The board.** A card per city: its status (starting, active, paused; drag
+  to move), who leads it with their email and phone, the WhatsApp invite link
+  and notes. Leads, link and notes are personal data or as good as a key to
+  the chat: encrypted like the CRM's (`CRM_ENCRYPTION_KEY`), read only with
+  `local_groups` (a guarded key: recent sign-in, given by `manage_all`), every
+  read, change and export on the audit trail. The table shows every lead with
+  their contacts; "Download CSV" gives one row per group.
+- **The site.** Site content → Local groups lists the board's cities without
+  any of those details: tick those the map shows, add a link if the name
+  should open something (the WhatsApp group, a site), and place the pin
+  (ticking a known city places it; "Move the pin", then a click on the map).
+  "Publish to the site" saves and rebuilds; never published, the cities of
+  `data/community.yaml` stay the site. The board starts with those same
+  cities (`migration_local_groups_seed`), so the first publish changes nothing.
+
 # Keeping time of personal data
 
 12 months for everyone who was not selected: answers to forms, member

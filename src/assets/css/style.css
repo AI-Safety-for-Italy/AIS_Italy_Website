@@ -4680,6 +4680,17 @@ textarea.form-input {
   paint-order: stroke;
 }
 
+.map-pin-label.is-link {
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+
+.map-pin-label.is-link:hover {
+  fill: var(--accent);
+}
+
 @keyframes pin-halo {
   0% {
     opacity: 0.55;
@@ -4716,7 +4727,8 @@ textarea.form-input {
 }
 
 /* --- City list beside the map ---
-   Plain labels, not buttons: no city has a page or a link of its own. */
+   Plain labels; a city with a link of its own (set in Site content → Local
+   groups) is the same chip, as a link. */
 .group-list {
   list-style: none;
   margin: 1.5rem 0;
@@ -4735,6 +4747,18 @@ textarea.form-input {
   border-radius: 6px;
   background: var(--bg-primary);
   font-weight: 600;
+}
+
+.group-chip.is-link {
+  color: inherit;
+  text-decoration: none;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.group-chip.is-link:hover,
+.group-chip.is-link:focus-visible {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .group-chip::before {

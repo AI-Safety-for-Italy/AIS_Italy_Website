@@ -10095,3 +10095,182 @@ a.hub-todo-card:hover {
     order: -1;
   }
 }
+
+/* ==========================================================================
+   Local groups: the board (/app/local-groups/, local-groups-board.js) and
+   what the site shows of them (/app/content/local-groups/,
+   local-groups-site.js). The board's columns and cards are the CRM's.
+   ========================================================================== */
+
+.lg-kanban {
+  grid-auto-columns: minmax(220px, 1fr);
+}
+
+.lg-card .lg-missing {
+  color: var(--text-tertiary);
+}
+
+.lg-card a.lg-wa {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.lg-card a.lg-wa:hover {
+  text-decoration: underline;
+}
+
+.lg-site-note {
+  margin: 0;
+}
+
+.lg-table td {
+  vertical-align: top;
+}
+
+.lg-table td div + div {
+  margin-top: 0.2rem;
+}
+
+.lg-leads {
+  display: grid;
+  gap: 6px;
+  margin: 0.35rem 0;
+}
+
+.lg-lead {
+  display: grid;
+  grid-template-columns: 1.2fr 1.4fr 1fr auto;
+  gap: 6px;
+  align-items: center;
+}
+
+@media (max-width: 640px) {
+  .lg-lead {
+    grid-template-columns: 1fr auto;
+  }
+}
+
+.lg-contacts {
+  list-style: none;
+  margin: 0;
+  padding: 0.6rem 0.8rem;
+  border-radius: 8px;
+  background: var(--bg-tertiary);
+  display: grid;
+  gap: 0.3rem;
+  font-size: 13px;
+}
+
+.lg-contacts li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.9rem;
+}
+
+.lg-dialog-actions {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+}
+
+.lg-site {
+  display: grid;
+  grid-template-columns: minmax(260px, 380px) 1fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+@media (max-width: 860px) {
+  .lg-site {
+    grid-template-columns: 1fr;
+  }
+}
+
+.lg-map-panel {
+  margin: 0;
+  position: sticky;
+  top: 1rem;
+}
+
+.lg-map {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 70vh;
+}
+
+.lg-map .italy-shape {
+  fill: var(--bg-tertiary);
+  fill-opacity: 1;
+  stroke: var(--accent);
+  stroke-width: 1.2;
+  stroke-linejoin: round;
+  /* The community page draws it in with an animation; here it just is. */
+  stroke-dasharray: none;
+  stroke-dashoffset: 0;
+  animation: none;
+}
+
+.lg-map.is-placing {
+  cursor: crosshair;
+}
+
+.lg-map.is-placing .italy-shape {
+  fill: var(--accent-50, rgba(0, 140, 69, 0.08));
+}
+
+.lg-pin circle {
+  fill: var(--accent);
+  stroke: var(--card-bg);
+  stroke-width: 1.5;
+}
+
+.lg-pin text {
+  font-size: 12px;
+  font-weight: 600;
+  fill: var(--text-primary);
+  stroke: var(--card-bg);
+  stroke-width: 3px;
+  paint-order: stroke;
+  stroke-linejoin: round;
+}
+
+.lg-pin.is-placing circle {
+  fill: var(--warning, #d97706);
+}
+
+#lgSiteList {
+  display: grid;
+  gap: 8px;
+}
+
+.lg-site-row {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.7rem 0.9rem;
+}
+
+.lg-site-row.is-placing {
+  border-color: var(--accent);
+}
+
+.lg-site-city {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0;
+}
+
+.lg-site-pin {
+  display: flex;
+  gap: 0.8rem;
+  align-items: baseline;
+}
+
+.lg-publish {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 1.25rem;
+}

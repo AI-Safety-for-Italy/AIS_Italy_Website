@@ -1,0 +1,39 @@
+---
+title: Local groups
+# The local groups' board (server/local-groups.js), as a board (a column per
+# status, a card per city) or a table, and as a CSV file; each city with who leads it, their contacts and the WhatsApp link. An
+# empty shell: everything comes from /api/app/local-groups once the server has
+# checked `local_groups`, so nothing personal is in this page's HTML.
+permalink: /app/local-groups/
+tool: localgroups
+wide: true
+noindex: true
+excludeFromSitemap: true
+eleventyExcludeFromCollections: true
+seoTitle: 'Local groups | AI Safety for Italy'
+---
+{% extends "app.njk" %}
+{% block actions %}
+<button type="button" class="btn btn-primary btn-sm" id="lgNew" hidden>+ New local group</button>
+{% endblock %}
+{% block page %}
+    <div class="crm-toolbar" id="lgToolbar" hidden>
+      <div class="crm-views" role="group" aria-label="View" id="lgViews">
+        <button type="button" data-mode="board" aria-pressed="true">Board</button>
+        <button type="button" data-mode="table" aria-pressed="false">Table</button>
+      </div>
+      <input class="form-input is-compact crm-search" id="lgSearch" type="search" placeholder="Search city or lead…" aria-label="Search">
+      <a class="btn btn-outline btn-sm" id="lgCsv" href="/api/app/local-groups?view=export" download>Download CSV</a>
+      <span class="panel-note lg-site-note" id="lgSiteNote"></span>
+    </div>
+
+    <div id="lgBoard"></div>
+
+<dialog class="meet-dialog" id="lgPanel" aria-labelledby="lgTitle">
+  <form class="dialog-body form-grid" id="lgForm" novalidate></form>
+</dialog>
+
+<script src="/assets/js/meet/common.js?v={{ build }}" defer></script>
+<script src="/assets/js/meet/app-common.js?v={{ build }}" defer></script>
+<script src="/assets/js/meet/local-groups-board.js?v={{ build }}" defer></script>
+{% endblock %}

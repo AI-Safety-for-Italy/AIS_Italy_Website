@@ -190,6 +190,7 @@ test('a permission opens only its own area', () => {
     forms: false,
     members: false,
     community: false,
+    localgroups: false,
     review: false,
   });
   assert.deepEqual(permissions.areas(['seminar']), {
@@ -198,6 +199,7 @@ test('a permission opens only its own area', () => {
     forms: false,
     members: false,
     community: false,
+    localgroups: false,
     review: false,
   });
   assert.deepEqual(permissions.areas(['manage', 'finance']), {
@@ -206,6 +208,7 @@ test('a permission opens only its own area', () => {
     forms: false,
     members: false,
     community: false,
+    localgroups: false,
     review: false,
   });
   assert.deepEqual(permissions.areas([]), {
@@ -214,6 +217,7 @@ test('a permission opens only its own area', () => {
     forms: false,
     members: false,
     community: false,
+    localgroups: false,
     review: false,
   });
   assert.deepEqual(permissions.areas(permissions.KEYS), {
@@ -222,6 +226,7 @@ test('a permission opens only its own area', () => {
     forms: true,
     members: true,
     community: true,
+    localgroups: true,
     review: true,
   });
 });
@@ -252,6 +257,7 @@ test('a CRM-only member is shut out of the content tool, and the other way round
     forms: false,
     members: false,
     community: false,
+    localgroups: false,
     review: false,
     upgrade: false,
   });
@@ -262,6 +268,7 @@ test('a CRM-only member is shut out of the content tool, and the other way round
     forms: false,
     members: false,
     community: false,
+    localgroups: false,
     review: false,
     upgrade: false,
   });
@@ -271,6 +278,7 @@ test('a CRM-only member is shut out of the content tool, and the other way round
     forms: false,
     members: false,
     community: false,
+    localgroups: false,
     review: false,
   });
 });

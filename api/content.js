@@ -4,6 +4,8 @@
 //   GET                  -> { live, entries }   entries shaped like data/events.yaml's
 //   GET ?part=community  -> { live, groups, members }   the directory and working
 //                           groups last published (server/community.js)
+//   GET ?part=local-groups  -> { live, cities }   the local groups' cities last
+//                           published (server/local-groups.js): name, pin, link
 //   GET ?part=mentors    -> { live, mentors, hidden }   the mentors published from
 //                           the board (server/crm/mentorship.js), photos as paths
 //   GET ?part=mentor-photo&id=…  -> that published mentor's photo (image/jpeg)
@@ -16,6 +18,7 @@ const content = require('../server/content');
 const community = require('../server/community');
 const mentorship = require('../server/crm/mentorship');
 const highlights = require('../server/highlights');
+const localGroups = require('../server/local-groups');
 const { getQuery } = require('../server/http');
 
 module.exports = route({
@@ -27,6 +30,10 @@ module.exports = route({
     }
     if (part === 'highlights') {
       sendJson(res, 200, await highlights.publicExport());
+      return;
+    }
+    if (part === 'local-groups') {
+      sendJson(res, 200, await localGroups.publicExport());
       return;
     }
     if (part === 'mentors') {

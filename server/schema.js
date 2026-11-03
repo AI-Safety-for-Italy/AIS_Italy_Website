@@ -583,4 +583,44 @@ begin
     insert into app_settings (key, value) values ('migration_coordinators', 'true');
   end if;
 end $$;
+
+-- The local groups (server/local-groups.js): one per city, on their own board
+-- (local_groups). Who leads each, their contacts, the WhatsApp link and the
+-- notes are encrypted, bound to the row (details_encrypted, null until set).
+-- What the community page's map shows of each is apart and public: shown or
+-- not, its pin (x/y in the map's 0 0 420 560 viewBox) and its link, set from
+-- Site content → Local groups (local_groups_site) and published from there.
+create table if not exists local_groups (
+  id uuid primary key,
+  city text not null,
+  status text not null default 'starting' check (status in ('starting', 'active', 'paused')),
+  details_encrypted text,
+  site_show boolean not null default false,
+  site_link text not null default '',
+  map_x real,
+  map_y real,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  updated_by_name text
+);
+
+create unique index if not exists local_groups_city on local_groups (lower(city));
+
+-- Once, on each database: the cities of data/community.yaml start the board,
+-- on the map where they are, so publishing first changes nothing on the site.
+do $$
+begin
+  if not exists (select 1 from app_settings where key = 'migration_local_groups_seed') then
+    insert into local_groups (id, city, status, site_show, map_x, map_y) values
+      (gen_random_uuid(), 'Genova', 'active', true, 90.6, 175.2),
+      (gen_random_uuid(), 'Milano', 'active', true, 98.7, 125.8),
+      (gen_random_uuid(), 'Padova', 'active', true, 187.5, 128.5),
+      (gen_random_uuid(), 'Torino', 'active', true, 49.0, 144.3),
+      (gen_random_uuid(), 'Trento', 'active', true, 162.5, 97.2),
+      (gen_random_uuid(), 'Trieste', 'active', true, 250.3, 117.0),
+      (gen_random_uuid(), 'Udine', 'active', true, 232.4, 97.0)
+    on conflict do nothing;
+    insert into app_settings (key, value) values ('migration_local_groups_seed', 'true');
+  end if;
+end $$;
 `;

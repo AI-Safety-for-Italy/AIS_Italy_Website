@@ -36,6 +36,14 @@ const PERMISSIONS = [
     help: 'Publish and edit seminars on the site.',
   },
   { key: 'event', label: 'Events', area: 'content', help: 'Publish and edit events on the site.' },
+  // Site content → Local groups: which cities of the local groups' board the
+  // community page shows on its map, and where each links. Nothing personal.
+  {
+    key: 'local_groups_site',
+    label: 'Local groups on the site',
+    area: 'content',
+    help: 'Which local groups the community page shows on its map, and where each links.',
+  },
   {
     key: 'media',
     label: 'Videos & podcasts',
@@ -126,6 +134,15 @@ const PERMISSIONS = [
     area: 'community',
     help: 'The members and the working groups: their tags on Discord, and the directory on the site.',
   },
+  // The local groups' board (server/local-groups.js): who leads each city's
+  // group, their contacts and the WhatsApp links. What the site shows of them
+  // is `local_groups_site`, in the content area.
+  {
+    key: 'local_groups',
+    label: 'Local groups',
+    area: 'localgroups',
+    help: 'The local groups: who leads each, their contacts and the WhatsApp links.',
+  },
 ];
 // The tools' areas; `settings` (manage_all) opens no tool of its own.
 const AREAS = [...new Set(PERMISSIONS.map((p) => p.area))].filter((a) => a !== 'settings');
@@ -167,6 +184,8 @@ const DEV_DEFAULTS = {
     'forms_admin',
     'members',
     'community',
+    'local_groups',
+    'local_groups_site',
   ],
   'dev-organizzatori': ['seminar', 'event', 'forms', 'mentorship'],
   'dev-partecipanti': [],
