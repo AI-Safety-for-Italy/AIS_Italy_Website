@@ -249,6 +249,7 @@ const teamData = [
     groups: ['events', 'education'],
     role: 'Community & Education',
     role_it: 'Community e formazione',
+    photo: '/assets/img/team/riccardo-conte.jpg',
     bio: 'Riccardo coordinates the community and the educational activities of AI Safety for Italy. He is a PhD student at Örebro University.',
     bio_it:
       'Riccardo coordina la community e le attività formative di AI Safety for Italy. È dottorando alla Örebro University.',
