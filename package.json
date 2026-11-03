@@ -17,6 +17,7 @@
     "build:eleventy": "eleventy",
     "lint": "eslint \"src/**/*.js\" --fix",
     "test": "run-s test:members test:meet",
+    "verify": "npm run format:check && npx eslint server api src/assets/js && npm run build && npm run test:meet",
     "test:members": "sh scripts/run-tests.sh",
     "prepare": "husky install",
     "test:meet": "node --test --test-concurrency=1 server/polls.test.js server/content.test.js server/crm.test.js server/crm-mentorship.test.js server/crm-review.test.js server/forms.test.js server/members.test.js server/hardening.test.js server/overview.test.js server/retention.test.js server/app-pages.test.js server/community.test.js server/mentors-build.test.js",

@@ -16,9 +16,10 @@ on:
   workflow_dispatch:
 
 jobs:
-  # Named `checks` because this is what branch protection should require. Keep
-  # it separate from deploy: a formatting failure must block a merge, and a
-  # deploy step must never be what decides whether a PR is mergeable.
+  # Named `checks` because this is what branch protection should require: the
+  # quick ones (formatting, lint, the build). Keep it separate from deploy: a
+  # formatting failure must block a merge, and a deploy step must never be
+  # what decides whether a PR is mergeable.
   checks:
     name: Build and format
     runs-on: ubuntu-latest
@@ -45,8 +46,9 @@ jobs:
       - name: Build site
         run: npm run build
 
-      - name: Test meeting polls
-        run: npm run test:meet
+      # The tests (npm run test:meet, several minutes) are not run here: run
+      # `npm run verify` before opening or merging a PR, so a merge deploys
+      # at once instead of waiting on them.
 
   deploy:
     name: Deploy ${{ github.ref_name }}
