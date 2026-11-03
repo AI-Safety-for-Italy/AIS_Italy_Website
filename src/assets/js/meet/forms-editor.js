@@ -226,83 +226,35 @@
 
   // ── Unsaved changes ──────────────────────────────────────────────────────
   // The questions (dirty) and the Settings tab (settingsDirty) are saved by
-  // their own buttons. Leaving with either unsaved asks first, as Discord
-  // does: following a link, closing the tab, or leaving the Settings tab.
+  // their own buttons. Leaving with either unsaved asks first (M.unsaved):
+  // following a link, closing the tab, or leaving the Settings tab.
   var settingsDirty = false;
   function markSettingsDirty() {
     settingsDirty = true;
   }
-  function unsaved() {
-    return dirty || settingsDirty;
-  }
-
-  var leaveDialog = null;
-  function confirmLeave(go) {
-    if (!leaveDialog) {
-      leaveDialog = h(
-        'dialog',
-        { class: 'leave-dialog', 'aria-labelledby': 'leaveTitle' },
-        h('h2', { id: 'leaveTitle' }, 'Unsaved changes'),
-        h('p', null, 'You have changes that are not saved. Leave anyway and lose them?'),
-        h(
-          'div',
-          { class: 'leave-actions' },
-          h('button', { type: 'button', class: 'btn btn-outline', value: 'stay' }, 'Stay'),
-          h(
-            'button',
-            { type: 'button', class: 'btn btn-danger', value: 'leave' },
-            'Leave without saving'
-          )
-        )
-      );
-      document.body.appendChild(leaveDialog);
-    }
-    var buttons = leaveDialog.querySelectorAll('button');
-    buttons[0].onclick = function () {
-      leaveDialog.close();
-      // The save button shakes, to show where to go.
-      [saveBtn, document.querySelector('#tab-settings .btn-primary')].forEach(function (b) {
-        if (!b || b.hidden) return;
-        b.classList.remove('is-shaking');
-        void b.offsetWidth;
-        b.classList.add('is-shaking');
-      });
-    };
-    buttons[1].onclick = function () {
-      leaveDialog.close();
-      go();
-    };
-    leaveDialog.showModal();
-    buttons[0].focus();
-  }
-
-  // Links out of the page (the sidebar, the back arrow, the crumbs…).
-  document.addEventListener(
-    'click',
-    function (e) {
-      if (!unsaved() || e.defaultPrevented || e.button !== 0) return;
-      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-      var a = e.target.closest && e.target.closest('a[href]');
-      if (!a || a.target === '_blank' || a.hasAttribute('download')) return;
-      var to = new URL(a.href, location.href);
-      if (to.pathname === location.pathname && to.search === location.search) return;
-      e.preventDefault();
-      e.stopPropagation();
-      confirmLeave(function () {
-        dirty = false;
-        settingsDirty = false;
-        location.href = a.href;
-      });
+  M.unsaved(
+    function () {
+      return dirty;
     },
-    true
-  );
-
-  window.addEventListener('beforeunload', function (e) {
-    if (unsaved()) {
-      e.preventDefault();
-      e.returnValue = '';
+    {
+      buttons: function () {
+        return [saveBtn];
+      },
     }
-  });
+  );
+  var settingsGuard = M.unsaved(
+    function () {
+      return settingsDirty;
+    },
+    {
+      buttons: function () {
+        return [document.querySelector('#tab-settings .btn-primary')];
+      },
+      discard: function () {
+        settingsDirty = false;
+      },
+    }
+  );
 
   // ── Loading ──────────────────────────────────────────────────────────────
 
@@ -429,8 +381,7 @@
     // (the address too) unless told to go.
     if (tab === 'settings' && next !== 'settings' && settingsDirty) {
       history.replaceState(null, '', '#settings');
-      confirmLeave(function () {
-        settingsDirty = false;
+      settingsGuard.confirm(function () {
         location.hash = next;
       });
       return;
@@ -2008,8 +1959,7 @@
           if (!window.confirm(warn)) return;
           M.api('DELETE', '/api/app/forms?id=' + encodeURIComponent(id))
             .then(function () {
-              dirty = false;
-              window.location.href = '/app/forms/';
+              M.leaveTo('/app/forms/');
             })
             .catch(function (err) {
               M.toast(err.message, true);

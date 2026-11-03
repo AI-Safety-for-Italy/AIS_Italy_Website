@@ -330,7 +330,7 @@
           error.hidden = false;
         });
     });
-    return h(
+    var panel = h(
       'div',
       { class: 'panel form-grid wg-form' },
       h('h3', { style: 'margin:0' }, g ? 'Edit ' + g.titleEn : 'A new working group'),
@@ -372,5 +372,11 @@
         )
       )
     );
+    M.watchFields(panel, {
+      buttons: function () {
+        return [save];
+      },
+    });
+    return panel;
   }
 })();

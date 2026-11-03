@@ -264,6 +264,17 @@
       upgrade ? 'Approve: make them an organizer' : 'Approve and send the Discord link'
     );
     var reject = h('button', { type: 'button', class: 'btn btn-outline btn-sm' }, 'Reject');
+    // A note typed and the application not decided yet.
+    M.unsaved(
+      function () {
+        return note.isConnected && Boolean(note.value.trim());
+      },
+      {
+        buttons: function () {
+          return [approve, reject];
+        },
+      }
+    );
 
     function send(decision) {
       var picked = group.querySelector('input:checked');

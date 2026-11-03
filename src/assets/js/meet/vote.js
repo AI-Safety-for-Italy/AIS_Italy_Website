@@ -142,7 +142,9 @@
         /* the switch still works for this visit */
       }
       if (code !== lang) {
-        window.location.href = (code === 'it' ? '/it' : '') + '/meet/' + window.location.search;
+        M.confirmLeave(function () {
+          M.leaveTo((code === 'it' ? '/it' : '') + '/meet/' + window.location.search);
+        });
       }
     });
   });
@@ -677,6 +679,21 @@
     updateCounter();
     M.clear(view).appendChild(form);
     appendAnswers();
+    // Times marked or details typed, not sent yet: leaving asks first.
+    var answer = function () {
+      return JSON.stringify([votes, nameInput.value, emailInput.value]);
+    };
+    var sent = answer();
+    M.unsaved(
+      function () {
+        return form.isConnected && answer() !== sent;
+      },
+      {
+        buttons: function () {
+          return [submit];
+        },
+      }
+    );
   }
 
   function renderThanks(name) {

@@ -504,11 +504,16 @@
     render();
   });
 
-  window.addEventListener('beforeunload', function (e) {
-    if (!dirty) return;
-    e.preventDefault();
-    e.returnValue = '';
-  });
+  M.unsaved(
+    function () {
+      return dirty;
+    },
+    {
+      buttons: function () {
+        return [document.getElementById('savePerms')];
+      },
+    }
+  );
 
   document.getElementById('savePerms').addEventListener('click', function (e) {
     var btn = e.currentTarget;

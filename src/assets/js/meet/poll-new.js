@@ -531,13 +531,14 @@
       }),
     })
       .then(function (created) {
-        window.location.href =
+        M.leaveTo(
           '/app/polls/poll/?id=' +
-          encodeURIComponent(created.id) +
-          '&created=1' +
-          (inviteOnly()
-            ? '&sent=' + created.invites.sent + '&failed=' + created.invites.failed
-            : '');
+            encodeURIComponent(created.id) +
+            '&created=1' +
+            (inviteOnly()
+              ? '&sent=' + created.invites.sent + '&failed=' + created.invites.failed
+              : '')
+        );
       })
       .catch(function (err) {
         button.disabled = false;
@@ -546,6 +547,24 @@
         formError.hidden = false;
       });
   });
+
+  // A poll started (a title, a time on the calendar…) and not created yet.
+  M.unsaved(
+    function () {
+      return Boolean(
+        state.slots.size ||
+          ['title', 'description', 'location'].some(function (k) {
+            return form[k].value.trim();
+          }) ||
+          document.getElementById('invitees').value.trim()
+      );
+    },
+    {
+      buttons: function () {
+        return [document.getElementById('createBtn')];
+      },
+    }
+  );
 
   // Keep the past-day boundary and the "now" line honest if left open.
   setInterval(function () {

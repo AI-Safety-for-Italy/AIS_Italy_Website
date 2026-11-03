@@ -10,6 +10,8 @@
   var notifyForm = document.getElementById('notifyForm');
   var smtpForm = document.getElementById('smtpForm');
   var data = null;
+  var notifyFields = null; // saved against typed (M.watchFields)
+  var smtpFields = null;
 
   function errorBox(form, message) {
     var box = form.querySelector('.form-error');
@@ -70,12 +72,14 @@
           ? 'Leave it empty to use your Discord email, ' + p.discordEmail + '.'
           : '';
         refreshNotify();
+        notifyFields = M.watchFields(notifyForm);
         drawFollows(d.follows);
       }
       if (smtpForm) {
         if (d.mail.smtp !== undefined) {
           smtpForm.hidden = false;
           fillSmtp(d.mail.smtp);
+          smtpFields = M.watchFields(smtpForm);
         } else {
           document.getElementById('adminOnly').hidden = false;
         }
@@ -188,6 +192,7 @@
       })
         .then(function (res) {
           data.profile = res.profile;
+          notifyFields.saved();
           M.toast('Saved');
         })
         .catch(function (err) {
@@ -212,6 +217,7 @@
         .then(function (res) {
           data.mail.configured = Boolean(res.smtp && res.smtp.hasPassword);
           fillSmtp(res.smtp);
+          smtpFields.saved();
           M.toast('Saved');
         })
         .catch(function (err) {

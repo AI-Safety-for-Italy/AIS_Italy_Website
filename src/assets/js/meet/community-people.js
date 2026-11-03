@@ -321,6 +321,11 @@
 
   var dialog = document.getElementById('memberDialog');
   var editing = null;
+  var memberFields = M.watchFields(document.getElementById('memberForm'), {
+    active: function () {
+      return dialog.open;
+    },
+  });
 
   function edit(m) {
     editing = m;
@@ -347,11 +352,20 @@
     );
     info.appendChild(h('a', { href: '/app/members/discord/#link' }, 'Discord tab →'));
     document.getElementById('memberError').hidden = true;
+    memberFields.saved();
     dialog.showModal();
   }
 
-  document.getElementById('memberCancel').addEventListener('click', function () {
-    dialog.close();
+  // Cancel, or Escape, with changes typed: asked first.
+  function closeMember() {
+    memberFields.confirm(function () {
+      dialog.close();
+    });
+  }
+  document.getElementById('memberCancel').addEventListener('click', closeMember);
+  dialog.addEventListener('cancel', function (e) {
+    e.preventDefault();
+    closeMember();
   });
 
   document.getElementById('memberForm').addEventListener('submit', function (e) {
@@ -386,6 +400,18 @@
 
   var importText = null;
   var preview = null;
+  var importBtn = null;
+  // A sheet previewed and not imported yet.
+  M.unsaved(
+    function () {
+      return Boolean(preview);
+    },
+    {
+      buttons: function () {
+        return [importBtn];
+      },
+    }
+  );
 
   function importPanel() {
     var file = h('input', {
@@ -530,6 +556,7 @@
       { type: 'button', class: 'btn btn-primary btn-sm' },
       'Import ' + c.people + ' people'
     );
+    importBtn = go;
     go.addEventListener('click', function () {
       if (
         !window.confirm(
