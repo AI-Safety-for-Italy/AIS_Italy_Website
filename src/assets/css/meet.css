@@ -6322,6 +6322,33 @@ textarea.fm-input.fm-other-input {
   font-weight: 500;
 }
 
+.fe-person-edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-left: 0.2rem;
+  padding-left: 0.5rem;
+  border-left: 1px solid var(--border-default);
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.fe-person.is-locked,
+.check-row.is-locked {
+  opacity: 0.75;
+  cursor: default;
+}
+
+.fe-locked-note {
+  margin-left: 0.35rem;
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  background: var(--bg-tertiary);
+  font-size: 0.72rem;
+  color: var(--text-tertiary);
+}
+
 .fe-person-x {
   width: 1.4rem;
   height: 1.4rem;

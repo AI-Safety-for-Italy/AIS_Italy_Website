@@ -1869,11 +1869,30 @@
     });
 
     var roles = (meta && meta.roles) || [];
+    // Roles holding “Forms: all forms” read every form anyway: ticked and locked.
+    var allForms = (form.readers && form.readers.allFormsRoleIds) || [];
     var roleBox = h('div', { class: 'fe-roles' });
     roles.forEach(function (r) {
-      var input = h('input', { type: 'checkbox', value: r.id });
-      input.checked = form.accessRoles.indexOf(r.id) !== -1;
-      roleBox.appendChild(h('label', { class: 'check-row' }, input, h('span', null, r.name)));
+      var locked = allForms.indexOf(r.id) !== -1;
+      var input = h('input', {
+        type: 'checkbox',
+        value: r.id,
+        disabled: locked ? true : null,
+        'data-locked': locked ? '' : null,
+      });
+      input.checked = locked || form.accessRoles.indexOf(r.id) !== -1;
+      roleBox.appendChild(
+        h(
+          'label',
+          {
+            class: 'check-row' + (locked ? ' is-locked' : ''),
+            title: locked ? 'Holds “Forms: all forms”: reads and manages every form' : null,
+          },
+          input,
+          h('span', null, r.name),
+          locked ? h('span', { class: 'fe-locked-note' }, 'all forms') : null
+        )
+      );
     });
     // Roles already on the form that the server list did not return.
     form.accessRoles.forEach(function (rid) {
@@ -1917,7 +1936,7 @@
           readers: people.value(),
         },
         accessRoles: Array.prototype.map.call(
-          roleBox.querySelectorAll('input:checked'),
+          roleBox.querySelectorAll('input:checked:not([data-locked])'),
           function (i) {
             return i.value;
           }
@@ -2040,7 +2059,7 @@
           h(
             'p',
             { class: 'panel-note', style: 'margin:0' },
-            'Always: the form’s owner, and whoever holds the “Forms: all forms” permission. Add the team that reviews them, by role or by person: they read the answers, they do not change the form.'
+            'Always: the form’s owner, and whoever holds the “Forms: all forms” permission (ticked and locked below). Add the team that reviews them, by role or by person: they read the answers. A person with “Can edit” also changes the questions and the settings.'
           ),
           readersNote(),
           h('h3', { class: 'fe-subhead' }, 'Roles'),
@@ -2289,6 +2308,7 @@
 
     function drawList() {
       M.clear(list);
+      drawAllForms();
       if (!chosen.length) {
         list.appendChild(
           h('p', { class: 'form-note', style: 'margin:0' }, 'Nobody added by name.')
@@ -2304,7 +2324,9 @@
             },
             M.avatar({ name: p.name, avatarUrl: p.avatarUrl }, 22),
             h('span', null, p.name),
-            editable
+            editToggle(p),
+            // An editor is taken off by the form's owners only.
+            editable && (form.canOwn || p.edit !== true)
               ? h(
                   'button',
                   {
@@ -2321,6 +2343,55 @@
                   '×'
                 )
               : null
+          )
+        );
+      });
+    }
+
+    // “Can edit”: the form's owners give it (form.canOwn); the others see it.
+    function editToggle(p) {
+      var box = h('input', {
+        type: 'checkbox',
+        disabled: form.canOwn ? null : true,
+        'aria-label': p.name + ' can edit the form',
+      });
+      box.checked = p.edit === true;
+      box.addEventListener('change', function () {
+        p.edit = box.checked;
+        markSettingsDirty();
+      });
+      return h(
+        'label',
+        {
+          class: 'fe-person-edit',
+          title: form.canOwn
+            ? 'Can change the questions and the settings, not only read the answers'
+            : 'Only the owner, or whoever holds “Forms: all forms”, changes this',
+        },
+        box,
+        'Can edit'
+      );
+    }
+
+    // Who holds “Forms: all forms” by name: there anyway, locked.
+    function drawAllForms() {
+      ((form.readers && form.readers.allFormsAvatars) || []).forEach(function (p) {
+        if (
+          chosen.some(function (c) {
+            return c.name === p.name;
+          })
+        )
+          return;
+        list.appendChild(
+          h(
+            'span',
+            {
+              class: 'fe-person is-locked',
+              title: 'Holds “Forms: all forms”: reads and manages every form',
+            },
+            M.avatar(p, 22),
+            h('span', null, p.name),
+            h('span', { class: 'fe-locked-note' }, 'all forms')
           )
         );
       });
@@ -2398,7 +2469,9 @@
       node: node,
       value: function () {
         return chosen.map(function (p) {
-          return { discordId: p.discordId, name: p.name };
+          return p.edit === true
+            ? { discordId: p.discordId, name: p.name, edit: true }
+            : { discordId: p.discordId, name: p.name };
         });
       },
     };

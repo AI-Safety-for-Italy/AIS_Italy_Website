@@ -1539,7 +1539,57 @@ test('the editor sees who reads the answers: the owner and whoever holds forms_a
   assert.equal(readers.owner, 'Mara');
   assert.deepEqual(readers.allFormsRoles, ['forms admins']);
   assert.deepEqual(readers.allFormsPeople, []);
+  // The editor ticks and locks these roles: their ids come along.
+  assert.deepEqual(readers.allFormsRoleIds, ['r-forms-admin']);
   assert.equal((await forms.get(team, id)).readers, undefined); // a reader cannot change the form
+});
+
+test('a person added with “Can edit” changes the form, but neither deletes it nor picks editors', async () => {
+  await setRoles();
+  const mara = await member('Mara', ['r-forms']);
+  const ugo = await member('Ugo', []); // no forms permission at all
+  const tea = await member('Tea', []);
+  const { id } = await openForm(mara);
+  const people = (ugoEdits, teaEdits) => ({
+    settings: {
+      readers: [
+        { discordId: 'test-Ugo', name: 'Ugo', ...(ugoEdits ? { edit: true } : {}) },
+        { discordId: 'test-Tea', name: 'Tea', ...(teaEdits ? { edit: true } : {}) },
+      ],
+    },
+  });
+
+  // Reading only: no changes.
+  await forms.updateSettings(mara, id, people(false, false));
+  assert.equal((await forms.get(ugo, id)).canManage, false);
+  await rejects(forms.updateSettings(ugo, id, { status: 'closed' }), 404);
+
+  // With “Can edit”: the questions, the settings, the answers' export.
+  await forms.updateSettings(mara, id, people(true, false));
+  const asUgo = await forms.get(ugo, id);
+  assert.equal(asUgo.canManage, true);
+  assert.equal(asUgo.canOwn, false);
+  assert.ok(asUgo.readers); // the access panel, as for the owner
+  await forms.saveSchema(ugo, id, fullSchema({ title: { it: 'Cambiato da Ugo' } }));
+  await forms.updateSettings(ugo, id, { status: 'closed' });
+  assert.equal((await forms.get(mara, id)).status, 'closed');
+  await forms.exportCsv(ugo, id);
+  assert.ok((await forms.meta(ugo)).types.length);
+
+  // …but who edits stays the owners' choice, and so does deleting it.
+  await rejects(forms.updateSettings(ugo, id, people(true, true)), 403);
+  await rejects(forms.updateSettings(ugo, id, people(false, false)), 403);
+  await forms.updateSettings(ugo, id, {
+    settings: { readers: [{ discordId: 'test-Ugo', name: 'Ugo', edit: true }] },
+  }); // taking a reader off is fine
+  await rejects(forms.remove(ugo, id), 403);
+  const card = (await forms.list(mara))[0];
+  assert.ok(card.access.some((a) => a.name === 'Ugo' && /^Edits the form/.test(a.what)));
+
+  // The owner takes it back: reading only again.
+  await forms.updateSettings(mara, id, people(false, false));
+  await rejects(forms.saveSchema(ugo, id, fullSchema()), 404);
+  assert.equal((await forms.get(tea, id)).canManage, false);
 });
 
 test('a consent cannot be shown only if…, on its own or through its section', () => {
