@@ -14,6 +14,7 @@ const ACTIONS = new Set([
   'view-note',
   'set-match',
   'publish',
+  'unpublish',
   'export',
   'read-sheet',
   'change-settings',

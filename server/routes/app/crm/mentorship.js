@@ -12,15 +12,19 @@
 //   POST ?action=remove { recordId }      -> removes someone added by hand
 //   POST ?action=site { key, kind: 'mentor', bio?, photo?: JPEG data URL | null,
 //        consent?: { value: 'yes' | 'no', note } | null }
-//        -> the mentor's draft for the public site (encrypted; publishing is still
-//           data/mentors.yaml)
+//        -> the mentor's draft for the public site (encrypted)
+//   POST ?action=site-entry { key, kind: 'mentor', entry }  -> saves the entry for
+//        /mentorship/ as a draft; returns the site part of the person
+//   POST ?action=publish { key, kind: 'mentor' }  -> { site, build }: the entry goes on
+//        /mentorship/ with the next build (selected or matched mentors, entry complete)
+//   POST ?action=unpublish { key, kind: 'mentor' } -> { site, build }
 //   POST ?action=emails { kind, keys }    -> { people: [{ name, email }] }, to copy
 //   POST ?action=import&source=… [{ csv }] -> copies that sheet (or its CSV) onto the board (crm_admin)
 //        replacing an earlier import also needs { replace: true, adminPassword }; without
 //        them -> 409 { code: 'confirm_overwrite', existing }
 //   GET  ?action=sources                  -> { sources, serviceAccount } (crm_admin)
 //   PUT  ?action=sources { <source>: { spreadsheetId, tab } }  -> the same, saved (crm_admin)
-const { route, sendJson, readJson, getQuery, HttpError } = require('../../../http');
+const { route, sendJson, readJson, getQuery, HttpError, siteUrl } = require('../../../http');
 const { requireUser, checkAdminPassword } = require('../../../auth');
 const access = require('../../../access');
 const crypto = require('../../../crm/crypto');
@@ -113,6 +117,19 @@ module.exports = route({
     const body = (await readJson(req, action === 'site' ? { max: 400_000 } : undefined)) || {};
     if (action === 'site') {
       sendJson(res, 200, await mentorship.saveSite(user, body.key, body.kind, body));
+      return;
+    }
+    if (action === 'site-entry') {
+      sendJson(res, 200, await mentorship.saveEntry(user, body.key, body.kind, body.entry));
+      return;
+    }
+    if (action === 'publish') {
+      const siteOrigin = siteUrl(req);
+      sendJson(res, 200, await mentorship.publish(user, body.key, body.kind, { siteOrigin }));
+      return;
+    }
+    if (action === 'unpublish') {
+      sendJson(res, 200, await mentorship.unpublish(user, body.key, body.kind));
       return;
     }
     if (action === 'emails') {

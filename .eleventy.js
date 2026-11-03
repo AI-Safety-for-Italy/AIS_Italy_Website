@@ -4,6 +4,7 @@ const path = require("path");
 const locales = require("./src/data/locales.js");
 const contentBuild = require("./server/content-build");
 const communityBuild = require('./server/community-build');
+const mentorsBuild = require('./server/mentors-build');
 
 const DEFAULT_LOCALE = locales[0];
 const PREFIXED_LOCALES = locales.filter(l => l.prefix);
@@ -374,6 +375,15 @@ module.exports = function(eleventyConfig) {
     'resources.yaml'
   ];
 
+  // The mentors published from the board (server/mentors-build.js), read once
+  // per build. Their photos are written before the build starts: the
+  // passthrough copy runs alongside the data, so it could miss them otherwise.
+  let mentorsPublished;
+  eleventyConfig.on('eleventy.before', async () => {
+    mentorsPublished = mentorsBuild.load();
+    mentorsBuild.writePhotos(await mentorsPublished);
+  });
+
   // Load and expose each data file as global data
   dataFileNames.forEach(filename => {
     const dataKey = filename.replace('.yaml', '');
@@ -389,6 +399,9 @@ module.exports = function(eleventyConfig) {
       // dashboard (Member applications); see server/community-build.js.
       if (filename === 'members.yaml') return communityBuild.members(data, await communityBuild.load());
       if (filename === 'community.yaml') return communityBuild.community(data, await communityBuild.load());
+      if (filename === 'mentors.yaml') {
+        return mentorsBuild.merge(data, await (mentorsPublished || mentorsBuild.load()));
+      }
       return data;
     });
   });
@@ -396,6 +409,7 @@ module.exports = function(eleventyConfig) {
   // shows the change at once.
   eleventyConfig.addWatchTarget(contentBuild.SNAPSHOT);
   eleventyConfig.addWatchTarget(communityBuild.SNAPSHOT);
+  eleventyConfig.addWatchTarget(mentorsBuild.SNAPSHOT);
 
   /**
    * Load all design tokens and make them globally available
