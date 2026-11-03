@@ -799,6 +799,92 @@
         });
     }
 
+    // Where the consent comes from, and a way to record one given by email.
+    function consentRow() {
+      var row = h('div', { class: 'crm-consent' });
+      var from = site.consentFrom;
+      var source = from
+        ? 'Recorded by ' +
+          from.by +
+          ', ' +
+          new Date(from.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) +
+          (from.note ? ': ' + from.note : '')
+        : site.consentInForm
+        ? 'From the mentor application form'
+        : 'Not in the form';
+      var change = h(
+        'button',
+        { type: 'button', class: 'btn btn-outline btn-sm', onclick: edit },
+        'Change'
+      );
+      row.appendChild(h('p', { class: 'crm-quiet' }, source));
+      row.appendChild(change);
+
+      function edit() {
+        M.clear(row);
+        var choice = h(
+          'select',
+          { class: 'form-input', id: 'consentValue', 'aria-label': 'Consent to publish' },
+          h(
+            'option',
+            { value: '' },
+            site.consentInForm ? 'As in the form (' + site.consentInForm + ')' : 'Not asked'
+          ),
+          h('option', { value: 'yes' }, 'Yes'),
+          h('option', { value: 'no' }, 'No')
+        );
+        choice.value = from ? site.consent : '';
+        var note = h('input', {
+          class: 'form-input',
+          id: 'consentNote',
+          maxlength: '300',
+          placeholder: 'How, e.g. email of 2 Nov',
+        });
+        note.value = (from && from.note) || '';
+        var saveBtn = h(
+          'button',
+          {
+            type: 'button',
+            class: 'btn btn-primary btn-sm',
+            onclick: function () {
+              if (choice.value === 'yes' && !note.value.trim()) {
+                M.toast('Say how they gave their consent', true);
+                note.focus();
+                return;
+              }
+              saveBtn.disabled = true;
+              save({
+                consent: choice.value ? { value: choice.value, note: note.value.trim() } : null,
+              })
+                .then(function () {
+                  M.toast('Consent saved');
+                })
+                .catch(function () {
+                  saveBtn.disabled = false;
+                });
+            },
+          },
+          'Save'
+        );
+        row.appendChild(
+          h(
+            'div',
+            { class: 'crm-consent-edit' },
+            choice,
+            note,
+            saveBtn,
+            h(
+              'button',
+              { type: 'button', class: 'btn btn-outline btn-sm', onclick: draw },
+              'Cancel'
+            )
+          )
+        );
+        choice.focus();
+      }
+      return row;
+    }
+
     function draw() {
       M.clear(box);
       var consent = site.consent;
@@ -874,6 +960,7 @@
             : 'Not on the site yet'
         )
       );
+      box.appendChild(consentRow());
       if (consent !== 'yes') {
         box.appendChild(
           h(

@@ -53,6 +53,7 @@ const TRACKS = [
 const TRACK_KEYS = TRACKS.map((t) => t.key);
 const KEY = /^[A-Za-z0-9_-]{32}$/;
 const MAX_NOTE = 4000;
+const MAX_CONSENT_NOTE = 300;
 
 // What a sheet's free-text answers mean.
 function yes(value) {
@@ -413,12 +414,17 @@ async function siteOf(key, found, name) {
     }
   }
   const answer = found.records.mentors_applications && found.records.mentors_applications.publish;
+  const fromForm = answer ? (yes(answer) ? 'yes' : 'no') : null;
+  // A consent recorded by hand (given by email, say) wins over the form's answer.
+  const manual = draft.consent || null;
   return {
     bio: draft.bio || '',
     photo: draft.photo || null,
     updatedAt: rows[0] ? rows[0].updated_at : null,
     updatedBy: rows[0] ? rows[0].updated_by_name : null,
-    consent: answer ? (yes(answer) ? 'yes' : 'no') : null,
+    consent: manual ? manual.value : fromForm,
+    consentFrom: manual ? { by: manual.by, at: manual.at, note: manual.note } : null,
+    consentInForm: fromForm,
     entry: siteEntry(name),
   };
 }
@@ -436,7 +442,23 @@ function cleanPhoto(photo) {
 }
 
 /**
- * Saves a mentor's bio and/or photo for the site (`photo: null` removes it).
+ * A consent to publish recorded by hand: { value: 'yes' | 'no', note } with a
+ * note saying how it was given (required for a yes), or null to go back to
+ * the form's answer.
+ */
+function cleanConsent(consent, user) {
+  if (consent === null) return undefined;
+  const value = consent && consent.value;
+  if (value !== 'yes' && value !== 'no') throw new HttpError(400, 'Consent is yes or no');
+  const note = String(consent.note || '').trim();
+  if (note.length > MAX_CONSENT_NOTE)
+    throw new HttpError(400, `The note is longer than ${MAX_CONSENT_NOTE} characters`);
+  if (value === 'yes' && !note) throw new HttpError(400, 'Say how they gave their consent');
+  return { value, note, by: user.name, at: new Date().toISOString() };
+}
+
+/**
+ * Saves a mentor's bio, photo and/or consent for the site (`photo: null` removes it).
  * Returns the draft as person() shows it.
  */
 async function saveSite(user, key, kind, body) {
@@ -444,7 +466,13 @@ async function saveSite(user, key, kind, body) {
   const found = await find(key, kind);
   const name = card(found, await stateOf(key, kind), {}).name;
   const current = await siteOf(key, found, name);
-  const draft = { bio: current.bio, photo: current.photo };
+  const draft = {
+    bio: current.bio,
+    photo: current.photo,
+    consent: current.consentFrom
+      ? Object.assign({ value: current.consent }, current.consentFrom)
+      : undefined,
+  };
   if (body.bio !== undefined) {
     const bio = String(body.bio || '').trim();
     if (bio.length > MAX_BIO)
@@ -452,6 +480,7 @@ async function saveSite(user, key, kind, body) {
     draft.bio = bio;
   }
   if (body.photo !== undefined) draft.photo = cleanPhoto(body.photo);
+  if (body.consent !== undefined) draft.consent = cleanConsent(body.consent, user);
   await db.query(
     `insert into crm_site_profiles (person_key, data_encrypted, updated_by, updated_by_name, updated_at)
      values ($1, $2, $3, $4, now())
@@ -467,6 +496,8 @@ async function saveSite(user, key, kind, body) {
   await audit.record(user, 'site-draft', key, {
     bio: body.bio !== undefined,
     photo: body.photo === undefined ? undefined : body.photo === null ? 'removed' : 'set',
+    consent:
+      body.consent === undefined ? undefined : (draft.consent && draft.consent.value) || 'form',
   });
   return siteOf(key, found, name);
 }
