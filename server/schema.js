@@ -601,6 +601,44 @@ begin
   end if;
 end $$;
 
+-- Where each of a member's fields last came from ({ field: { source, at } },
+-- server/member-merge.js): an import or an application fills gaps and newer
+-- answers, never what the board set.
+alter table community_members add column if not exists field_sources jsonb not null default '{}';
+
+-- What a member came from, kept as it was: the old sheet's rows, encrypted and
+-- bound to theirs. Keyed by the row's hash: the same sheet again adds nothing.
+-- (Applications are read from member_applications, not copied.)
+create table if not exists member_sources (
+  id uuid primary key,
+  member_id uuid not null references community_members(id) on delete cascade,
+  kind text not null check (kind in ('sheet')),
+  ref text not null,
+  answers_encrypted text not null,
+  received_at timestamptz,
+  created_at timestamptz not null default now(),
+  unique (member_id, kind, ref)
+);
+
+-- A role the board took away from a member (out of a group, made a
+-- participant): to take off on Discord when the team applies the changes.
+-- Gone once taken off, or when the tag is back.
+create table if not exists discord_removals (
+  member_id uuid not null references community_members(id) on delete cascade,
+  role_id text not null,
+  created_at timestamptz not null default now(),
+  primary key (member_id, role_id)
+);
+
+-- The Discord role of a working group removed, or given another role: whoever
+-- still holds it there is listed, to take it off.
+create table if not exists discord_retired_roles (
+  role_id text primary key,
+  group_id text not null,
+  title text not null,
+  retired_at timestamptz not null default now()
+);
+
 -- The local groups (server/local-groups.js): one per city, on their own board
 -- (local_groups). Who leads each, their contacts, the WhatsApp link and the
 -- notes are encrypted, bound to the row (details_encrypted, null until set).

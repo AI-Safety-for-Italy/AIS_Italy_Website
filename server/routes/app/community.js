@@ -1,40 +1,40 @@
 // /api/app/community: the community's members and working groups
-// (server/community.js), for whoever holds `community`.
-//   GET                                  -> { members, groups, site }
-//   GET    ?people=<name>                -> Discord members, to link someone's account
-//   POST   ?action=group { id?, titleEn, titleIt, descriptionEn, descriptionIt,
-//                          discordRoleId }    -> a new group, or one changed
-//   POST   ?action=order { ids }         -> the groups in a new order
-//   DELETE ?group=<id>                   -> a group removed (its tag from everyone)
+// (server/community.js), for whoever holds `community`. Every change is saved
+// in the database only; Discord changes when the team applies the changes
+// (?action=apply), the website when it is updated (?action=publish).
+//
+// Members
+//   GET                                  -> { members, groups, roles, site, invited, applications }
+//   GET    ?member=<id>                  -> one member's page: sources, applications,
+//                                           Discord, website, history
 //   PUT    ?member=<id> { name, profile, location, areas, publish, discordId }
-//   POST   ?action=tags { members, action: add|remove|move, group, to? }  (taking part)
-//   POST   ?action=member-groups { member, groups?, role? }  -> one member's groups
-//                                           and role, set by hand: on Discord at once
+//   POST   ?action=member-groups { member, groups?, role? }  -> one member's groups and role
+//   POST   ?action=tags { members, action: add|remove|move, group, to? }  -> several at once
+//   POST   ?action=roles { members, role }  -> several made participants or organizers
 //   GET    ?view=export                  -> every member as a CSV file (audited)
-//   POST   ?action=coordinator { group, member, on }  -> who coordinates (Working groups)
-//   POST   ?action=preview { csv }       -> what importing the old sheet would do
-//   POST   ?action=import { csv }        -> imports it
+//   POST   ?action=preview { csv, decisions? }  -> what importing the old sheet would do
+//   POST   ?action=import { csv, decisions? }   -> imports it as previewed
+// Working groups
+//   POST   ?action=group { id?, titleEn, titleIt, descriptionEn, descriptionIt, discordRoleId }
+//   POST   ?action=order { ids }         -> the groups in a new order
+//   POST   ?action=coordinator { group, member, on }  -> who coordinates
+//   DELETE ?group=<id>                   -> a group removed (its role retired on Discord)
+// Discord
+//   GET    ?action=status                -> { accounts, discord, site }: the bar on top of the tabs
+//   GET    ?view=discord-plan[&member=<id>]  -> the changes to apply there, and what to decide
+//   POST   ?action=apply { items, member? }  -> applies picked changes on Discord
+//                                           (15 a call: { done, failed, remaining, skipped })
+//   POST   ?action=decide { items, choice }  -> settles items here (adopt, ignore, unlink, …)
+//   GET    ?view=ignored                 -> differences left as they are
+//   POST   ?action=unignore { ids }      -> listed again
+//   GET    ?people=<name>                -> Discord members, to link someone's account
+//   GET    ?suggest=<member id>          -> Discord accounts that may be them
+//   POST   ?action=link { member, discordId | null }  -> linked or unlinked (nothing on Discord)
+//   POST   ?action=absent { member, absent, note? }  -> checked: not on Discord
+//   POST   ?action=rematch               -> the members not linked matched again, when sure
+// Website
 //   POST   ?action=publish               -> the site shows the list as it is now
 //   POST   ?action=unpublish             -> the site goes back to the YAML
-//   GET    ?suggest=<member id>          -> Discord accounts that may be them
-//   POST   ?action=link { member, discordId | null } -> linked (roles given, none taken)
-//   POST   ?action=absent { member, absent, note? }  -> checked: not on Discord
-//   GET    ?action=check                 -> roles on Discord against tags here
-//   GET    ?action=status                -> { accounts, roles, site }: the bar on top of the tabs
-//   POST   ?action=send-tags             -> some of the missing roles given: { given, failed, remaining }
-//   POST   ?action=resolve { member, group, action: give|take|tag|untag|ok, level?, kind? }
-//   POST   ?action=resolve-main { member, action: give|here|ok, role?, kind? }
-//                                        -> Partecipante / Organizzatore settled
-//   POST   ?action=roles { members, role }  -> several made participants or organizers
-//                                           (on Discord at once; 15 per call)
-//   POST   ?action=rematch               -> the members not linked matched again, when sure
-//   POST   ?action=sync { extra: take|tag|keep }  -> Discord made to hold the board's roles
-//                                           (15 changes per call: { done, failed, remaining })
-//   POST   ?action=no-role { discordIds, action: participant|organizer|ok }
-//                                        -> on the server without a role: given it
-//                                           (and on the board), or left
-// Tags of several people reach Discord with send-tags, one member's groups set
-// by hand at once; the site only on publish.
 const { route, sendJson, readJson, getQuery, HttpError } = require('../../http');
 const { requireUser } = require('../../auth');
 const access = require('../../access');
@@ -44,7 +44,7 @@ const community = require('../../community');
 module.exports = route({
   async GET(req, res) {
     const user = await requireUser(req);
-    const { people, suggest, action, view } = getQuery(req);
+    const { people, suggest, action, view, member } = getQuery(req);
     if (view === 'export') {
       const { filename, csv } = await community.exportCsv(user);
       res.statusCode = 200;
@@ -54,12 +54,20 @@ module.exports = route({
       res.end(csv);
       return;
     }
-    if (suggest !== undefined) {
-      sendJson(res, 200, await community.discordSuggestions(user, suggest));
+    if (view === 'discord-plan') {
+      sendJson(res, 200, await community.discordPlanFor(user, { memberId: member }));
       return;
     }
-    if (action === 'check') {
-      sendJson(res, 200, await community.roleCheck(user));
+    if (view === 'ignored') {
+      sendJson(res, 200, await community.ignoredList(user));
+      return;
+    }
+    if (member !== undefined) {
+      sendJson(res, 200, await community.memberDetail(user, member));
+      return;
+    }
+    if (suggest !== undefined) {
+      sendJson(res, 200, await community.discordSuggestions(user, suggest));
       return;
     }
     if (action === 'status') {
@@ -78,31 +86,27 @@ module.exports = route({
     const { action } = getQuery(req);
     // The sheet's CSV can be a few hundred kilobytes.
     const body = (await readJson(req, { max: 5_000_000 })) || {};
-    if (action === 'group') sendJson(res, 200, await community.saveGroup(user, body));
-    else if (action === 'order') sendJson(res, 200, await community.reorderGroups(user, body.ids));
-    else if (action === 'tags') sendJson(res, 200, await community.setTags(user, body));
-    else if (action === 'member-groups')
-      sendJson(res, 200, await community.setMemberGroups(user, body.member, body));
-    else if (action === 'coordinator')
-      sendJson(res, 200, await community.setCoordinator(user, body));
-    else if (action === 'preview')
-      sendJson(res, 200, await community.importPreview(user, body.csv));
-    else if (action === 'import') sendJson(res, 200, await community.importConfirm(user, body.csv));
-    else if (action === 'publish') sendJson(res, 200, await community.publishSite(user));
-    else if (action === 'unpublish') sendJson(res, 200, await community.unpublishSite(user));
-    else if (action === 'link')
-      sendJson(res, 200, await community.linkDiscord(user, body.member, body.discordId));
-    else if (action === 'absent')
-      sendJson(res, 200, await community.markAbsent(user, body.member, body));
-    else if (action === 'resolve') sendJson(res, 200, await community.resolveRole(user, body));
-    else if (action === 'resolve-main')
-      sendJson(res, 200, await community.resolveMainRole(user, body));
-    else if (action === 'roles') sendJson(res, 200, await community.setRoles(user, body));
-    else if (action === 'rematch') sendJson(res, 200, await community.rematch(user));
-    else if (action === 'sync') sendJson(res, 200, await community.syncDiscord(user, body));
-    else if (action === 'no-role') sendJson(res, 200, await community.settleNoRole(user, body));
-    else if (action === 'send-tags') sendJson(res, 200, await community.sendTags(user));
-    else throw new HttpError(400, 'Unknown action');
+    const handlers = {
+      group: () => community.saveGroup(user, body),
+      order: () => community.reorderGroups(user, body.ids),
+      tags: () => community.setTags(user, body),
+      'member-groups': () => community.setMemberGroups(user, body.member, body),
+      coordinator: () => community.setCoordinator(user, body),
+      preview: () => community.importPreview(user, body.csv, body.decisions),
+      import: () => community.importConfirm(user, body.csv, body.decisions),
+      publish: () => community.publishSite(user),
+      unpublish: () => community.unpublishSite(user),
+      link: () => community.linkDiscord(user, body.member, body.discordId),
+      absent: () => community.markAbsent(user, body.member, body),
+      roles: () => community.setRoles(user, body),
+      rematch: () => community.rematch(user),
+      apply: () => community.applyDiscord(user, body),
+      decide: () => community.decideDiscord(user, body),
+      unignore: () => community.unignore(user, body),
+    };
+    if (!Object.prototype.hasOwnProperty.call(handlers, action))
+      throw new HttpError(400, 'Unknown action');
+    sendJson(res, 200, await handlers[action]());
   },
   async PUT(req, res) {
     const user = await requireUser(req);

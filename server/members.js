@@ -230,13 +230,18 @@ function summary(r) {
     createdAt: r.created_at,
     // Same email on another application, e.g. someone who registered twice.
     duplicates: Number(r.duplicates || 0),
+    // Their record on the members board, once they are in.
+    memberId: r.member_id || null,
   };
 }
 
 const SELECT = `
   select a.*, u.name as decided_by_name,
     (select count(*) from member_applications b
-      where b.email_key = a.email_key and b.id <> a.id) as duplicates
+      where b.email_key = a.email_key and b.id <> a.id) as duplicates,
+    (select c.id from community_members c
+      where c.person_key = a.email_key or (a.discord_id is not null and c.discord_id = a.discord_id)
+      limit 1) as member_id
   from member_applications a
   left join app_users u on u.id = a.decided_by`;
 
@@ -251,7 +256,53 @@ async function listApplications(user) {
     // The working groups, for the tags under the role (server/community.js).
     groups: (await community.listGroups()).map((g) => ({ id: g.id, title: g.titleEn })),
     following: user.kind === 'discord' ? await follows.isFollowing(user.id, 'members') : null,
+    // Whether they may open the members board too (a member's page).
+    board: (await permissions.forUser(user)).includes('community'),
   };
+}
+
+/**
+ * A member's applications (by their email key or Discord account), for their
+ * page on the members board (server/community.js): what they answered, how
+ * it was decided. No email: the board does not need it.
+ */
+async function applicationsOf({ personKey, discordId }) {
+  if (!personKey && !discordId) return [];
+  const { rows } = await db.query(
+    `${SELECT} where ($1::text is not null and a.email_key = $1)
+       or ($2::text is not null and a.discord_id = $2)
+     order by a.created_at`,
+    [personKey || null, discordId || null]
+  );
+  return rows.map((r) => {
+    const out = summary(r);
+    delete out.email;
+    delete out.duplicates;
+    // Approved more than a year ago: the answers were dropped (retention.js).
+    out.answersRemoved = r.status === 'approved' && !(out.answers || []).length;
+    return out;
+  });
+}
+
+/**
+ * Approved, not on Discord yet (the link not followed): for the members
+ * board, which lists them apart. { id, name, role, decidedAt, inviteSentAt,
+ * inviteError, joinExpiresAt }.
+ */
+async function invited() {
+  const { rows } = await db.query(
+    `select * from member_applications
+     where status = 'approved' and kind = 'join' and joined_at is null order by decided_at desc`
+  );
+  return rows.map((r) => ({
+    id: r.id,
+    name: (details(r) || {}).name || '',
+    role: r.role,
+    decidedAt: r.decided_at,
+    inviteSentAt: r.invite_sent_at,
+    inviteError: r.invite_error,
+    joinExpiresAt: r.join_expires_at,
+  }));
 }
 
 /** Follows the board (told about new applications, counted at home) or not. */
@@ -471,6 +522,10 @@ async function decideUpgrade(user, row, b, { note, tags }) {
       role: 'organizer',
       tags,
       discordId: row.discord_id,
+      source: 'upgrade',
+      at: row.created_at,
+      by: user,
+      applicationId: row.id,
     });
     const { rows: users } = await db.query('select id from app_users where discord_id = $1', [
       row.discord_id,
@@ -766,6 +821,9 @@ async function joinCommunity(row, discordId) {
       role: row.role || 'participant',
       tags: row.tags || [],
       discordId,
+      source: 'application',
+      at: row.created_at,
+      applicationId: row.id,
     });
   } catch (err) {
     // They are in: a failure here is fixed from Members, not by failing the join.
@@ -786,6 +844,8 @@ module.exports = {
   boardRoles,
   roleId,
   upgradeSettled,
+  applicationsOf,
+  invited,
   createApplication,
   listApplications,
   upgradeSchema,

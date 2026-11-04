@@ -16,7 +16,9 @@
 // Longer, only what a purpose needs:
 //   - approved applications stay as the record of who is a member and how
 //     they joined, but after 12 months the answers to the sign-up questions
-//     are dropped: name and email remain;
+//     are dropped: name and email remain; the same for the old sheet's rows
+//     kept on a member (member_sources), dropped 12 months after they were
+//     answered;
 //   - the board's copies of people selected for the program (selected or
 //     paired) stay 24 months (MONTHS_PARTICIPANTS): reports, certificates, the
 //     final event.
@@ -54,6 +56,12 @@ async function cleanup() {
     [MONTHS]
   );
   const trimmed = await members.dropOldAnswers(MONTHS);
+  const sheetRows = await db.query(
+    `delete from member_sources
+     where coalesce(received_at, created_at) < now() - make_interval(months => $1)
+     returning id`,
+    [MONTHS]
+  );
   // A person is selected while the team has them as selected or paired: until
   // MONTHS_PARTICIPANTS their copies stay, the others go at MONTHS.
   const boardRecords = await db.query(
@@ -94,6 +102,7 @@ async function cleanup() {
     answers: answers.rows.length,
     applications: applications.rows.length,
     approvedTrimmed: trimmed,
+    memberSheetRows: sheetRows.rows.length,
     boardRecords: boardRecords.rows.length,
     boardNotes: forgotten,
     siteDrafts: siteDrafts.rows.length,
