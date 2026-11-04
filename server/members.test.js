@@ -3,11 +3,11 @@
 // Run with `npm run test:meet`.
 const { test, beforeEach } = require('node:test');
 const assert = require('node:assert/strict');
-const { PGlite } = require('@electric-sql/pglite');
 
 process.env.SESSION_SECRET = 'x'.repeat(40);
 
 const db = require('./db');
+const testDb = require('./test-db');
 const auth = require('./auth');
 const mail = require('./mail');
 const members = require('./members');
@@ -16,8 +16,8 @@ const permissions = require('./permissions');
 let sent;
 let botCalls;
 
-beforeEach(() => {
-  db.setDb(new PGlite());
+beforeEach(async () => {
+  await testDb.fresh();
   sent = [];
   botCalls = [];
   process.env.MEET_FAKE_MAIL = '0';

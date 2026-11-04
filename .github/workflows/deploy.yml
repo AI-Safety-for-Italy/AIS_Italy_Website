@@ -46,7 +46,7 @@ jobs:
       - name: Build site
         run: npm run build
 
-      # The tests (npm run test:meet, several minutes) are not run here: run
+      # The tests (npm run test:meet, about a minute locally) are not run here: run
       # `npm run verify` before opening or merging a PR, so a merge deploys
       # at once instead of waiting on them.
 

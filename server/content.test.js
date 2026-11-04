@@ -3,11 +3,11 @@
 // Run with `npm run test:meet`.
 const { test, beforeEach } = require('node:test');
 const assert = require('node:assert/strict');
-const { PGlite } = require('@electric-sql/pglite');
 
 process.env.SESSION_SECRET = 'x'.repeat(40);
 
 const db = require('./db');
+const testDb = require('./test-db');
 const auth = require('./auth');
 const content = require('./content');
 const permissions = require('./permissions');
@@ -15,8 +15,8 @@ const contentBuild = require('./content-build');
 const publish = require('./content-publish');
 const md = require('../src/assets/js/meet/markdown-lite');
 
-beforeEach(() => {
-  db.setDb(new PGlite());
+beforeEach(async () => {
+  await testDb.fresh();
   delete process.env.DISCORD_BOT_TOKEN_AIS_TEAM_AREA;
   delete process.env.DISCORD_GUILD_ID;
   permissions.setFetch(() => {
