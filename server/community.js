@@ -355,7 +355,13 @@ async function queueMainRole(memberId, role, q = db) {
 // ── Members ──────────────────────────────────────────────────────────────────
 
 async function groupsByMember() {
-  const { rows } = await db.query('select member_id, group_id, level from member_groups');
+  // In the groups' order, always: the database gives rows in no set order,
+  // and the website's copy must not seem changed when only the order moved.
+  const { rows } = await db.query(
+    `select m.member_id, m.group_id, m.level from member_groups m
+     join work_groups g on g.id = m.group_id
+     order by g.position, g.title_en, m.group_id`
+  );
   const out = {};
   rows.forEach((r) =>
     (out[r.member_id] = out[r.member_id] || []).push({ group: r.group_id, level: r.level })
@@ -2598,15 +2604,17 @@ function canonical(value) {
 async function siteState() {
   const now = await draft();
   const was = await published();
-  // jsonb keeps keys in its own order: compare with sorted keys.
+  // The same people and groups as online, whatever the order of the people
+  // and of each one's groups (jsonb keeps keys in its own order, too); the
+  // groups' own order is the site's, so it counts.
+  const people = (list) => (list || []).map(entryKey).sort();
   const same =
     was &&
-    canonical({ groups: was.groups, members: was.members }) ===
-      canonical({ groups: now.groups, members: now.members });
+    canonical(people(was.members)) === canonical(people(now.members)) &&
+    canonical((was.groups || []).map(entryKey)) === canonical(now.groups.map(entryKey));
   // How many people and groups the site would show differently: added,
-  // removed or changed (the ids are positions, so left out).
-  const keyed = (list) =>
-    new Set(list.map((x) => canonical({ ...x, id: x.id && typeof x.id === 'number' ? 0 : x.id })));
+  // removed or changed.
+  const keyed = (list) => new Set(list.map(entryKey));
   const diff = (a, b) => [...a].filter((x) => !b.has(x)).length;
   let changes = 0;
   if (was) {
@@ -2635,8 +2643,18 @@ async function siteState() {
   };
 }
 
-/** A published entry without its position, to compare. */
-const entryKey = (x) => canonical({ ...x, id: typeof x.id === 'number' ? 0 : x.id });
+/**
+ * A published entry as compared: without its position (a person's id is
+ * their place in the list) and with their groups in a set order, so a copy
+ * published before the order was fixed reads the same.
+ */
+function comparable(x) {
+  const out = { ...x, id: typeof x.id === 'number' ? 0 : x.id };
+  if (Array.isArray(x.groups)) out.groups = [...x.groups].sort();
+  return out;
+}
+
+const entryKey = (x) => canonical(comparable(x));
 
 /**
  * What the next update changes on the website, by name: { members: { added,
@@ -2653,8 +2671,10 @@ function siteDiff(was, now) {
     b.forEach((x, k) => {
       const y = a.get(k);
       if (!y || entryKey(x) === entryKey(y)) return;
-      const fields = [...new Set([...Object.keys(x), ...Object.keys(y)])].filter(
-        (f) => f !== 'id' && canonical(x[f]) !== canonical(y[f])
+      const cx = comparable(x);
+      const cy = comparable(y);
+      const fields = [...new Set([...Object.keys(cx), ...Object.keys(cy)])].filter(
+        (f) => f !== 'id' && canonical(cx[f]) !== canonical(cy[f])
       );
       out.changed.push({ title: titleOf(x), fields });
     });

@@ -1966,3 +1966,32 @@ test('the sheet and the form’s answers together: read as one, nobody rejected 
   assert.deepEqual([again.imported, again.updated], [0, 0]);
   await rejects(community.importPreview(user, ['a,b\n1,2', SHEET]), 400);
 });
+
+test('the website is up to date whatever order the groups come in', async () => {
+  const user = await board();
+  await community.importConfirm(user, SHEET);
+  await community.publishSite(user);
+  assert.equal((await community.siteState()).pending, false);
+  // As a copy published while the database gave each member's groups in
+  // another order: the same people, so nothing to update.
+  const { rows } = await db.query(
+    `select value from app_settings where key = 'community_published'`
+  );
+  const copy = rows[0].value;
+  copy.members = copy.members
+    .reverse()
+    .map((m) => (m.groups ? { ...m, groups: [...m.groups].reverse() } : m));
+  await db.query(`update app_settings set value = $1::jsonb where key = 'community_published'`, [
+    JSON.stringify(copy),
+  ]);
+  let s = await community.siteState();
+  assert.deepEqual([s.pending, s.changes], [false, 0]);
+  assert.deepEqual(s.diff.members.changed, []);
+  // A real change still shows, and goes once the website is updated.
+  const bea = (await community.listMembers(user)).members.find((m) => m.name === 'Bea Due');
+  await community.setTags(user, { members: [bea.id], action: 'remove', group: 'seminars' });
+  s = await community.siteState();
+  assert.deepEqual(s.diff.members.changed, [{ title: 'Bea Due', fields: ['groups'] }]);
+  await community.publishSite(user);
+  assert.equal((await community.siteState()).pending, false);
+});
