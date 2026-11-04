@@ -388,6 +388,7 @@
       role: i.op === 'add' ? 'their role here' : 'no longer their role here',
       untagged: 'taken out of the group here',
       retired: 'the group ' + (i.groupTitle || '') + ' was removed or given another role',
+      archived: 'they were offboarded',
     }[i.reason];
     if (i.op === 'add' && i.main === 'differs')
       why = 'their role here (they have the other one there)';

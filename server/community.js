@@ -39,6 +39,8 @@ const audit = require('./crm/audit');
 const crm = require('./crm/crypto');
 const { parseCsv, rowsFromValues } = require('./sheets');
 const merge = require('./member-merge');
+const follows = require('./follows');
+const notify = require('./notify');
 
 const LEVELS = ['coordination', 'stable'];
 const SLUG = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
@@ -379,6 +381,8 @@ function memberOut(row, groups) {
     source: row.source,
     joinedOn: row.joined_on,
     groups: groups[row.id] || [],
+    // Offboarded: kept as a record, off the website, their roles to take off.
+    archivedAt: row.archived_at || null,
   };
 }
 
@@ -405,6 +409,8 @@ async function listMembers(user) {
     site: await siteState(),
     invited: await require('./members').invited(),
     applications: (await permissions.forUser(user)).includes('members'),
+    duplicates: (await duplicateGroups(rows)).length,
+    following: await isFollowing(user),
   };
 }
 
@@ -425,6 +431,9 @@ async function memberDetail(user, id) {
   const member = {
     ...memberOut(row, await groupsByMember()),
     fieldSources: row.field_sources || {},
+    archiveNote: row.archive_note_encrypted
+      ? crm.decrypt(row.archive_note_encrypted, archiveContext(row.id)) || ''
+      : '',
   };
   const { rows: srcs } = await db.query(
     `select * from member_sources where member_id = $1 order by received_at nulls first, created_at`,
@@ -458,10 +467,18 @@ async function memberDetail(user, id) {
     status: state[row.id] || 'hidden',
     entry: at >= 0 ? now.members[at] : null,
   };
-  const history = await audit.forMember(
-    row.id,
-    applications.map((a) => a.id)
-  );
+  const history = await audit.forMember(row.id, [
+    ...applications.map((a) => a.id),
+    ...(row.merged_ids || []),
+  ]);
+  // Others who may be them (the same name), to merge.
+  const { rows: everyone } = await db.query('select * from community_members');
+  const same = (await duplicateGroups(everyone)).find((g) => g.members.includes(row.id));
+  const byId = new Map(everyone.map((r) => [r.id, r]));
+  const tagsNow = await groupsByMember();
+  const maybeSame = same
+    ? same.members.filter((x) => x !== row.id).map((x) => memberOut(byId.get(x), tagsNow))
+    : [];
   await audit.record(user, 'community-member', row.id, { action: 'view' });
   const names = await roleNames();
   return {
@@ -471,6 +488,8 @@ async function memberDetail(user, id) {
     discord,
     site,
     history,
+    notes: await notesOf(user, row.id),
+    maybeSame,
     groups: (await listGroups()).map((g) => ({
       ...g,
       discordRoleName: names[g.discordRoleId] || null,
@@ -884,6 +903,13 @@ async function fromApplication({
     incoming,
     source: 'application',
   });
+  // Approved again after leaving: a member again.
+  const back = Boolean(row && row.archived_at);
+  if (back)
+    await db.query(
+      'update community_members set archived_at = null, archive_note_encrypted = null where id = $1',
+      [id]
+    );
   const member = await loadMember(id);
   const discordOk = await syncRoles(member, { addOnly: true });
   await audit.record(by || AUTOMATIC, 'community-member', id, {
@@ -893,6 +919,7 @@ async function fromApplication({
     fields: Object.keys(changes.set),
     groups: changes.groups,
     kept: changes.kept.length ? changes.kept : undefined,
+    restored: back || undefined,
     discord: member.discord_id ? (discordOk ? 'roles given' : 'roles failed') : undefined,
   });
   return member;
@@ -1346,6 +1373,26 @@ async function discordPlan({ memberId } = {}) {
     const roles = new Set(m.roles || []);
     const mine = new Set((tags[row.id] || []).map((t) => t.group));
     const base = { memberId: row.id, name, discord, discordId: row.discord_id };
+    // Offboarded: every role the board gives, taken off; nothing to give.
+    if (row.archived_at) {
+      const managed = new Set(
+        [P, O, ...groups.map((g) => g.discordRoleId), ...retired.map((r) => r.role_id)].filter(
+          Boolean
+        )
+      );
+      for (const roleId of roles) {
+        if (managed.has(roleId))
+          items.push({
+            ...base,
+            id: `remove:${row.id}:${roleId}`,
+            op: 'remove',
+            roleId,
+            roleName: roleName(roleId),
+            reason: 'archived',
+          });
+      }
+      continue;
+    }
     const add = (roleId, reason, extra = {}) =>
       items.push({
         ...base,
@@ -1512,6 +1559,8 @@ async function status(user) {
         noRole: plan.noRole ? plan.noRole.length : null,
         failed: plan.failed,
         perMember: plan.perMember,
+        // Linked members whose account left the server.
+        goneIds: plan.gone.map((g) => g.memberId),
       }
     : { available: false, problem: plan.problem, perMember: {} };
   return { accounts, discord, site: await siteState() };
@@ -2566,7 +2615,8 @@ async function draft() {
     form_keys: [g.id],
   }));
   const { rows } = await db.query(
-    'select * from community_members where publish order by joined_on nulls last, created_at'
+    `select * from community_members where publish and archived_at is null
+     order by joined_on nulls last, created_at`
   );
   const byMember = await groupsByMember();
   const shown = rows
@@ -2597,6 +2647,383 @@ async function publicExport() {
     ? { live: true, groups: was.groups, members: was.members, publishedAt: was.publishedAt }
     : { live: false, groups: [], members: [] };
 }
+// ── A member's life on the board: leaving, two records of one person, notes,
+// erasure ────────────────────────────────────────────────────────────────────
+
+function archiveContext(id) {
+  return `community-archive:${id}`;
+}
+
+function noteContext(id) {
+  return `member-note:${id}`;
+}
+
+/**
+ * Offboards a member (they left the association): kept as a record with a
+ * note of why, off the website at once (their consent no longer applies), and
+ * every role the board gives listed on the Discord tab to take off (nothing
+ * changes there until applied). Their groups stay, for the record and a
+ * return. Returns { member }.
+ */
+async function offboard(user, id, { note } = {}) {
+  await access.authorize(user, 'community', { fresh: true });
+  const row = await loadMember(id);
+  if (row.archived_at) throw new HttpError(409, 'Already offboarded');
+  const why = text(note, 'Note', MAX_NOTE, false);
+  await db.query(
+    `update community_members set archived_at = now(), publish = false,
+       archive_note_encrypted = $2, updated_at = now() where id = $1`,
+    [row.id, why ? crm.encrypt(why, archiveContext(row.id)) : null]
+  );
+  await touch(row.id, ['publish']);
+  await audit.record(user, 'community-member', row.id, { action: 'offboard' });
+  return { member: memberOut(await loadMember(row.id), await groupsByMember()) };
+}
+
+/**
+ * Brings an offboarded member back: their role and groups are what Discord
+ * should have again (to apply); shown on the website only if set again.
+ */
+async function restore(user, id) {
+  await access.authorize(user, 'community', { fresh: true });
+  const row = await loadMember(id);
+  if (!row.archived_at) throw new HttpError(409, 'Not offboarded');
+  await db.query(
+    `update community_members set archived_at = null, archive_note_encrypted = null,
+       updated_at = now() where id = $1`,
+    [row.id]
+  );
+  await audit.record(user, 'community-member', row.id, { action: 'restore' });
+  return { member: memberOut(await loadMember(row.id), await groupsByMember()) };
+}
+
+/** A name's words, accents and order aside: "Uno Ada" is "Ada Uno". */
+function nameKey(name) {
+  return fold(name).split(' ').filter(Boolean).sort().join(' ');
+}
+
+/**
+ * Members who may be one person twice: the same name (accents, case and the
+ * order of its words aside), not told apart already (member_not_duplicates).
+ * [{ key, members: [id] }], from rows already read.
+ */
+async function duplicateGroups(rows) {
+  const apart = new Set(
+    (await db.query('select a, b from member_not_duplicates')).rows.map((r) => `${r.a}:${r.b}`)
+  );
+  const byKey = new Map();
+  rows.forEach((r) => {
+    const k = nameKey((detailsOf(r) || {}).name || '');
+    if (!k || !k.includes(' ')) return; // one word: too common to mean anything
+    byKey.set(k, [...(byKey.get(k) || []), r.id]);
+  });
+  const out = [];
+  byKey.forEach((ids, key) => {
+    if (ids.length < 2) return;
+    // Every pair told apart: not a group any more.
+    const open = ids.some((a) => ids.some((b) => a < b && !apart.has(`${a}:${b}`)));
+    if (open) out.push({ key, members: ids });
+  });
+  return out;
+}
+
+/** The possible duplicates, with each member as listed: { groups: [{ members }] }. */
+async function duplicates(user) {
+  await access.authorize(user, 'community');
+  const { rows } = await db.query('select * from community_members order by created_at');
+  const tags = await groupsByMember();
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  const groups = (await duplicateGroups(rows)).map((g) => ({
+    members: g.members.map((id) => memberOut(byId.get(id), tags)),
+  }));
+  return { groups };
+}
+
+/** Two members said to be different people: not offered for merging again. */
+async function notDuplicate(user, { a, b } = {}) {
+  await access.authorize(user, 'community', { fresh: true });
+  const x = await loadMember(a);
+  const y = await loadMember(b);
+  if (x.id === y.id) throw new HttpError(400, 'Two different members');
+  const [lo, hi] = [x.id, y.id].sort();
+  await db.query(
+    'insert into member_not_duplicates (a, b) values ($1, $2) on conflict do nothing',
+    [lo, hi]
+  );
+  await audit.record(user, 'community-member', null, {
+    action: 'not-duplicate',
+    members: [x.id, y.id],
+  });
+  return { ok: true };
+}
+
+/**
+ * Merges two records of one person: `drop` goes into `keep`. What `keep` has
+ * stays, its gaps are filled from `drop`; the higher role, every group (the
+ * higher level), the earliest join date, the Discord account and email key
+ * if `keep` has none; the kept answers, notes and choices move over. `drop`
+ * is then removed, its history read under `keep` (merged_ids). Discord and
+ * the website follow as for any change (applied, updated).
+ * Returns { member }.
+ */
+async function mergeMembers(user, { keep, drop } = {}) {
+  await access.authorize(user, 'community', { fresh: true });
+  const k = await loadMember(keep);
+  const d = await loadMember(drop);
+  if (k.id === d.id) throw new HttpError(400, 'Two different members');
+  const kd = detailsOf(k) || {};
+  const dd = detailsOf(d) || {};
+  const details = {};
+  merge.TEXT.forEach((f) => (details[f] = kd[f] || dd[f] || ''));
+  const role = k.role === 'organizer' || d.role === 'organizer' ? 'organizer' : 'participant';
+  const joined =
+    [k.joined_on, d.joined_on].filter(Boolean).sort((a, b) => new Date(a) - new Date(b))[0] || null;
+  const fieldSources = { ...(d.field_sources || {}), ...(k.field_sources || {}) };
+  await db.transaction(async (tx) => {
+    // Unique columns first off the one that goes.
+    await tx.query(
+      'update community_members set discord_id = null, person_key = null where id = $1',
+      [d.id]
+    );
+    await tx.query(
+      `update community_members set details_encrypted = $2, role = $3, joined_on = $4,
+         discord_id = coalesce(discord_id, $5), person_key = coalesce(person_key, $6),
+         discord_info_encrypted = case when discord_id is null and $5::text is not null
+           then $7 else discord_info_encrypted end,
+         publish = publish or false, field_sources = $8,
+         merged_ids = array(select distinct unnest(merged_ids || $9::text[])),
+         updated_at = now()
+       where id = $1`,
+      [
+        k.id,
+        sealDetails(k.id, details),
+        role,
+        joined,
+        d.discord_id,
+        d.person_key,
+        d.discord_id ? sealDiscordInfo(k.id, discordInfoOf(d)) : null,
+        JSON.stringify(fieldSources),
+        [d.id, ...(d.merged_ids || [])],
+      ]
+    );
+    await tx.query(
+      `insert into member_groups (member_id, group_id, level)
+       select $1, group_id, level from member_groups where member_id = $2
+       on conflict (member_id, group_id) do update set level =
+         case when excluded.level = 'coordination' then 'coordination' else member_groups.level end`,
+      [k.id, d.id]
+    );
+    for (const t of ['member_role_ok', 'member_main_role_ok', 'discord_removals']) {
+      await tx.query(
+        `insert into ${t} select $1 as member_id, ${
+          t === 'member_role_ok'
+            ? 'group_id, kind'
+            : t === 'member_main_role_ok'
+            ? 'kind'
+            : 'role_id, created_at'
+        } from ${t} where member_id = $2 on conflict do nothing`,
+        [k.id, d.id]
+      );
+    }
+    await tx.query('update member_notes set member_id = $1 where member_id = $2', [k.id, d.id]);
+    // The kept answers: re-sealed to the member they now belong to stays the
+    // same (bound to the source row's id), so they only change hands.
+    await tx.query(
+      `update member_sources s set member_id = $1 where member_id = $2
+         and not exists (select 1 from member_sources o
+                         where o.member_id = $1 and o.kind = s.kind and o.ref = s.ref)`,
+      [k.id, d.id]
+    );
+    await tx.query('delete from community_members where id = $1', [d.id]);
+    await audit.record(
+      user,
+      'community-member',
+      k.id,
+      { action: 'merge-members', from: d.id, members: [k.id, d.id] },
+      tx
+    );
+  });
+  return { member: memberOut(await loadMember(k.id), await groupsByMember()) };
+}
+
+const MAX_NOTE_BODY = 4000;
+
+/** The team's notes about a member, newest first: [{ id, author, mine, body, at }]. */
+async function notesOf(user, memberId) {
+  const { rows } = await db.query(
+    'select * from member_notes where member_id = $1 order by created_at desc',
+    [memberId]
+  );
+  return rows.map((r) => ({
+    id: r.id,
+    author: r.author_name,
+    mine: Boolean(user.id) && r.author_id === user.id,
+    body:
+      crm.decrypt(r.body_encrypted, noteContext(r.id)) || '(cannot be opened with the current key)',
+    at: r.created_at,
+  }));
+}
+
+/** A note about a member, for the team. Returns { notes }. */
+async function addNote(user, id, { body } = {}) {
+  await access.authorize(user, 'community', { fresh: true });
+  const row = await loadMember(id);
+  const text_ = String(body || '').trim();
+  if (!text_) throw new HttpError(400, 'Write the note first', { field: 'body' });
+  if (text_.length > MAX_NOTE_BODY)
+    throw new HttpError(400, 'The note is too long', { field: 'body' });
+  const noteId = crypto.randomUUID();
+  await db.query(
+    `insert into member_notes (id, member_id, author_id, author_name, body_encrypted)
+     values ($1, $2, $3, $4, $5)`,
+    [
+      noteId,
+      row.id,
+      user.id || null,
+      user.name || 'unknown',
+      crm.encrypt(text_, noteContext(noteId)),
+    ]
+  );
+  await audit.record(user, 'community-member', row.id, { action: 'note' });
+  return { notes: await notesOf(user, row.id) };
+}
+
+/** Removes a note: its author only. Returns { notes }. */
+async function deleteNote(user, noteId) {
+  await access.authorize(user, 'community', { fresh: true });
+  if (!UUID.test(String(noteId || ''))) throw new HttpError(404, 'No such note');
+  const { rows } = await db.query('select * from member_notes where id = $1', [noteId]);
+  if (!rows[0]) throw new HttpError(404, 'No such note');
+  if (!user.id || rows[0].author_id !== user.id)
+    throw new HttpError(403, 'Only who wrote a note removes it');
+  await db.query('delete from member_notes where id = $1', [noteId]);
+  await audit.record(user, 'community-member', rows[0].member_id, { action: 'note-removed' });
+  return { notes: await notesOf(user, rows[0].member_id) };
+}
+
+/**
+ * Erases a member and what they gave (a request to be forgotten): their
+ * record, groups, notes, kept answers, their applications and the form
+ * answers those came from. `confirm` must be their name, typed again. The
+ * audit trail keeps that it happened, never who (no personal data in it).
+ * Discord is not touched (offboard first to take their roles off), and the
+ * website loses them on its next update. Returns { erased, applications }.
+ */
+async function eraseMember(user, id, { confirm } = {}) {
+  await access.authorize(user, 'community', { fresh: true });
+  const row = await loadMember(id);
+  const name = (detailsOf(row) || {}).name || '';
+  if (!name || fold(confirm) !== fold(name))
+    throw new HttpError(400, 'Type their name to confirm', { field: 'confirm' });
+  let applications = 0;
+  await db.transaction(async (tx) => {
+    const { rows: apps } = await tx.query(
+      `select id, response_id from member_applications
+       where ($1::text is not null and email_key = $1) or ($2::text is not null and discord_id = $2)`,
+      [row.person_key, row.discord_id]
+    );
+    applications = apps.length;
+    const responses = apps.map((a) => a.response_id).filter(Boolean);
+    if (apps.length)
+      await tx.query('delete from member_applications where id = any($1::uuid[])', [
+        apps.map((a) => a.id),
+      ]);
+    if (responses.length)
+      await tx.query('delete from form_responses where id = any($1::uuid[])', [responses]);
+    if (row.discord_id)
+      await tx.query('delete from discord_no_role_ok where discord_id = $1', [row.discord_id]);
+    await tx.query('delete from community_members where id = $1', [row.id]);
+    await audit.record(
+      user,
+      'community-member',
+      row.id,
+      { action: 'erase', applications, responses: responses.length },
+      tx
+    );
+  });
+  return { erased: true, applications };
+}
+
+// ── Watching Discord: a daily look for what changed there by hand ───────────
+
+const DRIFT_SEEN = 'community_drift_seen';
+const AUTOMATIC_CHECK = { id: null, name: 'Discord check (daily)' };
+
+/**
+ * Compares the board with Discord (discordPlan) and tells whoever follows the
+ * members board (topic 'community', still holding the key) when something
+ * new differs that the board did not ask for: a role given or taken by hand,
+ * someone gone from the server, someone new with no role. Counts only, never
+ * who. Remembers what it saw, so each thing is told once.
+ * Returns { checked, new, told } or { skipped }.
+ */
+async function driftCheck({ origin } = {}) {
+  if (!permissions.botConfigured()) return { skipped: 'no bot' };
+  const plan = await discordPlan();
+  if (!plan.available) return { skipped: plan.problem };
+  // What only Discord can have changed: roles it has that the board does
+  // not say, roles of their group or role missing that were applied before
+  // (not after a change on the board: those are "to apply"), accounts gone,
+  // people with no role.
+  const now = [
+    ...plan.decide.map((i) => i.id),
+    ...plan.gone.map((i) => i.id),
+    ...(plan.noRole || []).map((i) => i.id),
+  ];
+  const { rows } = await db.query('select value from app_settings where key = $1', [DRIFT_SEEN]);
+  const seen = new Set((rows[0] && rows[0].value && rows[0].value.ids) || []);
+  const fresh = now.filter((id) => !seen.has(id));
+  await db.query(
+    `insert into app_settings (key, value, updated_at) values ($1, $2::jsonb, now())
+     on conflict (key) do update set value = excluded.value, updated_at = now()`,
+    [DRIFT_SEEN, JSON.stringify({ ids: now })]
+  );
+  const counts = {
+    decide: plan.decide.filter((i) => fresh.includes(i.id)).length,
+    gone: plan.gone.filter((i) => fresh.includes(i.id)).length,
+    noRole: (plan.noRole || []).filter((i) => fresh.includes(i.id)).length,
+  };
+  let told = 0;
+  if (fresh.length) {
+    const lines = ['Discord and the members board differ in new ways:'];
+    if (counts.decide) lines.push(`${counts.decide} role(s) given or kept by hand on Discord`);
+    if (counts.gone) lines.push(`${counts.gone} member(s) left the server`);
+    if (counts.noRole) lines.push(`${counts.noRole} new person(s) on the server with no role`);
+    if (origin)
+      lines.push({ label: 'Open the Discord tab', link: `${origin}/app/members/discord/` });
+    const message = { subject: 'Discord and the members board differ', lines };
+    for (const userId of await follows.followers('community')) {
+      const { rows: u } = await db.query('select id, kind from app_users where id = $1', [userId]);
+      if (!u[0] || !(await permissions.forUser(u[0])).includes('community')) continue;
+      try {
+        if ((await notify.notifyUser(userId, message)).length) told++;
+      } catch (err) {
+        console.error('Notification failed', err.message);
+      }
+    }
+  }
+  await audit.record(AUTOMATIC_CHECK, 'community-discord', null, {
+    action: 'drift-check',
+    checked: plan.checked,
+    new: fresh.length,
+    ...counts,
+    told,
+  });
+  return { checked: plan.checked, new: fresh.length, ...counts, told };
+}
+
+/** Follows the members board (told when Discord drifts) or not. */
+async function setFollowing(user, on) {
+  await access.authorize(user, 'community');
+  if (user.kind !== 'discord')
+    throw new HttpError(400, 'This account has no channel to be told on');
+  return { following: await follows.setFollowing(user.id, 'community', on) };
+}
+
+async function isFollowing(user) {
+  return user.kind === 'discord' ? follows.isFollowing(user.id, 'community') : null;
+}
+
 module.exports = {
   LEVELS,
   listGroups,
@@ -2633,5 +3060,15 @@ module.exports = {
   roleNames,
   setRoles,
   rematch,
+  offboard,
+  restore,
+  duplicates,
+  notDuplicate,
+  mergeMembers,
+  addNote,
+  deleteNote,
+  eraseMember,
+  driftCheck,
+  setFollowing,
   TAGS_PER_CALL,
 };

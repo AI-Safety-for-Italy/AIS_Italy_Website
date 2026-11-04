@@ -507,6 +507,38 @@ anything leaves the database a dialog lists what changes, and where.
   bot to read the server's list, the Server Members intent, and the preview
   says why when it cannot).
 
+**A member's life on the board.**
+
+- _Offboarding_ (`offboard`, a member's page) is for someone who left. They
+  stay as a record, with a note of why, and are hidden from the website at
+  once. Every role the board gives them is listed on the Discord tab to take
+  off (reason `archived`). _Restore_ makes them a member again, and approving
+  a new application of theirs does too. The Members tab shows offboarded
+  people under their own filter.
+- _Possible duplicates_ (`duplicates`): members with the same name, ignoring
+  accents, case and word order. They show under their own filter and on each
+  one's page.
+  - _Merge_ (`mergeMembers`) keeps one record and fills its gaps from the
+    other. It takes the higher role, every group, and the Discord account and
+    email key if missing. The kept answers, notes and choices move over. The
+    other record is removed, and its history is read under the kept one
+    (`merged_ids`).
+  - _Not the same person_ (`member_not_duplicates`) stops offering the pair.
+- _Notes_ (`member_notes`) are for the team only. They are encrypted, and
+  removed only by their author.
+- _Erase all their data_ (`eraseMember`, typing their name to confirm) is for
+  a request to be forgotten. It deletes their record, groups, notes, kept
+  answers, their applications and the form answers those came from. The
+  audit trail keeps that it happened, never who. Discord is not touched:
+  offboard and apply first to take their roles off.
+- _The daily Discord check_ (`driftCheck`, `/api/cron/discord-check`,
+  `.github/workflows/discord-check.yml`, with the same `CRON_SECRET` as the
+  cleanup) compares the board with the server. It tells whoever follows the
+  board (topic `community`: "Notify me" on the Discord tab, or Settings) what
+  changed there by hand: roles given or kept by hand, accounts gone, newcomers
+  with no role. It sends counts only, and tells each thing once
+  (`community_drift_seen`).
+
 **Export CSV** (Members tab) downloads every member, one row each: name,
 role, working groups and those they coordinate, place, areas, profile,
 consent, their Discord account, source and join date (`exportCsv`, written

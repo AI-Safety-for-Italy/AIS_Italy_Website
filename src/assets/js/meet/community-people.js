@@ -74,7 +74,12 @@
     return (per && per[m.id]) || 'waiting';
   }
 
+  function gone(m) {
+    return Boolean(discord && discord.goneIds && discord.goneIds.indexOf(m.id) !== -1);
+  }
+
   function needs(m) {
+    if (m.archivedAt) return pendingOf(m) > 0;
     return (
       discordState(m) === 'tolink' ||
       pendingOf(m) > 0 ||
@@ -96,6 +101,11 @@
   }
 
   function matches(m) {
+    // Offboarded members only under "Offboarded" (and in need of attention
+    // while their roles wait to be taken off).
+    if (f.show === 'archived') {
+      if (!m.archivedAt) return false;
+    } else if (m.archivedAt && f.show !== 'attention') return false;
     if (f.show === 'attention' && !needs(m)) return false;
     if (f.role && m.role !== f.role) return false;
     if (f.group === '-' && m.groups.length) return false;
@@ -140,6 +150,10 @@
     view.appendChild(showChips());
     if (f.show === 'invited') {
       view.appendChild(invitedList());
+      return;
+    }
+    if (f.show === 'duplicates') {
+      view.appendChild(duplicatesView());
       return;
     }
     var list = data.members.filter(matches);
@@ -263,11 +277,17 @@
 
   function showChips() {
     var attention = data.members.filter(needs).length;
+    var archived = data.members.filter(function (m) {
+      return m.archivedAt;
+    }).length;
     var chips = [
-      ['all', 'Everyone', data.members.length],
+      ['all', 'Members', data.members.length - archived],
       ['attention', 'Needs attention', attention],
       ['invited', 'Invited, not on Discord yet', data.invited.length],
     ];
+    if (data.duplicates || f.show === 'duplicates')
+      chips.push(['duplicates', 'Possible duplicates', data.duplicates]);
+    if (archived || f.show === 'archived') chips.push(['archived', 'Offboarded', archived]);
     return h(
       'div',
       { class: 'mb-show', role: 'group', 'aria-label': 'Show' },
@@ -276,7 +296,9 @@
           'button',
           {
             type: 'button',
-            class: 'mb-show-chip' + (c[0] === 'attention' && c[2] ? ' is-warn' : ''),
+            class:
+              'mb-show-chip' +
+              ((c[0] === 'attention' || c[0] === 'duplicates') && c[2] ? ' is-warn' : ''),
             'aria-pressed': String(f.show === c[0]),
             onclick: function () {
               f.show = c[0];
@@ -294,6 +316,12 @@
             'span',
             { class: 'mb-show-note' },
             'Not linked to Discord, changes waiting there, or not online as they are here.'
+          )
+        : f.show === 'archived'
+        ? h(
+            'span',
+            { class: 'mb-show-note' },
+            'They left: kept as a record, off the website. Restore one from their page.'
           )
         : null
     );
@@ -372,6 +400,7 @@
     } else {
       disc = B.pill('todo', 'To link');
     }
+    if (gone(m)) disc = B.pill('warn', 'Left the server');
     return h(
       'div',
       { class: 'mb-row' + (picked.has(m.id) ? ' is-picked' : ''), role: 'row' },
@@ -396,7 +425,12 @@
         h(
           'span',
           { class: 'mb-name-text' },
-          h('strong', null, m.name),
+          h(
+            'strong',
+            null,
+            m.name,
+            m.archivedAt ? h('span', { class: 'mb-archived' }, ' Offboarded') : null
+          ),
           h(
             'span',
             { class: 'mb-sub' },
@@ -409,6 +443,164 @@
       h('span', { role: 'cell', 'data-label': 'Discord' }, disc),
       h('span', { role: 'cell', 'data-label': 'Website' }, B.sitePill(siteOf(m)))
     );
+  }
+
+  // ── Possible duplicates ──────────────────────────────────────────────────
+
+  var dupData = null;
+  var dupLoading = false;
+
+  function duplicatesView() {
+    var box = h('div', { class: 'mb-dups' });
+    if (!dupData) {
+      box.appendChild(M.loading());
+      if (!dupLoading) {
+        dupLoading = true;
+        M.api('GET', API + '?view=duplicates')
+          .then(function (r) {
+            dupData = r.groups;
+            render();
+          })
+          .catch(M.appError)
+          .then(function () {
+            dupLoading = false;
+          });
+      }
+      return box;
+    }
+    if (!dupData.length) {
+      box.appendChild(h('p', { class: 'panel-note mb-none' }, 'No two members share a name.'));
+      return box;
+    }
+    box.appendChild(
+      h(
+        'p',
+        { class: 'panel-note' },
+        'Members with the same name (accents, case and word order aside). Merge two records of one person, or say they are different people.'
+      )
+    );
+    dupData.forEach(function (g) {
+      box.appendChild(
+        h(
+          'section',
+          { class: 'panel mb-dup' },
+          h(
+            'div',
+            { class: 'mb-dup-cards' },
+            g.members.map(function (m) {
+              return dupCard(m, g.members);
+            })
+          )
+        )
+      );
+    });
+    return box;
+  }
+
+  function dupCard(m, all) {
+    var others = all.filter(function (x) {
+      return x.id !== m.id;
+    });
+    return h(
+      'div',
+      { class: 'mb-dup-card' },
+      h(
+        'a',
+        { class: 'mb-name', href: '/app/members/member/?id=' + encodeURIComponent(m.id) },
+        B.avatar({ name: m.name }, 28),
+        h(
+          'span',
+          { class: 'mb-name-text' },
+          h('strong', null, m.name),
+          h(
+            'span',
+            { class: 'mb-sub' },
+            sourceLabel(m.source) + (m.joinedOn ? ' · since ' + B.day(m.joinedOn) : '')
+          )
+        )
+      ),
+      h(
+        'dl',
+        { class: 'mb-dup-facts' },
+        h('dt', null, 'Role'),
+        h('dd', null, B.roleName(data.roles, m.role)),
+        h('dt', null, 'Place'),
+        h('dd', null, m.location || '—'),
+        h('dt', null, 'Groups'),
+        h('dd', null, m.groups.map((g) => groupTitle(g.group)).join(', ') || '—'),
+        h('dt', null, 'Discord'),
+        h('dd', null, m.discordId ? '@' + (m.discordUsername || m.discordName || 'linked') : '—'),
+        h('dt', null, 'Website'),
+        h('dd', null, m.publish ? 'Shown' : 'Hidden')
+      ),
+      others.map(function (o) {
+        return h(
+          'div',
+          { class: 'mb-dup-actions' },
+          h(
+            'button',
+            {
+              type: 'button',
+              class: 'btn btn-primary btn-sm',
+              onclick: function () {
+                mergeInto(m, o);
+              },
+            },
+            'Keep this one, merge ' +
+              (others.length > 1 ? o.name + ' (' + sourceLabel(o.source) + ')' : 'the other') +
+              ' in'
+          ),
+          h(
+            'button',
+            {
+              type: 'button',
+              class: 'link-button',
+              onclick: function () {
+                M.api('POST', API + '?action=not-duplicate', { a: m.id, b: o.id })
+                  .then(function () {
+                    dupData = null;
+                    M.toast('Told apart: not offered again');
+                    return load();
+                  })
+                  .catch(M.appError);
+              },
+            },
+            'Not the same person'
+          )
+        );
+      })
+    );
+  }
+
+  function mergeInto(keep, drop) {
+    B.confirm({
+      title: 'Merge into ' + keep.name + '?',
+      text: 'Two records of one person become one: the record on the left stays, the other is removed.',
+      effects: [
+        {
+          where: 'db',
+          text:
+            'What ' +
+            keep.name +
+            '’s record has stays; its gaps are filled from the other; the higher role, every group, the Discord account if missing, the kept answers, notes and history move over.',
+        },
+        {
+          where: 'discord',
+          text: 'Nothing changes yet: any role to give waits on the Discord tab.',
+        },
+        { where: 'site', text: 'Changes when the website is updated.' },
+      ],
+      ok: 'Merge',
+    }).then(function (yes) {
+      if (!yes) return;
+      M.api('POST', API + '?action=merge', { keep: keep.id, drop: drop.id })
+        .then(function () {
+          dupData = null;
+          M.toast('Merged');
+          return Promise.all([load(), B.refresh()]);
+        })
+        .catch(M.appError);
+    });
   }
 
   function sourceLabel(s) {

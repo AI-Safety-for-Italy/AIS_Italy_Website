@@ -10326,18 +10326,12 @@ a.mb-name:hover strong,
   min-width: 0;
 }
 
-.mb-page-side {
-  position: sticky;
-  top: 12px;
-}
-
 @media (max-width: 960px) {
   .mb-page {
     grid-template-columns: minmax(0, 1fr);
   }
 
   .mb-page-side {
-    position: static;
     order: -1;
   }
 }
@@ -11519,4 +11513,124 @@ button.mb-sec-head {
   align-items: center;
   flex-wrap: wrap;
   margin-top: 1.25rem;
+}
+
+/* Members board: the Discord tab's tools, a member's notes and membership,
+   the possible duplicates (community-*.js). */
+.mb-intro-tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.mb-archived {
+  margin-left: 6px;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.mb-notes {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mb-notes li {
+  padding: 8px 12px;
+  border-left: 3px solid var(--accent);
+  border-radius: 0 8px 8px 0;
+  background: var(--bg-tertiary);
+}
+
+.mb-notes p {
+  margin: 0 0 4px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 13.5px;
+}
+
+.mb-note-x {
+  margin-left: 8px;
+  font-size: 12px;
+}
+
+.mb-note-new {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.mb-note-new textarea {
+  flex: 1;
+}
+
+.mb-offboard {
+  display: grid;
+  gap: 8px;
+}
+
+.mb-offboard p,
+.mb-actions > p {
+  margin: 0;
+}
+
+.mb-offboard .btn {
+  justify-self: start;
+}
+
+.mb-erase summary {
+  color: var(--mb-remove);
+}
+
+.mb-dups {
+  display: grid;
+  gap: 12px;
+}
+
+.mb-dup {
+  padding: 14px;
+}
+
+.mb-dup-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.mb-dup-card {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  padding: 12px;
+  border: 1px solid var(--border-muted);
+  border-radius: 10px;
+}
+
+.mb-dup-facts {
+  display: grid;
+  grid-template-columns: 70px minmax(0, 1fr);
+  gap: 3px 10px;
+  margin: 0;
+  font-size: 13px;
+}
+
+.mb-dup-facts dt {
+  color: var(--text-tertiary);
+}
+
+.mb-dup-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.mb-dup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
 }

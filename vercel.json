@@ -157,6 +157,9 @@
     },
     "api/poll.js": {
       "maxDuration": 30
+    },
+    "api/cron/discord-check.js": {
+      "maxDuration": 60
     }
   },
   "rewrites": [

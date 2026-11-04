@@ -25,12 +25,14 @@
   var pickedAsk = new Set(); // ids of items to decide, or of people with no role
   var busy = false;
   var open = {}; // sections folded open
+  var following = null; // told of what changes on Discord by hand (null: no channel)
 
   function load() {
     return Promise.all([M.api('GET', API + '?view=discord-plan'), M.api('GET', API)]).then(
       function (r) {
         plan = r[0];
         members = r[1].members;
+        following = r[1].following;
         // Picked by default: every change (the board is what should be).
         if (!picked.size)
           plan.items.forEach(function (i) {
@@ -153,17 +155,63 @@
           : 'The board says what should be. Below, what that changes on Discord, and what Discord has that the board does not say. Nothing changes on Discord until you apply it.'
       ),
       h(
-        'button',
-        {
-          type: 'button',
-          class: 'btn btn-outline btn-sm',
-          onclick: function (e) {
-            e.target.disabled = true;
-            load().then(B.refresh).catch(M.appError);
+        'span',
+        { class: 'mb-intro-tools' },
+        followSwitch(),
+        h(
+          'button',
+          {
+            type: 'button',
+            class: 'btn btn-outline btn-sm',
+            onclick: function (e) {
+              e.target.disabled = true;
+              load().then(B.refresh).catch(M.appError);
+            },
           },
-        },
-        'Read Discord again'
+          'Read Discord again'
+        )
       )
+    );
+  }
+
+  /** "Notify me": told once a day when something changed on Discord by hand. */
+  function followSwitch() {
+    if (following === null || following === undefined) return null;
+    var input = h('input', {
+      type: 'checkbox',
+      role: 'switch',
+      class: 'fe-switch-input',
+      'aria-label': 'Notify me when Discord changes by hand',
+      checked: Boolean(following),
+      onchange: function () {
+        input.disabled = true;
+        M.api('POST', API + '?action=follow', { on: input.checked })
+          .then(function (r) {
+            following = r.following;
+            M.toast(
+              following
+                ? 'Once a day, you will hear what changed on Discord by hand'
+                : 'No more news from the Discord check'
+            );
+          })
+          .catch(function (err) {
+            input.checked = Boolean(following);
+            M.appError(err);
+          })
+          .then(function () {
+            input.disabled = false;
+          });
+      },
+    });
+    return h(
+      'label',
+      {
+        class: 'fl-notify',
+        title:
+          'A daily check tells you, on your channel from Settings, when roles change on Discord by hand, someone leaves the server, or someone new has no role',
+      },
+      h('span', null, 'Notify me'),
+      input
     );
   }
 

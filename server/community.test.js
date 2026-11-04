@@ -989,6 +989,7 @@ test('the bar on top: accounts, Discord and website, in counts', async () => {
       noRole: 0,
       failed: undefined,
       perMember: { [bea.id]: 3 },
+      goneIds: [],
     }
   );
   assert.equal(s.site.live, false);
@@ -1653,4 +1654,191 @@ test('a difference left as it is can be listed again', async () => {
     ['seminars']
   );
   await rejects(community.unignore(user, { ids: ['ok-group:x:y:z'] }), 400);
+});
+
+// ── Leaving, two records of one person, notes, erasure, the daily check ─────
+
+test('offboarded: off the website, every role listed to take off; restored, back', async () => {
+  const user = await board();
+  await community.importConfirm(user, SHEET);
+  const bea = (await community.listMembers(user)).members.find((m) => m.name === 'Bea Due');
+  const people = [
+    { id: '800000131', username: 'bea', roles: ['222222', ROLE.mentorship, ROLE.seminars, '999'] },
+  ];
+  server(people);
+  await community.linkDiscord(user, bea.id, '800000131');
+  await community.publishSite(user);
+  botCalls = [];
+  const r = await community.offboard(user, bea.id, { note: 'moved abroad' });
+  assert.ok(r.member.archivedAt);
+  assert.deepEqual(roleCalls(), []);
+  // Off the website on the next update; her roles listed, not the server's others.
+  const s = await community.siteState();
+  assert.deepEqual(s.diff.members.removed, ['Bea Due']);
+  const plan = await community.discordPlan();
+  assert.deepEqual(
+    plan.items.map((i) => [i.reason, i.roleId]).sort(),
+    [
+      ['archived', '222222'],
+      ['archived', ROLE.mentorship],
+      ['archived', ROLE.seminars],
+    ].sort()
+  );
+  await applyAll(user);
+  assert.deepEqual(people[0].roles, ['999']);
+  const page = await community.memberDetail(user, bea.id);
+  assert.equal(page.member.archiveNote, 'moved abroad');
+  assert.ok(page.history.some((h) => h.detail && h.detail.action === 'offboard'));
+  await rejects(community.offboard(user, bea.id), 409);
+
+  // Back: her role and groups are what Discord should have again.
+  await community.restore(user, bea.id);
+  assert.equal((await community.discordPlan()).items.filter((i) => i.op === 'add').length, 3);
+  await rejects(community.restore(user, bea.id), 409);
+});
+
+test('an offboarded member approved again is a member again', async () => {
+  const user = await board();
+  await community.importConfirm(user, SHEET);
+  const ciro = (await community.listMembers(user)).members.find((m) => m.name === 'Ciro Tre');
+  await community.offboard(user, ciro.id);
+  await community.fromApplication({
+    email: 'ciro@example.org',
+    name: 'Ciro Tre',
+    role: 'participant',
+  });
+  const after = (await community.listMembers(user)).members.find((m) => m.id === ciro.id);
+  assert.equal(after.archivedAt, null);
+});
+
+test('two records of one person: found by name, merged, or told apart', async () => {
+  const user = await board();
+  await community.importConfirm(user, SHEET);
+  // Ada again, added from Discord under her name the other way round.
+  const people = [{ id: '800000141', username: 'ada', nick: 'Uno Ada', roles: [ROLE.events] }];
+  server(people);
+  await community.decideDiscord(user, { items: ['norole:800000141'], choice: 'organizer' });
+  let list = await community.listMembers(user);
+  assert.equal(list.duplicates, 1);
+  const { groups } = await community.duplicates(user);
+  assert.deepEqual(groups[0].members.map((m) => m.name).sort(), ['Ada Uno', 'Uno Ada']);
+  const keep = list.members.find((m) => m.name === 'Ada Uno');
+  const drop = list.members.find((m) => m.name === 'Uno Ada');
+  await community.addNote(user, drop.id, { body: 'met at the meetup' });
+  const before = (await community.memberDetail(user, keep.id)).maybeSame;
+  assert.deepEqual(
+    before.map((m) => m.id),
+    [drop.id]
+  );
+
+  const r = await community.mergeMembers(user, { keep: keep.id, drop: drop.id });
+  assert.equal(r.member.name, 'Ada Uno'); // the kept one's
+  assert.equal(r.member.role, 'organizer'); // the higher
+  assert.equal(r.member.discordId, '800000141'); // the gap filled
+  assert.equal(r.member.location, 'Italia');
+  list = await community.listMembers(user);
+  assert.ok(!list.members.some((m) => m.id === drop.id));
+  assert.equal(list.duplicates, 0);
+  const page = await community.memberDetail(user, keep.id);
+  assert.deepEqual(
+    page.notes.map((n) => n.body),
+    ['met at the meetup']
+  );
+  // The other record's history is read under this one.
+  assert.ok(page.history.some((h) => h.detail && h.detail.action === 'note'));
+  assert.ok(page.history.some((h) => h.detail && h.detail.action === 'merge-members'));
+  await rejects(community.mergeMembers(user, { keep: keep.id, drop: keep.id }), 400);
+
+  // Two people of the same name, told apart: not offered again.
+  server([{ id: '800000142', username: 'ada2', nick: 'Ada Uno', roles: [] }]);
+  await community.decideDiscord(user, { items: ['norole:800000142'], choice: 'participant' });
+  list = await community.listMembers(user);
+  assert.equal(list.duplicates, 1);
+  const other = list.members.find((m) => m.discordId === '800000142');
+  await community.notDuplicate(user, { a: keep.id, b: other.id });
+  assert.equal((await community.listMembers(user)).duplicates, 0);
+});
+
+test('notes: for the team, encrypted, removed by their author only', async () => {
+  const user = await board();
+  await community.importConfirm(user, SHEET);
+  const ada = (await community.listMembers(user)).members.find((m) => m.name === 'Ada Uno');
+  const { notes } = await community.addNote(user, ada.id, {
+    body: 'Wants to lead a reading group',
+  });
+  assert.equal(notes[0].mine, true);
+  const { rows } = await db.query('select body_encrypted from member_notes');
+  assert.ok(!rows[0].body_encrypted.includes('reading'));
+  await rejects(community.addNote(user, ada.id, { body: '  ' }), 400);
+  await permissions.saveRolePermissions([
+    { roleId: 'r-board', roleName: 'Board', permissions: ['members', 'community'] },
+  ]);
+  const other = await auth.upsertDiscordUser({
+    discordId: '900000002',
+    name: 'Ivo',
+    roles: ['r-board'],
+  });
+  await rejects(community.deleteNote(other, notes[0].id), 403);
+  assert.deepEqual((await community.deleteNote(user, notes[0].id)).notes, []);
+});
+
+test('erased: the member, their applications and answers; only after typing their name', async () => {
+  const user = await board();
+  const { id } = await members.createApplication(
+    { name: 'Gaia Sei', email: 'gaia@example.org', answers: [{ label: 'Why?', value: 'Safety' }] },
+    { source: 'iscrizione' }
+  );
+  await mail().saveSettings({
+    host: 'smtp.x',
+    port: 465,
+    fromEmail: 'tech@ais4i.it',
+    password: 'p',
+  });
+  await members.decide(
+    user,
+    id,
+    { decision: 'approve', role: 'participant' },
+    { siteOrigin: 'https://x' }
+  );
+  const row = (await db.query('select * from member_applications where id = $1', [id])).rows[0];
+  await members.joinCommunity(row, '700000031');
+  const gaia = (await community.listMembers(user)).members[0];
+  await community.addNote(user, gaia.id, { body: 'x' });
+  await rejects(community.eraseMember(user, gaia.id, { confirm: 'Gaia' }), 400);
+  const r = await community.eraseMember(user, gaia.id, { confirm: 'gaia sei' });
+  assert.deepEqual(r, { erased: true, applications: 1 });
+  assert.equal((await community.listMembers(user)).members.length, 0);
+  assert.equal((await db.query('select 1 from member_applications')).rows.length, 0);
+  assert.equal((await db.query('select 1 from member_notes')).rows.length, 0);
+  // The trail says it happened, not who.
+  const { rows: trail } = await db.query(
+    `select detail from crm_audit where detail->>'action' = 'erase'`
+  );
+  assert.equal(trail.length, 1);
+  assert.ok(!JSON.stringify(trail).includes('Gaia'));
+});
+
+test('the daily check tells followers what changed on Discord by hand, once', async () => {
+  const user = await board();
+  await community.importConfirm(user, SHEET);
+  const bea = (await community.listMembers(user)).members.find((m) => m.name === 'Bea Due');
+  const people = [
+    { id: '800000151', username: 'bea', roles: ['222222', ROLE.mentorship, ROLE.seminars] },
+  ];
+  server(people);
+  await community.linkDiscord(user, bea.id, '800000151');
+  assert.equal((await community.setFollowing(user, true)).following, true);
+  assert.equal((await community.listMembers(user)).following, true);
+  let r = await community.driftCheck();
+  assert.equal(r.new, 0);
+  // Someone gives Bea Events by hand, and a newcomer arrives with no role.
+  people[0].roles.push(ROLE.events);
+  people.push({ id: '800000152', username: 'neo', roles: [] });
+  r = await community.driftCheck();
+  assert.deepEqual([r.new, r.decide, r.noRole], [2, 1, 1]);
+  // Told once: the same differences again are not new.
+  r = await community.driftCheck();
+  assert.equal(r.new, 0);
+  delete process.env.DISCORD_BOT_TOKEN_AIS_TEAM_AREA;
+  assert.deepEqual(await community.driftCheck(), { skipped: 'no bot' });
 });

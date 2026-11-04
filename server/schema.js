@@ -639,6 +639,36 @@ create table if not exists discord_retired_roles (
   retired_at timestamptz not null default now()
 );
 
+-- A member who left the association (offboarded): kept as a record, off the
+-- website, every role of theirs on Discord listed to take off. Restored, they
+-- are a member again. archive_note says why, encrypted with their details.
+alter table community_members add column if not exists archived_at timestamptz;
+alter table community_members add column if not exists archive_note_encrypted text;
+
+-- The members merged into this one (two records of the same person): their
+-- history stays theirs on the audit trail, so it is read under these ids too.
+alter table community_members add column if not exists merged_ids text[] not null default '{}';
+
+-- Two members of the same name the team said are not the same person: not
+-- offered for merging again. a < b.
+create table if not exists member_not_duplicates (
+  a uuid not null references community_members(id) on delete cascade,
+  b uuid not null references community_members(id) on delete cascade,
+  primary key (a, b)
+);
+
+-- The team's notes about a member, for the team only: encrypted, bound to the
+-- note. Only their author removes them; they go with the member.
+create table if not exists member_notes (
+  id uuid primary key,
+  member_id uuid not null references community_members(id) on delete cascade,
+  author_id uuid,
+  author_name text not null,
+  body_encrypted text not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists member_notes_member on member_notes (member_id, created_at);
+
 -- The local groups (server/local-groups.js): one per city, on their own board
 -- (local_groups). Who leads each, their contacts, the WhatsApp link and the
 -- notes are encrypted, bound to the row (details_encrypted, null until set).

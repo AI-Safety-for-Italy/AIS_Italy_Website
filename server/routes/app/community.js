@@ -14,6 +14,15 @@
 //   GET    ?view=export                  -> every member as a CSV file (audited)
 //   POST   ?action=preview { csv, decisions? }  -> what importing the old sheet would do
 //   POST   ?action=import { csv, decisions? }   -> imports it as previewed
+//   POST   ?action=offboard { member, note? }   -> left the association: off the site,
+//                                           their roles listed to take off on Discord
+//   POST   ?action=restore { member }    -> a member again
+//   GET    ?view=duplicates              -> members who may be one person twice
+//   POST   ?action=merge { keep, drop }  -> two records of one person made one
+//   POST   ?action=not-duplicate { a, b }  -> not the same person: not offered again
+//   POST   ?action=note { member, body } -> a note for the team
+//   DELETE ?note=<id>                    -> the author removes their note
+//   POST   ?action=erase { member, confirm }  -> everything about them deleted
 // Working groups
 //   POST   ?action=group { id?, titleEn, titleIt, descriptionEn, descriptionIt, discordRoleId }
 //   POST   ?action=order { ids }         -> the groups in a new order
@@ -32,6 +41,7 @@
 //   POST   ?action=link { member, discordId | null }  -> linked or unlinked (nothing on Discord)
 //   POST   ?action=absent { member, absent, note? }  -> checked: not on Discord
 //   POST   ?action=rematch               -> the members not linked matched again, when sure
+//   POST   ?action=follow { on }         -> told when Discord drifts from the board (daily)
 // Website
 //   POST   ?action=publish               -> the site shows the list as it is now
 //   POST   ?action=unpublish             -> the site goes back to the YAML
@@ -56,6 +66,10 @@ module.exports = route({
     }
     if (view === 'discord-plan') {
       sendJson(res, 200, await community.discordPlanFor(user, { memberId: member }));
+      return;
+    }
+    if (view === 'duplicates') {
+      sendJson(res, 200, await community.duplicates(user));
       return;
     }
     if (view === 'ignored') {
@@ -103,6 +117,13 @@ module.exports = route({
       apply: () => community.applyDiscord(user, body),
       decide: () => community.decideDiscord(user, body),
       unignore: () => community.unignore(user, body),
+      offboard: () => community.offboard(user, body.member, body),
+      restore: () => community.restore(user, body.member),
+      merge: () => community.mergeMembers(user, body),
+      'not-duplicate': () => community.notDuplicate(user, body),
+      note: () => community.addNote(user, body.member, body),
+      erase: () => community.eraseMember(user, body.member, body),
+      follow: () => community.setFollowing(user, Boolean(body.on)),
     };
     if (!Object.prototype.hasOwnProperty.call(handlers, action))
       throw new HttpError(400, 'Unknown action');
@@ -118,6 +139,8 @@ module.exports = route({
   },
   async DELETE(req, res) {
     const user = await requireUser(req);
-    sendJson(res, 200, await community.deleteGroup(user, getQuery(req).group));
+    const { group, note } = getQuery(req);
+    if (note !== undefined) sendJson(res, 200, await community.deleteNote(user, note));
+    else sendJson(res, 200, await community.deleteGroup(user, group));
   },
 });

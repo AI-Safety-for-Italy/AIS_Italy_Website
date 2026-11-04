@@ -88,8 +88,8 @@
       h(
         'div',
         { class: 'mb-page' },
-        h('div', { class: 'mb-page-main' }, editor(m), answers(), history()),
-        h('aside', { class: 'mb-page-side' }, discordCard(m), siteCard(m))
+        h('div', { class: 'mb-page-main' }, editor(m), notes(), answers(), history()),
+        h('aside', { class: 'mb-page-side' }, discordCard(m), siteCard(m), actionsCard(m))
       )
     );
   }
@@ -120,6 +120,10 @@
           h(
             'div',
             { class: 'mb-head-chips' },
+            m.archivedAt ? B.pill('muted', 'Offboarded ' + B.day(m.archivedAt)) : null,
+            page.discord && (page.discord.gone || []).length
+              ? B.pill('warn', 'Left the server')
+              : null,
             B.roleChip(page.roles, m.role),
             m.groups.map(function (g) {
               return h(
@@ -790,6 +794,307 @@
     );
   }
 
+  // ── Notes ────────────────────────────────────────────────────────────────
+
+  function notes() {
+    var body = h('textarea', {
+      class: 'form-input is-compact',
+      rows: 2,
+      maxlength: 4000,
+      placeholder: 'A note for the team: what you agreed, what to remember…',
+      'aria-label': 'New note',
+      'data-unsaved-ignore': '',
+    });
+    var add = h(
+      'button',
+      {
+        type: 'button',
+        class: 'btn btn-outline btn-sm',
+        onclick: function () {
+          if (!body.value.trim()) return body.focus();
+          add.disabled = true;
+          M.api('POST', API + '?action=note', { member: page.member.id, body: body.value })
+            .then(function (r) {
+              page.notes = r.notes;
+              render();
+            })
+            .catch(function (err) {
+              add.disabled = false;
+              M.appError(err);
+            });
+        },
+      },
+      'Add the note'
+    );
+    return h(
+      'section',
+      { class: 'panel mb-card' },
+      h(
+        'div',
+        { class: 'mb-card-head' },
+        h('h3', null, 'Notes'),
+        h('span', { class: 'mb-sub' }, 'For the team only, never on the website')
+      ),
+      page.notes.length
+        ? h(
+            'ul',
+            { class: 'mb-notes' },
+            page.notes.map(function (n) {
+              return h(
+                'li',
+                null,
+                h('p', null, M.linkify(n.body)),
+                h(
+                  'span',
+                  { class: 'mb-sub' },
+                  n.author + ' · ' + B.when(n.at),
+                  n.mine
+                    ? h(
+                        'button',
+                        {
+                          type: 'button',
+                          class: 'link-button mb-note-x',
+                          onclick: function () {
+                            M.api('DELETE', API + '?note=' + encodeURIComponent(n.id))
+                              .then(function (r) {
+                                page.notes = r.notes;
+                                render();
+                              })
+                              .catch(M.appError);
+                          },
+                        },
+                        'Remove'
+                      )
+                    : null
+                )
+              );
+            })
+          )
+        : null,
+      h('div', { class: 'mb-note-new' }, body, add)
+    );
+  }
+
+  // ── Leaving, merging, erasing ────────────────────────────────────────────
+
+  function after(text) {
+    return function () {
+      M.toast(text);
+      return Promise.all([load(), B.refresh()]);
+    };
+  }
+
+  function actionsCard(m) {
+    var card = h(
+      'section',
+      { class: 'panel mb-card mb-side-card mb-actions' },
+      h('div', { class: 'mb-card-head' }, h('h3', null, 'Membership'))
+    );
+    if (m.archivedAt) {
+      card.appendChild(
+        h(
+          'p',
+          { class: 'mb-sub' },
+          'Offboarded on ' + B.day(m.archivedAt) + (m.archiveNote ? ': ' + m.archiveNote : '.')
+        )
+      );
+      card.appendChild(
+        h(
+          'button',
+          {
+            type: 'button',
+            class: 'btn btn-outline btn-sm',
+            onclick: function () {
+              B.confirm({
+                title: 'Restore ' + m.name + '?',
+                effects: [
+                  { where: 'db', text: 'A member again, with their role and groups.' },
+                  {
+                    where: 'discord',
+                    text: 'Nothing changes yet: their roles wait to be applied.',
+                  },
+                  { where: 'site', text: 'Hidden until shown again on this page.' },
+                ],
+                ok: 'Restore',
+              }).then(function (yes) {
+                if (yes)
+                  M.api('POST', API + '?action=restore', { member: m.id })
+                    .then(after('Restored'))
+                    .catch(M.appError);
+              });
+            },
+          },
+          'Restore as a member'
+        )
+      );
+    } else {
+      var why = h('input', {
+        class: 'form-input is-compact',
+        maxlength: 300,
+        placeholder: 'Why, e.g. “asked to leave”',
+        'aria-label': 'Why they leave',
+        'data-unsaved-ignore': '',
+      });
+      card.appendChild(
+        h(
+          'div',
+          { class: 'mb-offboard' },
+          h(
+            'p',
+            { class: 'mb-sub' },
+            'They left the association: kept as a record, off the website, their roles taken off Discord.'
+          ),
+          why,
+          h(
+            'button',
+            {
+              type: 'button',
+              class: 'btn btn-outline btn-sm',
+              onclick: function () {
+                B.confirm({
+                  title: 'Offboard ' + m.name + '?',
+                  effects: [
+                    { where: 'db', text: 'Kept as a record, marked as left; restorable.' },
+                    {
+                      where: 'discord',
+                      text: m.discordId
+                        ? 'Every role the board gives them is listed to take off; nothing changes until applied.'
+                        : 'Not linked: nothing there.',
+                    },
+                    {
+                      where: 'site',
+                      text: m.publish
+                        ? 'Hidden at once; gone from the website when it is updated.'
+                        : 'Not shown there.',
+                    },
+                  ],
+                  ok: 'Offboard',
+                  danger: true,
+                }).then(function (yes) {
+                  if (yes)
+                    M.api('POST', API + '?action=offboard', { member: m.id, note: why.value })
+                      .then(after('Offboarded. Apply on Discord to take their roles off.'))
+                      .catch(M.appError);
+                });
+              },
+            },
+            'Offboard…'
+          )
+        )
+      );
+    }
+    if (page.maybeSame.length) {
+      card.appendChild(h('p', { class: 'mb-side-label' }, 'Maybe the same person'));
+      page.maybeSame.forEach(function (o) {
+        card.appendChild(
+          h(
+            'div',
+            { class: 'mb-account' },
+            B.avatar({ name: o.name }, 26),
+            h(
+              'span',
+              { class: 'mb-account-name' },
+              h(
+                'a',
+                { class: 'mb-who', href: '/app/members/member/?id=' + encodeURIComponent(o.id) },
+                h('strong', null, o.name)
+              ),
+              h(
+                'span',
+                { class: 'mb-sub' },
+                [o.location, o.discordUsername ? '@' + o.discordUsername : '']
+                  .filter(Boolean)
+                  .join(' · ')
+              )
+            ),
+            h(
+              'button',
+              {
+                type: 'button',
+                class: 'btn btn-outline btn-sm',
+                onclick: function () {
+                  B.confirm({
+                    title: 'Merge ' + o.name + ' into this record?',
+                    effects: [
+                      {
+                        where: 'db',
+                        text: 'This record stays; its gaps are filled from the other, which is removed. The higher role, every group, the answers, notes and history move here.',
+                      },
+                      {
+                        where: 'discord',
+                        text: 'Nothing changes yet: any role to give waits to be applied.',
+                      },
+                    ],
+                    ok: 'Merge',
+                  }).then(function (yes) {
+                    if (yes)
+                      M.api('POST', API + '?action=merge', { keep: m.id, drop: o.id })
+                        .then(after('Merged'))
+                        .catch(M.appError);
+                  });
+                },
+              },
+              'Merge in'
+            )
+          )
+        );
+      });
+    }
+    var erase = h(
+      'details',
+      { class: 'mb-advanced mb-erase' },
+      h('summary', null, 'Erase all their data'),
+      h(
+        'p',
+        { class: 'mb-sub' },
+        'For a request to be forgotten: their record, notes, kept answers, applications and the form answers they sent are deleted for good. ' +
+          (m.discordId
+            ? 'Their roles on Discord stay: offboard and apply first to take them off.'
+            : '')
+      )
+    );
+    var confirmName = h('input', {
+      class: 'form-input is-compact',
+      placeholder: 'Type “' + m.name + '” to confirm',
+      'aria-label': 'Their name, to confirm',
+      'data-unsaved-ignore': '',
+    });
+    var go = h(
+      'button',
+      {
+        type: 'button',
+        class: 'btn btn-danger btn-sm',
+        onclick: function () {
+          B.confirm({
+            title: 'Erase ' + m.name + ' for good?',
+            effects: [
+              {
+                where: 'db',
+                text: 'Everything about them is deleted; this cannot be undone. The audit trail keeps that it happened, not who.',
+              },
+              { where: 'discord', text: 'Nothing changes there.' },
+              { where: 'site', text: 'Gone from the website when it is updated.' },
+            ],
+            ok: 'Erase for good',
+            danger: true,
+          }).then(function (yes) {
+            if (!yes) return;
+            M.api('POST', API + '?action=erase', { member: m.id, confirm: confirmName.value })
+              .then(function () {
+                M.toast('Erased');
+                M.leaveTo('/app/members/people/');
+              })
+              .catch(M.appError);
+          });
+        },
+      },
+      'Erase'
+    );
+    erase.appendChild(h('div', { class: 'mb-absent-form' }, confirmName, go));
+    card.appendChild(erase);
+    return card;
+  }
+
   // ── History ──────────────────────────────────────────────────────────────
 
   function describe(e) {
@@ -805,6 +1110,12 @@
               .join(', ')
               .toLowerCase()
           );
+        if (a === 'offboard') return 'Offboarded';
+        if (a === 'restore') return 'Restored as a member';
+        if (a === 'note') return 'A note added';
+        if (a === 'note-removed') return 'A note removed';
+        if (a === 'merge-members') return 'Another record of them merged in';
+        if (a === 'not-duplicate') return 'Told apart from someone of the same name';
         if (a === 'create')
           return (
             'Joined the board from ' +
