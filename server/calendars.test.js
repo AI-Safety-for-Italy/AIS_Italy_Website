@@ -463,8 +463,83 @@ test("the site's items from before the calendar are in the public feeds at the f
   ]);
   // As before the calendar existed: no copy, no marker.
   await db.query("delete from calendar_events where source = 'content'");
-  await db.query("delete from app_settings where key = 'migration_calendar_content'");
+  await db.query("delete from app_settings where key = 'migration_calendar_content_times'");
   calendars.resetBackfill();
   const data = await calendars.publicFeed('seminars');
   assert.match(feed.build(data), /SUMMARY:Old seminar/);
+});
+
+test('a seminar imported from the YAML takes its hours from its date line', async () => {
+  const day = iso(IN_A_WEEK).slice(0, 10);
+  await content.importEntries([
+    {
+      category: 'seminar',
+      anchor: 'yaml-seminar',
+      day,
+      date: 'Thursday 12 November 2026, 18:30–19:45 (CET)',
+      title: 'From the YAML',
+      title_it: 'Dal YAML',
+    },
+    {
+      category: 'event',
+      anchor: 'yaml-event',
+      day,
+      date: 'Thursday 12 November 2026, 17:00 (CET)',
+      title: 'Start only',
+      title_it: 'Solo inizio',
+    },
+  ]);
+  const anyone = await person('Anyone');
+  const list = await eventsOf(anyone);
+  const seminar = list.find((e) => e.title === 'From the YAML');
+  const event = list.find((e) => e.title === 'Start only');
+  assert.equal(seminar.allDay, false);
+  const local = (at) =>
+    new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Europe/Rome',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    }).format(new Date(at));
+  assert.deepEqual([local(seminar.start), local(seminar.end)], ['18:30', '19:45']);
+  assert.equal(event.allDay, false);
+  assert.deepEqual([local(event.start), local(event.end)], ['17:00', '18:00']);
+});
+
+test('the copies made all day before get their hours, and keep their id and who comes', async () => {
+  const day = iso(IN_A_WEEK).slice(0, 10);
+  await content.importEntries([
+    {
+      category: 'seminar',
+      anchor: 'kept-seminar',
+      day,
+      date: 'Thursday 12 November 2026, 18:30 (CET)',
+      title: 'Kept',
+      title_it: 'Tenuto',
+    },
+  ]);
+  const anyone = await person('Anyone');
+  // As the first version left it: all day, with an answer on it.
+  const { rows } = await db.query(
+    "select id from calendar_events where source = 'content' and title = 'Kept'"
+  );
+  const id = rows[0].id;
+  const midnight = new Date(`${day}T00:00:00Z`);
+  await db.query(
+    `update calendar_events set all_day = true, starts_at = $2, ends_at = $3 where id = $1`,
+    [id, midnight, new Date(midnight.getTime() + 86400000)]
+  );
+  await calendars.rsvp(anyone, id, midnight.toISOString(), 'yes');
+  await db.query("delete from app_settings where key = 'migration_calendar_content_times'");
+  calendars.resetBackfill();
+
+  const [copy] = (await eventsOf(anyone)).filter((e) => e.title === 'Kept');
+  assert.equal(copy.id, id);
+  assert.equal(copy.allDay, false);
+  const card = await calendars.getEvent(anyone, id, copy.occurrence);
+  assert.equal(card.rsvp.mine, 'yes');
+  const { rows: contentRows } = await db.query(
+    "select count(*)::int as n from content_items where slug = 'kept-seminar'"
+  );
+  assert.equal(contentRows[0].n, 1);
 });
