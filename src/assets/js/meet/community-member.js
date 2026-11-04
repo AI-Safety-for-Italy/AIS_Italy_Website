@@ -81,6 +81,10 @@
   }
 
   function render() {
+    B.redraw(view, draw);
+  }
+
+  function draw() {
     M.clear(view);
     var m = page.member;
     view.appendChild(head(m));

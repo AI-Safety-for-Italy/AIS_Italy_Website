@@ -36,6 +36,12 @@
   }
 
   function render(state) {
+    B.redraw(view, function () {
+      draw(state);
+    });
+  }
+
+  function draw(state) {
     var site = state.site;
     var build = B.buildState(site);
     var built = B.built();

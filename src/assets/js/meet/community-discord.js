@@ -108,6 +108,10 @@
   }
 
   function render() {
+    B.redraw(view, draw);
+  }
+
+  function draw() {
     M.clear(view);
     if (!plan.available) {
       view.appendChild(

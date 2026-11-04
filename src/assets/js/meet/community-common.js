@@ -599,6 +599,21 @@
     return box;
   }
 
+  /**
+   * Draws `view` anew without the page jumping: its height is held while it
+   * is emptied and filled again, and the scroll put back where it was.
+   */
+  function redraw(view, draw) {
+    var y = window.scrollY;
+    view.style.minHeight = view.offsetHeight + 'px';
+    try {
+      draw();
+    } finally {
+      view.style.minHeight = '';
+      if (window.scrollY !== y) window.scrollTo(0, y);
+    }
+  }
+
   if (bar) {
     bar.appendChild(M.loading());
     M.me.then(refresh);
@@ -621,6 +636,7 @@
     confirm: confirm,
     applyAll: applyAll,
     linker: linker,
+    redraw: redraw,
     itemText: itemText,
     decideText: decideText,
     choicesFor: choicesFor,

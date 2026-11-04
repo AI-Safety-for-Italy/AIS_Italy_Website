@@ -134,6 +134,10 @@
   var searchInput = null;
 
   function render() {
+    B.redraw(view, draw);
+  }
+
+  function draw() {
     var focused = searchInput && document.activeElement === searchInput;
     M.clear(view);
     if (!data.members.length && !data.invited.length) {
