@@ -573,6 +573,23 @@ create table if not exists member_role_ok (
   primary key (member_id, group_id, kind)
 );
 
+-- The association's role (Partecipante, Organizzatore) on Discord against
+-- the member's role here, a difference the team left as it is: missing (no
+-- such role there) or differs (the other one there). Not listed again.
+create table if not exists member_main_role_ok (
+  member_id uuid not null references community_members(id) on delete cascade,
+  kind text not null check (kind in ('missing', 'differs')),
+  primary key (member_id, kind)
+);
+
+-- Someone on the Discord server with neither role and not on the board, whom
+-- the team looked at and left as they are (a bot's owner, a guest): not
+-- listed again.
+create table if not exists discord_no_role_ok (
+  discord_id text primary key,
+  created_at timestamptz not null default now()
+);
+
 -- Who coordinates a working group is chosen on Working groups only. Once, on
 -- each database: the coordination people declared on the forms and the old
 -- sheet becomes taking part, so the coordinators are set from there.

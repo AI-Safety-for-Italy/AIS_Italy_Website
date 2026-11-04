@@ -1541,6 +1541,16 @@ dialog.meet-dialog::backdrop {
   max-width: 18rem;
 }
 
+.triage-steps .ms-action {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.triage-steps .ms-action select {
+  width: auto;
+}
+
 .people-tools .people-export {
   margin-left: auto;
 }

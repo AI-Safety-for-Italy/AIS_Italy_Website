@@ -2,10 +2,11 @@
  * Discord): three questions, each with its count and one button.
  *   Discord accounts  who is who on Discord: the members not linked yet
  *                     are linked on the Discord tab
- *   Discord roles     the tags here are what Discord should have: "Give the
- *                     roles" brings the missing ones there (nothing else
- *                     changes Discord); roles there without a tag are
- *                     reviewed on the Discord tab
+ *   Discord roles     the role (Participant, Organizer) and tags here are
+ *                     what Discord should have: "Give the roles" brings the
+ *                     missing ones there; roles there without a tag, and
+ *                     people on the server with no role, are reviewed on
+ *                     the Discord tab
  *   Website           the public directory: "Update the website" puts the
  *                     list as it is now on the Community page; how many
  *                     people are there, and "updated" only once the build
@@ -129,7 +130,7 @@
   function giveRoles(button) {
     if (
       !window.confirm(
-        'Give on Discord the roles of their tags to the ' +
+        'Give on Discord their role (Participant or Organizer) and the roles of their tags to the ' +
           plural(state.roles.missingMembers, 'member who misses them', 'members who miss them') +
           '? No role is taken away.'
       )
@@ -177,16 +178,30 @@
       );
     }
     var also = [];
+    if (r.mainDiffers)
+      also.push(
+        plural(r.mainDiffers, 'member', 'members') +
+          ' Participant here, Organizer there or the other way'
+      );
     if (r.extra) also.push(plural(r.extra, 'role', 'roles') + ' on Discord without a tag');
     if (r.gone) also.push(plural(r.gone, 'account', 'accounts') + ' no longer on the server');
-    var review = also.length ? toDiscordTab('Review', 'roles') : null;
+    var review = also.length ? toDiscordTab('Triage →', 'triage') : null;
+    // On the server with neither role, not on the board.
+    var strangers = r.noRole
+      ? toDiscordTab(plural(r.noRole, 'person', 'people') + ' with no role →', 'noroles')
+      : null;
+    if (r.noRole)
+      also.push(
+        plural(r.noRole, 'person', 'people') +
+          ' on the server with neither Participant nor Organizer'
+      );
     if (!r.missing) {
       return row(
         'Discord roles',
         !also.length,
-        'Everyone linked has the roles of their tags' +
+        'Everyone linked has their role and the roles of their tags' +
           (also.length ? '; ' + also.join(', ') + '.' : '.'),
-        review
+        [strangers, review]
       );
     }
     var give = h(
@@ -204,12 +219,13 @@
       'Discord roles',
       false,
       plural(r.missingMembers, 'member misses', 'members miss') +
-        ' the role of a tag (' +
+        ' a role (' +
         plural(r.missing, 'role', 'roles') +
+        (r.noMainRole ? ', ' + r.noMainRole + ' without Participant or Organizer' : '') +
         ')' +
         (also.length ? '; ' + also.join(', ') : '') +
         '.',
-      [give, review]
+      [give, strangers, review]
     );
   }
 

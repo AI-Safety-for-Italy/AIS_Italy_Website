@@ -26,6 +26,13 @@ seoTitle: 'Members | AI Safety for Italy'
           <div><label class="form-label" for="mLocation">Place</label><input class="form-input is-compact" id="mLocation" maxlength="200"></div>
           <div><label class="form-label" for="mAreas">Areas</label><input class="form-input is-compact" id="mAreas" maxlength="1000"></div>
           <div>
+            <label class="form-label" for="mRole">Role</label>
+            <select class="form-input is-compact" id="mRole">
+              <option value="participant">Participant</option>
+              <option value="organizer">Organizer</option>
+            </select>
+          </div>
+          <div>
             <span class="form-label" id="mGroupsLabel">Working groups</span>
             <div class="tag-picker" id="mGroups" role="group" aria-labelledby="mGroupsLabel"></div>
             <p class="panel-note" id="mGroupsNote" style="margin:.4rem 0 0"></p>
