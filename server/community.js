@@ -277,6 +277,65 @@ async function syncGroupMembers(groupId, { oldRoleId } = {}) {
   }
 }
 
+// ── Partecipante, Organizzatore ──────────────────────────────────────────────
+// Every member holds one of the association's two roles on Discord, the one
+// of their role here (an organizer may keep Partecipante too). Its ids are
+// the members board's (DISCORD_ROLE_PARTICIPANT, DISCORD_ROLE_ORGANIZER).
+
+const MAIN_ROLES = ['participant', 'organizer'];
+
+function mainRoleId(key) {
+  // Required here: server/members.js requires this file at its top.
+  return require('./members').roleId(key);
+}
+
+/**
+ * A member's role here against Discord's `roles` (a Set of ids): null when
+ * they agree (or the ids are not set); else { kind: 'missing', here } (neither
+ * role there) or { kind: 'differs', here, there } (the other one there).
+ */
+function mainRoleDiff(role, roles) {
+  const ids = { participant: mainRoleId('participant'), organizer: mainRoleId('organizer') };
+  if (!ids.participant || !ids.organizer) return null;
+  const here = role === 'organizer' ? 'organizer' : 'participant';
+  const there = roles.has(ids.organizer)
+    ? 'organizer'
+    : roles.has(ids.participant)
+    ? 'participant'
+    : null;
+  if (there === here) return null;
+  return there ? { kind: 'differs', here, there } : { kind: 'missing', here };
+}
+
+function hasMainRole(roles) {
+  return MAIN_ROLES.some((k) => mainRoleId(k) && roles.has(mainRoleId(k)));
+}
+
+/**
+ * Makes Discord hold the role of `role`: given, and Organizzatore taken away
+ * from a participant. Returns { given, taken, failed }.
+ */
+async function giveMainRole(discordId, role) {
+  const out = { given: 0, taken: 0, failed: 0 };
+  const id = mainRoleId(role);
+  if (!id) throw new HttpError(503, `The Discord id of the ${role} role is not set`);
+  if (await discordRole(discordId, id, true)) out.given++;
+  else out.failed++;
+  if (role === 'participant' && mainRoleId('organizer')) {
+    if (await discordRole(discordId, mainRoleId('organizer'), false)) out.taken++;
+    else out.failed++;
+  }
+  return out;
+}
+
+/**
+ * After a member's role here changed to `role`: made an organizer, their
+ * request to become one (Applications) is closed as approved.
+ */
+async function roleSettled(user, row, role) {
+  if (role === 'organizer') await require('./members').upgradeSettled(user, row.discord_id);
+}
+
 // ── Members ──────────────────────────────────────────────────────────────────
 
 async function groupsByMember() {
@@ -437,20 +496,28 @@ async function setTags(user, body) {
 }
 
 /**
- * One member's working groups, set by hand from their card on Members:
- * `groups` is the full list of group ids they should be in. Groups kept keep
+ * One member's working groups and role, set by hand from their card on
+ * Members: `groups` is the full list of group ids they should be in (left
+ * out: unchanged), `role` participant or organizer (optional). Groups kept keep
  * their level (a coordinator stays one), new ones are taking part. Unlike the
  * tags of several people at once, this reaches Discord at once: the roles of
- * the groups added given, those of the groups left taken away.
+ * the groups added given, those of the groups left taken away, and the role
+ * changed given (Organizzatore taken from someone now a participant).
  * Returns { member, discord: { linked, given, taken, failed } }.
  */
 async function setMemberGroups(user, id, body) {
   await access.authorize(user, 'community', { fresh: true });
   const row = await loadMember(id);
   const b = body || {};
+  if (b.role !== undefined && !MAIN_ROLES.includes(b.role))
+    throw new HttpError(400, 'Participant or organizer?', { field: 'role' });
+  const roleChanged = b.role !== undefined && b.role !== row.role;
+  if (roleChanged && row.discord_id && !mainRoleId(b.role))
+    throw new HttpError(503, `The Discord id of the ${b.role} role is not set`);
+  if (b.groups === undefined) b.groups = (await groupsByMember())[row.id] || [];
   if (!Array.isArray(b.groups)) throw new HttpError(400, 'Which groups?', { field: 'groups' });
   const groups = await listGroups();
-  const wanted = [...new Set(b.groups.map(String))];
+  const wanted = [...new Set(b.groups.map((g) => String(g && g.group ? g.group : g)))];
   if (wanted.some((g) => !groups.some((x) => x.id === g)))
     throw new HttpError(400, 'Unknown group', { field: 'groups' });
   const { rows: had } = await db.query('select group_id from member_groups where member_id = $1', [
@@ -460,6 +527,12 @@ async function setMemberGroups(user, id, body) {
   const added = wanted.filter((g) => !before.has(g));
   const left = [...before].filter((g) => !wanted.includes(g));
   await db.transaction(async (tx) => {
+    if (roleChanged) {
+      await tx.query('update community_members set role = $2, updated_at = now() where id = $1', [
+        row.id,
+        b.role,
+      ]);
+    }
     for (const g of left) {
       await tx.query('delete from member_groups where member_id = $1 and group_id = $2', [
         row.id,
@@ -485,9 +558,17 @@ async function setMemberGroups(user, id, body) {
       if (await discordRole(row.discord_id, roleOf.get(g), false)) discord.taken++;
       else discord.failed++;
     }
+    if (roleChanged) {
+      const r = await giveMainRole(row.discord_id, b.role);
+      discord.given += r.given;
+      discord.taken += r.taken;
+      discord.failed += r.failed;
+    }
   }
+  if (roleChanged) await roleSettled(user, row, b.role);
   await audit.record(user, 'community-tags', row.id, {
     action: 'set',
+    role: roleChanged ? b.role : undefined,
     added,
     left,
     discordFailed: discord.failed,
@@ -915,11 +996,12 @@ async function serverList() {
  * ids no longer on the server, failed }. The whole list when the bot may read
  * it (serverList), else one by one.
  */
-async function serverMembers(ids) {
+async function serverMembers(ids, { list } = {}) {
   const want = new Set(ids);
   const found = new Map();
   const guild = process.env.DISCORD_GUILD_ID;
-  const all = await serverList();
+  // `list`: serverList() already read by the caller (null: it could not be).
+  const all = list === undefined ? await serverList() : list;
   const listed = Boolean(all);
   if (all) all.forEach((m) => want.has(m.user.id) && found.set(m.user.id, m));
   const gone = new Set();
@@ -972,12 +1054,28 @@ async function differences() {
       (r) => `${r.member_id}:${r.group_id}:${r.kind}`
     )
   );
-  const { found, gone, failed } = await serverMembers(rows.map((r) => r.discord_id));
+  const mainOks = new Set(
+    (await db.query('select member_id, kind from member_main_role_ok')).rows.map(
+      (r) => `${r.member_id}:${r.kind}`
+    )
+  );
+  const list = await serverList();
+  const { found, gone, failed } = await serverMembers(
+    rows.map((r) => r.discord_id),
+    { list }
+  );
   const members = [];
   for (const row of rows) {
     const name = (detailsOf(row) || {}).name || '';
     if (gone.has(row.discord_id)) {
-      members.push({ id: row.id, name, notOnServer: true, missing: [], extra: [] });
+      members.push({
+        id: row.id,
+        name,
+        notOnServer: true,
+        missing: [],
+        extra: [],
+        mainRole: null,
+      });
       continue;
     }
     const m = found.get(row.discord_id);
@@ -1001,11 +1099,116 @@ async function differences() {
       .filter((g) => !mine.has(g.id) && roles.has(g.discordRoleId))
       .filter((g) => !oks.has(`${row.id}:${g.id}:extra`))
       .map((g) => g.id);
-    if (missing.length || extra.length)
-      members.push({ id: row.id, name, discord, notOnServer: false, missing, extra });
+    let mainRole = mainRoleDiff(row.role, roles);
+    if (mainRole && mainOks.has(`${row.id}:${mainRole.kind}`)) mainRole = null;
+    if (missing.length || extra.length || mainRole)
+      members.push({ id: row.id, name, discord, notOnServer: false, missing, extra, mainRole });
   }
   members.sort((a, b) => a.name.localeCompare(b.name, 'it'));
-  return { members, groups, checked: rows.length, failed };
+  return { members, groups, checked: rows.length, failed, ...(await noRole(list)) };
+}
+
+/**
+ * Who is on the server with neither Partecipante nor Organizzatore and is
+ * not on the board (joined with an invite, not through an application), the
+ * ones left as they are aside: { noRole: [{ discordId, username, displayName,
+ * avatarUrl, joinedAt }] }, or { noRole: null, noRoleProblem } when the list
+ * of the server cannot be read or the roles' ids are not set.
+ */
+async function noRole(list) {
+  if (!mainRoleId('participant') || !mainRoleId('organizer'))
+    return {
+      noRole: null,
+      noRoleProblem: 'the ids of the Partecipante and Organizzatore roles are not set',
+    };
+  if (!list) return { noRole: null, noRoleProblem: listProblem || 'the server cannot be read' };
+  const { rows } = await db.query(
+    'select discord_id from community_members where discord_id is not null'
+  );
+  const onBoard = new Set(rows.map((r) => r.discord_id));
+  const left = new Set(
+    (await db.query('select discord_id from discord_no_role_ok')).rows.map((r) => r.discord_id)
+  );
+  const out = list
+    .filter((m) => !onBoard.has(m.user.id) && !left.has(m.user.id))
+    .filter((m) => !hasMainRole(new Set(m.roles || [])))
+    .map((m) => ({ ...discordPerson(m), joinedAt: m.joined_at || null }));
+  out.sort((a, b) => a.displayName.localeCompare(b.displayName, 'it'));
+  return { noRole: out };
+}
+
+/**
+ * Settles who is on the server without a role (noRole), up to
+ * TAGS_PER_CALL at a time. `action`:
+ *   participant | organizer   that role given on Discord, and the person put
+ *                             on the board with it, linked, not on the site
+ *   ok                        left as they are: not listed again
+ * Returns { given, added, failed }.
+ */
+async function settleNoRole(user, body) {
+  await access.authorize(user, 'community', { fresh: true });
+  if (!permissions.botConfigured())
+    throw new HttpError(503, 'The Discord bot is not set up here: nothing to give');
+  const b = body || {};
+  const ids = [...new Set((Array.isArray(b.discordIds) ? b.discordIds : []).map(String))];
+  if (!ids.length || ids.length > TAGS_PER_CALL || ids.some((id) => !/^\d{5,25}$/.test(id)))
+    throw new HttpError(400, `Pick from 1 to ${TAGS_PER_CALL} people`);
+  if (b.action === 'ok') {
+    for (const id of ids) {
+      await db.query(
+        'insert into discord_no_role_ok (discord_id) values ($1) on conflict do nothing',
+        [id]
+      );
+    }
+    await audit.record(user, 'community-discord', null, {
+      action: 'no-role-ok',
+      count: ids.length,
+    });
+    return { given: 0, added: 0, failed: 0 };
+  }
+  if (!MAIN_ROLES.includes(b.action)) throw new HttpError(400, 'Participant or organizer?');
+  const roleId = mainRoleId(b.action);
+  if (!roleId) throw new HttpError(503, `The Discord id of the ${b.action} role is not set`);
+  const { found } = await serverMembers(ids);
+  const out = { given: 0, added: 0, failed: 0 };
+  for (const id of ids) {
+    const m = found.get(id);
+    if (!m) {
+      out.failed++; // left the server meanwhile
+      continue;
+    }
+    if (!(await discordRole(id, roleId, true))) {
+      out.failed++;
+      continue;
+    }
+    out.given++;
+    const { rows: had } = await db.query('select 1 from community_members where discord_id = $1', [
+      id,
+    ]);
+    if (had.length) continue;
+    const person = discordPerson(m);
+    const memberId = crypto.randomUUID();
+    await db.query(
+      `insert into community_members
+         (id, discord_id, role, publish, details_encrypted, discord_info_encrypted, source, joined_on)
+       values ($1, $2, $3, false, $4, $5, 'board', $6)`,
+      [
+        memberId,
+        id,
+        b.action,
+        sealDetails(memberId, { name: person.displayName || person.username }),
+        sealDiscordInfo(memberId, person),
+        m.joined_at ? String(m.joined_at).slice(0, 10) : null,
+      ]
+    );
+    out.added++;
+  }
+  await audit.record(user, 'community-discord', null, {
+    action: 'no-role',
+    role: b.action,
+    ...out,
+  });
+  return out;
 }
 
 /**
@@ -1033,10 +1236,17 @@ async function status(user) {
     };
   } else {
     const d = await differences();
+    const noMain = (m) => Boolean(m.mainRole && m.mainRole.kind === 'missing');
     roles = {
       available: true,
-      missing: d.members.reduce((n, m) => n + m.missing.length, 0),
-      missingMembers: d.members.filter((m) => m.missing.length).length,
+      missing: d.members.reduce((n, m) => n + m.missing.length + (noMain(m) ? 1 : 0), 0),
+      missingMembers: d.members.filter((m) => m.missing.length || noMain(m)).length,
+      // Linked members without Partecipante or Organizzatore.
+      noMainRole: d.members.filter(noMain).length,
+      // The other role on Discord than here.
+      mainDiffers: d.members.filter((m) => m.mainRole && m.mainRole.kind === 'differs').length,
+      // On the server with neither role, not on the board (null: unknown).
+      noRole: d.noRole ? d.noRole.length : null,
       extra: d.members.reduce((n, m) => n + m.extra.length, 0),
       gone: d.members.filter((m) => m.notOnServer).length,
       failed: d.failed,
@@ -1051,7 +1261,8 @@ const TAGS_PER_CALL = 15;
 
 /**
  * "Send tags to Discord": gives everyone linked the roles of their tags they
- * do not have yet, TAGS_PER_CALL at a time; none is taken away, and a missing
+ * do not have yet, and Partecipante or Organizzatore (their role here) to
+ * those with neither, TAGS_PER_CALL at a time; none is taken away, and a missing
  * role left as it is on the check (member_role_ok) is not given. Returns
  * { given, failed, remaining } (remaining: still to give after this call).
  */
@@ -1068,14 +1279,22 @@ async function sendTags(user) {
       await db.query(`select member_id, group_id from member_role_ok where kind = 'missing'`)
     ).rows.map((r) => `${r.member_id}:${r.group_id}`)
   );
-  const withTags = rows.filter((r) => (tags[r.id] || []).length);
-  const { found } = await serverMembers(withTags.map((r) => r.discord_id));
+  const mainOks = new Set(
+    (await db.query(`select member_id from member_main_role_ok where kind = 'missing'`)).rows.map(
+      (r) => r.member_id
+    )
+  );
+  const { found } = await serverMembers(rows.map((r) => r.discord_id));
   const todo = [];
-  for (const row of withTags) {
+  for (const row of rows) {
     const m = found.get(row.discord_id);
     if (!m) continue; // not on the server (any more): the check shows them
     const has = new Set(m.roles || []);
-    for (const t of tags[row.id]) {
+    // Neither Partecipante nor Organizzatore: the one of their role here.
+    const main = mainRoleDiff(row.role, has);
+    if (main && main.kind === 'missing' && !mainOks.has(row.id))
+      todo.push({ discordId: row.discord_id, role: mainRoleId(main.here) });
+    for (const t of tags[row.id] || []) {
       const role = roleOf.get(t.group);
       if (role && !has.has(role) && !oks.has(`${row.id}:${t.group}`))
         todo.push({ discordId: row.discord_id, role });
@@ -1132,6 +1351,212 @@ async function resolveRole(user, body) {
   }
   await audit.record(user, 'community-discord', row.id, { action: b.action, group: group.id });
   return { ok: !discordFailed, discordFailed };
+}
+
+/**
+ * Settles a member's Partecipante / Organizzatore difference (mainRole of
+ * roleCheck): `action`
+ *   give   Discord made to hold their role here
+ *   here   their role here made Discord's (`role`: the one there)
+ *   ok     left as it is (`kind`: missing | differs): not listed again
+ */
+async function resolveMainRole(user, body) {
+  await access.authorize(user, 'community', { fresh: true });
+  const b = body || {};
+  const row = await loadMember(b.member);
+  if (!row.discord_id) throw new HttpError(409, 'Not linked to Discord');
+  let discordFailed = false;
+  if (b.action === 'give') {
+    discordFailed = (await giveMainRole(row.discord_id, row.role)).failed > 0;
+    if (!discordFailed) await roleSettled(user, row, row.role);
+  } else if (b.action === 'here') {
+    if (!MAIN_ROLES.includes(b.role)) throw new HttpError(400, 'Participant or organizer?');
+    await db.query('update community_members set role = $2, updated_at = now() where id = $1', [
+      row.id,
+      b.role,
+    ]);
+    await roleSettled(user, row, b.role);
+  } else if (b.action === 'ok') {
+    if (!['missing', 'differs'].includes(b.kind)) throw new HttpError(400, 'Missing or differs?');
+    await db.query(
+      'insert into member_main_role_ok (member_id, kind) values ($1, $2) on conflict do nothing',
+      [row.id, b.kind]
+    );
+  } else {
+    throw new HttpError(400, 'Unknown action');
+  }
+  await audit.record(user, 'community-discord', row.id, { action: `main-${b.action}` });
+  return { ok: !discordFailed, discordFailed };
+}
+
+/**
+ * Several members made participants or organizers at once (Members: picked
+ * people), up to TAGS_PER_CALL a call: each linked one gets the role on
+ * Discord at once (Organizzatore taken from those made participants), and an
+ * organizer's waiting request is closed as approved.
+ * Returns { members, given, taken, failed }.
+ */
+async function setRoles(user, body) {
+  await access.authorize(user, 'community', { fresh: true });
+  const b = body || {};
+  if (!MAIN_ROLES.includes(b.role)) throw new HttpError(400, 'Participant or organizer?');
+  const ids = [...new Set((Array.isArray(b.members) ? b.members : []).map(String))];
+  if (!ids.length || ids.length > TAGS_PER_CALL)
+    throw new HttpError(400, `Pick from 1 to ${TAGS_PER_CALL} people`);
+  const rows = [];
+  for (const id of ids) rows.push(await loadMember(id));
+  if (rows.some((r) => r.discord_id) && !mainRoleId(b.role))
+    throw new HttpError(503, `The Discord id of the ${b.role} role is not set`);
+  const out = { given: 0, taken: 0, failed: 0 };
+  for (const row of rows) {
+    await db.query('update community_members set role = $2, updated_at = now() where id = $1', [
+      row.id,
+      b.role,
+    ]);
+    if (row.discord_id) {
+      const r = await giveMainRole(row.discord_id, b.role);
+      out.given += r.given;
+      out.taken += r.taken;
+      out.failed += r.failed;
+    }
+    await roleSettled(user, row, b.role);
+  }
+  await audit.record(user, 'community-tags', null, {
+    action: 'role',
+    role: b.role,
+    count: rows.length,
+    discordFailed: out.failed,
+  });
+  const groupsNow = await groupsByMember();
+  const members = [];
+  for (const row of rows) members.push(memberOut(await loadMember(row.id), groupsNow));
+  return { members, ...out };
+}
+
+// ── Triage: the board and Discord made to say the same ───────────────────────
+
+/**
+ * "Match again": links the members not linked yet (and not checked as not on
+ * Discord) to their account when sure, as the import does: by email (they
+ * signed in here with Discord, the same email as theirs), else by name (their
+ * full name is one account's nickname, display name or username, and only
+ * one's). An account another member has, or two would get, is left. Nothing
+ * changes on Discord: the roles follow with the sync.
+ * Returns { linked, byEmail, byName, left, byNameAvailable, problem }.
+ */
+async function rematch(user) {
+  await access.authorize(user, 'community', { fresh: true });
+  const { rows } = await db.query(
+    'select * from community_members where discord_id is null and not discord_absent'
+  );
+  const taken = new Set(
+    (
+      await db.query('select discord_id from community_members where discord_id is not null')
+    ).rows.map((r) => r.discord_id)
+  );
+  const { rows: users } = await db.query(
+    `select discord_id, email from app_users
+     where kind = 'discord' and email is not null and discord_id is not null`
+  );
+  const byKey = new Map(users.map((u) => [crm.personKey(String(u.email).toLowerCase()), u]));
+  const picks = new Map(); // member id -> { discordId, by, member? }
+  for (const row of rows) {
+    const u = row.person_key && byKey.get(row.person_key);
+    if (u && !taken.has(u.discord_id)) picks.set(row.id, { discordId: u.discord_id, by: 'email' });
+  }
+  const server = await serverList();
+  const byId = new Map((server || []).map((m) => [m.user.id, m]));
+  if (server) {
+    const index = new Map();
+    for (const m of server) {
+      const names = new Set(
+        [m.nick, m.user.global_name, m.user.username].map(fold).filter((n) => n.includes(' '))
+      );
+      names.forEach((n) => index.set(n, (index.get(n) || new Set()).add(m)));
+    }
+    for (const row of rows) {
+      if (picks.has(row.id)) continue;
+      const full = fold((detailsOf(row) || {}).name || '');
+      if (!full.includes(' ')) continue;
+      const reversed = full.split(' ').reverse().join(' ');
+      const hits = new Set([...(index.get(full) || []), ...(index.get(reversed) || [])]);
+      if (hits.size !== 1) continue;
+      const m = [...hits][0];
+      if (!taken.has(m.user.id)) picks.set(row.id, { discordId: m.user.id, by: 'name' });
+    }
+  }
+  // An account two members would both get: neither.
+  const uses = {};
+  picks.forEach((p) => (uses[p.discordId] = (uses[p.discordId] || 0) + 1));
+  const out = { linked: 0, byEmail: 0, byName: 0 };
+  for (const [memberId, p] of picks) {
+    if (uses[p.discordId] > 1) continue;
+    const m = byId.get(p.discordId);
+    const info = m ? discordPerson(m) : {};
+    await db.query(
+      `update community_members set discord_id = $2, discord_absent = false,
+         discord_info_encrypted = $3, updated_at = now() where id = $1 and discord_id is null`,
+      [memberId, p.discordId, sealDiscordInfo(memberId, info)]
+    );
+    out.linked++;
+    out[p.by === 'email' ? 'byEmail' : 'byName']++;
+  }
+  await audit.record(user, 'community-discord', null, { action: 'rematch', ...out });
+  return {
+    ...out,
+    left: rows.length - out.linked,
+    byNameAvailable: Boolean(server),
+    problem: server ? null : listProblem,
+  };
+}
+
+/**
+ * "Sync all the roles": Discord made to hold what the board says, for
+ * everyone linked, TAGS_PER_CALL changes a call (the page calls again until
+ * none is left). Partecipante / Organizzatore as their role here (missing or
+ * the other one), the roles of their tags given; the roles of groups they
+ * have no tag of, by `extra`: 'take' (taken away), 'tag' (tagged here
+ * instead), or 'keep' (left). Differences left as they are on the check stay.
+ * Returns { done, failed, remaining }.
+ */
+async function syncDiscord(user, { extra = 'keep' } = {}) {
+  await access.authorize(user, 'community', { fresh: true });
+  if (!permissions.botConfigured())
+    throw new HttpError(503, 'The Discord bot is not set up here: nothing to sync');
+  if (!['take', 'tag', 'keep'].includes(extra)) throw new HttpError(400, 'Take, tag or keep?');
+  const d = await differences();
+  const roleOf = new Map(d.groups.map((g) => [g.id, g.discordRoleId]));
+  const ops = [];
+  for (const m of d.members) {
+    if (m.notOnServer || !m.discord) continue;
+    const discordId = m.discord.discordId;
+    if (m.mainRole) ops.push({ kind: 'main', member: m.id });
+    m.missing.forEach((g) => ops.push({ kind: 'give', discordId, role: roleOf.get(g) }));
+    if (extra === 'take')
+      m.extra.forEach((g) => ops.push({ kind: 'take', discordId, role: roleOf.get(g) }));
+    if (extra === 'tag') m.extra.forEach((g) => ops.push({ kind: 'tag', member: m.id, group: g }));
+  }
+  const out = { done: 0, failed: 0 };
+  for (const op of ops.slice(0, TAGS_PER_CALL)) {
+    let ok = true;
+    if (op.kind === 'main') {
+      const row = await loadMember(op.member);
+      ok = (await giveMainRole(row.discord_id, row.role)).failed === 0;
+      if (ok) await roleSettled(user, row, row.role);
+    } else if (op.kind === 'tag') {
+      await db.query(
+        `insert into member_groups (member_id, group_id, level) values ($1, $2, 'stable')
+         on conflict (member_id, group_id) do nothing`,
+        [op.member, op.group]
+      );
+    } else {
+      ok = await discordRole(op.discordId, op.role, op.kind === 'give');
+    }
+    if (ok) out.done++;
+    else out.failed++;
+  }
+  await audit.record(user, 'community-discord', null, { action: 'sync', extra, ...out });
+  return { ...out, remaining: Math.max(ops.length - TAGS_PER_CALL, 0) };
 }
 
 // ── The old sheet, once ──────────────────────────────────────────────────────
@@ -1584,4 +2009,9 @@ module.exports = {
   status,
   sendTags,
   resolveRole,
+  resolveMainRole,
+  settleNoRole,
+  setRoles,
+  rematch,
+  syncDiscord,
 };

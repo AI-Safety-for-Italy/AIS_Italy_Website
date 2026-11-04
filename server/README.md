@@ -443,18 +443,31 @@ away there no longer shows as held.
 (Members, Working groups, Discord; `status` in `server/community.js`,
 `community-status.js`) says where things stand, each with one action:
 
-1. *Discord accounts*: how many members are linked to their Discord account,
+1. _Discord accounts_: how many members are linked to their Discord account,
    and "Link the N →" to the Discord tab for the others.
-2. *Discord roles*: the tags here are what Discord should have; "Give the
-   roles" gives the missing ones (`sendTags`, 15 per call), none taken away.
+2. _Discord roles_: the role (Participant or Organizer: the Partecipante /
+   Organizzatore roles of `DISCORD_ROLE_PARTICIPANT` / `DISCORD_ROLE_ORGANIZER`)
+   and the tags here are what Discord should have; "Give the roles" gives the
+   missing ones (`sendTags`, 15 per call), none taken away. A member with the
+   other one of the two there is settled on the Discord tab (`resolveMainRole`),
+   and so are people on the server with neither role who are not on the board
+   (`settleNoRole`: given Participant or Organizer and put on the board,
+   one by one or all at once, or left as they are).
    **Nothing else changes Discord**, with one exception: importing, linking,
    changing the tags of several people at once and naming coordinators only
    change the board (approving an application still puts the person on the
-   server with their role). The exception is one member's working groups set
-   by hand from their card on Members (`setMemberGroups`): saving gives the
-   roles of the groups added and takes away those of the groups left, at once. Roles there without a tag,
+   server with their role). The exception is one member's role and working
+   groups set by hand from their card on Members (`setMemberGroups`): saving
+   gives the roles of the groups added and takes away those of the groups
+   left, and gives the role chosen (Organizzatore taken from someone made a
+   participant), at once; and so does making several picked people
+   participants or organizers (`setRoles`), or the sync of the triage on the Discord tab (`syncDiscord`). Whoever is made an organizer
+   any of these ways has their waiting request to become one (Applications,
+   an upgrade) approved with it (`upgradeSettled`), so Applications, the board
+   and Discord say the same; approving an application or an upgrade puts the
+   role on the board and on Discord in turn. Roles there without a tag,
    and accounts gone from the server, are reviewed on the Discord tab.
-3. *Website*: how many changes the Community page does not show yet, and
+3. _Website_: how many changes the Community page does not show yet, and
    "Update the website" (the public directory: consented members, their
    public fields, the groups).
 
@@ -470,12 +483,12 @@ nickname, display name or username of one account on the server and of no
 other, nor anyone else's; it needs the bot to read the server's list, the
 Server Members intent, and the preview says why when it cannot).
 
-**Discord tab** (Members → Board → Discord): *To link* lists the members not
+**Discord tab** (Members → Board → Discord): _To link_ lists the members not
 linked yet, each with the server's accounts that may be them (the bot's
 member search by full name, then each word; best match first; "That's them"
 links), a manual search, and "Not on Discord" (with a note). The one place
 where who is who is set; who they are there (username, display name) is
-kept, encrypted. *Roles that differ from the tags* lists, for those linked,
+kept, encrypted. _Roles that differ from the tags_ lists, for those linked,
 a working group's role without the tag, a tag whose role was left out, and
 accounts gone from the server: each settled either way or left as it is
 (`member_role_ok`, not listed again). Without the bot (a developer's
@@ -494,15 +507,15 @@ no empty tool). Its page has a box per part (`sections` in `tools.js`),
 each shown to who holds that part's key, with its own faces; each list
 (`?type=` on the API) is refused to who may not publish that kind.
 
-| Where                         | What                                                                 |
-| ----------------------------- | -------------------------------------------------------------------- |
-| `/app/members/`               | Applications: approve with a role and the working groups as tags     |
+| Where                         | What                                                                                                             |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `/app/members/`               | Applications: approve with a role and the working groups as tags                                                 |
 | `/app/members/people/`        | Members: tags in bulk (add, remove, move), one member's groups (on Discord at once), details, CSV export, import |
-| `/app/members/groups/`        | Working groups: names, descriptions, order, the Discord role of each |
-| `/app/organizer/`             | A participant asks to become an organizer (an upgrade on the board)  |
-| `server/community.js`         | Groups, members, tags, Discord roles, the import, publishing         |
-| `server/community-build.js`   | What the site's build takes: the published copy, or the YAML         |
-| `/api/content?part=community` | The published copy, for the build (public, consented members only)   |
+| `/app/members/groups/`        | Working groups: names, descriptions, order, the Discord role of each                                             |
+| `/app/organizer/`             | A participant asks to become an organizer (an upgrade on the board)                                              |
+| `server/community.js`         | Groups, members, tags, Discord roles, the import, publishing                                                     |
+| `server/community-build.js`   | What the site's build takes: the published copy, or the YAML                                                     |
+| `/api/content?part=community` | The published copy, for the build (public, consented members only)                                               |
 
 - **Working groups are tags.** Each is a Discord role (`work_groups`, the
   eight first ones seeded with their role ids). Being in a group gives its role
@@ -538,13 +551,13 @@ the fallback: it can be switched off.
 
 A board of the city groups, and what the community page's map shows of them.
 
-| Where                                 | What                                                                       |
-| ------------------------------------- | -------------------------------------------------------------------------- |
-| `/app/local-groups/`                  | The board (`local_groups`): a column per status, or a table; CSV download  |
-| `/app/content/local-groups/`          | Which cities the map shows, each pin and link (`local_groups_site`)        |
-| `server/local-groups.js`              | The groups, their encrypted details, the CSV, publishing the map           |
-| `server/local-groups-build.js`        | What the site's build takes: the published cities, or community.yaml's     |
-| `/api/content?part=local-groups`      | The published cities, for the build (public: name, pin, link)              |
+| Where                            | What                                                                      |
+| -------------------------------- | ------------------------------------------------------------------------- |
+| `/app/local-groups/`             | The board (`local_groups`): a column per status, or a table; CSV download |
+| `/app/content/local-groups/`     | Which cities the map shows, each pin and link (`local_groups_site`)       |
+| `server/local-groups.js`         | The groups, their encrypted details, the CSV, publishing the map          |
+| `server/local-groups-build.js`   | What the site's build takes: the published cities, or community.yaml's    |
+| `/api/content?part=local-groups` | The published cities, for the build (public: name, pin, link)             |
 
 - **The board.** A card per city: its status (starting, active, paused; drag
   to move), who leads it with their email and phone, the WhatsApp invite link

@@ -612,6 +612,31 @@ async function requestUpgrade(user, answersIn, { siteOrigin } = {}) {
   return { id: created.id, confirmation: schema.confirmation };
 }
 
+/**
+ * Someone made an organizer elsewhere (Members board: their card, several at
+ * once, or a Discord difference settled): their request to become one, if
+ * waiting, is approved with it, so the applications say what Discord and the
+ * board say. Returns how many requests were closed.
+ */
+async function upgradeSettled(user, discordId) {
+  if (!discordId) return 0;
+  const { rows } = await db.query(
+    `update member_applications set status = 'approved', role = 'organizer',
+       note = coalesce(nullif(note, ''), 'Made an organizer on the members board'),
+       decided_by = $2, decided_at = now(), joined_at = now()
+     where kind = 'upgrade' and status = 'pending' and discord_id = $1 returning id`,
+    [discordId, user.id]
+  );
+  for (const r of rows) {
+    await audit.record(user, 'member-decide', r.id, {
+      decision: 'approve',
+      upgrade: true,
+      from: 'members-board',
+    });
+  }
+  return rows.length;
+}
+
 /** A fresh link for an approved person who has not joined yet. */
 async function resendInvite(user, id, { siteOrigin }) {
   await access.authorize(user, 'members', { fresh: true });
@@ -759,6 +784,8 @@ module.exports = {
   ROLES,
   JoinError,
   boardRoles,
+  roleId,
+  upgradeSettled,
   createApplication,
   listApplications,
   upgradeSchema,

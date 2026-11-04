@@ -2,8 +2,8 @@
  * server/community.js). Their working groups are tags: picked people can be
  * put in a group, taken out, or moved to another. Discord and the website
  * follow only from the bar on top ("Give the roles", "Update the website",
- * community-status.js). Also: one person's details and their groups, set by
- * hand (those reach Discord at once), every member as a CSV file, and the
+ * community-status.js). Also: one person's details, role (Participant,
+ * Organizer) and groups, set by hand (role and groups reach Discord at once), every member as a CSV file, and the
  * import of the old members sheet, with a preview first. */
 (function () {
   'use strict';
@@ -136,7 +136,9 @@
   }
 
   // Picked people: put them in a group, take them out of one, or move them
-  // from one group to another. Who coordinates is chosen on Working groups.
+  // from one group to another (Discord follows with "Give the roles"); or
+  // make them participants or organizers (on Discord at once, 15 per call).
+  // Who coordinates is chosen on Working groups.
   function bulkBar() {
     var ids = pickedIds();
     var bar = h('div', { class: 'bulk-bar', hidden: !ids.length });
@@ -146,7 +148,9 @@
       { class: 'form-input is-compact', 'aria-label': 'What to do' },
       h('option', { value: 'add' }, 'Put in the group'),
       h('option', { value: 'remove' }, 'Take out of the group'),
-      h('option', { value: 'move' }, 'Move from the group to…')
+      h('option', { value: 'move' }, 'Move from the group to…'),
+      h('option', { value: 'participant' }, 'Make them participants'),
+      h('option', { value: 'organizer' }, 'Make them organizers')
     );
     var groupSel = h(
       'select',
@@ -162,11 +166,16 @@
         return h('option', { value: g.id }, g.titleEn);
       })
     );
+    function isRole() {
+      return action.value === 'participant' || action.value === 'organizer';
+    }
     action.addEventListener('change', function () {
       toSel.hidden = action.value !== 'move';
+      groupSel.hidden = isRole();
     });
     var apply = h('button', { type: 'button', class: 'btn btn-primary btn-sm' }, 'Apply');
     apply.addEventListener('click', function () {
+      if (isRole()) return setRoles(ids, action.value, apply);
       apply.disabled = true;
       M.api('POST', '/api/app/community?action=tags', {
         members: ids,
@@ -216,6 +225,65 @@
       )
     );
     return bar;
+  }
+
+  /** Participant or Organizer for the picked people, here and on Discord. */
+  function setRoles(ids, role, button) {
+    var label = role === 'organizer' ? 'organizers' : 'participants';
+    if (
+      !window.confirm(
+        'Make ' +
+          ids.length +
+          ' ' +
+          (ids.length === 1 ? 'person' : 'people') +
+          ' ' +
+          label +
+          '? Their role on Discord changes at once' +
+          (role === 'participant' ? ' (Organizer taken away).' : '.')
+      )
+    )
+      return;
+    button.disabled = true;
+    var queue = ids.slice();
+    var total = { given: 0, taken: 0, failed: 0 };
+    function step() {
+      var batch = queue.splice(0, 15);
+      if (!batch.length) return Promise.resolve();
+      return M.api('POST', '/api/app/community?action=roles', { members: batch, role: role }).then(
+        function (r) {
+          var byId = {};
+          r.members.forEach(function (m) {
+            byId[m.id] = m;
+          });
+          data.members = data.members.map(function (m) {
+            return byId[m.id] || m;
+          });
+          total.given += r.given;
+          total.taken += r.taken;
+          total.failed += r.failed;
+          return step();
+        }
+      );
+    }
+    step()
+      .then(function () {
+        picked = {};
+        M.toast(
+          'Saved. On Discord: ' +
+            total.given +
+            ' role(s) given' +
+            (total.taken ? ', ' + total.taken + ' taken away' : '') +
+            (total.failed ? '; ' + total.failed + ' did not go: try again later' : ''),
+          total.failed > 0
+        );
+        M.communityStatus.refresh();
+        render();
+      })
+      .catch(function (err) {
+        button.disabled = false;
+        M.appError(err);
+        render();
+      });
   }
 
   function table() {
@@ -349,13 +417,14 @@
     document.getElementById('mLocation').value = m.location;
     document.getElementById('mAreas').value = m.areas;
     document.getElementById('mPublish').checked = m.publish;
+    document.getElementById('mRole').value = m.role === 'organizer' ? 'organizer' : 'participant';
     editGroups = {};
     m.groups.forEach(function (g) {
       editGroups[g.group] = g.level;
     });
     drawGroups();
     document.getElementById('mGroupsNote').textContent = m.discordId
-      ? 'Saving gives or takes away their roles on Discord at once.'
+      ? 'Saving gives or takes away their roles on Discord at once (Partecipante or Organizzatore, and the groups’).'
       : 'Not linked to Discord: the roles follow once they are linked (“Give the roles”).';
     // Who they are on Discord is set on the Discord tab only.
     var info = document.getElementById('mDiscord');
@@ -405,6 +474,10 @@
     });
   }
 
+  function roleChanged() {
+    return document.getElementById('mRole').value !== editing.role;
+  }
+
   function groupsChanged() {
     var before = editing.groups
       .map(function (g) {
@@ -429,7 +502,11 @@
 
   // Cancel, or Escape, with changes typed: asked first.
   function closeMember() {
-    if (groupsChanged() && !window.confirm('Close without saving the groups you changed?')) return;
+    if (
+      (groupsChanged() || roleChanged()) &&
+      !window.confirm('Close without saving the role or groups you changed?')
+    )
+      return;
     memberFields.confirm(function () {
       dialog.close();
     });
@@ -456,10 +533,11 @@
     save.disabled = true;
     M.api('PUT', '/api/app/community?member=' + encodeURIComponent(editing.id), body)
       .then(function (r) {
-        if (!groupsChanged()) return r;
+        if (!groupsChanged() && !roleChanged()) return r;
         return M.api('POST', '/api/app/community?action=member-groups', {
           member: editing.id,
           groups: Object.keys(editGroups),
+          role: document.getElementById('mRole').value,
         }).then(function (r2) {
           discord = r2.discord;
           return r2;

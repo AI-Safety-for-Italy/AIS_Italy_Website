@@ -256,9 +256,11 @@ test('the old sheet comes in after a preview: approved people, consent, the stab
   assert.deepEqual(done, { imported: 3, updated: 0, linked: 1 });
   // Importing sends nothing to Discord: the tags go with "Send tags".
   assert.deepEqual(roleCalls(), []);
+  // Her two tags, and Organizzatore: she has neither role there.
   const sent = await community.sendTags(user);
-  assert.deepEqual(sent, { given: 2, failed: 0, remaining: 0 });
+  assert.deepEqual(sent, { given: 3, failed: 0, remaining: 0 });
   const calls = roleCalls();
+  assert.ok(calls.includes('PUT 700000002/roles/222222'));
   assert.ok(calls.includes('PUT 700000002/roles/1566885628547960922'));
   assert.ok(calls.includes('PUT 700000002/roles/1566885852347633766'));
   assert.ok(!calls.some((c) => c.startsWith('DELETE')));
@@ -662,7 +664,9 @@ test('roles on Discord against tags here: each difference settled, or left', asy
   const list = (await community.listMembers(user)).members;
   const bea = list.find((m) => m.name === 'Bea Due'); // tags: mentorship, seminars
   // On Discord: seminars and events, not mentorship.
-  const people = [{ id: '800000005', username: 'bea', roles: [ROLE.seminars, ROLE.events] }];
+  const people = [
+    { id: '800000005', username: 'bea', roles: ['222222', ROLE.seminars, ROLE.events] },
+  ];
   server(people);
   await db.query('update community_members set discord_id = $2 where id = $1', [
     bea.id,
@@ -823,7 +827,12 @@ test('the tags go to Discord a few at a time, until none is left', async () => {
   const people = [];
   const rows = [];
   for (let i = 0; i < 12; i++) {
-    people.push({ id: String(810000000 + i), username: `p${i}`, nick: `Persona N${i}`, roles: [] });
+    people.push({
+      id: String(810000000 + i),
+      username: `p${i}`,
+      nick: `Persona N${i}`,
+      roles: ['111111'],
+    });
     rows.push([
       '10/10/2026 10.00.00',
       'Persona',
@@ -849,7 +858,7 @@ test('the tags go to Discord a few at a time, until none is left', async () => {
   const second = await community.sendTags(user);
   assert.deepEqual(second, { given: 9, failed: 0, remaining: 0 });
   assert.deepEqual(await community.sendTags(user), { given: 0, failed: 0, remaining: 0 });
-  assert.ok(people.every((p) => p.roles.length === 2));
+  assert.ok(people.every((p) => p.roles.length === 3));
 });
 
 test('the preview says why it cannot match by name', async () => {
@@ -891,7 +900,7 @@ test('the bar on top: accounts, roles and website, in counts', async () => {
   const list = (await community.listMembers(user)).members;
   const bea = list.find((m) => m.name === 'Bea Due'); // tags: mentorship, seminars
   const ciro = list.find((m) => m.name === 'Ciro Tre');
-  const people = [{ id: '800000041', username: 'bea', roles: [ROLE.events] }];
+  const people = [{ id: '800000041', username: 'bea', roles: ['222222', ROLE.events] }];
   server(people);
   await community.linkDiscord(user, bea.id, '800000041');
   await community.markAbsent(user, ciro.id, { absent: true });
@@ -900,7 +909,17 @@ test('the bar on top: accounts, roles and website, in counts', async () => {
   assert.deepEqual(s.accounts, { members: 3, linked: 1, absent: 1, toLink: 1 });
   assert.deepEqual(
     { ...s.roles, failed: undefined },
-    { available: true, missing: 2, missingMembers: 1, extra: 1, gone: 0, failed: undefined }
+    {
+      available: true,
+      missing: 2,
+      missingMembers: 1,
+      noMainRole: 0,
+      mainDiffers: 0,
+      noRole: 0,
+      extra: 1,
+      gone: 0,
+      failed: undefined,
+    }
   );
   assert.equal(s.site.live, false);
   assert.ok(s.site.changes > 0);
@@ -952,7 +971,8 @@ test('one member’s groups set by hand reach Discord at once; coordinators stay
   assert.deepEqual(groups, { mentorship: 'coordination', community: 'stable' });
 
   await rejects(community.setMemberGroups(user, ada.id, { groups: ['nope'] }), 400);
-  await rejects(community.setMemberGroups(user, ada.id, {}), 400);
+  await rejects(community.setMemberGroups(user, ada.id, { groups: 'events' }), 400);
+  await rejects(community.setMemberGroups(user, ada.id, { role: 'boss' }), 400);
 
   // Not linked: the tags change, Discord is not touched.
   const bea = (await community.listMembers(user)).members.find((m) => !m.discordId);
@@ -979,4 +999,187 @@ test('the members come out as a CSV file, formulas kept as text', async () => {
 
   const outsider = await auth.upsertDiscordUser({ discordId: '900000077', name: 'Ugo' });
   await rejects(community.exportCsv(outsider), 403);
+});
+
+test('Partecipante and Organizzatore are checked like the groups’ roles, and given', async () => {
+  const user = await board();
+  await community.importConfirm(user, SHEET);
+  const list = (await community.listMembers(user)).members;
+  const ada = list.find((m) => m.name === 'Ada Uno'); // participant
+  const bea = list.find((m) => m.name === 'Bea Due'); // organizer
+  const people = [
+    { id: '800000051', username: 'ada', roles: [ROLE.mentorship] },
+    { id: '800000052', username: 'bea', roles: ['111111', ROLE.mentorship, ROLE.seminars] },
+  ];
+  server(people);
+  await community.linkDiscord(user, ada.id, '800000051');
+  await community.linkDiscord(user, bea.id, '800000052');
+
+  let check = await community.roleCheck(user);
+  const byName = Object.fromEntries(check.members.map((m) => [m.name, m.mainRole]));
+  assert.deepEqual(byName['Ada Uno'], { kind: 'missing', here: 'participant' });
+  assert.deepEqual(byName['Bea Due'], {
+    kind: 'differs',
+    here: 'organizer',
+    there: 'participant',
+  });
+  let s = await community.status(user);
+  assert.equal(s.roles.noMainRole, 1);
+  assert.equal(s.roles.mainDiffers, 1);
+
+  // "Give the roles" gives Ada hers; Bea's difference waits for a choice.
+  await community.sendTags(user);
+  assert.ok(people[0].roles.includes('111111'));
+  assert.ok(!people[1].roles.includes('222222'));
+
+  // Bea is a participant after all: the board follows Discord.
+  await community.resolveMainRole(user, { member: bea.id, action: 'here', role: 'participant' });
+  check = await community.roleCheck(user);
+  assert.ok(!check.members.some((m) => m.mainRole));
+
+  // Made an organizer from her card: Organizzatore given at once.
+  botCalls = [];
+  await community.setMemberGroups(user, bea.id, { role: 'organizer' });
+  assert.deepEqual(roleCalls(), ['PUT 800000052/roles/222222']);
+  // And back: Partecipante given, Organizzatore taken away.
+  botCalls = [];
+  await community.setMemberGroups(user, bea.id, { role: 'participant' });
+  assert.deepEqual(roleCalls().sort(), [
+    'DELETE 800000052/roles/222222',
+    'PUT 800000052/roles/111111',
+  ]);
+  const groups = (await community.listMembers(user)).members.find((m) => m.id === bea.id).groups;
+  assert.equal(groups.length, 2); // the groups left as they were
+
+  // A missing role left as it is is not listed again.
+  people[0].roles = [ROLE.mentorship];
+  await community.resolveMainRole(user, { member: ada.id, action: 'ok', kind: 'missing' });
+  check = await community.roleCheck(user);
+  assert.ok(!check.members.some((m) => m.mainRole));
+  await rejects(community.resolveMainRole(user, { member: ada.id, action: 'x' }), 400);
+});
+
+test('people on the server with no role: given one and put on the board, or left', async () => {
+  const user = await board();
+  const people = [
+    { id: '800000061', username: 'gino', nick: 'Gino', roles: [] },
+    { id: '800000062', username: 'lia', nick: 'Lia', roles: [ROLE.events] },
+    { id: '800000063', username: 'max', nick: 'Max', roles: [] },
+    { id: '800000064', username: 'nora', nick: 'Nora', roles: ['111111'] },
+  ];
+  server(people);
+  let check = await community.roleCheck(user);
+  assert.deepEqual(
+    check.noRole.map((p) => p.username),
+    ['gino', 'lia', 'max']
+  );
+  assert.equal((await community.status(user)).roles.noRole, 3);
+
+  const r = await community.settleNoRole(user, {
+    discordIds: ['800000061', '800000062'],
+    action: 'participant',
+  });
+  assert.deepEqual(r, { given: 2, added: 2, failed: 0 });
+  assert.ok(people[0].roles.includes('111111'));
+  const members = (await community.listMembers(user)).members;
+  const gino = members.find((m) => m.discordId === '800000061');
+  assert.deepEqual([gino.name, gino.role, gino.publish], ['Gino', 'participant', false]);
+
+  await community.settleNoRole(user, { discordIds: ['800000063'], action: 'ok' });
+  check = await community.roleCheck(user);
+  assert.deepEqual(check.noRole, []);
+
+  await rejects(community.settleNoRole(user, { discordIds: ['x'], action: 'participant' }), 400);
+  await rejects(community.settleNoRole(user, { discordIds: ['800000063'], action: 'x' }), 400);
+  const outsider = await auth.upsertDiscordUser({ discordId: '900000078', name: 'Ugo' });
+  await rejects(community.settleNoRole(outsider, { discordIds: ['800000063'], action: 'ok' }), 403);
+});
+
+test('roles set for several at once reach Discord; an organizer’s waiting request closes', async () => {
+  const user = await board();
+  await community.importConfirm(user, SHEET);
+  const list = (await community.listMembers(user)).members;
+  const ada = list.find((m) => m.name === 'Ada Uno');
+  const ciro = list.find((m) => m.name === 'Ciro Tre');
+  const people = [
+    { id: '800000071', username: 'ada', roles: ['111111'] },
+    { id: '800000073', username: 'ciro', roles: ['111111'] },
+  ];
+  server(people);
+  await community.linkDiscord(user, ada.id, '800000071');
+  await community.linkDiscord(user, ciro.id, '800000073');
+  // Ada asked to become an organizer, from the dashboard.
+  const adaUser = await auth.upsertDiscordUser({
+    discordId: '800000071',
+    name: 'Ada',
+    roles: ['111111'],
+  });
+  await members.requestUpgrade(adaUser, { groups: { selected: ['events'] }, hours: '3' });
+
+  botCalls = [];
+  const r = await community.setRoles(user, { members: [ada.id, ciro.id], role: 'organizer' });
+  assert.equal(r.given, 2);
+  assert.ok(r.members.every((m) => m.role === 'organizer'));
+  assert.ok(people.every((p) => p.roles.includes('222222')));
+  // Her request is approved with it: Applications says what the board says.
+  const [app] = (await members.listApplications(user)).applications;
+  assert.deepEqual([app.kind, app.status, app.role], ['upgrade', 'approved', 'organizer']);
+
+  // Back to participant: Organizzatore taken away.
+  await community.setRoles(user, { members: [ciro.id], role: 'participant' });
+  assert.ok(!people[1].roles.includes('222222'));
+  await rejects(community.setRoles(user, { members: [ciro.id], role: 'boss' }), 400);
+  await rejects(community.setRoles(user, { members: [], role: 'participant' }), 400);
+});
+
+test('triage: members matched again when sure, then every role synced from the board', async () => {
+  const user = await board();
+  await community.importConfirm(user, SHEET);
+  const list = (await community.listMembers(user)).members;
+  const ada = list.find((m) => m.name === 'Ada Uno'); // participant, tag mentorship
+  const bea = list.find((m) => m.name === 'Bea Due'); // organizer, linked by email on import
+  const ciro = list.find((m) => m.name === 'Ciro Tre'); // participant, no tags
+  await community.linkDiscord(user, bea.id, null);
+  const people = [
+    // Ada: her full name as a nickname, one account only; the other role.
+    { id: '800000091', username: 'ada', nick: 'Ada Uno', roles: ['222222', ROLE.events] },
+    // Bea signed in here with her email: matched by email.
+    { id: '700000002', username: 'bea', roles: ['111111'] },
+    // Two accounts with Ciro's name: not sure, left to link by hand.
+    { id: '800000093', username: 'ciro1', nick: 'Ciro Tre', roles: [] },
+    { id: '800000094', username: 'ciro2', nick: 'Ciro Tre', roles: [] },
+  ];
+  server(people);
+  await auth.upsertDiscordUser({
+    discordId: '700000002',
+    name: 'Bea D.',
+    email: 'bea@example.org',
+  });
+
+  const m = await community.rematch(user);
+  assert.deepEqual(
+    { linked: m.linked, byEmail: m.byEmail, byName: m.byName, left: m.left },
+    { linked: 2, byEmail: 1, byName: 1, left: 1 }
+  );
+  const now = (await community.listMembers(user)).members;
+  assert.equal(now.find((x) => x.id === ada.id).discordId, '800000091');
+  assert.equal(now.find((x) => x.id === ciro.id).discordId, null);
+
+  // The board wins: Ada Partecipante (Organizzatore taken), her tag's role
+  // given, the Events role without a tag taken away; Bea Organizzatore and hers.
+  const r = await community.syncDiscord(user, { extra: 'take' });
+  assert.equal(r.failed, 0);
+  assert.equal(r.remaining, 0);
+  assert.deepEqual(people[0].roles.sort(), ['111111', ROLE.mentorship].sort());
+  assert.ok(people[1].roles.includes('222222'));
+  assert.ok(people[1].roles.includes(ROLE.mentorship) && people[1].roles.includes(ROLE.seminars));
+  const check = await community.roleCheck(user);
+  assert.deepEqual(check.members, []);
+
+  // Discord's extra roles kept as tags instead.
+  people[0].roles.push(ROLE.events);
+  await community.syncDiscord(user, { extra: 'tag' });
+  const tags = (await community.listMembers(user)).members.find((x) => x.id === ada.id).groups;
+  assert.ok(tags.some((t) => t.group === 'events'));
+  await rejects(community.syncDiscord(user, { extra: 'x' }), 400);
 });
