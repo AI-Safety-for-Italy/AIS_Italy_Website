@@ -3,5 +3,5 @@ permalink: /community/version.json
 eleventyExcludeFromCollections: true
 ---
 {#- Which publish of the members board this build shows: the board reads it
-    to say "updated" only once the website has the list (community-status.js). -#}
+    to say "updated" only once the website has the list (community-common.js). -#}
 {{ { publishedAt: members.published_at or null, members: members.members | length, groups: community.working_groups | length } | dump | safe }}

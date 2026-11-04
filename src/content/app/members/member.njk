@@ -1,0 +1,24 @@
+---
+title: Member
+# One member's page (server/community.js, memberDetail): their details,
+# role and groups, Discord, the website, what they answered and their
+# history. Needs `community`.
+permalink: /app/members/member/
+tool: community
+tab: people
+wide: true
+noindex: true
+excludeFromSitemap: true
+eleventyExcludeFromCollections: true
+seoTitle: 'Member | Members board | AI Safety for Italy'
+---
+{% extends "app.njk" %}
+{% block page %}
+    <nav class="mb-sync" id="boardSync" aria-label="Where the board stands" hidden></nav>
+    <div id="memberView"></div>
+
+<script src="/assets/js/meet/common.js?v={{ build }}" defer></script>
+<script src="/assets/js/meet/app-common.js?v={{ build }}" defer></script>
+<script src="/assets/js/meet/community-common.js?v={{ build }}" defer></script>
+<script src="/assets/js/meet/community-member.js?v={{ build }}" defer></script>
+{% endblock %}

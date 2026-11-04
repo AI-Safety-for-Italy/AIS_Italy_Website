@@ -912,7 +912,7 @@ function cleanTags(tags, groups) {
 /**
  * Makes a member a coordinator of a group (`on`), or takes it back: the only
  * way someone coordinates (Working groups). A coordinator not in the group is
- * put in it (its role follows with "Give the roles"); taken back, they still
+ * put in it (its role follows when applied on the Discord tab); taken back, they still
  * take part.
  * Returns { members } as listMembers has them.
  */

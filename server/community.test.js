@@ -815,7 +815,7 @@ test('coordinators are chosen on Working groups only', async () => {
   assert.deepEqual(after.find((m) => m.id === ada.id).groups, [
     { group: 'mentorship', level: 'coordination' },
   ]);
-  // Someone not in the group is put in it; the role follows with "Give the roles".
+  // Someone not in the group is put in it; the role follows when applied.
   botCalls = [];
   after = (await community.setCoordinator(user, { group: 'events', member: ciro.id, on: true }))
     .members;

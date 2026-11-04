@@ -14,6 +14,8 @@
 //     DISCORD_* vars to use a real Discord app)
 //   - email: printed in this terminal instead of sent (MEET_FAKE_MAIL=0 to
 //     use the SMTP settings saved on /app/polls/settings/)
+//   - Discord's bot: none, unless MEET_DEV_DISCORD=1 (a stand-in server with
+//     invented people, scripts/dev-discord.js)
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
@@ -42,6 +44,10 @@ process.env.MEET_FAKE_MAIL ||= '1';
 process.env.CRM_ENCRYPTION_KEY ||= Buffer.alloc(32, 7).toString('base64');
 process.env.CRM_KEY_SECRET ||= 'local-development-crm-secret-not-for-production';
 if (!process.env.GOOGLE_SERVICE_ACCOUNT_JSON) process.env.CRM_SHEETS_FAKE ||= '1';
+// MEET_DEV_DISCORD=1: a stand-in Discord server with invented people, for the
+// members board's Discord tab (scripts/dev-discord.js).
+if (process.env.MEET_DEV_DISCORD === '1' && process.env.MEET_DEV_LOGIN === '1')
+  require('./dev-discord').install();
 
 const db = require('../server/db');
 if (!process.env.MEET_DATABASE_URL && !process.env.DATABASE_URL) {

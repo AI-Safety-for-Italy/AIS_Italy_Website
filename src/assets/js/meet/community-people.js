@@ -1,44 +1,85 @@
-/* /app/members/people/: the community's members (/api/app/community,
- * server/community.js). Their working groups are tags: picked people can be
- * put in a group, taken out, or moved to another. Discord and the website
- * follow only from the bar on top ("Give the roles", "Update the website",
- * community-status.js). Also: one person's details, role (Participant,
- * Organizer) and groups, set by hand (role and groups reach Discord at once), every member as a CSV file, and the
- * import of the old members sheet, with a preview first. */
+/* Members board → Members (/app/members/people/): everyone in the community,
+ * one row each, from /api/app/community (server/community.js).
+ *
+ *   - Filters on top: who needs attention (not linked, changes waiting on
+ *     Discord, not online as they are here), role, working group, Discord,
+ *     website, source; and those approved on Applications who have not
+ *     joined Discord yet.
+ *   - A row opens the member's page (/app/members/member/?id=).
+ *   - Picked rows: put in a group, take out, move, make participants or
+ *     organizers. Saved in the database only: on Discord the roles wait on
+ *     the Discord tab, the website changes when it is updated.
+ *   - "Import the old sheet": the Google Sheet's CSV, previewed as a merge
+ *     (server/member-merge.js) before anything is stored.
+ * Whatever people typed goes on the page as text (h() makes text nodes). */
 (function () {
   'use strict';
   var M = window.Meet;
+  var B = M.board;
   var h = M.h;
-
+  var API = B.API;
   var view = document.getElementById('peopleView');
-  var data = null;
-  var picked = {};
-  var filter = { q: '', group: '' };
 
-  view.appendChild(M.loading());
-  load();
+  var data = null; // { members, groups, roles, site, invited, applications }
+  var discord = null; // status.discord: { perMember, available }
+  var picked = new Set();
+  var f = { q: '', qRaw: '', show: 'all', role: '', group: '', discord: '', site: '', source: '' };
+
+  try {
+    var saved = JSON.parse(sessionStorage.getItem('members-filters') || 'null');
+    if (saved) f = Object.assign(f, saved, { q: '', qRaw: '' });
+  } catch (e) {
+    /* nothing remembered */
+  }
+  function remember() {
+    try {
+      sessionStorage.setItem('members-filters', JSON.stringify(f));
+    } catch (e) {
+      /* fine */
+    }
+  }
 
   function load() {
-    Promise.all([M.me, M.api('GET', '/api/app/community')])
-      .then(function (r) {
-        data = r[1];
-        render();
-      })
-      .catch(function (err) {
-        M.clear(view);
-        if (err.status === 403) {
-          view.appendChild(
-            h(
-              'div',
-              { class: 'empty-state' },
-              h('h3', null, 'No access'),
-              h('p', null, err.message)
-            )
-          );
-          return;
-        }
-        M.appError(err);
-      });
+    return M.api('GET', API).then(function (d) {
+      data = d;
+      render();
+    });
+  }
+
+  view.appendChild(M.loading());
+  M.me.then(load).catch(B.fail(view));
+  B.onStatus(function (s) {
+    discord = s.discord;
+    if (data) {
+      data.site = s.site;
+      render();
+    }
+  });
+
+  // ── What each member is ──────────────────────────────────────────────────
+
+  function discordState(m) {
+    if (m.discordId) return 'linked';
+    if (m.discordAbsent) return 'absent';
+    return 'tolink';
+  }
+
+  function pendingOf(m) {
+    return discord && discord.perMember ? discord.perMember[m.id] || 0 : 0;
+  }
+
+  function siteOf(m) {
+    if (!m.publish) return 'hidden';
+    var per = data.site && data.site.perMember;
+    return (per && per[m.id]) || 'waiting';
+  }
+
+  function needs(m) {
+    return (
+      discordState(m) === 'tolink' ||
+      pendingOf(m) > 0 ||
+      Boolean(data.site && data.site.live && (siteOf(m) === 'changed' || siteOf(m) === 'waiting'))
+    );
   }
 
   function groupTitle(id) {
@@ -48,716 +89,862 @@
     return g ? g.titleEn : id;
   }
 
-  function shown() {
-    var q = filter.q.trim().toLowerCase();
-    return data.members.filter(function (m) {
-      if (filter.group === '__none' && m.groups.length) return false;
-      if (filter.group && filter.group !== '__none') {
-        if (
-          !m.groups.some(function (g) {
-            return g.group === filter.group;
-          })
-        )
-          return false;
-      }
-      return !q || (m.name + ' ' + m.location).toLowerCase().indexOf(q) !== -1;
+  function inGroup(m, id) {
+    return m.groups.some(function (g) {
+      return g.group === id;
     });
   }
+
+  function matches(m) {
+    if (f.show === 'attention' && !needs(m)) return false;
+    if (f.role && m.role !== f.role) return false;
+    if (f.group === '-' && m.groups.length) return false;
+    if (f.group && f.group !== '-' && !inGroup(m, f.group)) return false;
+    if (f.discord === 'pending' && !pendingOf(m)) return false;
+    if (f.discord && f.discord !== 'pending' && discordState(m) !== f.discord) return false;
+    if (f.site && siteOf(m) !== f.site) return false;
+    if (f.source && m.source !== f.source) return false;
+    if (f.q) {
+      var hay = B.fold(
+        [m.name, m.location, m.areas, m.discordName, m.discordUsername]
+          .concat(
+            m.groups.map(function (g) {
+              return groupTitle(g.group);
+            })
+          )
+          .join(' ')
+      );
+      if (hay.indexOf(f.q) === -1) return false;
+    }
+    return true;
+  }
+
+  // ── The page ─────────────────────────────────────────────────────────────
+
+  var searchInput = null;
 
   function render() {
+    var focused = searchInput && document.activeElement === searchInput;
     M.clear(view);
+    if (!data.members.length && !data.invited.length) {
+      view.appendChild(
+        B.empty(
+          'Nobody on the board yet',
+          'People arrive when an application is approved and they join Discord, from the old sheet, or from Discord itself.',
+          h('div', { class: 'mb-empty-actions' }, importButton('btn-primary'))
+        )
+      );
+      return;
+    }
     view.appendChild(toolbar());
-    view.appendChild(bulkBar());
-    view.appendChild(table());
-    view.appendChild(importPanel());
+    view.appendChild(showChips());
+    if (f.show === 'invited') {
+      view.appendChild(invitedList());
+      return;
+    }
+    var list = data.members.filter(matches);
+    picked.forEach(function (id) {
+      if (
+        !list.some(function (m) {
+          return m.id === id;
+        })
+      )
+        picked.delete(id);
+    });
+    if (picked.size) view.appendChild(bulkBar());
+    view.appendChild(table(list));
+    if (focused) {
+      searchInput.focus();
+      searchInput.setSelectionRange(searchInput.value.length, searchInput.value.length);
+    }
   }
 
-  function toolbar() {
-    var search = h('input', {
-      class: 'form-input is-compact',
-      type: 'search',
-      placeholder: 'Search by name or place',
-      value: filter.q,
-      'aria-label': 'Search the members',
-    });
-    var timer = null;
-    search.addEventListener('input', function () {
-      clearTimeout(timer);
-      timer = setTimeout(function () {
-        filter.q = search.value;
-        var pos = search.selectionStart;
-        render();
-        var again = view.querySelector('.people-tools input[type=search]');
-        again.focus();
-        again.setSelectionRange(pos, pos);
-      }, 180);
-    });
-    var group = h(
+  function select(label, key, options) {
+    var s = h(
       'select',
       {
-        class: 'form-input is-compact',
-        'aria-label': 'Working group',
+        class: 'form-input is-compact mb-filter' + (f[key] ? ' is-set' : ''),
+        'aria-label': label,
         onchange: function () {
-          filter.group = group.value;
+          f[key] = s.value;
+          remember();
           render();
         },
       },
-      h('option', { value: '' }, 'Every group'),
-      data.groups.map(function (g) {
-        return h('option', { value: g.id }, g.titleEn + ' (' + g.members + ')');
-      }),
-      h('option', { value: '__none' }, 'In no group')
+      options.map(function (o) {
+        return h('option', { value: o[0], selected: f[key] === o[0] }, o[1]);
+      })
     );
-    group.value = filter.group;
+    return s;
+  }
+
+  function toolbar() {
+    searchInput = h('input', {
+      class: 'form-input is-compact crm-search',
+      type: 'search',
+      placeholder: 'Search name, place, area, Discord…',
+      'aria-label': 'Search',
+      value: f.qRaw,
+      oninput: function () {
+        f.qRaw = searchInput.value;
+        f.q = B.fold(searchInput.value.trim());
+        render();
+      },
+    });
+    var anyFilter = f.role || f.group || f.discord || f.site || f.source;
     return h(
       'div',
-      { class: 'people-tools' },
-      search,
-      group,
-      h('span', { class: 'panel-note' }, data.members.length + ' members'),
-      data.members.length
+      { class: 'crm-toolbar mb-toolbar' },
+      searchInput,
+      select('Role', 'role', [
+        ['', 'Any role'],
+        ['participant', B.roleName(data.roles, 'participant')],
+        ['organizer', B.roleName(data.roles, 'organizer')],
+      ]),
+      select(
+        'Working group',
+        'group',
+        [
+          ['', 'Any group'],
+          ['-', 'In no group'],
+        ].concat(
+          data.groups.map(function (g) {
+            return [g.id, g.titleEn];
+          })
+        )
+      ),
+      select('Discord', 'discord', [
+        ['', 'Discord: any'],
+        ['linked', 'Linked'],
+        ['tolink', 'To link'],
+        ['absent', 'Not on Discord'],
+        ['pending', 'Changes waiting'],
+      ]),
+      select('Website', 'site', [
+        ['', 'Website: any'],
+        ['online', 'Online'],
+        ['changed', 'Changed'],
+        ['waiting', 'Not online yet'],
+        ['hidden', 'Hidden (no consent)'],
+      ]),
+      select('Source', 'source', [
+        ['', 'From anywhere'],
+        ['application', 'Applications'],
+        ['sheet', 'Old sheet'],
+        ['board', 'Added from Discord'],
+      ]),
+      anyFilter
         ? h(
-            'a',
+            'button',
             {
-              class: 'btn btn-outline btn-sm people-export',
-              href: '/api/app/community?view=export',
-              download: '',
+              type: 'button',
+              class: 'link-button',
+              onclick: function () {
+                f.role = f.group = f.discord = f.site = f.source = '';
+                remember();
+                render();
+              },
             },
-            'Export CSV'
+            'Clear filters'
+          )
+        : null,
+      h(
+        'span',
+        { class: 'mb-toolbar-end' },
+        h(
+          'a',
+          { class: 'btn btn-outline btn-sm', href: API + '?view=export', download: '' },
+          'Export CSV'
+        ),
+        importButton('btn-outline')
+      )
+    );
+  }
+
+  function showChips() {
+    var attention = data.members.filter(needs).length;
+    var chips = [
+      ['all', 'Everyone', data.members.length],
+      ['attention', 'Needs attention', attention],
+      ['invited', 'Invited, not on Discord yet', data.invited.length],
+    ];
+    return h(
+      'div',
+      { class: 'mb-show', role: 'group', 'aria-label': 'Show' },
+      chips.map(function (c) {
+        return h(
+          'button',
+          {
+            type: 'button',
+            class: 'mb-show-chip' + (c[0] === 'attention' && c[2] ? ' is-warn' : ''),
+            'aria-pressed': String(f.show === c[0]),
+            onclick: function () {
+              f.show = c[0];
+              picked.clear();
+              remember();
+              render();
+            },
+          },
+          c[1],
+          h('span', { class: 'crm-count' }, String(c[2]))
+        );
+      }),
+      f.show === 'attention'
+        ? h(
+            'span',
+            { class: 'mb-show-note' },
+            'Not linked to Discord, changes waiting there, or not online as they are here.'
           )
         : null
     );
   }
 
-  function pickedIds() {
-    return Object.keys(picked).filter(function (id) {
-      return picked[id];
+  function table(list) {
+    if (!list.length)
+      return h('p', { class: 'panel-note mb-none' }, 'Nobody matches these filters.');
+    var allPicked = list.every(function (m) {
+      return picked.has(m.id);
+    });
+    var head = h(
+      'div',
+      { class: 'mb-row mb-row-head', role: 'row' },
+      h(
+        'span',
+        { role: 'columnheader' },
+        h('input', {
+          type: 'checkbox',
+          'aria-label': 'Pick everyone shown',
+          checked: allPicked,
+          onchange: function (e) {
+            list.forEach(function (m) {
+              if (e.target.checked) picked.add(m.id);
+              else picked.delete(m.id);
+            });
+            render();
+          },
+        })
+      ),
+      h('span', { role: 'columnheader' }, B.plural(list.length, 'member')),
+      h('span', { role: 'columnheader' }, 'Role'),
+      h('span', { role: 'columnheader' }, 'Working groups'),
+      h('span', { role: 'columnheader' }, 'Discord'),
+      h('span', { role: 'columnheader' }, 'Website')
+    );
+    return h('div', { class: 'mb-table', role: 'table' }, head, list.map(row));
+  }
+
+  function row(m) {
+    var href = '/app/members/member/?id=' + encodeURIComponent(m.id);
+    var ds = discordState(m);
+    var pend = pendingOf(m);
+    var groups = m.groups.length
+      ? m.groups.map(function (g) {
+          var coord = g.level === 'coordination';
+          return h(
+            'span',
+            {
+              class: 'mb-group' + (coord ? ' is-coord' : ''),
+              title: coord ? 'Coordinates this group' : null,
+            },
+            coord ? '★ ' : '',
+            groupTitle(g.group)
+          );
+        })
+      : h('span', { class: 'crm-quiet' }, '—');
+    var disc;
+    if (ds === 'linked') {
+      disc = h(
+        'span',
+        { class: 'mb-disc' },
+        h(
+          'span',
+          { class: 'mb-disc-name' },
+          '@' + (m.discordUsername || m.discordName || 'linked')
+        ),
+        pend
+          ? B.pill('todo', pend + ' waiting', 'Changes waiting on the Discord tab')
+          : discord && discord.available
+          ? B.pill('ok', 'In step')
+          : null
+      );
+    } else if (ds === 'absent') {
+      disc = B.pill('muted', 'Not on Discord', m.discordNote || null);
+    } else {
+      disc = B.pill('todo', 'To link');
+    }
+    return h(
+      'div',
+      { class: 'mb-row' + (picked.has(m.id) ? ' is-picked' : ''), role: 'row' },
+      h(
+        'span',
+        { role: 'cell' },
+        h('input', {
+          type: 'checkbox',
+          'aria-label': 'Pick ' + m.name,
+          checked: picked.has(m.id),
+          onchange: function (e) {
+            if (e.target.checked) picked.add(m.id);
+            else picked.delete(m.id);
+            render();
+          },
+        })
+      ),
+      h(
+        'a',
+        { class: 'mb-name', href: href, role: 'cell' },
+        B.avatar({ name: m.name }, 28),
+        h(
+          'span',
+          { class: 'mb-name-text' },
+          h('strong', null, m.name),
+          h(
+            'span',
+            { class: 'mb-sub' },
+            [m.location, sourceLabel(m.source)].filter(Boolean).join(' · ')
+          )
+        )
+      ),
+      h('span', { role: 'cell', 'data-label': 'Role' }, B.roleChip(data.roles, m.role)),
+      h('span', { class: 'mb-groups', role: 'cell', 'data-label': 'Groups' }, groups),
+      h('span', { role: 'cell', 'data-label': 'Discord' }, disc),
+      h('span', { role: 'cell', 'data-label': 'Website' }, B.sitePill(siteOf(m)))
+    );
+  }
+
+  function sourceLabel(s) {
+    return { sheet: 'old sheet', application: 'application', board: 'from Discord' }[s] || '';
+  }
+
+  // ── Several at once ──────────────────────────────────────────────────────
+
+  function groupOptions() {
+    return data.groups.map(function (g) {
+      return h('option', { value: g.id }, g.titleEn);
     });
   }
 
-  // Picked people: put them in a group, take them out of one, or move them
-  // from one group to another (Discord follows with "Give the roles"); or
-  // make them participants or organizers (on Discord at once, 15 per call).
-  // Who coordinates is chosen on Working groups.
   function bulkBar() {
-    var ids = pickedIds();
-    var bar = h('div', { class: 'bulk-bar', hidden: !ids.length });
-    if (!ids.length) return bar;
-    var action = h(
-      'select',
-      { class: 'form-input is-compact', 'aria-label': 'What to do' },
-      h('option', { value: 'add' }, 'Put in the group'),
-      h('option', { value: 'remove' }, 'Take out of the group'),
-      h('option', { value: 'move' }, 'Move from the group to…'),
-      h('option', { value: 'participant' }, 'Make them participants'),
-      h('option', { value: 'organizer' }, 'Make them organizers')
-    );
+    var ids = Array.from(picked);
     var groupSel = h(
       'select',
       { class: 'form-input is-compact', 'aria-label': 'Group' },
-      data.groups.map(function (g) {
-        return h('option', { value: g.id }, g.titleEn);
-      })
+      groupOptions()
     );
     var toSel = h(
       'select',
-      { class: 'form-input is-compact', 'aria-label': 'To the group', hidden: true },
-      data.groups.map(function (g) {
-        return h('option', { value: g.id }, g.titleEn);
-      })
+      { class: 'form-input is-compact', 'aria-label': 'Move to', hidden: true },
+      groupOptions()
     );
-    function isRole() {
-      return action.value === 'participant' || action.value === 'organizer';
-    }
-    action.addEventListener('change', function () {
-      toSel.hidden = action.value !== 'move';
-      groupSel.hidden = isRole();
-    });
-    var apply = h('button', { type: 'button', class: 'btn btn-primary btn-sm' }, 'Apply');
-    apply.addEventListener('click', function () {
-      if (isRole()) return setRoles(ids, action.value, apply);
-      apply.disabled = true;
-      M.api('POST', '/api/app/community?action=tags', {
-        members: ids,
-        action: action.value,
-        group: groupSel.value,
-        to: toSel.value,
-      })
-        .then(function (r) {
-          var byId = {};
-          r.members.forEach(function (m) {
-            byId[m.id] = m;
+    var toLabel = h('span', { class: 'mb-bulk-to', hidden: true }, 'to');
+    var action = h(
+      'select',
+      {
+        class: 'form-input is-compact',
+        'aria-label': 'What to do',
+        onchange: function () {
+          var v = action.value;
+          groupSel.hidden = v === 'participant' || v === 'organizer';
+          toSel.hidden = toLabel.hidden = v !== 'move';
+        },
+      },
+      h('option', { value: 'add' }, 'Put in group'),
+      h('option', { value: 'remove' }, 'Take out of group'),
+      h('option', { value: 'move' }, 'Move from group'),
+      h('option', { value: 'participant' }, 'Make ' + B.roleName(data.roles, 'participant')),
+      h('option', { value: 'organizer' }, 'Make ' + B.roleName(data.roles, 'organizer'))
+    );
+    var go = h(
+      'button',
+      {
+        type: 'button',
+        class: 'btn btn-primary btn-sm',
+        onclick: function () {
+          var v = action.value;
+          var who = B.plural(ids.length, 'member');
+          var role = v === 'participant' || v === 'organizer';
+          var text = role
+            ? who + ' made ' + B.roleName(data.roles, v)
+            : v === 'add'
+            ? who + ' put in ' + groupTitle(groupSel.value)
+            : v === 'remove'
+            ? who + ' taken out of ' + groupTitle(groupSel.value)
+            : who + ' moved from ' + groupTitle(groupSel.value) + ' to ' + groupTitle(toSel.value);
+          B.confirm({
+            title: 'Change ' + who + '?',
+            effects: [
+              { where: 'db', text: text + ', saved now.' },
+              {
+                where: 'discord',
+                text: 'Nothing changes yet: their roles wait on the Discord tab, to apply.',
+              },
+              { where: 'site', text: 'Changes when the website is updated.' },
+            ],
+            ok: 'Save',
+          }).then(function (yes) {
+            if (!yes) return;
+            go.disabled = true;
+            var req = role
+              ? M.api('POST', API + '?action=roles', { members: ids, role: v })
+              : M.api('POST', API + '?action=tags', {
+                  members: ids,
+                  action: v,
+                  group: groupSel.value,
+                  to: v === 'move' ? toSel.value : undefined,
+                });
+            req
+              .then(function () {
+                picked.clear();
+                M.toast('Saved. Apply on the Discord tab when ready.');
+                return Promise.all([load(), B.refresh()]);
+              })
+              .catch(function (err) {
+                go.disabled = false;
+                M.appError(err);
+              });
           });
-          data.members = data.members.map(function (m) {
-            return byId[m.id] || m;
-          });
-          picked = {};
-          M.toast('Saved');
-          M.communityStatus.refresh();
-          return M.api('GET', '/api/app/community');
-        })
-        .then(function (d) {
-          data.groups = d.groups;
-          render();
-        })
-        .catch(function (err) {
-          apply.disabled = false;
-          M.appError(err);
-        });
-    });
-    bar.appendChild(h('strong', null, ids.length + ' picked'));
-    bar.appendChild(action);
-    bar.appendChild(groupSel);
-    bar.appendChild(toSel);
-    bar.appendChild(apply);
-    bar.appendChild(
+        },
+      },
+      'Save'
+    );
+    return h(
+      'div',
+      { class: 'mb-bulk', role: 'region', 'aria-label': 'Picked members' },
+      h('strong', null, ids.length + ' picked'),
+      action,
+      groupSel,
+      toLabel,
+      toSel,
+      go,
       h(
         'button',
         {
           type: 'button',
           class: 'link-button',
           onclick: function () {
-            picked = {};
+            picked.clear();
             render();
           },
         },
         'Clear'
-      )
+      ),
+      h('span', { class: 'mb-bulk-note' }, 'Saved in the database; on Discord when applied.')
     );
-    return bar;
   }
 
-  /** Participant or Organizer for the picked people, here and on Discord. */
-  function setRoles(ids, role, button) {
-    var label = role === 'organizer' ? 'organizers' : 'participants';
-    if (
-      !window.confirm(
-        'Make ' +
-          ids.length +
-          ' ' +
-          (ids.length === 1 ? 'person' : 'people') +
-          ' ' +
-          label +
-          '? Their role on Discord changes at once' +
-          (role === 'participant' ? ' (Organizer taken away).' : '.')
-      )
-    )
-      return;
-    button.disabled = true;
-    var queue = ids.slice();
-    var total = { given: 0, taken: 0, failed: 0 };
-    function step() {
-      var batch = queue.splice(0, 15);
-      if (!batch.length) return Promise.resolve();
-      return M.api('POST', '/api/app/community?action=roles', { members: batch, role: role }).then(
-        function (r) {
-          var byId = {};
-          r.members.forEach(function (m) {
-            byId[m.id] = m;
-          });
-          data.members = data.members.map(function (m) {
-            return byId[m.id] || m;
-          });
-          total.given += r.given;
-          total.taken += r.taken;
-          total.failed += r.failed;
-          return step();
-        }
-      );
-    }
-    step()
-      .then(function () {
-        picked = {};
-        M.toast(
-          'Saved. On Discord: ' +
-            total.given +
-            ' role(s) given' +
-            (total.taken ? ', ' + total.taken + ' taken away' : '') +
-            (total.failed ? '; ' + total.failed + ' did not go: try again later' : ''),
-          total.failed > 0
-        );
-        M.communityStatus.refresh();
-        render();
-      })
-      .catch(function (err) {
-        button.disabled = false;
-        M.appError(err);
-        render();
-      });
-  }
+  // ── Invited, not on Discord yet ──────────────────────────────────────────
 
-  function table() {
-    var list = shown();
-    if (!data.members.length) {
-      return h(
-        'div',
-        { class: 'empty-state' },
-        h('h3', null, 'No members yet'),
-        h(
-          'p',
-          null,
-          'Import the old members sheet below, or approve people on Applications: they join this list when they enter Discord.'
-        )
-      );
-    }
-    var all = h('input', {
-      type: 'checkbox',
-      'aria-label': 'Pick everyone shown',
-      onchange: function () {
-        list.forEach(function (m) {
-          picked[m.id] = all.checked;
-        });
-        render();
-      },
-    });
-    all.checked =
-      list.length > 0 &&
-      list.every(function (m) {
-        return picked[m.id];
-      });
+  function invitedList() {
+    if (!data.invited.length)
+      return h('p', { class: 'panel-note mb-none' }, 'Everyone approved has joined Discord.');
     return h(
       'div',
-      { class: 'results-wrap' },
+      { class: 'mb-table mb-invited', role: 'table' },
       h(
-        'table',
-        { class: 'results people-table' },
-        h(
-          'thead',
-          null,
+        'div',
+        { class: 'mb-row mb-row-head', role: 'row' },
+        h('span', { role: 'columnheader' }, B.plural(data.invited.length, 'person', 'people')),
+        h('span', { role: 'columnheader' }, 'Role'),
+        h('span', { role: 'columnheader' }, 'Approved'),
+        h('span', { role: 'columnheader' }, 'Their link'),
+        h('span', { role: 'columnheader' })
+      ),
+      data.invited.map(function (a) {
+        var expired = a.joinExpiresAt && new Date(a.joinExpiresAt) < new Date();
+        return h(
+          'div',
+          { class: 'mb-row', role: 'row' },
           h(
-            'tr',
-            null,
-            h('th', null, all),
-            h('th', null, 'Name'),
-            h('th', null, 'Role'),
-            h('th', null, 'Working groups'),
-            h('th', null, 'On the site'),
-            h('th', null, 'Discord')
+            'span',
+            { class: 'mb-name', role: 'cell' },
+            B.avatar({ name: a.name }, 28),
+            h('span', { class: 'mb-name-text' }, h('strong', null, a.name))
+          ),
+          h('span', { role: 'cell' }, B.roleChip(data.roles, a.role)),
+          h('span', { role: 'cell', class: 'crm-quiet' }, B.day(a.decidedAt)),
+          h(
+            'span',
+            { role: 'cell' },
+            a.inviteError
+              ? B.pill('warn', 'Email failed', a.inviteError)
+              : expired
+              ? B.pill('warn', 'Link expired')
+              : B.pill('muted', 'Valid to ' + B.day(a.joinExpiresAt))
+          ),
+          h(
+            'span',
+            { role: 'cell' },
+            data.applications
+              ? h(
+                  'a',
+                  { class: 'btn btn-outline btn-sm', href: '/app/members/' },
+                  'Open in Applications'
+                )
+              : null
           )
-        ),
-        h(
-          'tbody',
-          null,
-          list.map(function (m) {
-            var box = h('input', {
-              type: 'checkbox',
-              'aria-label': 'Pick ' + m.name,
-              onchange: function () {
-                picked[m.id] = box.checked;
-                render();
-              },
-            });
-            box.checked = Boolean(picked[m.id]);
-            return h(
-              'tr',
-              { class: picked[m.id] ? 'is-picked' : '' },
-              h('td', null, box),
-              h(
-                'td',
-                null,
-                h(
-                  'button',
-                  {
-                    type: 'button',
-                    class: 'link-button people-name',
-                    onclick: function () {
-                      edit(m);
-                    },
-                  },
-                  m.name
-                ),
-                m.location ? h('small', { class: 'people-sub' }, m.location) : null
-              ),
-              h('td', null, m.role === 'organizer' ? 'Organizer' : 'Participant'),
-              h(
-                'td',
-                null,
-                m.groups.length
-                  ? h(
-                      'span',
-                      { class: 'people-tags' },
-                      m.groups.map(function (g) {
-                        return h('span', { class: 'tag-chip is-stable' }, groupTitle(g.group));
-                      })
-                    )
-                  : h('span', { class: 'panel-note' }, '—')
-              ),
-              h('td', null, m.publish ? 'Yes' : h('span', { class: 'panel-note' }, 'No')),
-              h(
-                'td',
-                null,
-                m.discordId
-                  ? h('span', { class: 'badge badge-open' }, 'Linked')
-                  : h('span', { class: 'panel-note' }, 'Not linked')
-              )
-            );
-          })
-        )
+        );
+      }),
+      h(
+        'p',
+        { class: 'panel-note mb-invited-note' },
+        'They come onto the board, with their answers, role and groups, when they follow their link and join Discord.'
       )
     );
   }
-
-  // ── One person ───────────────────────────────────────────────────────────
-
-  var dialog = document.getElementById('memberDialog');
-  var editing = null;
-  // The groups picked in the dialog: { id: level } (a kept group keeps its level).
-  var editGroups = {};
-  var memberFields = M.watchFields(document.getElementById('memberForm'), {
-    active: function () {
-      return dialog.open;
-    },
-  });
-
-  function edit(m) {
-    editing = m;
-    document.getElementById('memberTitle').textContent = m.name;
-    document.getElementById('mName').value = m.name;
-    document.getElementById('mProfile').value = m.profile;
-    document.getElementById('mLocation').value = m.location;
-    document.getElementById('mAreas').value = m.areas;
-    document.getElementById('mPublish').checked = m.publish;
-    document.getElementById('mRole').value = m.role === 'organizer' ? 'organizer' : 'participant';
-    editGroups = {};
-    m.groups.forEach(function (g) {
-      editGroups[g.group] = g.level;
-    });
-    drawGroups();
-    document.getElementById('mGroupsNote').textContent = m.discordId
-      ? 'Saving gives or takes away their roles on Discord at once (Partecipante or Organizzatore, and the groups’).'
-      : 'Not linked to Discord: the roles follow once they are linked (“Give the roles”).';
-    // Who they are on Discord is set on the Discord tab only.
-    var info = document.getElementById('mDiscord');
-    M.clear(info);
-    info.appendChild(
-      document.createTextNode(
-        m.discordId
-          ? 'Linked to ' +
-              (m.discordName || m.discordUsername || m.discordId) +
-              (m.discordUsername ? ' (@' + m.discordUsername + ')' : '') +
-              '. '
-          : m.discordAbsent
-          ? 'Checked: not on Discord. '
-          : 'Not linked yet. '
-      )
-    );
-    info.appendChild(h('a', { href: '/app/members/discord/#link' }, 'Discord tab →'));
-    document.getElementById('memberError').hidden = true;
-    memberFields.saved();
-    dialog.showModal();
-  }
-
-  // Each click puts the person in the group or takes them out; who
-  // coordinates is chosen on Working groups, and shown here as such.
-  function drawGroups() {
-    var box = document.getElementById('mGroups');
-    M.clear(box);
-    data.groups.forEach(function (g) {
-      var level = editGroups[g.id];
-      box.appendChild(
-        h(
-          'button',
-          {
-            type: 'button',
-            class: 'tag-chip' + (level ? ' is-' + level : ''),
-            'aria-pressed': String(Boolean(level)),
-            title: level === 'coordination' ? 'Coordinates this group' : null,
-            onclick: function () {
-              if (level) delete editGroups[g.id];
-              else editGroups[g.id] = 'stable';
-              drawGroups();
-            },
-          },
-          g.titleEn
-        )
-      );
-    });
-  }
-
-  function roleChanged() {
-    return document.getElementById('mRole').value !== editing.role;
-  }
-
-  function groupsChanged() {
-    var before = editing.groups
-      .map(function (g) {
-        return g.group;
-      })
-      .sort();
-    var now = Object.keys(editGroups).sort();
-    return before.join(',') !== now.join(',');
-  }
-
-  function discordNote(d) {
-    if (!d.linked) return 'Saved. Not linked to Discord: no role changed there';
-    if (d.failed) return 'Saved, but ' + d.failed + ' role change(s) on Discord failed';
-    if (!d.given && !d.taken) return 'Saved';
-    return (
-      'Saved. On Discord: ' +
-      [d.given ? d.given + ' role(s) given' : '', d.taken ? d.taken + ' taken away' : '']
-        .filter(Boolean)
-        .join(', ')
-    );
-  }
-
-  // Cancel, or Escape, with changes typed: asked first.
-  function closeMember() {
-    if (
-      (groupsChanged() || roleChanged()) &&
-      !window.confirm('Close without saving the role or groups you changed?')
-    )
-      return;
-    memberFields.confirm(function () {
-      dialog.close();
-    });
-  }
-  document.getElementById('memberCancel').addEventListener('click', closeMember);
-  dialog.addEventListener('cancel', function (e) {
-    e.preventDefault();
-    closeMember();
-  });
-
-  document.getElementById('memberForm').addEventListener('submit', function (e) {
-    e.preventDefault();
-    var err = document.getElementById('memberError');
-    err.hidden = true;
-    var body = {
-      name: document.getElementById('mName').value,
-      profile: document.getElementById('mProfile').value,
-      location: document.getElementById('mLocation').value,
-      areas: document.getElementById('mAreas').value,
-      publish: document.getElementById('mPublish').checked,
-    };
-    var discord = null;
-    var save = document.getElementById('memberSave');
-    save.disabled = true;
-    M.api('PUT', '/api/app/community?member=' + encodeURIComponent(editing.id), body)
-      .then(function (r) {
-        if (!groupsChanged() && !roleChanged()) return r;
-        return M.api('POST', '/api/app/community?action=member-groups', {
-          member: editing.id,
-          groups: Object.keys(editGroups),
-          role: document.getElementById('mRole').value,
-        }).then(function (r2) {
-          discord = r2.discord;
-          return r2;
-        });
-      })
-      .then(function (r) {
-        save.disabled = false;
-        data.members = data.members.map(function (m) {
-          return m.id === r.member.id ? r.member : m;
-        });
-        dialog.close();
-        M.toast(discord ? discordNote(discord) : 'Saved', Boolean(discord && discord.failed));
-        M.communityStatus.refresh();
-        // The groups' counts in the filter.
-        if (!discord) return render();
-        return M.api('GET', '/api/app/community').then(function (d) {
-          data.groups = d.groups;
-          render();
-        });
-      })
-      .catch(function (e2) {
-        save.disabled = false;
-        if (e2.status === 401) return M.appError(e2);
-        err.textContent = e2.message;
-        err.hidden = false;
-      });
-  });
 
   // ── The old sheet ────────────────────────────────────────────────────────
 
-  var importText = null;
-  var preview = null;
-  var importBtn = null;
-  // A sheet previewed and not imported yet.
-  M.unsaved(
-    function () {
-      return Boolean(preview);
-    },
-    {
-      buttons: function () {
-        return [importBtn];
-      },
-    }
-  );
-
-  function importPanel() {
-    var file = h('input', {
-      type: 'file',
-      accept: '.csv,text/csv',
-      class: 'form-input is-compact',
-    });
-    var check = h('button', { type: 'button', class: 'btn btn-outline btn-sm' }, 'Preview');
-    var out = h('div', { class: 'form-grid' });
-    check.addEventListener('click', function () {
-      var f = file.files && file.files[0];
-      if (!f) return M.toast('Pick the CSV first', true);
-      check.disabled = true;
-      f.text()
-        .then(function (csv) {
-          importText = csv;
-          return M.api('POST', '/api/app/community?action=preview', { csv: csv });
-        })
-        .then(function (p) {
-          preview = p;
-          drawPreview(out);
-        })
-        .catch(M.appError)
-        .then(function () {
-          check.disabled = false;
-        });
-    });
-    if (preview) drawPreview(out);
+  function importButton(kind) {
     return h(
-      'details',
-      { class: 'panel import-panel', open: data.members.length ? null : true },
-      h('summary', null, 'Import the old members sheet'),
-      h(
-        'p',
-        { class: 'panel-note' },
-        'Download the members sheet as CSV (File → Download → .csv) and pick it here. Only approved people come in; those who consented are shown on the site once published; “Coordinamento” and “Partecipazione stabile” become tags. Each person is matched to their Discord account by email (if they signed in here once) or by name (the same name as one account on the server, and only one). Nothing is stored until you confirm, and importing sends nothing to Discord: the tags go there with “Send tags to Discord” (Discord tab), once you have checked the matches.'
-      ),
-      h('div', { class: 'people-tools' }, file, check),
-      out
+      'button',
+      { type: 'button', class: 'btn btn-sm ' + kind, onclick: openImport },
+      'Import the old sheet'
     );
   }
 
-  function drawPreview(out) {
-    M.clear(out);
-    var c = preview.counts;
-    out.appendChild(
-      h(
-        'p',
-        { class: 'notice', style: 'margin:0' },
-        h('span', null, 'ⓘ'),
+  var importDialog = null;
+
+  function openImport() {
+    if (!importDialog) {
+      importDialog = h('dialog', {
+        class: 'meet-dialog mb-import',
+        'aria-labelledby': 'mbImportTitle',
+      });
+      document.body.appendChild(importDialog);
+    }
+    var csvText = null;
+    var decisions = {};
+    var body = h('div', { class: 'dialog-body' });
+    var foot = h('div', { class: 'dialog-foot' });
+    M.clear(importDialog);
+    importDialog.appendChild(body);
+    importDialog.appendChild(foot);
+
+    function close() {
+      importDialog.close();
+    }
+
+    function cancel(label) {
+      return h(
+        'button',
+        { type: 'button', class: 'btn btn-outline btn-sm', onclick: close },
+        label
+      );
+    }
+
+    function pickStep() {
+      M.clear(body);
+      M.clear(foot);
+      var file = h('input', {
+        type: 'file',
+        accept: '.csv,text/csv',
+        class: 'form-input is-compact',
+      });
+      var err = h('p', { class: 'form-error', hidden: true });
+      body.appendChild(h('h2', { id: 'mbImportTitle' }, 'Import the old sheet'));
+      body.appendChild(
         h(
-          'span',
-          null,
-          c.people +
-            ' people · ' +
-            c.published +
-            ' shown on the site · ' +
-            c.tagged +
-            ' with tags · ' +
-            c.onDiscord +
-            ' matched to Discord (' +
-            (c.onDiscord - c.byName) +
-            ' by email, ' +
-            c.byName +
-            ' by name' +
-            (preview.byName
-              ? ''
-              : ': not by name here, ' +
-                (preview.byNameProblem || 'the bot cannot read the server’s members')) +
-            ') · ' +
-            c.already +
-            ' already here (tags added, nothing else changed)'
+          'p',
+          { class: 'mb-confirm-text' },
+          'The members sheet as a CSV (Google Sheets → File → Download → CSV). Nothing is stored before you see what it would do.'
         )
-      )
-    );
-    out.appendChild(
-      h(
-        'div',
-        { class: 'results-wrap import-list' },
+      );
+      body.appendChild(
         h(
-          'table',
-          { class: 'results people-table' },
+          'ul',
+          { class: 'mb-rules' },
           h(
-            'thead',
+            'li',
             null,
-            h(
-              'tr',
-              null,
-              ['Name', 'Role', 'Tags', 'On the site', 'Discord'].map(function (t) {
-                return h('th', null, t);
-              })
-            )
+            'People already here are matched by email, then by Discord account. A name alone is only a guess: you choose.'
           ),
           h(
-            'tbody',
+            'li',
             null,
-            preview.people.map(function (p) {
-              return h(
-                'tr',
-                null,
-                h(
-                  'td',
-                  null,
-                  p.name,
-                  p.exists ? h('small', { class: 'people-sub' }, 'already here') : null
-                ),
-                h('td', null, p.role === 'organizer' ? 'Organizer' : 'Participant'),
-                h(
-                  'td',
-                  null,
-                  h(
-                    'span',
-                    { class: 'people-tags' },
-                    p.tags.map(function (t) {
-                      return h('span', { class: 'tag-chip is-stable' }, groupTitle(t.group));
-                    })
-                  )
-                ),
-                h('td', null, p.publish ? 'Yes' : 'No'),
-                h(
-                  'td',
-                  null,
-                  p.discord
-                    ? [
-                        p.discord.name,
-                        h(
-                          'span',
-                          { class: 'match-by is-' + p.discord.by },
-                          p.discord.by === 'name' ? 'by name' : 'by email'
-                        ),
-                      ]
-                    : h('span', { class: 'panel-note' }, 'not matched')
-                )
-              );
-            })
-          )
+            'Empty fields are filled. What was changed on the board is never overwritten on its own: a newer answer shows as a conflict, to keep or take.'
+          ),
+          h(
+            'li',
+            null,
+            'Groups are only added, the role never lowered. The same sheet again changes nothing.'
+          ),
+          h('li', null, 'Nothing is sent to Discord; the website changes only when updated.')
         )
-      )
-    );
-    var go = h(
-      'button',
-      { type: 'button', class: 'btn btn-primary btn-sm' },
-      'Import ' + c.people + ' people'
-    );
-    importBtn = go;
-    go.addEventListener('click', function () {
-      if (
-        !window.confirm(
-          'Import ' +
-            c.people +
-            ' people, ' +
-            c.onDiscord +
-            ' of them linked to Discord? Nothing is sent to Discord yet: their tags go there with “Send tags to Discord”.'
-        )
-      )
-        return;
-      go.disabled = true;
-      M.api('POST', '/api/app/community?action=import', { csv: importText })
-        .then(function (r) {
-          M.toast(
-            r.imported +
-              ' imported, ' +
-              r.updated +
-              ' updated, ' +
-              r.linked +
-              ' linked to Discord. Send their tags from the Discord tab; publish to show them on the site.'
-          );
-          preview = null;
-          importText = null;
-          load();
-        })
-        .catch(function (err) {
-          go.disabled = false;
-          M.appError(err);
+      );
+      body.appendChild(file);
+      body.appendChild(err);
+      var next = h(
+        'button',
+        {
+          type: 'button',
+          class: 'btn btn-primary btn-sm',
+          onclick: function () {
+            var chosen = file.files && file.files[0];
+            if (!chosen) {
+              err.textContent = 'Pick the CSV file first.';
+              err.hidden = false;
+              return;
+            }
+            next.disabled = true;
+            chosen.text().then(function (text) {
+              csvText = text;
+              preview();
+            });
+          },
+        },
+        'See what it would do'
+      );
+      foot.appendChild(cancel('Cancel'));
+      foot.appendChild(next);
+    }
+
+    function preview() {
+      M.clear(body);
+      M.clear(foot);
+      body.appendChild(M.loading('Reading the sheet…'));
+      M.api('POST', API + '?action=preview', { csv: csvText, decisions: decisions })
+        .then(report)
+        .catch(function (e) {
+          pickStep();
+          M.appError(e);
         });
-    });
-    out.appendChild(h('div', null, go));
+    }
+
+    function count(n, label, tone) {
+      return h(
+        'span',
+        { class: 'mb-import-count is-' + tone },
+        h('strong', null, String(n)),
+        ' ' + label
+      );
+    }
+
+    function report(p) {
+      M.clear(body);
+      M.clear(foot);
+      var c = p.counts;
+      body.appendChild(h('h2', { id: 'mbImportTitle' }, 'What importing would do'));
+      body.appendChild(
+        h(
+          'div',
+          { class: 'mb-import-counts' },
+          count(c.new, 'new', 'ok'),
+          count(c.update, 'completed', 'ok'),
+          count(c.conflict, 'to decide', c.conflict ? 'todo' : 'muted'),
+          count(c.unchanged, 'unchanged', 'muted'),
+          c.skip ? count(c.skip, 'left out', 'muted') : null,
+          count(c.onDiscord, 'matched on Discord', 'muted')
+        )
+      );
+      if (!p.byName)
+        body.appendChild(
+          h(
+            'p',
+            { class: 'notice mb-import-notice' },
+            'Matched to Discord by email only: ' +
+              (p.byNameProblem || 'the server’s list could not be read') +
+              '.'
+          )
+        );
+      var order = { conflict: 0, new: 1, update: 2, skip: 3, unchanged: 4 };
+      var people = p.people.slice().sort(function (a, b) {
+        return order[a.status] - order[b.status] || a.name.localeCompare(b.name, 'it');
+      });
+      body.appendChild(h('div', { class: 'mb-import-list' }, people.map(personRow)));
+      foot.appendChild(
+        h('button', { type: 'button', class: 'btn btn-outline btn-sm', onclick: pickStep }, 'Back')
+      );
+      var go = h(
+        'button',
+        {
+          type: 'button',
+          class: 'btn btn-primary btn-sm',
+          disabled: !(c.new + c.update + c.conflict),
+          onclick: function () {
+            var conflicts = 0;
+            var taken = 0;
+            p.people.forEach(function (x) {
+              conflicts += x.conflicts.length;
+              taken += ((decisions[x.key] || {}).take || []).length;
+            });
+            B.confirm({
+              title: 'Import the sheet?',
+              effects: [
+                {
+                  where: 'db',
+                  text:
+                    B.plural(c.new, 'person', 'people') +
+                    ' added, ' +
+                    B.plural(c.update + c.conflict, 'member') +
+                    ' completed' +
+                    (conflicts
+                      ? '; ' +
+                        taken +
+                        ' of ' +
+                        B.plural(conflicts, 'conflict') +
+                        ' taken from the sheet, the rest kept'
+                      : '') +
+                    '. Every answer kept on the member.',
+                },
+                { where: 'discord', text: 'Nothing changes: the roles wait on the Discord tab.' },
+                { where: 'site', text: 'Changes when the website is updated.' },
+              ],
+              ok: 'Import',
+            }).then(function (yes) {
+              if (!yes) return;
+              go.disabled = true;
+              M.api('POST', API + '?action=import', { csv: csvText, decisions: decisions })
+                .then(function (r) {
+                  close();
+                  M.toast(
+                    r.imported +
+                      ' added, ' +
+                      r.updated +
+                      ' completed, ' +
+                      r.unchanged +
+                      ' unchanged'
+                  );
+                  return Promise.all([load(), B.refresh()]);
+                })
+                .catch(function (e) {
+                  go.disabled = false;
+                  M.appError(e);
+                });
+            });
+          },
+        },
+        'Import'
+      );
+      foot.appendChild(go);
+    }
+
+    var STATUS = {
+      new: ['ok', 'New'],
+      update: ['ok', 'Completed'],
+      conflict: ['todo', 'To decide'],
+      unchanged: ['muted', 'Unchanged'],
+      skip: ['muted', 'Left out'],
+    };
+
+    function shown(v) {
+      if (v === true) return 'shown on the site';
+      if (v === false) return 'not shown';
+      if (v === 'organizer' || v === 'participant') return B.roleName(data && data.roles, v);
+      return v || '—';
+    }
+
+    function choice(name, on, label, pick) {
+      return h(
+        'label',
+        { class: 'check-row' },
+        h('input', { type: 'radio', name: 'imp-' + name, checked: on, onchange: pick }),
+        h('span', null, label)
+      );
+    }
+
+    function personRow(x) {
+      var d = (decisions[x.key] = decisions[x.key] || {});
+      var s = STATUS[x.status];
+      var lines = [];
+      if (x.fill.length)
+        lines.push(h('div', { class: 'mb-imp-line' }, 'Fills: ' + x.fill.join(', ')));
+      if (x.addGroups.length)
+        lines.push(
+          h('div', { class: 'mb-imp-line' }, 'Adds to: ' + x.addGroups.map(groupTitle).join(', '))
+        );
+      if (x.linking && x.discord)
+        lines.push(
+          h(
+            'div',
+            { class: 'mb-imp-line' },
+            'Links to Discord: ' + x.discord.name + ' (by ' + x.discord.by + ')'
+          )
+        );
+      if (x.discord && x.discord.taken)
+        lines.push(
+          h(
+            'div',
+            { class: 'mb-imp-line is-warn' },
+            'Its Discord account is another member’s: not linked.'
+          )
+        );
+      if (x.kept.length)
+        lines.push(
+          h(
+            'div',
+            { class: 'mb-imp-line crm-quiet' },
+            'Kept as on the board (changed there after this answer): ' + x.kept.join(', ')
+          )
+        );
+      x.conflicts.forEach(function (c) {
+        var take = (d.take || []).indexOf(c.field) !== -1;
+        var without = function () {
+          return (d.take || []).filter(function (k) {
+            return k !== c.field;
+          });
+        };
+        lines.push(
+          h(
+            'div',
+            { class: 'mb-imp-conflict' },
+            h('strong', null, c.label),
+            h(
+              'div',
+              { class: 'mb-imp-choice', role: 'radiogroup', 'aria-label': c.label },
+              choice(x.key + c.field, !take, 'Keep: ' + shown(c.here), function () {
+                d.take = without();
+              }),
+              choice(x.key + c.field, take, 'Take the sheet’s: ' + shown(c.there), function () {
+                d.take = without().concat(c.field);
+              })
+            )
+          )
+        );
+      });
+      if (x.duplicateOf) {
+        var dup = function (v) {
+          return function () {
+            d.duplicate = v;
+            preview();
+          };
+        };
+        lines.push(
+          h(
+            'div',
+            { class: 'mb-imp-conflict' },
+            h(
+              'strong',
+              null,
+              'Same name as ' +
+                x.duplicateOf.name +
+                (x.duplicateOf.hasEmail ? ' (with another email)' : ' (added from Discord)')
+            ),
+            h(
+              'div',
+              { class: 'mb-imp-choice', role: 'radiogroup', 'aria-label': 'Who is it' },
+              choice(x.key + 'dup', x.duplicate === 'merge', 'The same person', dup('merge')),
+              choice(x.key + 'dup', x.duplicate === 'new', 'Someone else', dup('new')),
+              choice(x.key + 'dup', x.duplicate === 'skip', 'Leave out', dup('skip'))
+            )
+          )
+        );
+      }
+      return h(
+        'div',
+        { class: 'mb-imp-row is-' + x.status },
+        h(
+          'div',
+          { class: 'mb-imp-head' },
+          h('strong', null, x.name),
+          B.pill(s[0], s[1]),
+          x.newAnswers
+            ? h('span', { class: 'crm-quiet' }, B.plural(x.newAnswers, 'answer') + ' to keep')
+            : null
+        ),
+        lines
+      );
+    }
+
+    pickStep();
+    importDialog.showModal();
   }
 })();
