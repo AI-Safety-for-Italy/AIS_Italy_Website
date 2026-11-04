@@ -33,9 +33,11 @@
   try {
     var toolGroups = JSON.parse(document.getElementById('apToolGroups').textContent);
     JSON.parse(document.getElementById('apTools').textContent).forEach(function (tool) {
-      if (!tool.area || groupTitle[tool.area]) return;
-      areaOrder.push(tool.area);
-      groupTitle[tool.area] =
+      // keysArea: a tool open to every member whose keys still have an area.
+      var area = tool.area || tool.keysArea;
+      if (!area || groupTitle[area]) return;
+      areaOrder.push(area);
+      groupTitle[area] =
         tool.group && toolGroups[tool.group]
           ? toolGroups[tool.group].title + ' › ' + (tool.navLabel || tool.title)
           : tool.title;

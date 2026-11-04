@@ -22,11 +22,27 @@
 //                                              emailed invite, if any)
 //   POST   &action=invite { emails }        -> invites more guests
 //   POST   &action=resend&invite=<invite id> -> emails a guest's link again
+//   POST   &action=calendar { calendarId | null } -> the calendar the chosen
+//                                              time is copied to (owner, who
+//                                              edits that calendar), or none
+//   GET    &calendars=1                     -> the calendars the owner adds to
+// finalize may carry calendarId too. The copy follows every change of the
+// poll (server/calendars.js, syncFromPoll).
 const { route, sendJson, readJson, getQuery, siteUrl, HttpError } = require('../../http');
 const { requireUser } = require('../../auth');
 const polls = require('../../polls');
 const notify = require('../../notify');
 const ics = require('../../ics');
+const calendars = require('../../calendars');
+
+/** The calendar's copy of the poll, after it changed; it never fails the change. */
+async function syncCalendar(id) {
+  try {
+    await calendars.syncFromPoll(id);
+  } catch (err) {
+    console.error('Calendar copy of the poll failed', err.message);
+  }
+}
 
 module.exports = route({
   async GET(req, res) {
@@ -43,6 +59,11 @@ module.exports = route({
       return;
     }
     const { people, roles } = getQuery(req);
+    if (getQuery(req).calendars) {
+      await polls.getPollAdmin(id, user.id);
+      sendJson(res, 200, { calendars: await calendars.writable(user) });
+      return;
+    }
     if (roles) {
       // The server's roles, to share the poll with (its owner only).
       await polls.getPollAdmin(id, user.id);
@@ -57,7 +78,9 @@ module.exports = route({
   },
   async PATCH(req, res) {
     const user = await requireUser(req);
-    sendJson(res, 200, await polls.updatePoll(getQuery(req).id, await readJson(req), user.id));
+    const result = await polls.updatePoll(getQuery(req).id, await readJson(req), user.id);
+    await syncCalendar(result.id);
+    sendJson(res, 200, result);
   },
   async DELETE(req, res) {
     const user = await requireUser(req);
@@ -68,6 +91,7 @@ module.exports = route({
       sendJson(res, 200, await polls.removeInvite(id, invite, user.id));
     } else {
       await polls.deletePoll(id, user.id);
+      await syncCalendar(id);
       sendJson(res, 200, { deleted: true });
     }
   },
@@ -83,7 +107,19 @@ module.exports = route({
     } else if (action === 'notify-me') {
       sendJson(res, 200, await polls.setNotifyMe(id, user, Boolean(body.on)));
     } else if (action === 'finalize') {
+      // The calendar is checked before the time is set.
+      if (body.calendarId) await polls.getPollAdmin(id, user.id);
+      const calendarId = body.calendarId
+        ? (await calendars.writable(user)).find((c) => c.id === body.calendarId)
+        : null;
+      if (body.calendarId && !calendarId)
+        throw new HttpError(403, 'You cannot add to that calendar');
       let result = await polls.finalizePoll(id, body, user.id);
+      // The calendar chosen with the time, or none: the copy follows.
+      if (body.calendarId !== undefined) {
+        await calendars.setPollCalendar(user, id, calendarId ? calendarId.id : null);
+        result = await polls.getPollAdmin(id, user.id);
+      }
       if (body.sendInvite) {
         const meeting = await polls.prepareMeetingInvite(id, user.id, body);
         const outcome = await notify.sendMeeting({ ...meeting, ownerId: user.id });
@@ -96,6 +132,7 @@ module.exports = route({
       sendJson(res, 200, { ...(await polls.getPollAdmin(id, user.id)), outcome });
     } else if (action === 'unschedule') {
       const result = await polls.unschedulePoll(id, user.id);
+      await syncCalendar(id);
       const { cancel, ...poll } = result;
       if (cancel) {
         poll.outcome = await notify.sendMeeting({
@@ -108,6 +145,10 @@ module.exports = route({
         });
       }
       sendJson(res, 200, poll);
+    } else if (action === 'calendar') {
+      await polls.getPollAdmin(id, user.id);
+      await calendars.setPollCalendar(user, id, body.calendarId || null);
+      sendJson(res, 200, await polls.getPollAdmin(id, user.id));
     } else if (action === 'invite') {
       const added = await polls.addInvites(id, body.emails, user.id);
       const outcome = await send(added.poll, added.invites);

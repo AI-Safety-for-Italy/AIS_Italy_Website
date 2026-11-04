@@ -28,6 +28,13 @@ pageTitle: Poll
         <p class="panel-note" id="finalizeWhen"></p>
       </div>
       <p class="panel-note" style="margin:0" id="finalizeIntro">Voting closes and the poll page shows this time.</p>
+      <div id="calendarRow" hidden>
+        <label class="form-label" for="finalizeCalendar">Add to a calendar <span class="panel-note">(optional)</span></label>
+        <select class="form-input is-compact" id="finalizeCalendar">
+          <option value="">No calendar</option>
+        </select>
+        <p class="panel-note" style="margin:.35rem 0 0">The meeting shows in that calendar, and follows any change of time.</p>
+      </div>
       <label class="check-row" id="sendInviteRow">
         <input type="checkbox" id="sendInvite">
         <span>Email the calendar invite<br><span class="panel-note" id="sendInviteNote">From the team mailbox, with the event attached.</span></span>

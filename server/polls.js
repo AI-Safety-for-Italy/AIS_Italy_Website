@@ -351,6 +351,7 @@ function describe(poll) {
     inviteOnly: poll.invite_only,
     notify: poll.notify,
     recurrence: poll.recurrence || null,
+    calendarId: poll.calendar_id || null,
     status: poll.status,
     open: isOpen(poll),
     createdAt: new Date(poll.created_at).toISOString(),

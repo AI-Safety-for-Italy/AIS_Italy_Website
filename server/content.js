@@ -9,6 +9,9 @@
 // Who may do what (server/permissions.js): the permission named after the
 // item's type to create and edit it, plus `others` to edit, delete or restore
 // items somebody else created (and the ones imported from the YAML).
+//
+// Each item also lands in a calendar (server/calendars.js): its type's own
+// (Seminars, Events) unless its form chose another or none (`calendar`).
 
 const fs = require('fs');
 const path = require('path');
@@ -17,6 +20,7 @@ const db = require('./db');
 const { HttpError } = require('./http');
 const permissions = require('./permissions');
 const md = require('../src/assets/js/meet/markdown-lite');
+const calendars = require('./calendars');
 
 const TYPES = ['seminar', 'event'];
 const LIVE_KEY = 'content_live';
@@ -384,7 +388,7 @@ async function getItem(id, user) {
   const perms = await permissions.forUser(user);
   return {
     ...summary(row, user, perms),
-    form: toForm(row.entry),
+    form: { ...toForm(row.entry), calendar: row.calendar_choice || '' },
     versions: await versionsOf(row.id),
   };
 }
@@ -417,6 +421,25 @@ async function addVersion(q, itemId, action, entry, user) {
   );
 }
 
+/**
+ * The calendar's copy of an item, after it changed, in the calendar its form
+ * chose (`choice` from calendars.contentChoice; undefined keeps the one it
+ * had). A calendar that fails never fails the save.
+ */
+async function syncCalendar(itemId, choice) {
+  try {
+    if (choice !== undefined) {
+      await db.query('update content_items set calendar_choice = $2 where id = $1', [
+        itemId,
+        choice,
+      ]);
+    }
+    await calendars.syncFromContent(itemId);
+  } catch (err) {
+    console.error('Calendar copy failed', err.message);
+  }
+}
+
 function isUniqueViolation(err) {
   return err && (err.code === '23505' || /unique/i.test(err.message || ''));
 }
@@ -429,6 +452,9 @@ async function saveItem(user, body, id) {
   const b = body || {};
   await permissions.refreshRoles(user);
   const perms = await permissions.forUser(user);
+  // The calendar it goes in, checked before anything is saved.
+  const choice =
+    b.calendar === undefined ? undefined : await calendars.contentChoice(b.calendar, user);
 
   if (!id) {
     if (!perms.includes(b.type))
@@ -451,6 +477,7 @@ async function saveItem(user, body, id) {
           await addVersion(tx, created.id, 'create', { ...entry, anchor: slug }, user);
           return created;
         });
+        await syncCalendar(row.id, choice);
         return { id: row.id, entry: { ...entry, anchor: slug }, action: 'create' };
       } catch (err) {
         if (!isUniqueViolation(err)) throw err;
@@ -474,6 +501,7 @@ async function saveItem(user, body, id) {
     );
     await addVersion(tx, row.id, 'update', entry, user);
   });
+  await syncCalendar(row.id, choice);
   return { id: row.id, entry, action: 'update' };
 }
 
@@ -490,6 +518,7 @@ async function deleteItem(user, id) {
     );
     await addVersion(tx, row.id, 'delete', row.entry, user);
   });
+  await syncCalendar(row.id);
   return { id: row.id, entry: row.entry, action: 'delete' };
 }
 
@@ -517,6 +546,7 @@ async function restoreVersion(user, itemId, versionId) {
     );
     await addVersion(tx, row.id, 'restore', entry, user);
   });
+  await syncCalendar(row.id);
   return { id: row.id, entry, action: 'restore' };
 }
 
@@ -557,8 +587,9 @@ async function importEntries(entries, userName = 'Import from events.yaml') {
       );
       if (!rows.length) return false;
       await addVersion(tx, rows[0].id, 'import', entry, { name: userName });
-      return true;
+      return rows[0].id;
     });
+    if (done) await syncCalendar(done);
     if (done) imported++;
     else skipped++;
   }

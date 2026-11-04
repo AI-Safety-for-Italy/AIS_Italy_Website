@@ -1,10 +1,13 @@
 {# Fields for a recurring meeting. Set `rp` to an id prefix before including
-   it ("new", "edit"); assets/js/meet/common.js (Meet.recurrenceFields) reads
+   it ("new", "edit"), and `rpDaily` to offer daily repeats too (the calendar); assets/js/meet/common.js (Meet.recurrenceFields) reads
    and fills them. #}
 <div class="recurrence" id="{{ rp }}Recurrence">
   <label class="form-label" for="{{ rp }}Repeat">Repeats</label>
   <select class="form-input is-compact" id="{{ rp }}Repeat">
     <option value="none">Doesn’t repeat</option>
+    {%- if rpDaily %}
+    <option value="daily-1">Every day</option>
+    {%- endif %}
     <option value="weekly-1">Every week</option>
     <option value="weekly-2">Every 2 weeks</option>
     <option value="monthly-1">Every month</option>
@@ -14,6 +17,7 @@
     <span>Every</span>
     <input class="form-input is-compact" id="{{ rp }}Interval" type="number" min="1" max="12" value="3" aria-label="Repeat every">
     <select class="form-input is-compact" id="{{ rp }}Unit" aria-label="Unit">
+      {%- if rpDaily %}<option value="daily">days</option>{% endif %}
       <option value="weekly">weeks</option>
       <option value="monthly">months</option>
     </select>

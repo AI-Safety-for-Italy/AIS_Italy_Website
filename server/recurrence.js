@@ -1,10 +1,12 @@
 // Recurring meetings.
 //
-// A poll may say its meeting repeats: { freq: 'weekly' | 'monthly',
-// interval: 1-12, until: 'YYYY-MM-DD' | null, count: 1-200 | null }. People
-// vote for the first occurrence; once the time is chosen the series follows
-// it — the same weekday every `interval` weeks, or the same weekday position
-// in the month ("2nd Tuesday", "last Tuesday") every `interval` months.
+// A poll (or an event of the calendar, server/calendars.js) may say it
+// repeats: { freq: 'daily' | 'weekly' | 'monthly', interval: 1-12,
+// until: 'YYYY-MM-DD' | null, count: 1-200 | null }. People vote for the
+// first occurrence; once the time is chosen the series follows it — every
+// `interval` days, the same weekday every `interval` weeks, or the same
+// weekday position in the month ("2nd Tuesday", "last Tuesday") every
+// `interval` months.
 //
 // The calendar invitation then carries an RRULE, and its times are written in
 // the poll's time zone with a matching VTIMEZONE, so the meeting stays at the
@@ -13,19 +15,27 @@
 const { HttpError } = require('./http');
 
 const DAYS = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
+const FREQS = ['daily', 'weekly', 'monthly'];
 
-/** The validated recurrence from a request body, or null for none. */
-function validate(value) {
+/**
+ * The validated recurrence from a request body, or null for none. Daily
+ * repeats only with `daily` (the calendar's events; polls repeat weekly or
+ * monthly).
+ */
+function validate(value, { daily = false } = {}) {
   if (!value || !value.freq || value.freq === 'none') return null;
-  if (!['weekly', 'monthly'].includes(value.freq)) {
-    throw new HttpError(400, 'A meeting repeats weekly or monthly');
+  if (!FREQS.includes(value.freq) || (value.freq === 'daily' && !daily)) {
+    throw new HttpError(
+      400,
+      daily ? 'It repeats daily, weekly or monthly' : 'A meeting repeats weekly or monthly'
+    );
   }
   const interval =
     value.interval === undefined || value.interval === null || value.interval === ''
       ? 1
       : Number(value.interval);
   if (!Number.isInteger(interval) || interval < 1 || interval > 12) {
-    throw new HttpError(400, 'Repeat every 1 to 12 weeks or months');
+    throw new HttpError(400, `Repeat every 1 to 12 ${daily ? 'days, ' : ''}weeks or months`);
   }
   let until = null;
   let count = null;
@@ -102,9 +112,10 @@ function weekOfMonth(day) {
 function rrule(rec, start, tz) {
   const w = wall(new Date(start), tz);
   const day = DAYS[w.weekday];
-  const parts = [`FREQ=${rec.freq === 'weekly' ? 'WEEKLY' : 'MONTHLY'}`];
+  const parts = [`FREQ=${rec.freq.toUpperCase()}`];
   if (rec.interval > 1) parts.push(`INTERVAL=${rec.interval}`);
-  parts.push(rec.freq === 'weekly' ? `BYDAY=${day}` : `BYDAY=${weekOfMonth(w.d)}${day}`);
+  if (rec.freq === 'weekly') parts.push(`BYDAY=${day}`);
+  else if (rec.freq === 'monthly') parts.push(`BYDAY=${weekOfMonth(w.d)}${day}`);
   if (rec.until) {
     // The whole end day counts: up to its last second in the meeting's zone.
     const [y, m, d] = rec.until.split('-').map(Number);
@@ -213,6 +224,9 @@ const IT_ORD = { 1: 'primo', 2: 'secondo', 3: 'terzo', 4: 'quarto', '-1': 'ultim
 function describeIt(rec, start, tz) {
   const w = wall(new Date(start), tz);
   const day = IT_DAYS[w.weekday];
+  if (rec.freq === 'daily') {
+    return rec.interval === 1 ? 'ogni giorno' : `ogni ${rec.interval} giorni`;
+  }
   if (rec.freq === 'weekly') {
     return rec.interval === 1 ? `ogni ${day}` : `ogni ${rec.interval} settimane, il ${day}`;
   }
@@ -237,7 +251,10 @@ function describeEndIt(rec) {
 }
 
 module.exports = {
+  FREQS,
   validate,
+  wall,
+  weekOfMonth,
   rrule,
   vtimezone,
   localStamp,

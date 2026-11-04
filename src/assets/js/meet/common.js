@@ -488,7 +488,15 @@
     var n = rec.interval || 1;
     var day = start ? fmt(start, tz, { weekday: 'long' }) : '';
     var text;
-    if (rec.freq === 'weekly') {
+    if (rec.freq === 'daily') {
+      text = it
+        ? n === 1
+          ? 'Ogni giorno'
+          : 'Ogni ' + n + ' giorni'
+        : n === 1
+        ? 'Every day'
+        : 'Every ' + n + ' days';
+    } else if (rec.freq === 'weekly') {
       if (it) {
         text = n === 1 ? (day ? 'Ogni ' + day : 'Ogni settimana') : 'Ogni ' + n + ' settimane';
         if (day && n > 1) text += ', il ' + day;
@@ -568,7 +576,7 @@
       set: function (rec) {
         var preset = rec && rec.freq + '-' + rec.interval;
         if (!rec) el('Repeat').value = 'none';
-        else if (['weekly-1', 'weekly-2', 'monthly-1'].indexOf(preset) !== -1) {
+        else if (el('Repeat').querySelector('option[value="' + preset + '"]')) {
           el('Repeat').value = preset;
         } else {
           el('Repeat').value = 'custom';

@@ -97,6 +97,12 @@ function serveStatic(req, res) {
 
 const server = http.createServer((req, res) => {
   const { pathname } = new URL(req.url, 'http://localhost');
+  // The calendar's .ics addresses, rewritten by vercel.json on the site.
+  const feed = pathname.match(/^\/calendar\/(feed\/)?([\w-]+)\.ics$/);
+  if (feed) {
+    req.url = `/api/calendar?${feed[1] ? 'feed' : 'public'}=${feed[2]}`;
+    return require(path.join(ROOT, 'api', 'calendar.js'))(req, res);
+  }
   if (pathname.startsWith('/api/')) {
     // /api/app/* is one function on Vercel (api/app.js routes inside it).
     const route = pathname.startsWith('/api/app/') ? '/api/app' : pathname.replace(/\/$/, '');
