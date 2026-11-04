@@ -1114,6 +1114,7 @@ async function feedRows(calendarIds) {
  * stale). Null for a token that does not exist.
  */
 async function personalFeed(token) {
+  await ensureContentBackfill();
   if (typeof token !== 'string' || !/^[\w-]{20,64}$/.test(token)) return null;
   const { rows } = await db.query(
     `select p.*, u.id as uid, u.kind, u.name from calendar_prefs p
@@ -1135,6 +1136,7 @@ async function personalFeed(token) {
 
 /** The public calendars, for /calendar/ on the site. */
 async function publicCalendars() {
+  await ensureContentBackfill();
   const { rows } = await db.query(
     `select * from calendars where is_public and archived_at is null
      order by case system_key when 'seminars' then 0 when 'events' then 1 else 2 end, lower(name)`
@@ -1149,6 +1151,7 @@ async function publicCalendars() {
 
 /** One public calendar by its slug, with its events for the feed: null if none. */
 async function publicFeed(slug) {
+  await ensureContentBackfill();
   if (typeof slug !== 'string' || !/^[a-z0-9-]{1,60}$/.test(slug)) return null;
   const { rows } = await db.query(
     'select * from calendars where slug = $1 and is_public and archived_at is null',
@@ -1160,6 +1163,7 @@ async function publicFeed(slug) {
 
 /** The public calendars' occurrences in a range, for the site's page. */
 async function publicEvents(query) {
+  await ensureContentBackfill();
   const { from, to } = range(query);
   const { rows: cals } = await db.query(
     'select * from calendars where is_public and archived_at is null'
@@ -1297,7 +1301,11 @@ async function syncFromContent(itemId) {
   });
 }
 
-/** Once per process: the site's items from before the calendar get their copies. */
+/**
+ * Once per database: the site's items from before the calendar get their
+ * copies. Asked by every read of the calendar, the public ones too, so the
+ * feeds are full before anyone opens the dashboard.
+ */
 let backfilled = false;
 async function ensureContentBackfill() {
   if (backfilled) return;

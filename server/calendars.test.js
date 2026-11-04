@@ -448,3 +448,23 @@ test("the server's members and roles are searched only by who gives access to a 
   });
   assert.equal(await calendars.sharesCalendars(manager), true);
 });
+
+test("the site's items from before the calendar are in the public feeds at the first read", async () => {
+  const day = iso(IN_A_WEEK).slice(0, 10);
+  await content.importEntries([
+    {
+      category: 'seminar',
+      anchor: 'old-seminar',
+      day,
+      time: '18:30',
+      title: 'Old seminar',
+      title_it: 'Vecchio',
+    },
+  ]);
+  // As before the calendar existed: no copy, no marker.
+  await db.query("delete from calendar_events where source = 'content'");
+  await db.query("delete from app_settings where key = 'migration_calendar_content'");
+  calendars.resetBackfill();
+  const data = await calendars.publicFeed('seminars');
+  assert.match(feed.build(data), /SUMMARY:Old seminar/);
+});
