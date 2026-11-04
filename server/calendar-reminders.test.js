@@ -229,3 +229,66 @@ test("a poll's chosen time lands in the calendar chosen, and leaves it when chan
   ({ events } = await calendars.listEvents(maker, range));
   assert.equal(events.length, 0);
 });
+
+test('every text channel is listed, private ones the bot is not in greyed out', async () => {
+  const discord = require('./calendar-discord');
+  discord.reset();
+  const G = '111111111';
+  const VIEW = String(1 << 10);
+  const SEND = String(1 << 11);
+  const answers = {
+    [`/guilds/${G}/channels`]: [
+      { id: 'cat-team', type: 4, name: 'Team', position: 1 },
+      { id: 'cat-open', type: 4, name: 'Community', position: 0 },
+      { id: '201', type: 0, name: 'general', position: 0, parent_id: 'cat-open' },
+      {
+        id: '202',
+        type: 0,
+        name: 'board',
+        position: 0,
+        parent_id: 'cat-team',
+        permission_overwrites: [{ id: G, type: 0, deny: VIEW, allow: '0' }],
+      },
+      {
+        id: '203',
+        type: 0,
+        name: 'organizers',
+        position: 1,
+        parent_id: 'cat-team',
+        permission_overwrites: [
+          { id: G, type: 0, deny: VIEW, allow: '0' },
+          { id: 'r-bot', type: 0, deny: '0', allow: String((1 << 10) | (1 << 11)) },
+        ],
+      },
+      { id: '301', type: 2, name: 'Voice', position: 2, parent_id: 'cat-open' },
+    ],
+    [`/guilds/${G}/roles`]: [
+      { id: G, permissions: String((1 << 10) | (1 << 11)) },
+      { id: 'r-bot', permissions: SEND },
+    ],
+    '/users/@me': { id: 'bot-1' },
+    [`/guilds/${G}/members/bot-1`]: { roles: ['r-bot'] },
+  };
+  permissions.setFetch(async (url) => {
+    const path = String(url).replace('https://discord.com/api/v10', '');
+    return {
+      ok: path in answers,
+      status: path in answers ? 200 : 404,
+      json: async () => answers[path],
+    };
+  });
+  const { text, voice } = await discord.channels();
+  assert.deepEqual(
+    text.map((c) => [c.category, c.name, c.canPost]),
+    [
+      ['Community', 'general', true],
+      ['Team', 'board', false],
+      ['Team', 'organizers', true],
+    ]
+  );
+  assert.deepEqual(
+    voice.map((c) => c.name),
+    ['Voice']
+  );
+  discord.reset();
+});

@@ -1178,9 +1178,7 @@
         )
           list.unshift({ id: current, name: name || current });
         if (!list.length) f.voice.appendChild(h('option', { value: '' }, 'No voice channel found'));
-        list.forEach(function (v) {
-          f.voice.appendChild(h('option', { value: v.id }, '🔊 ' + v.name));
-        });
+        Cal.channelOptions(f.voice, list, current, '🔊 ');
         if (current) f.voice.value = current;
       })
       .catch(function () {

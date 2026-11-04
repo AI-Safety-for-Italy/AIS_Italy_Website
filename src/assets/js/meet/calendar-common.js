@@ -413,6 +413,13 @@
       if (!list.length) {
         box.appendChild(h('p', { class: 'cal-rows-none' }, 'No channel yet.'));
       }
+      if (
+        text.some(function (c) {
+          return !c.canPost;
+        })
+      ) {
+        box.appendChild(privateHint());
+      }
       list.forEach(function (item) {
         var select = h('select', { class: 'form-input is-compact', 'aria-label': 'Channel' });
         var known = text.some(function (c) {
@@ -420,11 +427,7 @@
         });
         if (!known && item.channelId)
           select.appendChild(h('option', { value: item.channelId }, '#' + item.name));
-        text.forEach(function (c) {
-          var o = h('option', { value: c.id }, '#' + c.name);
-          if (c.id === item.channelId) o.selected = true;
-          select.appendChild(o);
-        });
+        channelOptions(select, text, item.channelId);
         select.addEventListener('change', function () {
           var c = text.find(function (x) {
             return x.id === select.value;
@@ -492,7 +495,7 @@
           return c.channelId;
         });
         var free = text.find(function (c) {
-          return taken.indexOf(c.id) === -1;
+          return c.canPost && taken.indexOf(c.id) === -1;
         });
         if (!free) {
           M.toast(
@@ -508,6 +511,46 @@
         changed();
       },
     };
+  }
+
+  /**
+   * The channels as options, under their categories: those where the bot
+   * cannot write are shown, greyed out, so a private channel is not a mystery.
+   */
+  function channelOptions(select, list, current, prefix) {
+    var groups = {};
+    var order = [];
+    list.forEach(function (c) {
+      var key = c.category || '';
+      if (!groups[key]) {
+        groups[key] = [];
+        order.push(key);
+      }
+      groups[key].push(c);
+    });
+    order.forEach(function (key) {
+      var parent = key ? h('optgroup', { label: key }) : select;
+      groups[key].forEach(function (c) {
+        var blocked = c.canPost === false;
+        var o = h(
+          'option',
+          { value: c.id, disabled: blocked && c.id !== current },
+          (prefix || '#') + c.name + (blocked ? ' · the bot can’t write here' : '')
+        );
+        if (c.id === current) o.selected = true;
+        parent.appendChild(o);
+      });
+      if (parent !== select) select.appendChild(parent);
+    });
+  }
+
+  /** Why a private channel is greyed out, and what to change on Discord. */
+  function privateHint() {
+    return h(
+      'p',
+      { class: 'form-note cal-private-hint' },
+      'A channel greyed out is private and the AIS bot is not in it. On Discord, open the channel (or its category) → Edit → Permissions → add the bot’s role, with “View Channel” and “Send Messages”. It shows here within 5 minutes.'
+    );
   }
 
   /** "#general · 1 day, 1 h" for a list of announcements. */
@@ -534,5 +577,6 @@
     accessLevel: accessLevel,
     announceRows: announceRows,
     announceSummary: announceSummary,
+    channelOptions: channelOptions,
   };
 })();
