@@ -98,4 +98,29 @@ async function recent({ subjectKey = null, limit = 50 } = {}) {
   }));
 }
 
-module.exports = { ACTIONS, record, recent };
+/**
+ * A member's history on the members board, newest first: the lines about
+ * them (subject_key one of `subjects`: their id, their applications' ids),
+ * and those of changes to several people at once that named them
+ * (detail.members). Views left out.
+ */
+async function forMember(memberId, subjects = [], { limit = 100 } = {}) {
+  const { rows } = await db.query(
+    `select id, at, user_name, action, subject_key, detail from crm_audit
+     where (subject_key = any($1::text[])
+            or (jsonb_typeof(detail->'members') = 'array'
+                and jsonb_exists(detail->'members', $2)))
+       and coalesce(detail->>'action', '') <> 'view'
+     order by id desc limit $3`,
+    [[memberId, ...subjects], memberId, Math.min(Math.max(Number(limit) || 100, 1), 500)]
+  );
+  return rows.map((r) => ({
+    id: Number(r.id),
+    at: r.at,
+    userName: r.user_name,
+    action: r.action,
+    detail: r.detail,
+  }));
+}
+
+module.exports = { ACTIONS, record, recent, forMember };

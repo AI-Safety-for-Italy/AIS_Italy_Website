@@ -445,60 +445,109 @@ they already hold through their Discord roles as yellow, locked switches
 everyone's roles again from Discord (`refreshPeopleRoles`), so a role taken
 away there no longer shows as held.
 
-**The members board, in three questions.** A bar on top of its tabs
-(Members, Working groups, Discord; `status` in `server/community.js`,
-`community-status.js`) says where things stand, each with one action:
+**The members board: the database says, Discord and the website follow.**
+Every change on the board is saved in the database at once, and only there.
+Discord and the website are two places that follow the board when someone
+says so, and a bar on top of every tab (`community-common.js`, `status` in
+`server/community.js`) says where each stands: _Database_ (always saved),
+_Discord_ (changes to apply, things to decide, accounts to link) and
+_Website_ (changes not online yet, the last update's build). Before
+anything leaves the database a dialog lists what changes, and where.
 
-1. _Discord accounts_: how many members are linked to their Discord account,
-   and "Link the N →" to the Discord tab for the others.
-2. _Discord roles_: the role (Participant or Organizer: the Partecipante /
-   Organizzatore roles of `DISCORD_ROLE_PARTICIPANT` / `DISCORD_ROLE_ORGANIZER`)
-   and the tags here are what Discord should have; "Give the roles" gives the
-   missing ones (`sendTags`, 15 per call), none taken away. A member with the
-   other one of the two there is settled on the Discord tab (`resolveMainRole`),
-   and so are people on the server with neither role who are not on the board
-   (`settleNoRole`: given Participant or Organizer and put on the board,
-   one by one or all at once, or left as they are).
-   **Nothing else changes Discord**, with one exception: importing, linking,
-   changing the tags of several people at once and naming coordinators only
-   change the board (approving an application still puts the person on the
-   server with their role). The exception is one member's role and working
-   groups set by hand from their card on Members (`setMemberGroups`): saving
-   gives the roles of the groups added and takes away those of the groups
-   left, and gives the role chosen (Organizzatore taken from someone made a
-   participant), at once; and so does making several picked people
-   participants or organizers (`setRoles`), or the sync of the triage on the Discord tab (`syncDiscord`). Whoever is made an organizer
-   any of these ways has their waiting request to become one (Applications,
-   an upgrade) approved with it (`upgradeSettled`), so Applications, the board
-   and Discord say the same; approving an application or an upgrade puts the
-   role on the board and on Discord in turn. Roles there without a tag,
-   and accounts gone from the server, are reviewed on the Discord tab.
-3. _Website_: how many changes the Community page does not show yet, and
-   "Update the website" (the public directory: consented members, their
-   public fields, the groups).
+- **Discord** (`discordPlan`): the board is compared with the server each
+  time, so there is no list of changes to keep in step. _Changes to apply_
+  are the roles of the members' groups and of their role (Partecipante /
+  Organizzatore, `DISCORD_ROLE_PARTICIPANT` / `DISCORD_ROLE_ORGANIZER`) that
+  are missing there, and those the board took away (`discord_removals`: out
+  of a group, made a participant) or that belonged to a group removed or
+  given another role (`discord_retired_roles`). They change on Discord only
+  when applied (`applyDiscord`, 15 a call, each checked against Discord
+  again just before), from the Discord tab or from a member's page. _To
+  decide_ is what Discord has that the board does not say (a group's role
+  given by hand, Organizzatore on a participant): adopted here, queued to
+  take off, or left (`decideDiscord`). Choices to leave something as it is
+  (`member_role_ok`, `member_main_role_ok`, `discord_no_role_ok`) are listed
+  under _Left as they are_, and can be undone (`unignore`). People on the
+  server with neither role and not on the board can be added (their role
+  then waits to be applied) or left. Accounts gone from the server are
+  unlinked here. **Only two automatic flows change Discord at once**:
+  joining with the invite link (`completeJoin`) and an approved upgrade
+  (`decideUpgrade`), which give the roles they were approved with; they
+  are on the member's history. Whoever is made an organizer on the board has
+  their waiting upgrade request approved with it (`upgradeSettled`).
+- **Website**: "Update the website" (Website tab) stores what the site may
+  show (consented members, their public fields, the groups) and starts a
+  build. The tab lists, name by name, what the next update changes
+  (`siteState().diff`); each member's row and page say whether they are
+  online as they are here.
+- **A member's page** (`/app/members/member/?id=`, `memberDetail`): their
+  details and consent, role and groups (coordinators too) in one form; their
+  Discord account (linked from there: suggestions by name, a search, or "not
+  on Discord") and what waits there for them; their card on the website;
+  what they answered (their applications and upgrades, read from
+  `member_applications`, and the old sheet's rows, `member_sources`); their
+  history from the audit trail (`audit.forMember`: lines about them, and
+  changes to several people that named them in `detail.members`). Under each
+  field, where its value came from (`field_sources`).
+- **Data from several places, one set of rules** (`server/member-merge.js`):
+  the old sheet, applications, upgrades, Discord and the board each record
+  where every field came from and when (`field_sources`). A later source
+  fills empty fields and takes newer answers; what was set on the board is
+  never overwritten on its own (an import shows it as a conflict, to keep or
+  take; an application keeps the board's); the role is never lowered;
+  groups are only added; a Discord account is only filled, never replaced;
+  consent goes by the latest statement. Importing the old sheet is
+  previewed as a merge report (new, completed, to decide, unchanged,
+  possible duplicate: a name alone never merges on its own) and then applied
+  in one transaction, exactly as previewed; the sheet's rows are kept on the
+  member (encrypted, by their hash, so the same sheet again adds nothing).
+  Matching to Discord before storing: by email (they signed in here with
+  Discord), else by name (the sheet's name, letter for letter, is one
+  account's nickname, display name or username and no other's; it needs the
+  bot to read the server's list, the Server Members intent, and the preview
+  says why when it cannot).
+
+**A member's life on the board.**
+
+- _Offboarding_ (`offboard`, a member's page) is for someone who left. They
+  stay as a record, with a note of why, and are hidden from the website at
+  once. Every role the board gives them is listed on the Discord tab to take
+  off (reason `archived`). _Restore_ makes them a member again, and approving
+  a new application of theirs does too. The Members tab shows offboarded
+  people under their own filter.
+- _Possible duplicates_ (`duplicates`): members with the same name, ignoring
+  accents, case and word order. They show under their own filter and on each
+  one's page.
+  - _Merge_ (`mergeMembers`) keeps one record and fills its gaps from the
+    other. It takes the higher role, every group, and the Discord account and
+    email key if missing. The kept answers, notes and choices move over. The
+    other record is removed, and its history is read under the kept one
+    (`merged_ids`).
+  - _Not the same person_ (`member_not_duplicates`) stops offering the pair.
+- _Notes_ (`member_notes`) are for the team only. They are encrypted, and
+  removed only by their author.
+- _Erase all their data_ (`eraseMember`, typing their name to confirm) is for
+  a request to be forgotten. It deletes their record, groups, notes, kept
+  answers, their applications and the form answers those came from. The
+  audit trail keeps that it happened, never who. Discord is not touched:
+  offboard and apply first to take their roles off.
+- _The daily Discord check_ (`driftCheck`, `/api/cron/discord-check`,
+  `.github/workflows/discord-check.yml`, with the same `CRON_SECRET` as the
+  cleanup) compares the board with the server. It tells whoever follows the
+  board (topic `community`: "Notify me" on the Discord tab, or Settings) what
+  changed there by hand: roles given or kept by hand, accounts gone, newcomers
+  with no role. It sends counts only, and tells each thing once
+  (`community_drift_seen`).
 
 **Export CSV** (Members tab) downloads every member, one row each: name,
 role, working groups and those they coordinate, place, areas, profile,
 consent, their Discord account, source and join date (`exportCsv`, written
 on the audit trail; cells starting like a formula kept as text).
 
-**Importing the old sheet** matches each person to Discord before anything
-is stored, as the preview shows: by email (they signed in here with
-Discord), else by name (the sheet's name, letter for letter, is the
-nickname, display name or username of one account on the server and of no
-other, nor anyone else's; it needs the bot to read the server's list, the
-Server Members intent, and the preview says why when it cannot).
-
-**Discord tab** (Members → Board → Discord): _To link_ lists the members not
-linked yet, each with the server's accounts that may be them (the bot's
-member search by full name, then each word; best match first; "That's them"
-links), a manual search, and "Not on Discord" (with a note). The one place
-where who is who is set; who they are there (username, display name) is
-kept, encrypted. _Roles that differ from the tags_ lists, for those linked,
-a working group's role without the tag, a tag whose role was left out, and
-accounts gone from the server: each settled either way or left as it is
-(`member_role_ok`, not listed again). Without the bot (a developer's
-machine) nothing reaches Discord, and the bar and the tab say so.
+**Locally**, `MEET_DEV_DISCORD=1 npm run dev:meet` puts a stand-in Discord
+server with invented people behind the bot (`scripts/dev-discord.js`), so
+the Discord tab can be tried; without it nothing reaches Discord, and the
+bar and the tab say so.
 
 **The sidebar's groups.** Tools that belong together are listed under one
 entry that opens on them (`group` and `navLabel` in `src/data/tools.js`,
@@ -513,34 +562,38 @@ no empty tool). Its page has a box per part (`sections` in `tools.js`),
 each shown to who holds that part's key, with its own faces; each list
 (`?type=` on the API) is refused to who may not publish that kind.
 
-| Where                         | What                                                                                                             |
-| ----------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `/app/members/`               | Applications: approve with a role and the working groups as tags                                                 |
-| `/app/members/people/`        | Members: tags in bulk (add, remove, move), one member's groups (on Discord at once), details, CSV export, import |
-| `/app/members/groups/`        | Working groups: names, descriptions, order, the Discord role of each                                             |
-| `/app/organizer/`             | A participant asks to become an organizer (an upgrade on the board)                                              |
-| `server/community.js`         | Groups, members, tags, Discord roles, the import, publishing                                                     |
-| `server/community-build.js`   | What the site's build takes: the published copy, or the YAML                                                     |
-| `/api/content?part=community` | The published copy, for the build (public, consented members only)                                               |
+| Where                         | What                                                                                                           |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `/app/members/`               | Applications: approve with a role and the working groups as tags                                               |
+| `/app/members/people/`        | Members: filters (needs attention, role, group, Discord, website, source), changes in bulk, CSV export, import |
+| `/app/members/member/?id=`    | A member's page: details, role and groups, Discord, website, answers, history                                  |
+| `/app/members/groups/`        | Working groups: names, descriptions, order, the Discord role of each, coordinators                             |
+| `/app/members/discord/`       | Discord: changes to apply, what to decide, accounts to link, people with no role, choices to undo              |
+| `/app/members/site/`          | Website: what the next update changes, and updating it                                                         |
+| `/app/organizer/`             | A participant asks to become an organizer (an upgrade on the board)                                            |
+| `server/community.js`         | Groups, members, tags, the Discord plan, the import, publishing                                                |
+| `server/member-merge.js`      | The rules for data arriving from several places                                                                |
+| `server/community-build.js`   | What the site's build takes: the published copy, or the YAML                                                   |
+| `/api/content?part=community` | The published copy, for the build (public, consented members only)                                             |
 
 - **Working groups are tags.** Each is a Discord role (`work_groups`, the
-  eight first ones seeded with their role ids). Being in a group gives its role
-  on Discord, leaving it takes it away; here it opens nothing. A new group
+  eight first ones seeded with their role ids). Being in a group means its role
+  on Discord, leaving it means taking it off, once applied; here it opens nothing. A new group
   needs its role made on Discord first (and the bot's role above it). The
   sign-up form's group questions take their options from this table
   (`optionsFrom: 'work_groups'`), so the form follows the groups.
-- **Coordinators.** Chosen on Working groups only (each group's card: add,
-  take back). Forms no longer ask who would coordinate; the old sheet's
+- **Coordinators.** Chosen on Working groups (each group's card: add, take
+  back) or on a member's page. Forms no longer ask who would coordinate; the old sheet's
   "Coordinamento", older forms' answers, applications and Members' tags all
   mean taking part. Once on each database, the coordination declared before
   became taking part (`migration_coordinators`). Stable participation gives
   the tag (occasional does not).
 - **Members** (`community_members`, `member_groups`): someone approved on the
   board joins the list when they enter Discord, with their tags and their
-  consent to be shown; the old sheet is imported once (CSV, preview first,
-  the rules of `update-members.py`), matching people to their Discord account
-  by the email of a sign-in here. Details are encrypted like an application's.
-- **The site changes only on "Update the website"** (the bar on top). That stores a copy of
+  consent to be shown; the old sheet is imported (CSV, previewed as a merge,
+  the rules of `update-members.py`), as many times as needed. Details are
+  encrypted like an application's.
+- **The site changes only on "Update the website"** (the Website tab). That stores a copy of
   what the site may show (consented members, their public fields, the groups)
   and starts a build; another build (a seminar) shows the same copy. Never
   published, the YAML stays the site; "Back to the old directory" undoes it.

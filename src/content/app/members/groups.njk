@@ -1,23 +1,23 @@
 ---
 title: Working groups
-# The community's working groups (server/community.js): names, descriptions,
-# order and the Discord role of each. On Discord they are roles, here only
-# tags. The site shows them once published. Needs `community`.
+# The working groups (server/community.js): names, order, Discord role,
+# coordinators. Needs `community`.
 permalink: /app/members/groups/
 tool: community
 tab: groups
+wide: true
 noindex: true
 excludeFromSitemap: true
 eleventyExcludeFromCollections: true
-seoTitle: 'Working groups | AI Safety for Italy'
+seoTitle: 'Working groups | Members board | AI Safety for Italy'
 ---
 {% extends "app.njk" %}
 {% block page %}
-    <div class="panel members-status" id="membersStatus" hidden></div>
+    <nav class="mb-sync" id="boardSync" aria-label="Where the board stands" hidden></nav>
     <div id="groupsView"></div>
 
 <script src="/assets/js/meet/common.js?v={{ build }}" defer></script>
 <script src="/assets/js/meet/app-common.js?v={{ build }}" defer></script>
-<script src="/assets/js/meet/community-status.js?v={{ build }}" defer></script>
+<script src="/assets/js/meet/community-common.js?v={{ build }}" defer></script>
 <script src="/assets/js/meet/community-groups.js?v={{ build }}" defer></script>
 {% endblock %}

@@ -601,6 +601,74 @@ begin
   end if;
 end $$;
 
+-- Where each of a member's fields last came from ({ field: { source, at } },
+-- server/member-merge.js): an import or an application fills gaps and newer
+-- answers, never what the board set.
+alter table community_members add column if not exists field_sources jsonb not null default '{}';
+
+-- What a member came from, kept as it was: the old sheet's rows, encrypted and
+-- bound to theirs. Keyed by the row's hash: the same sheet again adds nothing.
+-- (Applications are read from member_applications, not copied.)
+create table if not exists member_sources (
+  id uuid primary key,
+  member_id uuid not null references community_members(id) on delete cascade,
+  kind text not null check (kind in ('sheet')),
+  ref text not null,
+  answers_encrypted text not null,
+  received_at timestamptz,
+  created_at timestamptz not null default now(),
+  unique (member_id, kind, ref)
+);
+
+-- A role the board took away from a member (out of a group, made a
+-- participant): to take off on Discord when the team applies the changes.
+-- Gone once taken off, or when the tag is back.
+create table if not exists discord_removals (
+  member_id uuid not null references community_members(id) on delete cascade,
+  role_id text not null,
+  created_at timestamptz not null default now(),
+  primary key (member_id, role_id)
+);
+
+-- The Discord role of a working group removed, or given another role: whoever
+-- still holds it there is listed, to take it off.
+create table if not exists discord_retired_roles (
+  role_id text primary key,
+  group_id text not null,
+  title text not null,
+  retired_at timestamptz not null default now()
+);
+
+-- A member who left the association (offboarded): kept as a record, off the
+-- website, every role of theirs on Discord listed to take off. Restored, they
+-- are a member again. archive_note says why, encrypted with their details.
+alter table community_members add column if not exists archived_at timestamptz;
+alter table community_members add column if not exists archive_note_encrypted text;
+
+-- The members merged into this one (two records of the same person): their
+-- history stays theirs on the audit trail, so it is read under these ids too.
+alter table community_members add column if not exists merged_ids text[] not null default '{}';
+
+-- Two members of the same name the team said are not the same person: not
+-- offered for merging again. a < b.
+create table if not exists member_not_duplicates (
+  a uuid not null references community_members(id) on delete cascade,
+  b uuid not null references community_members(id) on delete cascade,
+  primary key (a, b)
+);
+
+-- The team's notes about a member, for the team only: encrypted, bound to the
+-- note. Only their author removes them; they go with the member.
+create table if not exists member_notes (
+  id uuid primary key,
+  member_id uuid not null references community_members(id) on delete cascade,
+  author_id uuid,
+  author_name text not null,
+  body_encrypted text not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists member_notes_member on member_notes (member_id, created_at);
+
 -- The local groups (server/local-groups.js): one per city, on their own board
 -- (local_groups). Who leads each, their contacts, the WhatsApp link and the
 -- notes are encrypted, bound to the row (details_encrypted, null until set).

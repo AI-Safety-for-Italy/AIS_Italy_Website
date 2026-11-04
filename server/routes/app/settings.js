@@ -1,6 +1,7 @@
 // /api/app/settings
 //   GET                         -> { profile, discordBot, mail: { configured, smtp? },
-//                                    follows: { members: { canFollow, following }, forms, polls } }
+//                                    follows: { members: { canFollow, following },
+//                                               community: { canFollow, following }, forms, polls } }
 //                                  (smtp only for the admin)
 //   PATCH { notifyChannel, notifyEmail }  -> the user's own notification choices
 //   PUT   { host, port, user, password, fromEmail, fromName, formsEmail }  -> SMTP (admin)
@@ -14,13 +15,21 @@ const follows = require('../../follows');
 const forms = require('../../forms/forms');
 const polls = require('../../polls');
 
-/** What this user follows, and could: the member applications, the forms they read. */
+/**
+ * What this user follows, and could: the member applications, the members
+ * board's daily Discord check, the forms they read.
+ */
 async function followsOf(user) {
-  if (user.kind !== 'discord')
-    return { members: { canFollow: false, following: false }, forms: [], polls: [] };
-  const canFollow = (await permissions.forUser(user)).includes('members');
+  const none = { canFollow: false, following: false };
+  if (user.kind !== 'discord') return { members: none, community: none, forms: [], polls: [] };
+  const perms = await permissions.forUser(user);
+  const topic = async (key) => {
+    const canFollow = perms.includes(key);
+    return { canFollow, following: canFollow && (await follows.isFollowing(user.id, key)) };
+  };
   return {
-    members: { canFollow, following: canFollow && (await follows.isFollowing(user.id, 'members')) },
+    members: await topic('members'),
+    community: await topic('community'),
     forms: await forms.followable(user),
     polls: await polls.followable(user),
   };

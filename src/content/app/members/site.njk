@@ -1,0 +1,23 @@
+---
+title: Website
+# What the website's Community page shows against the board, and updating
+# it (server/community.js, publishSite). Needs `community`.
+permalink: /app/members/site/
+tool: community
+tab: site
+wide: true
+noindex: true
+excludeFromSitemap: true
+eleventyExcludeFromCollections: true
+seoTitle: 'Website | Members board | AI Safety for Italy'
+---
+{% extends "app.njk" %}
+{% block page %}
+    <nav class="mb-sync" id="boardSync" aria-label="Where the board stands" hidden></nav>
+    <div id="siteView"></div>
+
+<script src="/assets/js/meet/common.js?v={{ build }}" defer></script>
+<script src="/assets/js/meet/app-common.js?v={{ build }}" defer></script>
+<script src="/assets/js/meet/community-common.js?v={{ build }}" defer></script>
+<script src="/assets/js/meet/community-site.js?v={{ build }}" defer></script>
+{% endblock %}

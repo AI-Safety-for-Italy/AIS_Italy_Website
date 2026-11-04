@@ -1,7 +1,7 @@
 ---
 title: Discord
-# Linking the community's members to their Discord accounts, and their roles
-# there against their tags here (server/community.js). Needs `community`.
+# The board against the Discord server (server/community.js, discordPlan):
+# changes to apply, what to decide, accounts to link. Needs `community`.
 permalink: /app/members/discord/
 tool: community
 tab: discord
@@ -13,11 +13,11 @@ seoTitle: 'Discord | Members board | AI Safety for Italy'
 ---
 {% extends "app.njk" %}
 {% block page %}
-    <div class="panel members-status" id="membersStatus" hidden></div>
+    <nav class="mb-sync" id="boardSync" aria-label="Where the board stands" hidden></nav>
     <div id="discordView"></div>
 
 <script src="/assets/js/meet/common.js?v={{ build }}" defer></script>
 <script src="/assets/js/meet/app-common.js?v={{ build }}" defer></script>
-<script src="/assets/js/meet/community-status.js?v={{ build }}" defer></script>
+<script src="/assets/js/meet/community-common.js?v={{ build }}" defer></script>
 <script src="/assets/js/meet/community-discord.js?v={{ build }}" defer></script>
 {% endblock %}

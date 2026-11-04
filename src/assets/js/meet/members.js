@@ -362,6 +362,24 @@
         return h('p', { class: 'panel-note', style: 'margin:.25rem 0' }, l);
       })
     );
+    // On the members board once in: their page, for whoever may open it.
+    if (a.memberId && data.board) {
+      box.appendChild(
+        h(
+          'a',
+          {
+            class: 'btn btn-outline btn-sm',
+            style: 'margin-top:.75rem',
+            href: '/app/members/member/?id=' + encodeURIComponent(a.memberId),
+          },
+          'Open on the members board'
+        )
+      );
+    } else if (a.memberId) {
+      box.appendChild(
+        h('p', { class: 'panel-note', style: 'margin:.25rem 0' }, 'On the members board.')
+      );
+    }
     if (a.status === 'approved' && !a.joinedAt) {
       var again = h(
         'button',
