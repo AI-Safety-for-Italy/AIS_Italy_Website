@@ -2,9 +2,11 @@
 // event can take place in, the text channels it can be announced in, and the
 // announcement itself, all through the AIS bot (permissions.bot).
 //
-// Only the text channels where the bot may both see and write are offered:
-// worked out from the server's roles and each channel's overwrites, the way
-// Discord does. A developer machine without the bot gets stand-ins, and the
+// Every text channel is listed, each saying whether the bot may both see and
+// write there (canPost), worked out from the server's roles and each
+// channel's overwrites the way Discord does: in a private channel the bot
+// writes only once its role is added to the channel or to its category, on
+// Discord. Each says its category too, to tell them apart. A developer machine without the bot gets stand-ins, and the
 // announcements are printed in the terminal.
 
 const permissions = require('./permissions');
@@ -20,13 +22,13 @@ const VOICE = [2, 13]; // voice, stage
 
 const DEV_CHANNELS = {
   text: [
-    { id: 'dev-general', name: 'general' },
-    { id: 'dev-announcements', name: 'announcements' },
-    { id: 'dev-team', name: 'team' },
+    { id: 'dev-general', name: 'general', category: 'Community', canPost: true },
+    { id: 'dev-announcements', name: 'announcements', category: 'Community', canPost: true },
+    { id: 'dev-team', name: 'team', category: 'Organizzatori', canPost: false },
   ],
   voice: [
-    { id: 'dev-voice', name: 'General voice' },
-    { id: 'dev-stage', name: 'Seminars stage' },
+    { id: 'dev-voice', name: 'General voice', category: 'Community' },
+    { id: 'dev-stage', name: 'Seminars stage', category: 'Community' },
   ],
 };
 
@@ -67,8 +69,31 @@ function allowed(channel, memberRoles, memberId, roles, guildId) {
 }
 
 /**
- * The server's channels for the calendar: { text: [{ id, name }],
- * voice: [{ id, name }] }, text ones only where the bot may write.
+ * The channels as Discord lists them, category by category: [{ id, name,
+ * type, category }] (the category's name, or null), categories left out.
+ */
+function inOrder(list) {
+  const categories = new Map(list.filter((c) => c.type === 4).map((c) => [c.id, c]));
+  const place = (c) => {
+    const cat = c.parent_id && categories.get(c.parent_id);
+    return [cat ? (cat.position || 0) + 1 : 0, c.position || 0];
+  };
+  return list
+    .filter((c) => c.type !== 4)
+    .sort((a, b) => {
+      const [ac, ap] = place(a);
+      const [bc, bp] = place(b);
+      return ac - bc || ap - bp;
+    })
+    .map((c) => {
+      const cat = c.parent_id && categories.get(c.parent_id);
+      return { channel: c, id: c.id, name: c.name, type: c.type, category: cat ? cat.name : null };
+    });
+}
+
+/**
+ * The server's channels for the calendar: { text: [{ id, name, category,
+ * canPost }], voice: [{ id, name, category }] }.
  */
 async function channels() {
   if (!permissions.botConfigured()) {
@@ -92,13 +117,14 @@ async function channels() {
     throw new HttpError(502, `Discord did not list the channels (${list.status})`);
   const member = await permissions.bot(`/guilds/${guild}/members/${me.body.id}`).catch(() => null);
   const botRoles = (member && member.ok && member.body.roles) || [];
-  const sorted = list.body.slice().sort((a, b) => (a.position || 0) - (b.position || 0));
   const can = (c, bits) => (allowed(c, botRoles, me.body.id, roles.body, guild) & bits) === bits;
+  const sorted = inOrder(list.body);
+  const out = (c) => ({ id: c.id, name: c.name, category: c.category });
   const value = {
     text: sorted
-      .filter((c) => TEXT.includes(c.type) && can(c, VIEW_CHANNEL | SEND_MESSAGES))
-      .map((c) => ({ id: c.id, name: c.name })),
-    voice: sorted.filter((c) => VOICE.includes(c.type)).map((c) => ({ id: c.id, name: c.name })),
+      .filter((c) => TEXT.includes(c.type))
+      .map((c) => ({ ...out(c), canPost: can(c.channel, VIEW_CHANNEL | SEND_MESSAGES) })),
+    voice: sorted.filter((c) => VOICE.includes(c.type)).map(out),
   };
   cache = { at: Date.now(), value };
   return value;
@@ -132,4 +158,4 @@ async function post(channelId, content) {
   }
 }
 
-module.exports = { channels, channelLink, post, allowed, reset, DEV_CHANNELS };
+module.exports = { channels, channelLink, post, allowed, inOrder, reset, DEV_CHANNELS };

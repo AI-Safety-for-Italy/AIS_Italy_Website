@@ -13793,3 +13793,15 @@ dialog.cal-editor[open] {
 .cal-sub > .panel {
   margin: 0;
 }
+
+.cal-private-hint {
+  margin: 0;
+  padding: 0.5rem 0.65rem;
+  border-radius: var(--radius-sm);
+  background: var(--warning-light);
+  font-size: 0.8rem;
+}
+
+.cal-preview strong {
+  color: #fff;
+}
