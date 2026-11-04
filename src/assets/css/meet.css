@@ -13793,3 +13793,249 @@ dialog.cal-editor[open] {
 .cal-sub > .panel {
   margin: 0;
 }
+
+/* ── Home: the calendar at a glance (hub-calendar.js) ─────────────────── */
+
+.hub-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 19rem;
+  gap: 28px;
+  align-items: start;
+}
+
+.hub-cal {
+  position: sticky;
+  top: 16px;
+  padding: 14px 16px 16px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius);
+  background: var(--card-bg);
+  box-shadow: var(--shadow-sm);
+}
+
+.hub-cal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 8px;
+}
+
+.hub-cal-head h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.hub-cal-head h3 a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.hub-cal-open {
+  color: var(--accent-700);
+  font-size: 0.8rem;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.hub-cal-open:hover {
+  text-decoration: underline;
+}
+
+.hub-cal-skeleton {
+  height: 260px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-overlay);
+  animation: hub-cal-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes hub-cal-pulse {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.hub-cal-month {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+  font-size: 0.86rem;
+  font-weight: 650;
+}
+
+.hub-cal-nav {
+  display: inline-flex;
+}
+
+.hub-cal-nav button {
+  display: inline-grid;
+  place-items: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.hub-cal-nav button:hover {
+  background: var(--bg-overlay);
+}
+
+.hub-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 1px;
+  text-align: center;
+}
+
+.hub-cal-dow {
+  padding: 2px 0;
+  color: var(--text-tertiary);
+  font-size: 0.66rem;
+  font-weight: 650;
+}
+
+.hub-cal-day {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  color: var(--text-primary);
+  font-size: 0.76rem;
+  font-variant-numeric: tabular-nums;
+  text-decoration: none;
+}
+
+.hub-cal-day:hover {
+  background: var(--bg-overlay);
+}
+
+.hub-cal-day.is-out {
+  color: var(--text-muted);
+}
+
+.hub-cal-day.has-events {
+  font-weight: 700;
+}
+
+.hub-cal-day.is-today {
+  background: var(--accent);
+  color: var(--text-on-accent, #fff);
+}
+
+.hub-cal-dots {
+  position: absolute;
+  bottom: 3px;
+  left: 50%;
+  display: flex;
+  gap: 2px;
+  transform: translateX(-50%);
+}
+
+.hub-cal-dots i {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+}
+
+.hub-cal-day.is-today .hub-cal-dots i {
+  background: #fff !important;
+}
+
+.hub-cal-label {
+  margin: 14px 0 6px;
+  color: var(--text-tertiary);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.hub-cal-list {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hub-cal-ev {
+  display: flex;
+  gap: 9px;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  text-decoration: none;
+}
+
+.hub-cal-ev:hover {
+  background: var(--bg-overlay);
+}
+
+.hub-cal-bar {
+  flex: none;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--cal-color);
+}
+
+.hub-cal-what {
+  min-width: 0;
+}
+
+.hub-cal-what strong,
+.hub-cal-what small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hub-cal-what strong {
+  font-size: 0.86rem;
+}
+
+.hub-cal-what small {
+  color: var(--text-tertiary);
+  font-size: 0.75rem;
+}
+
+.hub-cal-none {
+  margin: 0;
+  padding: 0 8px;
+  color: var(--text-tertiary);
+  font-size: 0.82rem;
+}
+
+/* Narrower: the box goes under the greeting, before the rest. */
+@media (max-width: 1080px) {
+  .hub-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .hub-layout > .hub {
+    display: contents;
+  }
+
+  .hub-layout > .hub > .hub-head {
+    order: -2;
+  }
+
+  .hub-cal {
+    position: static;
+    order: -1;
+  }
+
+  .hub-cal-day {
+    aspect-ratio: auto;
+    height: 2.1rem;
+    border-radius: var(--radius-sm);
+  }
+
+  .hub-cal-day.is-today {
+    border-radius: var(--radius-sm);
+  }
+}
