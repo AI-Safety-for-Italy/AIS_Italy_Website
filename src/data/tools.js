@@ -16,6 +16,7 @@
 // needsAny: permission keys of which the tool needs one, besides its area.
 // sections: the parts of a tool shown as boxes on its page, each with the
 // key it needs (`needs`) and its own faces.
+// hubBox: shown on the home page as a box of its own, not as a tool card.
 // faces: true shows who can open the tool at the top of its pages (for the
 // tools without items shared one by one; /api/app/access).
 // group: tools listed together in the sidebar under one entry that opens on
@@ -44,6 +45,9 @@ module.exports = [
     url: '/app/calendar/',
     area: null,
     keysArea: 'calendar',
+    // On the home page as its own box (the month, today, what comes next:
+    // hub-calendar.js), not among the tools.
+    hubBox: true,
     text: 'The events of every team, and your own link to follow them.',
     icon: '<rect x="3" y="4.5" width="18" height="16" rx="2.5"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/><circle cx="8" cy="14" r="1"/><circle cx="12" cy="14" r="1"/><circle cx="16" cy="14" r="1"/><circle cx="8" cy="17.5" r="1"/>',
     tabs: [

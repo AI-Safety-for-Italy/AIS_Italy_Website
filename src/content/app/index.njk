@@ -1,7 +1,7 @@
 ---
 title: Home
 # Landing page after sign-in: what waits for the member in each tool, the
-# tools their roles open. Tools come from src/data/tools.js (their actions
+# tools their roles open, and the calendar at a glance beside them. Tools come from src/data/tools.js (their actions
 # are offered by the search, Ctrl+K);
 # the counts from /api/app/overview (hub.js).
 permalink: /app/
@@ -13,6 +13,7 @@ pageTitle: Home
 ---
 {% extends "app.njk" %}
 {% block page %}
+<div class="hub-layout">
 <div class="hub">
   <div class="hub-head">
     <div>
@@ -42,7 +43,9 @@ pageTitle: Home
     <h3 class="ap-section-title" id="hubToolsTitle">Your tools</h3>
     <div class="hub-tools">
       {%- for t in tools %}
-      {%- if t.sections %}
+      {%- if t.hubBox %}
+      {#- Shown as its own box, beside the greeting (the calendar). #}
+      {%- elif t.sections %}
       {#- A tool in parts (Site content): the box opens the tool, and each part
           has its own link, shown to whoever holds that part's key. #}
       <div class="hub-tool has-parts"{% if t.area %} data-area="{{ t.area }}" hidden{% endif %}{% if t.needsAny %} data-needs-any="{{ t.needsAny | join(' ') }}"{% endif %}>
@@ -71,7 +74,19 @@ pageTitle: Home
   </section>
 </div>
 
+{#- The calendar at a glance: the month, today, what comes next
+    (hub-calendar.js, /api/app/calendar). -#}
+<aside class="hub-cal" id="hubCal" aria-labelledby="hubCalTitle">
+  <div class="hub-cal-head">
+    <h3 id="hubCalTitle"><a href="/app/calendar/">Calendar</a></h3>
+    <a class="hub-cal-open" href="/app/calendar/">Open</a>
+  </div>
+  <div id="hubCalBody"><div class="hub-cal-skeleton" aria-hidden="true"></div></div>
+</aside>
+</div>
+
 <script src="/assets/js/meet/common.js?v={{ build }}" defer></script>
 <script src="/assets/js/meet/app-common.js?v={{ build }}" defer></script>
 <script src="/assets/js/meet/hub.js?v={{ build }}" defer></script>
+<script src="/assets/js/meet/hub-calendar.js?v={{ build }}" defer></script>
 {% endblock %}

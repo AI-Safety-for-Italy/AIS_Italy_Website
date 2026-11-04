@@ -597,6 +597,7 @@ function occurrenceOut(occ, cal, level) {
     location: e.location,
     video: videoOut(e),
     calendarId: cal.id,
+    color: cal.color,
     recurring: Boolean(seriesId),
     changedAlone: Boolean(e.series_id),
     recurrence: e.recurrence || null,
