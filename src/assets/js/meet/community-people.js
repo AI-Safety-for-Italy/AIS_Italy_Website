@@ -809,6 +809,7 @@
     }
     var csvText = null;
     var decisions = {};
+    var options = { approveAll: false };
     var body = h('div', { class: 'dialog-body' });
     var foot = h('div', { class: 'dialog-foot' });
     M.clear(importDialog);
@@ -833,6 +834,7 @@
       var file = h('input', {
         type: 'file',
         accept: '.csv,text/csv',
+        multiple: true,
         class: 'form-input is-compact',
       });
       var err = h('p', { class: 'form-error', hidden: true });
@@ -841,7 +843,7 @@
         h(
           'p',
           { class: 'mb-confirm-text' },
-          'The members sheet as a CSV (Google Sheets → File → Download → CSV). Nothing is stored before you see what it would do.'
+          'The members sheet as a CSV (Google Sheets → File → Download → CSV), and if you have it the form’s own export of the answers too: pick both, they are read as one. Nothing is stored before you see what it would do.'
         )
       );
       body.appendChild(
@@ -852,6 +854,11 @@
             'li',
             null,
             'People already here are matched by email, then by Discord account. A name alone is only a guess: you choose.'
+          ),
+          h(
+            'li',
+            null,
+            'With two files, the same answer in both is one, with every column either has; the sheet’s decision (“Stato”) and consent count for that person’s answers in the other file too. Someone rejected stays out.'
           ),
           h(
             'li',
@@ -874,15 +881,21 @@
           type: 'button',
           class: 'btn btn-primary btn-sm',
           onclick: function () {
-            var chosen = file.files && file.files[0];
-            if (!chosen) {
-              err.textContent = 'Pick the CSV file first.';
+            var chosen = Array.prototype.slice.call(file.files || []);
+            if (!chosen.length || chosen.length > 5) {
+              err.textContent = chosen.length
+                ? 'Pick at most 5 files.'
+                : 'Pick the CSV file first.';
               err.hidden = false;
               return;
             }
             next.disabled = true;
-            chosen.text().then(function (text) {
-              csvText = text;
+            Promise.all(
+              chosen.map(function (f) {
+                return f.text();
+              })
+            ).then(function (texts) {
+              csvText = texts.length === 1 ? texts[0] : texts;
               preview();
             });
           },
@@ -897,7 +910,11 @@
       M.clear(body);
       M.clear(foot);
       body.appendChild(M.loading('Reading the sheet…'));
-      M.api('POST', API + '?action=preview', { csv: csvText, decisions: decisions })
+      M.api('POST', API + '?action=preview', {
+        csv: csvText,
+        decisions: decisions,
+        options: options,
+      })
         .then(report)
         .catch(function (e) {
           pickStep();
@@ -921,6 +938,17 @@
       body.appendChild(h('h2', { id: 'mbImportTitle' }, 'What importing would do'));
       body.appendChild(
         h(
+          'p',
+          { class: 'mb-sub' },
+          (p.files > 1 ? p.files + ' files read as one: ' : '') +
+            B.plural(p.answers, 'answer') +
+            ', ' +
+            B.plural(p.people.length + p.leftOut, 'person', 'people') +
+            '.'
+        )
+      );
+      body.appendChild(
+        h(
           'div',
           { class: 'mb-import-counts' },
           count(c.new, 'new', 'ok'),
@@ -928,9 +956,54 @@
           count(c.conflict, 'to decide', c.conflict ? 'todo' : 'muted'),
           count(c.unchanged, 'unchanged', 'muted'),
           c.skip ? count(c.skip, 'left out', 'muted') : null,
+          p.leftOut ? count(p.leftOut, 'not approved in the file', 'muted') : null,
           count(c.onDiscord, 'matched on Discord', 'muted')
         )
       );
+      // People only in the form's answers, with no decision anywhere.
+      if (p.undecided || options.approveAll) {
+        var all = h('input', {
+          type: 'checkbox',
+          checked: options.approveAll,
+          onchange: function () {
+            options.approveAll = all.checked;
+            preview();
+          },
+        });
+        body.appendChild(
+          h(
+            'div',
+            { class: 'notice mb-import-option' },
+            h(
+              'div',
+              null,
+              h(
+                'strong',
+                null,
+                B.plural(p.undecided, 'person', 'people') +
+                  ' only in a file without “Stato”, with no decision. '
+              ),
+              options.approveAll
+                ? 'They are brought in as members.'
+                : 'They are left out: only those who first answered before approvals existed (4 Oct 2026) count as approved without one.'
+            ),
+            h(
+              'label',
+              { class: 'check-row' },
+              all,
+              h('span', null, 'They are members: bring them in')
+            )
+          )
+        );
+      }
+      if (!p.columns.consent)
+        body.appendChild(
+          h(
+            'p',
+            { class: 'panel-note mb-import-notice' },
+            'No consent column: only those who answered before 30 Jun 2026 (when nobody was asked) are shown on the website; the others stay hidden until they consent.'
+          )
+        );
       if (!p.byName)
         body.appendChild(
           h(
@@ -988,7 +1061,11 @@
             }).then(function (yes) {
               if (!yes) return;
               go.disabled = true;
-              M.api('POST', API + '?action=import', { csv: csvText, decisions: decisions })
+              M.api('POST', API + '?action=import', {
+                csv: csvText,
+                decisions: decisions,
+                options: options,
+              })
                 .then(function (r) {
                   close();
                   M.toast(

@@ -12,8 +12,12 @@
 //   POST   ?action=tags { members, action: add|remove|move, group, to? }  -> several at once
 //   POST   ?action=roles { members, role }  -> several made participants or organizers
 //   GET    ?view=export                  -> every member as a CSV file (audited)
-//   POST   ?action=preview { csv, decisions? }  -> what importing the old sheet would do
-//   POST   ?action=import { csv, decisions? }   -> imports it as previewed
+//   POST   ?action=preview { csv, decisions?, options? }  -> what importing the old sheet
+//                                           (csv: one file's text, or several: the sheet and
+//                                           the form's answers, read as one)
+//                                           would do (options.approveAll: a file without
+//                                           "Stato", everyone in it a member)
+//   POST   ?action=import { csv, decisions?, options? }   -> imports it as previewed
 //   POST   ?action=offboard { member, note? }   -> left the association: off the site,
 //                                           their roles listed to take off on Discord
 //   POST   ?action=restore { member }    -> a member again
@@ -106,8 +110,8 @@ module.exports = route({
       tags: () => community.setTags(user, body),
       'member-groups': () => community.setMemberGroups(user, body.member, body),
       coordinator: () => community.setCoordinator(user, body),
-      preview: () => community.importPreview(user, body.csv, body.decisions),
-      import: () => community.importConfirm(user, body.csv, body.decisions),
+      preview: () => community.importPreview(user, body.csv, body.decisions, body.options),
+      import: () => community.importConfirm(user, body.csv, body.decisions, body.options),
       publish: () => community.publishSite(user),
       unpublish: () => community.unpublishSite(user),
       link: () => community.linkDiscord(user, body.member, body.discordId),
