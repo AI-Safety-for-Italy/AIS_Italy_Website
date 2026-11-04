@@ -928,3 +928,55 @@ test('the bar on top: accounts, roles and website, in counts', async () => {
   assert.equal(s.roles.available, false);
   assert.match(s.roles.problem, /not set up/);
 });
+
+test('one member’s groups set by hand reach Discord at once; coordinators stay', async () => {
+  const user = await board();
+  await community.importConfirm(user, SHEET);
+  const ada = (await community.listMembers(user)).members.find((m) => m.name === 'Ada Uno');
+  await db.query('update community_members set discord_id = $2 where id = $1', [
+    ada.id,
+    '800000009',
+  ]);
+  await community.setMemberGroups(user, ada.id, { groups: ['events', 'mentorship'] });
+  await community.setCoordinator(user, { group: 'mentorship', member: ada.id, on: true });
+  const roleOf = new Map((await community.listGroups()).map((g) => [g.id, g.discordRoleId]));
+
+  botCalls = [];
+  const r = await community.setMemberGroups(user, ada.id, { groups: ['mentorship', 'community'] });
+  assert.deepEqual(r.discord, { linked: true, given: 1, taken: 1, failed: 0 });
+  assert.deepEqual(roleCalls().sort(), [
+    `DELETE 800000009/roles/${roleOf.get('events')}`,
+    `PUT 800000009/roles/${roleOf.get('community')}`,
+  ]);
+  const groups = Object.fromEntries(r.member.groups.map((g) => [g.group, g.level]));
+  assert.deepEqual(groups, { mentorship: 'coordination', community: 'stable' });
+
+  await rejects(community.setMemberGroups(user, ada.id, { groups: ['nope'] }), 400);
+  await rejects(community.setMemberGroups(user, ada.id, {}), 400);
+
+  // Not linked: the tags change, Discord is not touched.
+  const bea = (await community.listMembers(user)).members.find((m) => !m.discordId);
+  botCalls = [];
+  const r2 = await community.setMemberGroups(user, bea.id, { groups: ['events'] });
+  assert.equal(r2.discord.linked, false);
+  assert.deepEqual(roleCalls(), []);
+});
+
+test('the members come out as a CSV file, formulas kept as text', async () => {
+  const user = await board();
+  await community.importConfirm(user, SHEET);
+  const ada = (await community.listMembers(user)).members.find((m) => m.name === 'Ada Uno');
+  await community.setMemberGroups(user, ada.id, { groups: ['events'] });
+  await community.updateMember(user, ada.id, { areas: '=HYPERLINK("x")' });
+  const { filename, csv } = await community.exportCsv(user);
+  assert.match(filename, /^members-\d{4}-\d{2}-\d{2}\.csv$/);
+  const lines = csv.slice(1).trim().split('\r\n');
+  assert.match(lines[0], /^Name,Role,Working groups,Coordinates/);
+  const row = lines.find((l) => l.startsWith('Ada Uno,'));
+  assert.ok(row.includes('Events'), row);
+  assert.ok(row.includes(`"'=HYPERLINK(""x"")"`), row);
+  assert.equal(lines.length, (await community.listMembers(user)).members.length + 1);
+
+  const outsider = await auth.upsertDiscordUser({ discordId: '900000077', name: 'Ugo' });
+  await rejects(community.exportCsv(outsider), 403);
+});

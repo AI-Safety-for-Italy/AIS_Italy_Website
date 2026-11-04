@@ -447,13 +447,21 @@ away there no longer shows as held.
    and "Link the N →" to the Discord tab for the others.
 2. *Discord roles*: the tags here are what Discord should have; "Give the
    roles" gives the missing ones (`sendTags`, 15 per call), none taken away.
-   **Nothing else changes Discord**: importing, linking, changing tags and
-   naming coordinators only change the board (approving an application still
-   puts the person on the server with their role). Roles there without a tag,
+   **Nothing else changes Discord**, with one exception: importing, linking,
+   changing the tags of several people at once and naming coordinators only
+   change the board (approving an application still puts the person on the
+   server with their role). The exception is one member's working groups set
+   by hand from their card on Members (`setMemberGroups`): saving gives the
+   roles of the groups added and takes away those of the groups left, at once. Roles there without a tag,
    and accounts gone from the server, are reviewed on the Discord tab.
 3. *Website*: how many changes the Community page does not show yet, and
    "Update the website" (the public directory: consented members, their
    public fields, the groups).
+
+**Export CSV** (Members tab) downloads every member, one row each: name,
+role, working groups and those they coordinate, place, areas, profile,
+consent, their Discord account, source and join date (`exportCsv`, written
+on the audit trail; cells starting like a formula kept as text).
 
 **Importing the old sheet** matches each person to Discord before anything
 is stored, as the preview shows: by email (they signed in here with
@@ -489,7 +497,7 @@ each shown to who holds that part's key, with its own faces; each list
 | Where                         | What                                                                 |
 | ----------------------------- | -------------------------------------------------------------------- |
 | `/app/members/`               | Applications: approve with a role and the working groups as tags     |
-| `/app/members/people/`        | Members: tags in bulk (add, remove, move), details, Discord, import  |
+| `/app/members/people/`        | Members: tags in bulk (add, remove, move), one member's groups (on Discord at once), details, CSV export, import |
 | `/app/members/groups/`        | Working groups: names, descriptions, order, the Discord role of each |
 | `/app/organizer/`             | A participant asks to become an organizer (an upgrade on the board)  |
 | `server/community.js`         | Groups, members, tags, Discord roles, the import, publishing         |

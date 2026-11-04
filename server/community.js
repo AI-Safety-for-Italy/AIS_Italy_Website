@@ -437,6 +437,143 @@ async function setTags(user, body) {
 }
 
 /**
+ * One member's working groups, set by hand from their card on Members:
+ * `groups` is the full list of group ids they should be in. Groups kept keep
+ * their level (a coordinator stays one), new ones are taking part. Unlike the
+ * tags of several people at once, this reaches Discord at once: the roles of
+ * the groups added given, those of the groups left taken away.
+ * Returns { member, discord: { linked, given, taken, failed } }.
+ */
+async function setMemberGroups(user, id, body) {
+  await access.authorize(user, 'community', { fresh: true });
+  const row = await loadMember(id);
+  const b = body || {};
+  if (!Array.isArray(b.groups)) throw new HttpError(400, 'Which groups?', { field: 'groups' });
+  const groups = await listGroups();
+  const wanted = [...new Set(b.groups.map(String))];
+  if (wanted.some((g) => !groups.some((x) => x.id === g)))
+    throw new HttpError(400, 'Unknown group', { field: 'groups' });
+  const { rows: had } = await db.query('select group_id from member_groups where member_id = $1', [
+    row.id,
+  ]);
+  const before = new Set(had.map((r) => r.group_id));
+  const added = wanted.filter((g) => !before.has(g));
+  const left = [...before].filter((g) => !wanted.includes(g));
+  await db.transaction(async (tx) => {
+    for (const g of left) {
+      await tx.query('delete from member_groups where member_id = $1 and group_id = $2', [
+        row.id,
+        g,
+      ]);
+    }
+    for (const g of added) {
+      await tx.query(
+        `insert into member_groups (member_id, group_id, level) values ($1, $2, 'stable')
+         on conflict (member_id, group_id) do nothing`,
+        [row.id, g]
+      );
+    }
+  });
+  const discord = { linked: Boolean(row.discord_id), given: 0, taken: 0, failed: 0 };
+  if (row.discord_id) {
+    const roleOf = new Map(groups.map((g) => [g.id, g.discordRoleId]));
+    for (const g of added) {
+      if (await discordRole(row.discord_id, roleOf.get(g), true)) discord.given++;
+      else discord.failed++;
+    }
+    for (const g of left) {
+      if (await discordRole(row.discord_id, roleOf.get(g), false)) discord.taken++;
+      else discord.failed++;
+    }
+  }
+  await audit.record(user, 'community-tags', row.id, {
+    action: 'set',
+    added,
+    left,
+    discordFailed: discord.failed,
+  });
+  return { member: memberOut(await loadMember(row.id), await groupsByMember()), discord };
+}
+
+// Cells starting like a formula are kept as text, so a spreadsheet never runs
+// what was typed in (as the forms' export, server/forms/forms.js).
+const FORMULA = /^[=+\-@\t\r]/;
+function csvCell(value) {
+  let s = value === null || value === undefined ? '' : String(value);
+  if (FORMULA.test(s)) s = `'${s}`;
+  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+// A `date` column comes back as local midnight: its day, not shifted to UTC.
+function dateOnly(value) {
+  if (!value) return '';
+  if (!(value instanceof Date)) return String(value).slice(0, 10);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())}`;
+}
+
+/**
+ * Every member as a CSV file, one row each, their working groups and those
+ * they coordinate in their columns. Written on the audit trail.
+ * Returns { filename, csv }.
+ */
+async function exportCsv(user) {
+  await access.authorize(user, 'community', { fresh: true });
+  const { rows } = await db.query('select * from community_members order by created_at');
+  const tags = await groupsByMember();
+  const groups = await listGroups();
+  const title = new Map(groups.map((g) => [g.id, g.titleEn]));
+  const list = rows.map((r) => memberOut(r, tags));
+  list.sort((a, b) => a.name.localeCompare(b.name, 'it'));
+  const named = (m, level) =>
+    m.groups
+      .filter((g) => !level || g.level === level)
+      .map((g) => title.get(g.group) || g.group)
+      .join('; ');
+  const lines = [
+    [
+      'Name',
+      'Role',
+      'Working groups',
+      'Coordinates',
+      'Place',
+      'Areas',
+      'Profile',
+      'On the site',
+      'Discord name',
+      'Discord username',
+      'Discord id',
+      'Not on Discord',
+      'Source',
+      'Joined on',
+    ],
+  ].concat(
+    list.map((m) => [
+      m.name,
+      m.role === 'organizer' ? 'Organizer' : 'Participant',
+      named(m),
+      named(m, 'coordination'),
+      m.location,
+      m.areas,
+      m.profile,
+      m.publish ? 'Yes' : 'No',
+      m.discordName,
+      m.discordUsername,
+      m.discordId || '',
+      m.discordAbsent ? 'Yes' : '',
+      m.source || '',
+      dateOnly(m.joinedOn),
+    ])
+  );
+  await audit.record(user, 'export', null, { part: 'community', members: list.length });
+  return {
+    filename: `members-${new Date().toISOString().slice(0, 10)}.csv`,
+    // The BOM lets Excel read the accents as UTF-8.
+    csv: '﻿' + lines.map((l) => l.map(csvCell).join(',')).join('\r\n') + '\r\n',
+  };
+}
+
+/**
  * The member an approved application becomes (or updates, matched by email
  * key or Discord account): its details, role, tags and publish consent, and
  * the tags on Discord. Called by the members board (server/members.js).
@@ -1427,6 +1564,8 @@ module.exports = {
   listMembers,
   updateMember,
   setTags,
+  setMemberGroups,
+  exportCsv,
   fromApplication,
   cleanTags,
   importPreview,

@@ -1541,6 +1541,10 @@ dialog.meet-dialog::backdrop {
   max-width: 18rem;
 }
 
+.people-tools .people-export {
+  margin-left: auto;
+}
+
 .people-tools select,
 .bulk-bar select {
   width: auto;

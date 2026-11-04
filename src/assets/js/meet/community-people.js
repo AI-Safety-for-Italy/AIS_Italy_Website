@@ -2,8 +2,9 @@
  * server/community.js). Their working groups are tags: picked people can be
  * put in a group, taken out, or moved to another. Discord and the website
  * follow only from the bar on top ("Give the roles", "Update the website",
- * community-status.js). Also: one person's details, and the import of the
- * old members sheet, with a preview first. */
+ * community-status.js). Also: one person's details and their groups, set by
+ * hand (those reach Discord at once), every member as a CSV file, and the
+ * import of the old members sheet, with a preview first. */
 (function () {
   'use strict';
   var M = window.Meet;
@@ -113,7 +114,18 @@
       { class: 'people-tools' },
       search,
       group,
-      h('span', { class: 'panel-note' }, data.members.length + ' members')
+      h('span', { class: 'panel-note' }, data.members.length + ' members'),
+      data.members.length
+        ? h(
+            'a',
+            {
+              class: 'btn btn-outline btn-sm people-export',
+              href: '/api/app/community?view=export',
+              download: '',
+            },
+            'Export CSV'
+          )
+        : null
     );
   }
 
@@ -321,6 +333,8 @@
 
   var dialog = document.getElementById('memberDialog');
   var editing = null;
+  // The groups picked in the dialog: { id: level } (a kept group keeps its level).
+  var editGroups = {};
   var memberFields = M.watchFields(document.getElementById('memberForm'), {
     active: function () {
       return dialog.open;
@@ -335,6 +349,14 @@
     document.getElementById('mLocation').value = m.location;
     document.getElementById('mAreas').value = m.areas;
     document.getElementById('mPublish').checked = m.publish;
+    editGroups = {};
+    m.groups.forEach(function (g) {
+      editGroups[g.group] = g.level;
+    });
+    drawGroups();
+    document.getElementById('mGroupsNote').textContent = m.discordId
+      ? 'Saving gives or takes away their roles on Discord at once.'
+      : 'Not linked to Discord: the roles follow once they are linked (“Give the roles”).';
     // Who they are on Discord is set on the Discord tab only.
     var info = document.getElementById('mDiscord');
     M.clear(info);
@@ -356,8 +378,58 @@
     dialog.showModal();
   }
 
+  // Each click puts the person in the group or takes them out; who
+  // coordinates is chosen on Working groups, and shown here as such.
+  function drawGroups() {
+    var box = document.getElementById('mGroups');
+    M.clear(box);
+    data.groups.forEach(function (g) {
+      var level = editGroups[g.id];
+      box.appendChild(
+        h(
+          'button',
+          {
+            type: 'button',
+            class: 'tag-chip' + (level ? ' is-' + level : ''),
+            'aria-pressed': String(Boolean(level)),
+            title: level === 'coordination' ? 'Coordinates this group' : null,
+            onclick: function () {
+              if (level) delete editGroups[g.id];
+              else editGroups[g.id] = 'stable';
+              drawGroups();
+            },
+          },
+          g.titleEn
+        )
+      );
+    });
+  }
+
+  function groupsChanged() {
+    var before = editing.groups
+      .map(function (g) {
+        return g.group;
+      })
+      .sort();
+    var now = Object.keys(editGroups).sort();
+    return before.join(',') !== now.join(',');
+  }
+
+  function discordNote(d) {
+    if (!d.linked) return 'Saved. Not linked to Discord: no role changed there';
+    if (d.failed) return 'Saved, but ' + d.failed + ' role change(s) on Discord failed';
+    if (!d.given && !d.taken) return 'Saved';
+    return (
+      'Saved. On Discord: ' +
+      [d.given ? d.given + ' role(s) given' : '', d.taken ? d.taken + ' taken away' : '']
+        .filter(Boolean)
+        .join(', ')
+    );
+  }
+
   // Cancel, or Escape, with changes typed: asked first.
   function closeMember() {
+    if (groupsChanged() && !window.confirm('Close without saving the groups you changed?')) return;
     memberFields.confirm(function () {
       dialog.close();
     });
@@ -379,17 +451,37 @@
       areas: document.getElementById('mAreas').value,
       publish: document.getElementById('mPublish').checked,
     };
+    var discord = null;
+    var save = document.getElementById('memberSave');
+    save.disabled = true;
     M.api('PUT', '/api/app/community?member=' + encodeURIComponent(editing.id), body)
       .then(function (r) {
+        if (!groupsChanged()) return r;
+        return M.api('POST', '/api/app/community?action=member-groups', {
+          member: editing.id,
+          groups: Object.keys(editGroups),
+        }).then(function (r2) {
+          discord = r2.discord;
+          return r2;
+        });
+      })
+      .then(function (r) {
+        save.disabled = false;
         data.members = data.members.map(function (m) {
           return m.id === r.member.id ? r.member : m;
         });
         dialog.close();
-        M.toast('Saved');
+        M.toast(discord ? discordNote(discord) : 'Saved', Boolean(discord && discord.failed));
         M.communityStatus.refresh();
-        render();
+        // The groups' counts in the filter.
+        if (!discord) return render();
+        return M.api('GET', '/api/app/community').then(function (d) {
+          data.groups = d.groups;
+          render();
+        });
       })
       .catch(function (e2) {
+        save.disabled = false;
         if (e2.status === 401) return M.appError(e2);
         err.textContent = e2.message;
         err.hidden = false;
