@@ -14039,3 +14039,45 @@ dialog.cal-editor[open] {
     border-radius: var(--radius-sm);
   }
 }
+
+.hub-cal-day {
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 0.76rem;
+  cursor: pointer;
+}
+
+.hub-cal-day.is-selected:not(.is-today) {
+  box-shadow: inset 0 0 0 2px var(--accent);
+  color: var(--accent-800);
+  font-weight: 700;
+}
+
+.hub-cal-day:focus-visible {
+  outline: none;
+  box-shadow: var(--ring);
+}
+
+.hub-cal-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.hub-cal-back {
+  padding: 0 6px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--accent-700);
+  font: inherit;
+  font-size: 0.7rem;
+  letter-spacing: normal;
+  text-transform: none;
+  cursor: pointer;
+}
+
+.hub-cal-back:hover {
+  background: var(--bg-overlay);
+}

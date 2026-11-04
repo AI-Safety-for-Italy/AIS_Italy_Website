@@ -1,8 +1,8 @@
 /* The calendar at a glance, on the home page (/app/): the month, with a dot
- * on the days that have something; today's events; and what comes next.
- * The calendars are those the member shows on the calendar page
- * (/api/app/calendar, server/calendars.js); a day opens it on that day, an
- * event opens its card there. */
+ * on the days that have something; the events of the day picked in it
+ * (today at first); and what comes next. The calendars are those the member
+ * shows on the calendar page (/api/app/calendar, server/calendars.js). A day
+ * shows its events here; "Open" opens the calendar on it, an event its card. */
 (function () {
   'use strict';
   var M = window.Meet;
@@ -15,6 +15,8 @@
   var AHEAD_DAYS = 45;
   var today = M.today(TZ);
   var month = today.slice(0, 8) + '01';
+  var selected = today;
+  var openLink = document.querySelector('.hub-cal-open');
   var events = []; // the shown month
   var soon = []; // today and the weeks after, for the lists
 
@@ -110,14 +112,20 @@
           .slice(0, 3);
         grid.appendChild(
           h(
-            'a',
+            'button',
             {
+              type: 'button',
               class:
                 'hub-cal-day' +
                 (date.slice(0, 7) !== month.slice(0, 7) ? ' is-out' : '') +
                 (date === today ? ' is-today' : '') +
+                (date === selected ? ' is-selected' : '') +
                 (mine.length ? ' has-events' : ''),
-              href: '/app/calendar/?view=day&date=' + date,
+              'aria-pressed': date === selected ? 'true' : 'false',
+              onclick: function () {
+                selected = date;
+                draw();
+              },
               'aria-label':
                 dayLabel(date, { weekday: 'long', day: 'numeric', month: 'long' }) +
                 (mine.length
@@ -185,9 +193,12 @@
     );
     box.appendChild(monthGrid());
 
-    var todays = soon.filter(function (ev) {
-      return on(ev, today);
+    // The picked day's events: from the weeks ahead for today, else from the month.
+    var dayEvents = (selected === today ? soon : events).filter(function (ev) {
+      return on(ev, selected);
     });
+    openLink.href =
+      selected === today ? '/app/calendar/' : '/app/calendar/?view=day&date=' + selected;
     var now = Date.now();
     var next = soon
       .filter(function (ev) {
@@ -195,17 +206,44 @@
       })
       .slice(0, UPCOMING);
 
-    box.appendChild(h('p', { class: 'hub-cal-label' }, 'Today'));
     box.appendChild(
-      todays.length
+      h(
+        'p',
+        { class: 'hub-cal-label' },
+        selected === today
+          ? 'Today'
+          : dayLabel(selected, { weekday: 'long', day: 'numeric', month: 'long' }),
+        selected === today
+          ? null
+          : h(
+              'button',
+              {
+                type: 'button',
+                class: 'hub-cal-back',
+                onclick: function () {
+                  selected = today;
+                  month = today.slice(0, 8) + '01';
+                  load();
+                },
+              },
+              'Today'
+            )
+      )
+    );
+    box.appendChild(
+      dayEvents.length
         ? h(
             'ul',
             { class: 'hub-cal-list' },
-            todays.map(function (ev) {
+            dayEvents.map(function (ev) {
               return row(ev, false);
             })
           )
-        : h('p', { class: 'hub-cal-none' }, 'Nothing today.')
+        : h(
+            'p',
+            { class: 'hub-cal-none' },
+            selected === today ? 'Nothing today.' : 'Nothing that day.'
+          )
     );
     box.appendChild(h('p', { class: 'hub-cal-label' }, 'Coming up'));
     box.appendChild(
