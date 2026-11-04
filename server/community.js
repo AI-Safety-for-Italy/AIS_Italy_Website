@@ -2054,32 +2054,96 @@ function header(row, wanted) {
   return key ? String(row[key] || '').trim() : '';
 }
 
-/** The sheet's rows -> the people to bring in (approved only, one per email). */
-function peopleFromSheet(csvText, groups) {
-  const rows = rowsFromValues(parseCsv(csvText));
-  if (!rows.length || !Object.keys(rows[0]).some((k) => norm(k) === norm(SHEET.email)))
-    throw new HttpError(400, 'This is not the members sheet (no "Indirizzo email" column)');
-  const first = {};
-  rows.forEach((r) => {
-    const e = norm(header(r, SHEET.email));
-    const d = sheetDate(header(r, SHEET.timestamp));
-    if (e && d && (!first[e] || d < first[e])) first[e] = d;
+/**
+ * The sheet's rows -> the people to bring in (approved only, one per email):
+ * { people, leftOut, columns: { status, consent }, files, answers }.
+ * `csvTexts` is one CSV or several: the sheet and the form's own export of
+ * the answers (the same columns, without the sheet's last ones, "Consenso"
+ * and "Stato"). They are read as one: the same answer (email and time) in
+ * two files is one row with every column either has; a person's decision
+ * and consent are their latest given in any file, so they hold for their
+ * answers in the other file too. Someone rejected stays out.
+ * Who is approved: "Approvato", or someone who first answered before
+ * approvals existed; with `approveAll`, also whoever has no decision and is
+ * in a file without "Stato" (the form's answers). leftOut counts the emails
+ * not brought in.
+ */
+function peopleFromSheet(csvTexts, groups, { approveAll = false } = {}) {
+  const texts = (Array.isArray(csvTexts) ? csvTexts : [csvTexts]).filter(
+    (t) => typeof t === 'string' && t.trim()
+  );
+  if (!texts.length || texts.length > 5) throw new HttpError(400, 'Pick from 1 to 5 CSV files');
+  const has = (row, col) => Object.keys(row).some((k) => norm(k) === norm(col));
+  const columns = { status: false, consent: false };
+  // email|time -> { row, noStatus }: the answers of every file, merged.
+  const merged = new Map();
+  let answers = 0;
+  texts.forEach((text, f) => {
+    const rows = rowsFromValues(parseCsv(text));
+    if (!rows.length || !has(rows[0], SHEET.email))
+      throw new HttpError(
+        400,
+        `${
+          texts.length > 1 ? `File ${f + 1}: t` : 'T'
+        }his is not the members sheet (no "Indirizzo email" column)`
+      );
+    const withStatus = has(rows[0], SHEET.status);
+    columns.status = columns.status || withStatus;
+    columns.consent = columns.consent || has(rows[0], SHEET.consent);
+    rows.forEach((r, i) => {
+      const e = norm(header(r, SHEET.email));
+      if (!e) return;
+      answers++;
+      const key = `${e}|${header(r, SHEET.timestamp) || `#${f}:${i}`}`;
+      const was = merged.get(key);
+      if (!was) {
+        merged.set(key, { row: { ...r }, noStatus: !withStatus });
+        return;
+      }
+      // The same answer in two files: every column either has, filled ones first.
+      Object.entries(r).forEach(([k, v]) => {
+        const same = Object.keys(was.row).find((x) => norm(x) === norm(k));
+        if (!same) was.row[k] = v;
+        else if (!String(was.row[same] || '').trim() && String(v || '').trim()) was.row[same] = v;
+      });
+      was.noStatus = was.noStatus && !withStatus;
+    });
   });
-  // The latest answer of each email; every answer kept, as it was.
-  const latest = {};
-  const answers = {};
-  rows.forEach((r, i) => {
-    const e = norm(header(r, SHEET.email)) || `__${i}`;
-    const d = sheetDate(header(r, SHEET.timestamp)) || '';
-    if (!latest[e] || d >= latest[e].d) latest[e] = { d, r };
-    (answers[e] = answers[e] || []).push({ d, r });
+  // Each email's answers, oldest first.
+  const byEmail = {};
+  merged.forEach(({ row, noStatus }) => {
+    const e = norm(header(row, SHEET.email));
+    const d = sheetDate(header(row, SHEET.timestamp)) || '';
+    (byEmail[e] = byEmail[e] || []).push({ d, r: row, noStatus });
   });
+  let leftOut = 0;
+  // Only in a file without decisions, and no decision anywhere: what
+  // approveAll brings in (or would).
+  let undecided = 0;
   const people = [];
-  for (const [e, { d, r }] of Object.entries(latest)) {
-    if (e.startsWith('__')) continue;
-    const verdict = norm(header(r, SHEET.status));
-    const legacy = first[e] && first[e] < LEGACY_BEFORE;
-    if (verdict === 'rifiutato' || !(verdict === 'approvato' || legacy)) continue;
+  for (const [e, list] of Object.entries(byEmail)) {
+    list.sort((x, y) => (x.d < y.d ? -1 : x.d > y.d ? 1 : 0));
+    const { d, r } = list[list.length - 1];
+    const firstDay = list.map((x) => x.d).filter(Boolean)[0] || null;
+    // The latest decision and consent given, in whichever file.
+    const latestOf = (col) => {
+      for (let i = list.length - 1; i >= 0; i--) {
+        const v = header(list[i].r, col);
+        if (v) return { v: norm(v), d: list[i].d };
+      }
+      return null;
+    };
+    const verdict = (latestOf(SHEET.status) || {}).v || '';
+    const legacy = firstDay && firstDay < LEGACY_BEFORE;
+    const onlyAnswers = list.every((x) => x.noStatus);
+    if (!verdict && !legacy && onlyAnswers) undecided++;
+    const approved =
+      verdict === 'approvato' || (!verdict && (legacy || (approveAll && onlyAnswers)));
+    if (verdict === 'rifiutato' || !approved) {
+      leftOut++;
+      continue;
+    }
+    const consent = latestOf(SHEET.consent);
     const city = header(r, SHEET.city);
     const country = header(r, SHEET.country);
     const answerAreas = norm(header(r, SHEET.areas));
@@ -2087,15 +2151,20 @@ function peopleFromSheet(csvText, groups) {
       email: e,
       // When they answered last: what a newer value on the board is held against.
       at: d ? `${d}T00:00:00.000Z` : null,
-      rows: answers[e],
+      rows: list.map(({ d: day, r: row }) => ({ d: day, r: row })),
       name: `${header(r, SHEET.name)} ${header(r, SHEET.surname)}`.replace(/\s+/g, ' ').trim(),
       profile: /^https?:\/\//i.test(header(r, SHEET.profile)) ? header(r, SHEET.profile) : '',
       location:
         city && norm(city) === norm(country) ? country : [city, country].filter(Boolean).join(', '),
       areas: AREA_OPTIONS.filter((o) => answerAreas.includes(norm(o))).join(', '),
-      publish: (d && d < GRANDFATHER_BEFORE) || norm(header(r, SHEET.consent)) === CONSENT_VALUE,
+      // Before anyone was asked: shown. Else their consent, if any file has
+      // it; none at all is no statement either way (a member already shown
+      // stays shown, someone new is hidden).
+      publish:
+        (firstDay && firstDay < GRANDFATHER_BEFORE) ||
+        (consent ? consent.v === CONSENT_VALUE : undefined),
       role: /organizzatore/i.test(header(r, SHEET.involvement)) ? 'organizer' : 'participant',
-      joinedOn: first[e] || d || null,
+      joinedOn: firstDay || d || null,
       tags: groups
         .filter((g) => g.sheetColumn)
         .map((g) => {
@@ -2109,7 +2178,7 @@ function peopleFromSheet(csvText, groups) {
         .filter(Boolean),
     });
   }
-  return people;
+  return { people, leftOut, undecided, columns, files: texts.length, answers };
 }
 
 /** Their Discord accounts, for those who signed in here (by their Discord email). */
@@ -2206,9 +2275,11 @@ function sourceContext(id) {
  * (server/member-merge.js). `decisions`: { [key]: { take: [field],
  * duplicate: 'merge' | 'new' | 'skip' } } as sent back from the preview.
  */
-async function importPlan(csvText, decisions = {}) {
+async function importPlan(csvText, decisions = {}, options = {}) {
   const groups = await listGroups();
-  const people = peopleFromSheet(csvText, groups);
+  const { people, leftOut, undecided, columns, files, answers } = peopleFromSheet(csvText, groups, {
+    approveAll: Boolean(options.approveAll),
+  });
   const { matches: discord, byName, problem } = await matchDiscord(people);
   const { rows: all } = await db.query('select * from community_members');
   const byKey = new Map(all.filter((r) => r.person_key).map((r) => [r.person_key, r]));
@@ -2298,7 +2369,7 @@ async function importPlan(csvText, decisions = {}) {
       match,
     });
   }
-  return { plan, byName, problem, groups };
+  return { plan, byName, problem, groups, leftOut, undecided, columns, files, answers };
 }
 
 const SHOWN = {
@@ -2317,9 +2388,13 @@ const SHOWN = {
  * update (gaps filled), conflict (a newer answer than the board's, to keep or
  * take), unchanged, skip. No email leaves the server.
  */
-async function importPreview(user, csvText, decisions) {
+async function importPreview(user, csvText, decisions, options) {
   await access.authorize(user, 'community', { fresh: true });
-  const { plan, byName, problem } = await importPlan(csvText, decisions || {});
+  const { plan, byName, problem, leftOut, undecided, columns, files, answers } = await importPlan(
+    csvText,
+    decisions || {},
+    options || {}
+  );
   const out = plan.map((x) => ({
     key: x.key,
     name: x.p.name,
@@ -2374,20 +2449,29 @@ async function importPreview(user, csvText, decisions) {
     // if not, why.
     byName,
     byNameProblem: problem,
+    // Who the file leaves out (not approved, or rejected), and which of the
+    // sheet's decision columns it has: without "Stato", approveAll decides.
+    leftOut,
+    undecided,
+    columns,
+    files,
+    answers,
+    approveAll: Boolean(options && options.approveAll),
   };
 }
 
 /**
- * Imports the sheet as the preview showed it, `decisions` included (what is
- * not decided stays as it is on the board), in one transaction: new people
+ * Imports the sheet as the preview showed it, `decisions` and `options`
+ * ({ approveAll }) included (what is not decided stays as it is on the
+ * board), in one transaction: new people
  * added, the others' gaps and newer answers filled, groups only added, every
  * answer kept on the member (once: by its hash). Nothing is sent to Discord:
  * the roles wait to be applied from the Discord tab.
  * Returns { imported, updated, unchanged, skipped, conflicts, linked }.
  */
-async function importConfirm(user, csvText, decisions) {
+async function importConfirm(user, csvText, decisions, options) {
   await access.authorize(user, 'community', { fresh: true });
-  const { plan } = await importPlan(csvText, decisions || {});
+  const { plan } = await importPlan(csvText, decisions || {}, options || {});
   const out = { imported: 0, updated: 0, unchanged: 0, skipped: 0, conflicts: 0, linked: 0 };
   const touched = [];
   // Sealed before the transaction: inside it, only its own queries run.

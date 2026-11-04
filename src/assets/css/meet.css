@@ -11634,3 +11634,8 @@ button.mb-sec-head {
   align-items: center;
   gap: 8px;
 }
+
+.mb-import-option {
+  display: grid;
+  gap: 8px;
+}

@@ -107,7 +107,7 @@ function csv(rows) {
   const cell = (v) => `"${String(v).replace(/"/g, '""')}"`;
   return [HEADER, ...rows].map((r) => r.map(cell).join(',')).join('\n');
 }
-const SHEET = csv([
+const SHEET_ROWS = [
   // Legacy (before approvals): in, published (before the consent question).
   [
     '01/05/2026 10.00.00',
@@ -192,7 +192,8 @@ const SHEET = csv([
     CONSENT,
     'Rifiutato',
   ],
-]);
+];
+const SHEET = csv(SHEET_ROWS);
 
 test('the eight working groups are there, each a Discord role; new ones need theirs', async () => {
   const user = await board();
@@ -1841,4 +1842,127 @@ test('the daily check tells followers what changed on Discord by hand, once', as
   assert.equal(r.new, 0);
   delete process.env.DISCORD_BOT_TOKEN_AIS_TEAM_AREA;
   assert.deepEqual(await community.driftCheck(), { skipped: 'no bot' });
+});
+
+// The form's own export of the answers: the sheet's columns but its last two
+// ("Consenso…" and "Stato").
+function answersCsv(rows) {
+  const cut = HEADER.slice(0, 12);
+  const cell = (v) => `"${String(v).replace(/"/g, '""')}"`;
+  return [cut, ...rows.map((r) => r.slice(0, 12))].map((r) => r.map(cell).join(',')).join('\n');
+}
+
+test('the form’s answers without “Stato”: only the early ones, or everyone if said so', async () => {
+  const user = await board();
+  await community.importConfirm(user, SHEET);
+  const ada = (await community.listMembers(user)).members.find((m) => m.name === 'Ada Uno');
+  assert.equal(ada.publish, true);
+  const ANSWERS = answersCsv([
+    // Ada again, from Roma: already on the board, shown there.
+    [
+      '20/10/2026 10.00.00',
+      'Ada',
+      'Uno',
+      'ada@example.org',
+      '',
+      'Italia',
+      'Roma',
+      '',
+      '',
+      '',
+      '',
+      '',
+    ],
+    // Two who were never copied over.
+    [
+      '21/10/2026 10.00.00',
+      'Lia',
+      'Otto',
+      'lia@example.org',
+      '',
+      'Italia',
+      'Bari',
+      '',
+      '',
+      '',
+      '',
+      '',
+    ],
+    ['22/10/2026 10.00.00', 'Max', 'Nove', 'max@example.org', '', '', '', '', '', '', '', ''],
+  ]);
+  let preview = await community.importPreview(user, ANSWERS);
+  assert.deepEqual(preview.columns, { status: false, consent: false });
+  assert.deepEqual([preview.leftOut, preview.undecided], [3, 3]);
+  assert.equal(preview.people.length, 0);
+
+  preview = await community.importPreview(user, ANSWERS, {}, { approveAll: true });
+  assert.equal(preview.leftOut, 0);
+  // Ada's newer answer differs from the board's place: asked, not taken.
+  assert.deepEqual(
+    preview.people.map((p) => [p.name, p.status]),
+    [
+      ['Ada Uno', 'conflict'],
+      ['Lia Otto', 'new'],
+      ['Max Nove', 'new'],
+    ]
+  );
+  const done = await community.importConfirm(user, ANSWERS, {}, { approveAll: true });
+  assert.equal(done.imported, 2);
+  const list = (await community.listMembers(user)).members;
+  // No consent asked: the new ones hidden, Ada still shown, her place kept.
+  assert.equal(list.find((m) => m.name === 'Lia Otto').publish, false);
+  const adaNow = list.find((m) => m.name === 'Ada Uno');
+  assert.deepEqual([adaNow.publish, adaNow.location], [true, 'Italia']);
+});
+
+test('the sheet and the form’s answers together: read as one, nobody rejected let in', async () => {
+  const user = await board();
+  const sheetRow = (name) => SHEET_ROWS.find((r) => r[1] === name);
+  const ANSWERS = answersCsv([
+    sheetRow('Bea'), // the same answer as on the sheet
+    sheetRow('Dino'), // waiting on the sheet: no decision, but not only here
+    sheetRow('Eva'), // rejected on the sheet
+    [
+      '23/10/2026 10.00.00',
+      'Lia',
+      'Otto',
+      'lia@example.org',
+      'https://lia.example',
+      'Italia',
+      'Bari',
+      '',
+      '',
+      'Partecipazione stabile',
+      '',
+      '',
+    ],
+  ]);
+  let preview = await community.importPreview(user, [SHEET, ANSWERS]);
+  assert.equal(preview.files, 2);
+  assert.deepEqual(preview.columns, { status: true, consent: true });
+  // Only Lia has no decision and is only in the answers.
+  assert.equal(preview.undecided, 1);
+  preview = await community.importPreview(user, [SHEET, ANSWERS], {}, { approveAll: true });
+  assert.deepEqual(
+    preview.people.map((p) => p.name),
+    ['Ada Uno', 'Bea Due', 'Ciro Tre', 'Lia Otto']
+  );
+  await community.importConfirm(user, [SHEET, ANSWERS], {}, { approveAll: true });
+  const list = (await community.listMembers(user)).members;
+  assert.ok(!list.some((m) => ['Dino Quattro', 'Eva Cinque'].includes(m.name)));
+  const bea = list.find((m) => m.name === 'Bea Due');
+  // Her answer in both files: kept once, with the sheet's decision and consent.
+  const page = await community.memberDetail(user, bea.id);
+  assert.equal(page.sources.length, 1);
+  assert.ok(page.sources[0].answers.some((a) => a.value === 'Approvato'));
+  assert.equal(bea.publish, true);
+  const lia = list.find((m) => m.name === 'Lia Otto');
+  assert.deepEqual(
+    [lia.profile, lia.groups.map((g) => g.group)],
+    ['https://lia.example', ['mentorship']]
+  );
+  // Both again: nothing changes.
+  const again = await community.importConfirm(user, [SHEET, ANSWERS], {}, { approveAll: true });
+  assert.deepEqual([again.imported, again.updated], [0, 0]);
+  await rejects(community.importPreview(user, ['a,b\n1,2', SHEET]), 400);
 });
