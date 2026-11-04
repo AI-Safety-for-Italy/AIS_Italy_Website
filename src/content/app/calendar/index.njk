@@ -1,0 +1,188 @@
+---
+title: Calendar
+# The calendar (server/calendars.js, /api/app/calendar): month, week, day and
+# agenda views of the calendars each member shows, the card of an event with
+# who comes, and the editor of an event. Driven by calendar-view.js.
+tool: calendar
+tab: view
+wide: true
+permalink: /app/calendar/
+noindex: true
+excludeFromSitemap: true
+eleventyExcludeFromCollections: true
+seoTitle: 'Calendar | AI Safety for Italy'
+---
+{% extends "app.njk" %}
+{% block actions %}<button type="button" class="btn btn-primary btn-sm" id="calNewTop" hidden>+ New event</button>{% endblock %}
+{% block page %}
+<div class="cal-app" id="calApp">
+  <aside class="cal-side" aria-label="Calendars">
+    <button type="button" class="btn btn-primary cal-new" id="calNew" hidden>
+      <span aria-hidden="true">+</span> New event
+    </button>
+    <div class="cal-mini" id="calMini"></div>
+    <div class="cal-side-section">
+      <p class="cal-side-title">Calendars</p>
+      <div class="cal-list" id="calList"></div>
+      <p class="cal-side-links">
+        <a href="/app/calendar/calendars/">Manage calendars</a>
+        <span aria-hidden="true">·</span>
+        <a href="/app/calendar/subscribe/">Subscribe</a>
+      </p>
+    </div>
+  </aside>
+
+  <section class="cal-main" aria-live="polite">
+    <div class="cal-toolbar">
+      <div class="cal-nav">
+        <button type="button" class="btn btn-outline btn-sm" id="calToday">Today</button>
+        <button type="button" class="icon-btn" id="calPrev" aria-label="Previous"></button>
+        <button type="button" class="icon-btn" id="calNext" aria-label="Next"></button>
+        <h2 class="cal-title" id="calTitle"></h2>
+      </div>
+      <div class="cal-views" role="tablist" aria-label="View">
+        <button type="button" role="tab" data-view="month">Month</button>
+        <button type="button" role="tab" data-view="week">Week</button>
+        <button type="button" role="tab" data-view="day">Day</button>
+        <button type="button" role="tab" data-view="agenda">Agenda</button>
+      </div>
+    </div>
+    <p class="cal-tz" id="calTz"></p>
+    <div class="cal-body" id="calBody"></div>
+  </section>
+</div>
+
+{#- The card of one event: what, when, where, who comes. -#}
+<dialog class="meet-dialog cal-card" id="calCard" aria-labelledby="calCardTitle"></dialog>
+
+{#- A repeating event: which occurrences a change or a delete is for. -#}
+<dialog class="meet-dialog cal-scope" id="calScope" aria-labelledby="calScopeTitle">
+  <form method="dialog">
+    <div class="dialog-body">
+      <h2 id="calScopeTitle">Change a repeating event</h2>
+      <p class="panel-note">This event repeats. Which ones should change?</p>
+      <div class="cal-scope-options">
+        <label class="check-row"><input type="radio" name="scope" value="this" checked><span>Only this one</span></label>
+        <label class="check-row"><input type="radio" name="scope" value="following"><span>This one and the ones after it</span></label>
+        <label class="check-row"><input type="radio" name="scope" value="all"><span>All of them</span></label>
+      </div>
+    </div>
+    <div class="dialog-foot">
+      <button class="btn btn-outline" value="cancel">Cancel</button>
+      <button class="btn btn-primary" value="ok" id="calScopeOk">Continue</button>
+    </div>
+  </form>
+</dialog>
+
+{#- The editor of an event, along the right edge. -#}
+<dialog class="meet-dialog crm-panel cal-editor" id="calEditor" aria-labelledby="calEditorTitle">
+  <form id="calForm" novalidate>
+    <div class="cal-editor-head">
+      <h2 id="calEditorTitle">New event</h2>
+      <button type="button" class="ap-icon-button" id="calEditorClose" aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="cal-editor-body form-grid">
+      <div>
+        <label class="form-label" for="evTitle">Title</label>
+        <input class="form-input cal-title-input" id="evTitle" required maxlength="200" placeholder="Add a title" autocomplete="off">
+      </div>
+
+      <div>
+        <label class="form-label" for="evCalendar">Calendar</label>
+        <div class="cal-select-wrap">
+          <span class="cal-dot" id="evCalendarDot" aria-hidden="true"></span>
+          <select class="form-input is-compact" id="evCalendar" required></select>
+        </div>
+      </div>
+
+      <fieldset class="cal-fieldset">
+        <legend class="form-label">When</legend>
+        <label class="cal-allday">
+          <input type="checkbox" role="switch" class="fe-switch-input" id="evAllDay">
+          <span>All day</span>
+        </label>
+        <div class="cal-when">
+          <div class="cal-when-row">
+            <span class="cal-when-label">Starts</span>
+            <input class="form-input is-compact" type="date" id="evStartDate" required aria-label="Start day">
+            <input class="form-input is-compact" type="time" id="evStartTime" step="300" aria-label="Start time">
+          </div>
+          <div class="cal-when-row">
+            <span class="cal-when-label">Ends</span>
+            <input class="form-input is-compact" type="date" id="evEndDate" required aria-label="End day">
+            <input class="form-input is-compact" type="time" id="evEndTime" step="300" aria-label="End time">
+          </div>
+          <div class="cal-when-row" id="evTzRow">
+            <span class="cal-when-label">Time zone</span>
+            <select class="form-input is-compact" id="evTz" aria-label="Time zone"></select>
+          </div>
+        </div>
+        {% set rp = "ev" %}{% set rpDaily = true %}{% include "recurrence-fields.njk" %}
+      </fieldset>
+
+      <div>
+        <label class="form-label" for="evLocation">Place <span class="form-hint">optional</span></label>
+        <input class="form-input is-compact" id="evLocation" maxlength="500" placeholder="An address, a room…">
+      </div>
+
+      <fieldset class="cal-fieldset">
+        <legend class="form-label">Video call</legend>
+        <div class="cal-seg" role="radiogroup" aria-label="Video call">
+          <label><input type="radio" name="evVideo" value="" checked><span>None</span></label>
+          <label><input type="radio" name="evVideo" value="link"><span>Link</span></label>
+          <label><input type="radio" name="evVideo" value="discord"><span>Discord channel</span></label>
+        </div>
+        <div id="evVideoLink" hidden>
+          <input class="form-input is-compact" id="evVideoUrl" type="url" maxlength="1000" placeholder="https://meet.google.com/… · zoom.us/… · teams…" aria-label="Video call link">
+          <p class="form-note cal-platform" id="evPlatform"></p>
+        </div>
+        <div id="evVideoDiscord" hidden>
+          <select class="form-input is-compact" id="evVoice" aria-label="Voice channel"></select>
+          <p class="form-note">A voice or stage channel of the AIS Discord server: the event links straight to it.</p>
+        </div>
+      </fieldset>
+
+      <div>
+        <label class="form-label" for="evDescription">Description <span class="form-hint">optional</span></label>
+        <textarea class="form-input is-compact" id="evDescription" rows="4" maxlength="8000" placeholder="Agenda, links, what to prepare…"></textarea>
+      </div>
+
+      <fieldset class="cal-fieldset">
+        <legend class="form-label">Reminders</legend>
+        <p class="form-note cal-fieldset-note">Sent to whoever follows this calendar with notifications on, and to whoever answers going or maybe.</p>
+        <div class="cal-rows" id="evReminders"></div>
+        <button type="button" class="btn btn-outline btn-sm cal-add" id="evAddReminder">+ Add a reminder</button>
+      </fieldset>
+
+      <fieldset class="cal-fieldset">
+        <legend class="form-label">Announce on Discord</legend>
+        <p class="form-note cal-fieldset-note">A message from the AIS bot in a channel, for everyone there.</p>
+        <div class="cal-announce-modes" id="evAnnounceModes">
+          <label class="check-row"><input type="radio" name="evAnnounce" value="inherit" checked><span id="evAnnounceInherit">As the calendar</span></label>
+          <label class="check-row"><input type="radio" name="evAnnounce" value="own"><span>Choose the channels for this event</span></label>
+          <label class="check-row"><input type="radio" name="evAnnounce" value="none"><span>Don’t announce it</span></label>
+        </div>
+        <div id="evAnnounceOwn" hidden>
+          <div class="cal-rows" id="evAnnounceList"></div>
+          <button type="button" class="btn btn-outline btn-sm cal-add" id="evAddChannel">+ Add a channel</button>
+        </div>
+      </fieldset>
+
+      <div class="form-error" id="evError" role="alert" hidden></div>
+    </div>
+    <div class="dialog-foot cal-editor-foot">
+      <button type="button" class="btn btn-danger-outline" id="evDelete" hidden>Delete</button>
+      <span class="cal-foot-space"></span>
+      <button type="button" class="btn btn-outline" id="evCancel">Cancel</button>
+      <button type="submit" class="btn btn-primary" id="evSave">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<script src="/assets/js/meet/common.js?v={{ build }}" defer></script>
+<script src="/assets/js/meet/app-common.js?v={{ build }}" defer></script>
+<script src="/assets/js/meet/calendar-common.js?v={{ build }}" defer></script>
+<script src="/assets/js/meet/calendar-view.js?v={{ build }}" defer></script>
+{% endblock %}

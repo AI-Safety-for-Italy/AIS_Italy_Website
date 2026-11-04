@@ -93,4 +93,4 @@ function build(poll, slot, options = {}) {
   return lines.map(fold).join('\r\n') + '\r\n';
 }
 
-module.exports = { build };
+module.exports = { build, escapeText, stamp, fold };

@@ -1,0 +1,45 @@
+---
+title: Calendar
+basePath: /calendar/
+pagination:
+  data: locales
+  size: 1
+  alias: locale
+  # Without this only the first locale reaches collections.all,
+  # and the sitemap would list the English pages only.
+  addAllPagesToCollections: true
+permalink: '{{ locale.prefix }}{{ basePath }}'
+ogImageName: initiatives
+seoTitle: 'Calendar | AI Safety for Italy'
+seoTitle_it: 'Calendario | AI Safety for Italy'
+seoDescription: 'The public calendars of AI Safety for Italy: seminars and events, to follow in Google Calendar, Outlook or Apple Calendar.'
+seoDescription_it: 'I calendari pubblici di AI Safety for Italy: seminari ed eventi, da seguire in Google Calendar, Outlook o Calendario di Apple.'
+---
+{% extends "base.njk" %}
+{% block content %}
+{# The public calendars of the personal area's calendar (server/calendars.js),
+   read when the page opens from /api/calendar, so a new event shows without
+   rebuilding the site. assets/js/calendar-public.js draws them. #}
+<section class="page-hero">
+    <div class="container">
+        <span class="eyebrow" data-en="{{ translations.en.nav.events }}" data-it="{{ translations.it.nav.events }}">{{ translations.en.nav.events }}</span>
+        <h1 data-en="Calendar" data-it="Calendario">Calendar</h1>
+        <p class="lede" data-en="Our seminars and events, and the other public calendars of the community. Add them to your own calendar: new events arrive by themselves." data-it="I nostri seminari ed eventi, e gli altri calendari pubblici della community. Aggiungili al tuo calendario: i nuovi eventi arrivano da soli.">Our seminars and events, and the other public calendars of the community. Add them to your own calendar: new events arrive by themselves.</p>
+    </div>
+</section>
+
+<section class="section">
+    <div class="container pc-layout" id="publicCalendar" data-lang="{{ locale.code }}">
+        <aside class="pc-side">
+            <h2 class="pc-side-title" data-en="Follow a calendar" data-it="Segui un calendario">Follow a calendar</h2>
+            <div class="pc-subs" id="pcSubs"></div>
+            <p class="pc-note" data-en="Google reads the calendar again every 12–24 hours; Outlook and Apple more often." data-it="Google rilegge il calendario ogni 12–24 ore; Outlook e Apple più spesso.">Google reads the calendar again every 12–24 hours; Outlook and Apple more often.</p>
+        </aside>
+        <div class="pc-main">
+            <div class="pc-filters" id="pcFilters" role="group" aria-label="Calendars"></div>
+            <div class="pc-list" id="pcList" aria-live="polite"></div>
+        </div>
+    </div>
+</section>
+<script src="/assets/js/calendar-public.js?v={{ build }}" defer></script>
+{% endblock %}

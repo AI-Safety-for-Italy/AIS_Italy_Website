@@ -14,6 +14,7 @@ const { withTiming } = require('../server/timing');
 
 const ROUTES = {
   access: require('../server/routes/app/access'),
+  calendar: require('../server/routes/app/calendar'),
   community: require('../server/routes/app/community'),
   content: require('../server/routes/app/content'),
   'crm/mentorship': require('../server/routes/app/crm/mentorship'),

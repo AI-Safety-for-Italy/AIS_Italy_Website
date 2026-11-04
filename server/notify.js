@@ -345,6 +345,7 @@ module.exports = {
   sendMeeting,
   render,
   discordAvailable,
+  discordDm,
   setFetch,
   notifyOwner,
   notifyUser,

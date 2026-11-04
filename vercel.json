@@ -164,6 +164,14 @@
   },
   "rewrites": [
     {
+      "source": "/calendar/feed/:token.ics",
+      "destination": "/api/calendar?feed=:token"
+    },
+    {
+      "source": "/calendar/:slug.ics",
+      "destination": "/api/calendar?public=:slug"
+    },
+    {
       "source": "/api/app/:route*",
       "destination": "/api/app?__route=:route*"
     }

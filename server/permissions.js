@@ -143,9 +143,27 @@ const PERMISSIONS = [
     area: 'localgroups',
     help: 'The local groups: who leads each, their contacts and the WhatsApp links.',
   },
+  // The calendar (server/calendars.js) opens for every member, and each
+  // calendar says itself who sees, edits and manages it. These two are about
+  // the calendars as a whole.
+  {
+    key: 'calendar_create',
+    label: 'Calendar: new calendars',
+    area: 'calendar',
+    help: 'Create new calendars, and manage the ones they create.',
+  },
+  {
+    key: 'calendar_admin',
+    label: 'Calendar: all calendars',
+    area: 'calendar',
+    help: 'Manage every calendar, Seminars and Events too: its events, who sees and edits it, its Discord announcements.',
+  },
 ];
-// The tools' areas; `settings` (manage_all) opens no tool of its own.
-const AREAS = [...new Set(PERMISSIONS.map((p) => p.area))].filter((a) => a !== 'settings');
+// The tools' areas; `settings` (manage_all) opens no tool of its own, and the
+// calendar opens for every member whatever they hold.
+const AREAS = [...new Set(PERMISSIONS.map((p) => p.area))].filter(
+  (a) => a !== 'settings' && a !== 'calendar'
+);
 const KEYS = PERMISSIONS.map((p) => p.key);
 // Keys a Discord role never grants, even if a row of the roles' table holds one.
 const PEOPLE_ONLY = PERMISSIONS.filter((p) => p.peopleOnly).map((p) => p.key);
@@ -186,8 +204,10 @@ const DEV_DEFAULTS = {
     'community',
     'local_groups',
     'local_groups_site',
+    'calendar_create',
+    'calendar_admin',
   ],
-  'dev-organizzatori': ['seminar', 'event', 'forms', 'mentorship'],
+  'dev-organizzatori': ['seminar', 'event', 'forms', 'mentorship', 'calendar_create'],
   'dev-partecipanti': [],
 };
 
@@ -254,6 +274,11 @@ function withImplied(rows) {
 // The keys of the site's content: what the shared admin password still opens
 // in production (with `manage`, to hand out everything else).
 const CONTENT_ONLY = PERMISSIONS.filter((p) => p.area === 'content').map((p) => p.key);
+// What `manage` hands out: the site's content and the calendar, nothing
+// personal.
+const MANAGE_GRANTS = PERMISSIONS.filter((p) => ['content', 'calendar'].includes(p.area)).map(
+  (p) => p.key
+);
 
 /**
  * The permission keys of a signed-in user (from auth.currentUser).
@@ -615,12 +640,12 @@ function canGrantAll(user) {
 /**
  * The keys `user` (holding `perms`) may give or take away: all of them for
  * the shared admin; all but `manage_all` with `manage_all`; else the site's
- * content keys (with `manage`).
+ * content and calendar keys (with `manage`).
  */
 function grantable(user, perms) {
   if (canGrantAll(user)) return KEYS.slice();
   if (perms.includes('manage_all')) return KEYS.filter((k) => !ONLY_SHARED_ADMIN.includes(k));
-  return CONTENT_ONLY.slice();
+  return MANAGE_GRANTS.slice();
 }
 
 function labelOf(key) {

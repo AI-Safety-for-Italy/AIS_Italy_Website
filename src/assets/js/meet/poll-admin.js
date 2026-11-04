@@ -930,7 +930,35 @@
       finalizeError.hidden = false;
     }
     submit.disabled = sendOnly && !mailReady;
+    calendarRow(!sendOnly);
     dialog.showModal();
+  }
+
+  // The calendars the owner adds to (server/calendars.js): the chosen time
+  // can land in one of them. Hidden when there is none.
+  var calendarsReq = null;
+  function calendarRow(show) {
+    var row = document.getElementById('calendarRow');
+    row.hidden = true;
+    if (!show) return;
+    if (!calendarsReq) {
+      calendarsReq = M.api(
+        'GET',
+        '/api/app/poll?id=' + encodeURIComponent(id) + '&calendars=1'
+      ).catch(function () {
+        return { calendars: [] };
+      });
+    }
+    calendarsReq.then(function (r) {
+      var select = document.getElementById('finalizeCalendar');
+      if (!r.calendars.length) return;
+      M.clear(select).appendChild(h('option', { value: '' }, 'No calendar'));
+      r.calendars.forEach(function (c) {
+        select.appendChild(h('option', { value: c.id }, c.name));
+      });
+      select.value = poll.calendarId || '';
+      row.hidden = false;
+    });
   }
 
   document.getElementById('sendInvite').addEventListener('change', function (e) {
@@ -962,6 +990,7 @@
         })
       : M.api('POST', '/api/app/poll?id=' + encodeURIComponent(id) + '&action=finalize', {
           slotId: chosenSlot.id,
+          calendarId: document.getElementById('finalizeCalendar').value || null,
           sendInvite: sendInvite,
           emails: emails,
           extraEmails: extraEmails,

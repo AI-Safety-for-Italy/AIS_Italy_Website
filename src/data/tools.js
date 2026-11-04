@@ -34,6 +34,25 @@ module.exports = [
     tabs: [],
     actions: [{ label: 'New poll', url: '/app/polls/new/' }],
   },
+  // The calendar (server/calendars.js): open to every member; each calendar
+  // says itself who sees, edits and manages it. Its two keys (calendar_create,
+  // calendar_admin) have an area of their own, `keysArea`, so the Permissions
+  // page lists them under this tool.
+  {
+    key: 'calendar',
+    title: 'Calendar',
+    url: '/app/calendar/',
+    area: null,
+    keysArea: 'calendar',
+    text: 'The events of every team, and your own link to follow them.',
+    icon: '<rect x="3" y="4.5" width="18" height="16" rx="2.5"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/><circle cx="8" cy="14" r="1"/><circle cx="12" cy="14" r="1"/><circle cx="16" cy="14" r="1"/><circle cx="8" cy="17.5" r="1"/>',
+    tabs: [
+      { key: 'view', label: 'Calendar', url: '/app/calendar/' },
+      { key: 'calendars', label: 'Calendars', url: '/app/calendar/calendars/' },
+      { key: 'subscribe', label: 'Subscribe', url: '/app/calendar/subscribe/' },
+    ],
+    actions: [{ label: 'New event', url: '/app/calendar/?new=1' }],
+  },
   // The site's content (server/content.js). One entry in the sidebar; its page
   // shows a box per part (`sections`), each opened by its own key, with who
   // holds it. The tool shows to whoever holds one of them (`needsAny`).

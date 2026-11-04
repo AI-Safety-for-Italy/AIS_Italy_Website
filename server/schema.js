@@ -708,4 +708,142 @@ begin
     insert into app_settings (key, value) values ('migration_local_groups_seed', 'true');
   end if;
 end $$;
+
+-- ── Calendar (/app/calendar/, server/calendars.js) ───────────────────────────
+
+-- The sub-calendars. Each has three levels of access, each given to every
+-- member (<level>_all), to Discord roles ([{ id, name }]) and to people by
+-- name ([{ discordId, name }]): view sees the events, edit also creates and
+-- changes every event, manage also changes the calendar itself and who has
+-- access. A public calendar is also seen by anyone, signed in or not, on
+-- /calendar/ and through its fixed .ics link. announce: the Discord channels
+-- its events are announced in by default ([{ channelId, name, minutes: [] }]).
+-- system_key marks the two the site's content feeds (seminars, events).
+create table if not exists calendars (
+  id uuid primary key default gen_random_uuid(),
+  slug text not null unique,
+  name text not null,
+  description text not null default '',
+  color text not null default '#00703a',
+  timezone text not null default 'Europe/Rome',
+  is_public boolean not null default false,
+  view_all boolean not null default false,
+  view_roles jsonb not null default '[]',
+  view_people jsonb not null default '[]',
+  edit_all boolean not null default false,
+  edit_roles jsonb not null default '[]',
+  edit_people jsonb not null default '[]',
+  manage_all boolean not null default false,
+  manage_roles jsonb not null default '[]',
+  manage_people jsonb not null default '[]',
+  announce jsonb not null default '[]',
+  owner_id uuid references app_users(id) on delete set null,
+  system_key text unique,
+  archived_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+-- The events. Times are instants; an all-day event runs from the midnight
+-- (UTC) of its first day to the one after its last, read as dates. A
+-- repeating event has its rule (recurrence.js) and the starts it skips
+-- (exdates, ISO strings); an occurrence changed on its own is a row of its
+-- own, pointing at its series (series_id) and at the start it replaces
+-- (recurrence_id). reminders: [{ minutes, channels: ['discord', 'email'] }],
+-- chosen by whoever writes the event; announce: the Discord channels it is
+-- announced in, null for its calendar's. An event copied from a seminar or
+-- event of the site, or from a poll's chosen time, says so in source and
+-- source_id, and is changed there only.
+create table if not exists calendar_events (
+  id uuid primary key default gen_random_uuid(),
+  calendar_id uuid not null references calendars(id) on delete cascade,
+  title text not null,
+  description text not null default '',
+  location text not null default '',
+  video_kind text check (video_kind in ('link', 'discord')),
+  video_url text not null default '',
+  discord_channel_id text,
+  discord_channel_name text,
+  starts_at timestamptz not null,
+  ends_at timestamptz not null,
+  all_day boolean not null default false,
+  timezone text not null default 'Europe/Rome',
+  recurrence jsonb,
+  exdates jsonb not null default '[]',
+  series_id uuid references calendar_events(id) on delete cascade,
+  recurrence_id timestamptz,
+  reminders jsonb not null default '[]',
+  announce jsonb,
+  source text check (source in ('content', 'poll')),
+  source_id text,
+  sequence integer not null default 0,
+  created_by uuid references app_users(id) on delete set null,
+  updated_by uuid references app_users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists calendar_events_calendar on calendar_events (calendar_id, starts_at);
+create index if not exists calendar_events_series on calendar_events (series_id);
+create unique index if not exists calendar_events_source on calendar_events (source, source_id);
+
+-- Who comes to an occurrence of an event: going, maybe or no.
+create table if not exists calendar_rsvps (
+  event_id uuid not null references calendar_events(id) on delete cascade,
+  occurrence_start timestamptz not null,
+  user_id uuid not null references app_users(id) on delete cascade,
+  answer text not null check (answer in ('yes', 'maybe', 'no')),
+  updated_at timestamptz not null default now(),
+  primary key (event_id, occurrence_start, user_id)
+);
+
+-- Each member's choices: which calendars show on the dashboard, go into their
+-- personal .ics link (feed_token) and send them reminders. selection:
+-- { calendarId: { dashboard, ics, notify } }; a calendar not in it follows
+-- the defaults (calendars.js, defaultChoice). advanced: one switch per calendar
+-- and column; else the dashboard and the link go together and notify
+-- applies to the same calendars.
+create table if not exists calendar_prefs (
+  user_id uuid primary key references app_users(id) on delete cascade,
+  feed_token text not null unique,
+  advanced boolean not null default false,
+  notify boolean not null default false,
+  selection jsonb not null default '{}',
+  updated_at timestamptz not null default now()
+);
+
+-- The reminders and announcements sent, so none goes twice: to a person
+-- (user_id) or in a Discord channel (channel_id).
+create table if not exists calendar_reminders_sent (
+  id uuid primary key default gen_random_uuid(),
+  event_id uuid not null references calendar_events(id) on delete cascade,
+  occurrence_start timestamptz not null,
+  minutes integer not null,
+  user_id uuid references app_users(id) on delete cascade,
+  channel_id text,
+  sent_at timestamptz not null default now()
+);
+
+create unique index if not exists calendar_reminders_once on calendar_reminders_sent
+  (event_id, occurrence_start, minutes, coalesce(user_id::text, ''), coalesce(channel_id, ''));
+
+-- Which calendar a seminar or event of the site lands in: null for the
+-- default one of its type, 'none' for none, else a calendar's id.
+alter table content_items add column if not exists calendar_choice text;
+
+-- The calendar a poll's chosen time lands in, if any.
+alter table polls add column if not exists calendar_id uuid references calendars(id) on delete set null;
+
+-- Once, on each database: the two calendars the site's seminars and events
+-- feed, public, managed by whoever holds calendar_admin.
+do $$
+begin
+  if not exists (select 1 from app_settings where key = 'migration_calendar_defaults') then
+    insert into calendars (slug, name, description, color, is_public, view_all, system_key) values
+      ('seminars', 'Seminars', 'The seminars of AI Safety for Italy.', '#00703a', true, true, 'seminars'),
+      ('events', 'Events', 'The events of AI Safety for Italy.', '#2563eb', true, true, 'events')
+    on conflict do nothing;
+    insert into app_settings (key, value) values ('migration_calendar_defaults', 'true');
+  end if;
+end $$;
 `;

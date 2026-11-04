@@ -1,0 +1,57 @@
+---
+title: Subscribe
+# One personal .ics link for Google, Outlook or Apple Calendar, and which
+# calendars it carries, show here and send reminders: together (simple) or
+# one by one (per calendar). server/calendars.js; calendar-subscribe.js.
+tool: calendar
+tab: subscribe
+pageTitle: Subscribe
+permalink: /app/calendar/subscribe/
+noindex: true
+excludeFromSitemap: true
+eleventyExcludeFromCollections: true
+seoTitle: 'Subscribe to the calendar | AI Safety for Italy'
+---
+{% extends "app.njk" %}
+{% block page %}
+<div class="cal-sub" id="calSub">
+  <section class="panel cal-sub-link" aria-labelledby="subLinkTitle">
+    <div class="cal-sub-hero">
+      <span class="cal-sub-hero-ico" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="16" rx="2.5"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4M9 15l2 2 4-4"/></svg>
+      </span>
+      <div>
+        <h2 id="subLinkTitle">Your calendar, in your own calendar app</h2>
+        <p class="panel-note">Add this link once to Google Calendar, Outlook or Apple Calendar. Then choose below what it carries: change it any time, and your calendar app follows without adding anything again.</p>
+      </div>
+    </div>
+    <div id="subLinkBody">{# filled by calendar-subscribe.js #}</div>
+  </section>
+
+  <section class="panel cal-sub-pick" aria-labelledby="subPickTitle">
+    <div class="cal-sub-pick-head">
+      <div>
+        <h2 id="subPickTitle">What you follow</h2>
+        <p class="panel-note" id="subModeNote"></p>
+      </div>
+      <div class="cal-seg cal-mode" role="radiogroup" aria-label="How to choose">
+        <label><input type="radio" name="subMode" value="simple" checked><span>Simple</span></label>
+        <label><input type="radio" name="subMode" value="advanced"><span>Per calendar</span></label>
+      </div>
+    </div>
+    <div id="subPickBody">{# filled by calendar-subscribe.js #}</div>
+    <p class="cal-saved" id="subSaved" aria-live="polite"></p>
+  </section>
+
+  <section class="panel cal-sub-public" id="subPublic" hidden aria-labelledby="subPublicTitle">
+    <h2 id="subPublicTitle">Public calendars</h2>
+    <p class="panel-note">These have a link of their own, the same for everyone: share it with anyone, also outside the community. The site shows them at <a href="/calendar/">/calendar/</a>.</p>
+    <div id="subPublicList"></div>
+  </section>
+</div>
+
+<script src="/assets/js/meet/common.js?v={{ build }}" defer></script>
+<script src="/assets/js/meet/app-common.js?v={{ build }}" defer></script>
+<script src="/assets/js/meet/calendar-common.js?v={{ build }}" defer></script>
+<script src="/assets/js/meet/calendar-subscribe.js?v={{ build }}" defer></script>
+{% endblock %}

@@ -652,3 +652,63 @@ Setting up, once: a random `CRON_SECRET` of at least 32 characters
 (Production) and as a GitHub repository secret. Without it the job does
 nothing. The privacy notice (`src/content/privacy.njk`) says the same periods:
 when one changes here, change it there and tell the people already on file.
+
+# Calendar (`/app/calendar/`)
+
+One calendar for the whole community, split into calendars of their own
+(a team, a working group, the site's seminars), open to every signed-in member
+(`server/calendars.js`, `server/routes/app/calendar.js`; pages in
+`src/content/app/calendar/`, scripts `src/assets/js/meet/calendar-*.js`).
+
+| Where                         | What                                                                      |
+| ----------------------------- | ------------------------------------------------------------------------- |
+| `/app/calendar/`              | Month, week, day and agenda views; the card of an event; its editor       |
+| `/app/calendar/calendars/`    | The calendars one sees, and for who manages one: details, access, Discord |
+| `/app/calendar/subscribe/`    | The personal `.ics` link, and what it carries                             |
+| `/calendar/`, `/it/calendar/` | The public calendars on the site, read live from `api/calendar.js`        |
+| `/calendar/feed/<token>.ics`  | A member's personal feed (rewritten to `api/calendar.js?feed=`)           |
+| `/calendar/<slug>.ics`        | A public calendar's feed, the same for everyone                           |
+
+**Who may do what.** Each calendar has three levels, each given to every
+member, to Discord roles and to people by name, each including the one before:
+
+- **View**: sees the events and answers going / maybe / no;
+- **Edit**: also creates, changes and deletes every event of the calendar;
+- **Manage**: also changes the calendar, who has access and its Discord
+  announcements, and archives it.
+
+A calendar can also be **public**: anyone sees it, signed in or not. Whoever
+created a calendar manages it. Two keys on Settings › Permissions, under
+Calendar: `calendar_create` creates new calendars, `calendar_admin` manages all
+of them (the Seminars and Events ones too). Whoever holds `manage` can give both.
+
+**Events**: times in a time zone, or whole days; repeating daily, weekly or
+monthly (`recurrence.js`), changed or deleted for one occurrence, for the
+following ones or for all; a place; a video call, as a link (Meet, Zoom, Teams…)
+or a voice channel of the Discord server; reminders; Discord announcements.
+
+**Following.** On Subscribe, in the simple mode, a tick per calendar shows it
+on the dashboard and puts it in the personal link, and one switch sends the
+reminders of the same calendars; "Per calendar" gives each its three switches.
+A calendar nobody chose about is on. The link is checked again on every read:
+someone who loses a role loses those events at the calendar app's next read.
+Google reads a subscribed calendar every 12–24 hours, Outlook and Apple more often.
+
+**Reminders and announcements** (`server/calendar-reminders.js`). Whoever writes
+an event chooses its reminders (how long before; Discord DM and/or email); they
+go to who turned notifications on for its calendar and still sees it, and to
+who answered going or maybe. Each calendar can name Discord text channels, each
+with its lead times, where the bot announces its events; an event can name its
+own instead, or none. Only the channels where the bot may write are offered
+(`server/calendar-discord.js`). The job runs every 10 minutes from
+`.github/workflows/calendar-reminders.yml` (`/api/cron/cleanup?job=reminders`,
+the same `CRON_SECRET` as the cleanup); a run late by up to 30 minutes still
+sends what was due, and nothing goes twice (`calendar_reminders_sent`).
+
+**From other tools.** A seminar or event of Site content lands in Seminars or
+Events (created once, public), in another calendar its form chooses, or in
+none; a poll's chosen time lands in the calendar chosen when it is set. Those
+copies are changed where they come from only, and follow every change there.
+
+Tables: `calendars`, `calendar_events`, `calendar_rsvps`, `calendar_prefs`,
+`calendar_reminders_sent`; `content_items.calendar_choice`, `polls.calendar_id`.

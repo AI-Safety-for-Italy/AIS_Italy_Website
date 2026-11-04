@@ -129,6 +129,32 @@
     form.hidden = false;
     dirty = false;
     updatePreview();
+    calendarChoices(item ? item.form.calendar || '' : '');
+  }
+
+  // Which calendar the item lands in (server/calendars.js): its type's own
+  // unless chosen here. Sent only once the list is in, so a calendar that
+  // did not load never changes the choice.
+  var calendarSelect = document.getElementById('calendarChoice');
+  var calendarReady = false;
+  function calendarChoices(current) {
+    M.api('GET', '/api/app/calendar?writable=1')
+      .then(function (r) {
+        var known = false;
+        r.calendars.forEach(function (c) {
+          if (c.id === current) known = true;
+          calendarSelect.appendChild(h('option', { value: c.id }, c.name));
+        });
+        if (current && current !== 'none' && !known) {
+          calendarSelect.appendChild(h('option', { value: current }, 'The one chosen before'));
+        }
+        calendarSelect.value = current;
+        calendarSelect.disabled = false;
+        calendarReady = true;
+      })
+      .catch(function () {
+        /* left as it is: the item keeps its calendar */
+      });
   }
 
   function setTitle(text) {
@@ -157,6 +183,7 @@
       body[name] = document.getElementById(name).value;
     });
     body.tbc = document.getElementById('tbc').checked;
+    if (calendarReady) body.calendar = calendarSelect.value;
     body.details = Array.prototype.map.call(detailsBox.children, function (row) {
       var d = {};
       row.querySelectorAll('[data-key]').forEach(function (input) {

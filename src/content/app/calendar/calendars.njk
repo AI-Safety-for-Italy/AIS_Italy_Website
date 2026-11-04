@@ -1,0 +1,56 @@
+---
+title: Calendars
+# The calendars this member sees, with what they may do in each; whoever
+# manages one changes it here: its details, who views, edits and manages it,
+# its Discord announcements (server/calendars.js). calendar-manage.js.
+tool: calendar
+tab: calendars
+pageTitle: Calendars
+wide: true
+permalink: /app/calendar/calendars/
+noindex: true
+excludeFromSitemap: true
+eleventyExcludeFromCollections: true
+seoTitle: 'Calendars | AI Safety for Italy'
+---
+{% extends "app.njk" %}
+{% block actions %}<button type="button" class="btn btn-primary btn-sm" id="calCreate" hidden>+ New calendar</button>{% endblock %}
+{% block page %}
+<div class="cal-manage-page">
+  <div class="cal-levels-legend panel" aria-label="What each level allows">
+    <div class="cal-legend-item"><span class="cal-access-badge is-view" data-icon="view"></span><div><strong>View</strong><p>Sees the events and says whether they come.</p></div></div>
+    <span class="cal-legend-arrow" aria-hidden="true">›</span>
+    <div class="cal-legend-item"><span class="cal-access-badge is-edit" data-icon="edit"></span><div><strong>Edit</strong><p>Also creates, changes and deletes every event.</p></div></div>
+    <span class="cal-legend-arrow" aria-hidden="true">›</span>
+    <div class="cal-legend-item"><span class="cal-access-badge is-manage" data-icon="manage"></span><div><strong>Manage</strong><p>Also changes the calendar, who has access and its announcements.</p></div></div>
+  </div>
+  <div class="cal-cards" id="calCards"></div>
+  <details class="cal-archived" id="calArchived" hidden>
+    <summary>Archived calendars</summary>
+    <div class="cal-cards" id="calArchivedCards"></div>
+  </details>
+  <p class="form-note cal-create-note" id="calCreateNote" hidden>Creating calendars takes the “Calendar: new calendars” permission, given on Settings › Permissions.</p>
+</div>
+
+<dialog class="meet-dialog crm-panel cal-editor" id="calPanel" aria-labelledby="calPanelTitle">
+  <form id="calPanelForm" novalidate>
+    <div class="cal-editor-head">
+      <h2 id="calPanelTitle">New calendar</h2>
+      <button type="button" class="ap-icon-button" id="calPanelClose" aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="cal-editor-body form-grid" id="calPanelBody"></div>
+    <div class="dialog-foot cal-editor-foot">
+      <span class="cal-foot-space"></span>
+      <button type="button" class="btn btn-outline" id="calPanelCancel">Cancel</button>
+      <button type="submit" class="btn btn-primary" id="calPanelSave">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<script src="/assets/js/meet/common.js?v={{ build }}" defer></script>
+<script src="/assets/js/meet/app-common.js?v={{ build }}" defer></script>
+<script src="/assets/js/meet/calendar-common.js?v={{ build }}" defer></script>
+<script src="/assets/js/meet/calendar-manage.js?v={{ build }}" defer></script>
+{% endblock %}
