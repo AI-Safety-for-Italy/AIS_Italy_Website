@@ -4,11 +4,11 @@
 const { test, beforeEach } = require('node:test');
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
-const { PGlite } = require('@electric-sql/pglite');
 
 process.env.SESSION_SECRET = 'x'.repeat(40);
 
 const db = require('./db');
+const testDb = require('./test-db');
 const auth = require('./auth');
 const permissions = require('./permissions');
 const sheets = require('./sheets');
@@ -25,8 +25,8 @@ const KEY_A = Buffer.alloc(32, 1).toString('base64');
 const KEY_B = Buffer.alloc(32, 2).toString('base64');
 const SECRET = 'a-crm-secret-of-at-least-thirty-two-characters';
 
-beforeEach(() => {
-  db.setDb(new PGlite());
+beforeEach(async () => {
+  await testDb.fresh();
   process.env.CRM_ENCRYPTION_KEY = KEY_A;
   delete process.env.CRM_ENCRYPTION_KEY_PREVIOUS;
   process.env.CRM_KEY_SECRET = SECRET;

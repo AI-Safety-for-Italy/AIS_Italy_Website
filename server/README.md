@@ -27,6 +27,12 @@ npm run dev:meet          # http://localhost:8080/app/
 npm run test:meet
 ```
 
+The test files run in parallel, each in its own process; within a file the
+tests run one after another, each on its own database: a clone of one that
+has the schema already (`server/test-db.js`), so a test does not pay for
+starting Postgres and applying `schema.js`. A new test file starts its tests
+with `beforeEach(() => testDb.fresh())`.
+
 No setup needed: the local server uses PGlite (Postgres in-process, stored in
 `.meet-dev-db/`), and its login page offers a stand-in for Discord that signs in
 under any name (or use the admin password `admin`), and emails are printed in

@@ -9,6 +9,7 @@ const { PGlite } = require('@electric-sql/pglite');
 process.env.SESSION_SECRET = 'x'.repeat(40);
 
 const db = require('./db');
+const testDb = require('./test-db');
 const auth = require('./auth');
 const permissions = require('./permissions');
 const community = require('./community');
@@ -18,8 +19,8 @@ const contentPublish = require('./content-publish');
 
 let botCalls;
 
-beforeEach(() => {
-  db.setDb(new PGlite());
+beforeEach(async () => {
+  await testDb.fresh();
   botCalls = [];
   Object.assign(process.env, {
     DISCORD_BOT_TOKEN_AIS_TEAM_AREA: 'bot',
