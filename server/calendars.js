@@ -1201,7 +1201,7 @@ async function systemCalendar(key, q = db) {
 /** Puts in (or takes out of) a calendar the copy of something from elsewhere. */
 async function upsertCopy(source, sourceId, calendarId, f) {
   const { rows } = await db.query(
-    'select id from calendar_events where source = $1 and source_id = $2',
+    'select id, starts_at, recurrence from calendar_events where source = $1 and source_id = $2',
     [source, sourceId]
   );
   if (!calendarId) {
@@ -1225,14 +1225,26 @@ async function upsertCopy(source, sourceId, calendarId, f) {
     null,
   ];
   if (rows.length) {
-    await db.query(
-      `update calendar_events set calendar_id = $1, (${EVENT_COLUMNS}) =
-         ($2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15),
-         sequence = sequence + 1, updated_at = now()
-       where id = $16`,
-      [calendarId, ...values, rows[0].id]
-    );
-    return rows[0].id;
+    const before = rows[0];
+    await db.transaction(async (tx) => {
+      await tx.query(
+        `update calendar_events set calendar_id = $1, (${EVENT_COLUMNS}) =
+           ($2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15),
+           sequence = sequence + 1, updated_at = now()
+         where id = $16`,
+        [calendarId, ...values, before.id]
+      );
+      // A single event moved in time keeps who said they come.
+      const moved = new Date(before.starts_at).getTime() !== new Date(f.startsAt).getTime();
+      if (moved && !before.recurrence && !f.recurrence) {
+        await tx.query(
+          `update calendar_rsvps set occurrence_start = $3
+           where event_id = $1 and occurrence_start = $2`,
+          [before.id, before.starts_at, f.startsAt]
+        );
+      }
+    });
+    return before.id;
   }
   const { rows: made } = await db.query(
     `insert into calendar_events (calendar_id, ${EVENT_COLUMNS}, source, source_id)
@@ -1270,13 +1282,21 @@ async function syncFromContent(itemId) {
   const e = item.entry || {};
   const day = item.day instanceof Date ? item.day.toISOString().slice(0, 10) : String(item.day);
   const [y, m, d] = day.split('-').map(Number);
+  // The times as the item's form reads them: its fields, or, for the items
+  // imported from data/events.yaml, the ones written in its date line
+  // ("Thursday 12 November 2026, 18:30–19:30 (CET)"). Required here, not
+  // above: content.js requires this module.
+  const form = require('./content').toForm(e);
+  const time = form.time;
+  const endTime = form.end_time;
   let times;
-  if (e.time) {
-    const [h, min] = e.time.split(':').map(Number);
+  if (time) {
+    const [h, min] = time.split(':').map(Number);
     const startsAt = new Date(timeOf.zonedToUtc(y, m, d, h, min, 'Europe/Rome'));
-    let endsAt = new Date(startsAt.getTime() + 90 * 60000);
-    if (e.end_time) {
-      const [eh, emin] = e.end_time.split(':').map(Number);
+    // Without an end time: an hour, as most seminars last.
+    let endsAt = new Date(startsAt.getTime() + 60 * 60000);
+    if (endTime && endTime > time) {
+      const [eh, emin] = endTime.split(':').map(Number);
       endsAt = new Date(timeOf.zonedToUtc(y, m, d, eh, emin, 'Europe/Rome'));
     }
     times = { startsAt, endsAt, allDay: false };
@@ -1304,20 +1324,21 @@ async function syncFromContent(itemId) {
 
 /**
  * Once per database: the site's items from before the calendar get their
- * copies. Asked by every read of the calendar, the public ones too, so the
+ * copies (again since their times are read from their date line, so the
+ * copies made all-day before that get their hours). Asked by every read of the calendar, the public ones too, so the
  * feeds are full before anyone opens the dashboard.
  */
 let backfilled = false;
 async function ensureContentBackfill() {
   if (backfilled) return;
   const { rows } = await db.query(
-    "select 1 from app_settings where key = 'migration_calendar_content'"
+    "select 1 from app_settings where key = 'migration_calendar_content_times'"
   );
   if (!rows.length) {
     const { rows: items } = await db.query('select id from content_items where not deleted');
     for (const item of items) await syncFromContent(item.id);
     await db.query(
-      `insert into app_settings (key, value) values ('migration_calendar_content', 'true')
+      `insert into app_settings (key, value) values ('migration_calendar_content_times', 'true')
        on conflict (key) do nothing`
     );
   }
