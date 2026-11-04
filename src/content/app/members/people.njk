@@ -1,8 +1,7 @@
 ---
 title: Members
-# The community's members (server/community.js): their working groups as
-# tags (mirrored on Discord), whether the site shows them, the import of the
-# old sheet, and publishing the directory to the site. Needs `community`.
+# Everyone in the community (server/community.js), filtered and changed
+# several at once; a row opens their page. Needs `community`.
 permalink: /app/members/people/
 tool: community
 tab: people
@@ -14,45 +13,11 @@ seoTitle: 'Members | AI Safety for Italy'
 ---
 {% extends "app.njk" %}
 {% block page %}
-    <div class="panel members-status" id="membersStatus" hidden></div>
+    <nav class="mb-sync" id="boardSync" aria-label="Where the board stands" hidden></nav>
     <div id="peopleView"></div>
-
-    <dialog class="meet-dialog" id="memberDialog" aria-labelledby="memberTitle">
-      <form method="dialog" id="memberForm">
-        <div class="dialog-body form-grid">
-          <h2 id="memberTitle">Member</h2>
-          <div><label class="form-label" for="mName">Name</label><input class="form-input is-compact" id="mName" maxlength="200" required></div>
-          <div><label class="form-label" for="mProfile">Profile link</label><input class="form-input is-compact" id="mProfile" maxlength="500" placeholder="https://"></div>
-          <div><label class="form-label" for="mLocation">Place</label><input class="form-input is-compact" id="mLocation" maxlength="200"></div>
-          <div><label class="form-label" for="mAreas">Areas</label><input class="form-input is-compact" id="mAreas" maxlength="1000"></div>
-          <div>
-            <label class="form-label" for="mRole">Role</label>
-            <select class="form-input is-compact" id="mRole">
-              <option value="participant">Participant</option>
-              <option value="organizer">Organizer</option>
-            </select>
-          </div>
-          <div>
-            <span class="form-label" id="mGroupsLabel">Working groups</span>
-            <div class="tag-picker" id="mGroups" role="group" aria-labelledby="mGroupsLabel"></div>
-            <p class="panel-note" id="mGroupsNote" style="margin:.4rem 0 0"></p>
-          </div>
-          <label class="fe-switch"><span>Shown on the site (they consented)</span><input type="checkbox" role="switch" class="fe-switch-input" id="mPublish"></label>
-          <div>
-            <span class="form-label">Discord account</span>
-            <p class="panel-note" id="mDiscord" style="margin:0 0 .4rem"></p>
-          </div>
-          <p class="form-error" id="memberError" hidden></p>
-        </div>
-        <div class="dialog-foot">
-          <button class="btn btn-outline btn-sm" type="button" id="memberCancel">Cancel</button>
-          <button class="btn btn-primary btn-sm" type="submit" id="memberSave">Save</button>
-        </div>
-      </form>
-    </dialog>
 
 <script src="/assets/js/meet/common.js?v={{ build }}" defer></script>
 <script src="/assets/js/meet/app-common.js?v={{ build }}" defer></script>
-<script src="/assets/js/meet/community-status.js?v={{ build }}" defer></script>
+<script src="/assets/js/meet/community-common.js?v={{ build }}" defer></script>
 <script src="/assets/js/meet/community-people.js?v={{ build }}" defer></script>
 {% endblock %}

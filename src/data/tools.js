@@ -184,12 +184,15 @@ module.exports = [
     navLabel: 'Board',
     url: '/app/members/people/',
     area: 'community',
-    text: 'The community and its working groups.',
+    text: 'The community, its working groups, and keeping Discord and the website in step.',
     icon: '<circle cx="8" cy="8" r="3"/><circle cx="16" cy="8" r="3"/><path d="M2.5 20a5.5 5.5 0 0 1 11 0M10.5 20a5.5 5.5 0 0 1 11 0"/>',
+    // Members and their pages, the groups; then the two places the board
+    // reaches only when told: Discord and the website.
     tabs: [
       { key: 'people', label: 'Members', url: '/app/members/people/' },
       { key: 'groups', label: 'Working groups', url: '/app/members/groups/' },
       { key: 'discord', label: 'Discord', url: '/app/members/discord/' },
+      { key: 'site', label: 'Website', url: '/app/members/site/' },
     ],
     actions: [],
   },

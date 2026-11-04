@@ -1,10 +1,10 @@
 /* /app/members/groups/: the community's working groups (server/community.js):
  * their names and descriptions in both languages, their order on the site,
- * the Discord role each one is, and who coordinates each: the only place
- * coordinators are chosen. On Discord they are roles; here only
- * tags, never permissions. A new group needs its role made on Discord first.
- * The website shows the change once updated, from the bar on top
- * (community-status.js). */
+ * the Discord role each one is, and who coordinates each (also set from a
+ * member's page; never from a form or the sheet). On Discord they are roles;
+ * here only tags, never permissions. A new group needs its role made on
+ * Discord first. Discord follows when the changes are applied, the website
+ * once updated (the Discord and Website tabs). */
 (function () {
   'use strict';
   var M = window.Meet;
@@ -39,7 +39,7 @@
       h(
         'p',
         { class: 'panel-note' },
-        'Each group is a role on Discord: those in it get the role, and lose it when taken out (Members). Here the groups are only tags: they open nothing in the dashboard. The order is the site’s.'
+        'Each group is a role on Discord: whoever is in it here should have the role there (applied from the Discord tab). Here the groups are only tags: they open nothing in the dashboard. The order is the website’s.'
       )
     );
     var list = h('div', { class: 'wg-list' });
@@ -77,7 +77,7 @@
     M.api('POST', '/api/app/community?action=order', { ids: ids })
       .then(function (r) {
         groups = r.groups;
-        M.communityStatus.refresh();
+        M.board.refresh();
         render();
       })
       .catch(M.appError);
@@ -215,7 +215,7 @@
           g.members +
             (g.members === 1 ? ' member' : ' members') +
             ' · Discord role ' +
-            g.discordRoleId
+            (g.discordRoleName ? g.discordRoleName + ' (' + g.discordRoleId + ')' : g.discordRoleId)
         ),
         coordinators(g)
       ),
@@ -240,24 +240,37 @@
             type: 'button',
             class: 'btn btn-danger-outline btn-sm',
             onclick: function () {
-              if (
-                !window.confirm(
-                  'Remove “' +
-                    g.titleEn +
-                    '”? Its ' +
-                    g.members +
-                    ' members lose the tag (and the role on Discord). The role itself stays on Discord.'
-                )
-              )
-                return;
-              M.api('DELETE', '/api/app/community?group=' + encodeURIComponent(g.id))
-                .then(function (r) {
-                  groups = r.groups;
-                  M.communityStatus.refresh();
-                  M.toast('Removed');
-                  render();
+              M.board
+                .confirm({
+                  title: 'Remove “' + g.titleEn + '”?',
+                  effects: [
+                    {
+                      where: 'db',
+                      text:
+                        'The group goes, and its tag from its ' +
+                        M.board.plural(g.members, 'member') +
+                        '.',
+                    },
+                    {
+                      where: 'discord',
+                      text: 'Nothing changes yet: taking its role off those who hold it waits on the Discord tab. The role itself stays on the server.',
+                    },
+                    { where: 'site', text: 'Gone from the website when it is updated.' },
+                  ],
+                  ok: 'Remove',
+                  danger: true,
                 })
-                .catch(M.appError);
+                .then(function (yes) {
+                  if (!yes) return;
+                  M.api('DELETE', '/api/app/community?group=' + encodeURIComponent(g.id))
+                    .then(function (r) {
+                      groups = r.groups;
+                      M.board.refresh();
+                      M.toast('Removed. Discord: apply when ready.');
+                      render();
+                    })
+                    .catch(M.appError);
+                });
             },
           },
           'Remove'
@@ -319,7 +332,7 @@
         .then(function (d) {
           groups = d.groups;
           editing = null;
-          M.communityStatus.refresh();
+          M.board.refresh();
           M.toast(g ? 'Saved' : 'Group added');
           render();
         })
@@ -350,7 +363,7 @@
         'Discord role id',
         role,
         g
-          ? 'Changing it moves everyone in the group to the new role on Discord.'
+          ? 'Changing it changes nothing on Discord at once: the Discord tab then lists the new role to give and the old one to take off.'
           : 'Make the role on Discord first (Server settings → Roles → Create Role), then right-click it → Copy Role ID. The bot’s own role must sit above it.'
       ),
       error,

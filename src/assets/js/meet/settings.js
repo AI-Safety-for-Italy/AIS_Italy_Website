@@ -107,6 +107,16 @@
         },
       });
     }
+    if (f.community && f.community.canFollow) {
+      rows.push({
+        title: 'Members board',
+        what: 'Once a day, when Discord changes by hand',
+        on: f.community.following,
+        save: function (on) {
+          return M.api('POST', '/api/app/community?action=follow', { on: on });
+        },
+      });
+    }
     (f.forms || []).forEach(function (form) {
       if (form.notifyMe === null) return;
       rows.push({
