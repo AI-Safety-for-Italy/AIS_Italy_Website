@@ -4,11 +4,11 @@
 // On invented data only. Run with `npm run test:meet`.
 const { test, beforeEach } = require('node:test');
 const assert = require('node:assert/strict');
-const { PGlite } = require('@electric-sql/pglite');
 
 process.env.SESSION_SECRET = 'x'.repeat(40);
 
 const db = require('./db');
+const testDb = require('./test-db');
 const auth = require('./auth');
 const permissions = require('./permissions');
 const localGroups = require('./local-groups');
@@ -16,8 +16,8 @@ const localGroupsBuild = require('./local-groups-build');
 const contentPublish = require('./content-publish');
 const contentApi = require('../api/content');
 
-beforeEach(() => {
-  db.setDb(new PGlite());
+beforeEach(async () => {
+  await testDb.fresh();
   Object.assign(process.env, {
     CRM_ENCRYPTION_KEY: Buffer.alloc(32, 7).toString('base64'),
     CRM_KEY_SECRET: 'a-local-groups-secret-of-at-least-thirty-two-chars',

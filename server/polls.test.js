@@ -7,11 +7,12 @@ const { PGlite } = require('@electric-sql/pglite');
 process.env.SESSION_SECRET = 'x'.repeat(40);
 
 const db = require('./db');
+const testDb = require('./test-db');
 const polls = require('./polls');
 const auth = require('./auth');
 const { route } = require('./http');
 
-beforeEach(() => db.setDb(new PGlite()));
+beforeEach(() => testDb.fresh());
 
 const DAY = '2026-11-03T';
 const basePoll = (over = {}) => ({

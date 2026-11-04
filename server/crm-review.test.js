@@ -6,11 +6,11 @@
 // invented sheets) only expressed interest, so he is not scored.
 const { test, beforeEach } = require('node:test');
 const assert = require('node:assert/strict');
-const { PGlite } = require('@electric-sql/pglite');
 
 process.env.SESSION_SECRET = 'x'.repeat(40);
 
 const db = require('./db');
+const testDb = require('./test-db');
 const auth = require('./auth');
 const permissions = require('./permissions');
 const sheets = require('./sheets');
@@ -45,7 +45,7 @@ const MARCO = {
 };
 
 beforeEach(async () => {
-  db.setDb(new PGlite());
+  await testDb.fresh();
   process.env.CRM_ENCRYPTION_KEY = Buffer.alloc(32, 1).toString('base64');
   process.env.CRM_KEY_SECRET = 'a-crm-secret-of-at-least-thirty-two-characters';
   process.env.CRM_SHEETS_FAKE = '1';
