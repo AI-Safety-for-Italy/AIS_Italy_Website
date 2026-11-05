@@ -630,6 +630,7 @@
         tracks: (card.getAttribute('data-tracks') || '').split(' '),
         areas: (card.getAttribute('data-areas') || '').split(' '),
         text: fold(card.getAttribute('data-search')),
+        views: Array.prototype.slice.call(card.querySelectorAll('[data-mentor-view]')),
       };
     });
 
@@ -641,6 +642,10 @@
       expanded: false,
     };
     search.value = state.query;
+
+    function leadTrack() {
+      return state.track === 'orientation' ? 'orientation' : 'projects';
+    }
 
     function matches(item, areas) {
       if (state.track && item.tracks.indexOf(state.track) === -1) return false;
@@ -667,6 +672,11 @@
 
       items.forEach(function (item) {
         item.card.hidden = true;
+        // A mentor on both tracks shows the side the filter asks for.
+        if (item.views.length < 2) return;
+        item.views.forEach(function (v) {
+          v.hidden = v.getAttribute('data-mentor-view') !== leadTrack();
+        });
       });
       shown.forEach(function (item, i) {
         item.card.hidden = i >= limit;
@@ -752,6 +762,12 @@
       // From a co-mentor's profile to the other one: one dialog at a time.
       var current = document.querySelector('.mentor-dialog[open]');
       if (current) current.close();
+      var project = dialog.querySelector('[data-mentor-block="projects"]');
+      var guide = dialog.querySelector('[data-mentor-block="orientation"]');
+      if (project && guide) {
+        var lead = leadTrack() === 'orientation' ? guide : project;
+        lead.parentNode.insertBefore(lead, lead === guide ? project : guide);
+      }
       dialog.showModal();
       history.replaceState(null, '', urlWithout() + '#' + id);
       return true;

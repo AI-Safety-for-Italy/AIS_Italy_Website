@@ -2033,6 +2033,11 @@ a:hover {
   background: var(--secondary);
 }
 
+.mentor-card-body .mentor-track-pills,
+.mentor-dialog-tags .mentor-track-pills {
+  margin-bottom: 0.6rem;
+}
+
 .mentor-project-title {
   margin: 0 0 0.4rem;
   font-family: var(--font-display);
@@ -2042,7 +2047,7 @@ a:hover {
   color: var(--text-primary);
 }
 
-/* Orientation-only mentors have no project title: a small label instead */
+/* Career orientation has no project title: a small label instead */
 .mentor-help-label {
   margin: 0 0 0.4rem;
   font-family: var(--font-mono);

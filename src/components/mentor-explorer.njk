@@ -24,7 +24,18 @@
 {% endif %}
 {%- endmacro %}
 
-{# The research areas of a mentor. The track is left out: the filter shows it. #}
+{# The tracks a mentor takes part in. #}
+{% macro trackPills(mt) -%}
+<ul class="mentor-track-pills">
+    {% for t in m.tracks %}
+    {% if t.id in mt.tracks %}
+    <li class="mentor-track-pill is-{{ t.id }}" data-en="{{ t.title }}" data-it="{{ t.title_it }}">{{ t.title }}</li>
+    {% endif %}
+    {% endfor %}
+</ul>
+{%- endmacro %}
+
+{# The research areas of a mentor. #}
 {% macro cardTags(mt) -%}
 <ul class="tags mentor-area-tags">
     {% for id in mt.areas %}
@@ -91,18 +102,25 @@
                         </div>
                     </div>
                     <div class="mentor-card-body">
+                        {{ trackPills(mt) }}
+                        {# With both, main.js shows the one of the track filter, the project by default. #}
                         {% if p %}
-                        <p class="mentor-project-title" data-en="{{ p.title }}" data-it="{{ p.title_it or p.title }}">{{ p.title }}</p>
-                        <p class="mentor-summary" data-en="{{ p.summary }}" data-it="{{ p.summary_it or p.summary }}">{{ p.summary }}</p>
-                        {% else %}
-                        <p class="mentor-help-label" data-en="Can help with" data-it="Può aiutarti con">Can help with</p>
-                        <p class="mentor-summary" data-en="{{ mt.orientation }}" data-it="{{ mt.orientation_it or mt.orientation }}">{{ mt.orientation }}</p>
+                        <div data-mentor-view="projects">
+                            <p class="mentor-project-title" data-en="{{ p.title }}" data-it="{{ p.title_it or p.title }}">{{ p.title }}</p>
+                            <p class="mentor-summary" data-en="{{ p.summary }}" data-it="{{ p.summary_it or p.summary }}">{{ p.summary }}</p>
+                        </div>
+                        {% endif %}
+                        {% if mt.orientation %}
+                        <div data-mentor-view="orientation">
+                            <p class="mentor-help-label" data-en="Can help with" data-it="Può aiutarti con">Can help with</p>
+                            <p class="mentor-summary" data-en="{{ mt.orientation }}" data-it="{{ mt.orientation_it or mt.orientation }}">{{ mt.orientation }}</p>
+                        </div>
                         {% endif %}
                     </div>
                     <div class="mentor-card-foot">
                         {{ cardTags(mt) }}
                         <a class="mentor-open" href="#{{ mt.id }}" data-mentor-open="{{ mt.id }}" aria-haspopup="dialog">
-                            <span class="sr-only" data-en="{{ 'Read the project' if p else 'Read the profile' }}" data-it="{{ 'Leggi il progetto' if p else 'Leggi il profilo' }}">{{ 'Read the project' if p else 'Read the profile' }}</span><span class="sr-only">: {{ mt.name }}</span>
+                            <span class="sr-only" data-en="{{ 'Read the project' if p and not mt.orientation else 'Read the profile' }}" data-it="{{ 'Leggi il progetto' if p and not mt.orientation else 'Leggi il profilo' }}">{{ 'Read the project' if p and not mt.orientation else 'Read the profile' }}</span><span class="sr-only">: {{ mt.name }}</span>
                         </a>
                     </div>
                 </article>
@@ -155,6 +173,7 @@
             </header>
 
             <div class="mentor-dialog-tags">
+                {{ trackPills(mt) }}
                 {{ cardTags(mt) }}
             </div>
 
@@ -180,30 +199,33 @@
             </section>
             {% endif %}
 
+            {# The block of the track filter comes first (open() in main.js). #}
             {% if p %}
-            <section class="mentor-dialog-part">
-                <p class="mono-label" data-en="Project" data-it="Progetto">Project</p>
-                <h3 data-en="{{ p.title }}" data-it="{{ p.title_it or p.title }}">{{ p.title }}</h3>
-                <p data-en="{{ p.description or p.summary }}" data-it="{{ p.description_it or p.summary_it or p.description or p.summary }}">{{ p.description or p.summary }}</p>
-            </section>
-            {% endif %}
+            <div data-mentor-block="projects">
+                <section class="mentor-dialog-part">
+                    <p class="mono-label" data-en="Project" data-it="Progetto">Project</p>
+                    <h3 data-en="{{ p.title }}" data-it="{{ p.title_it or p.title }}">{{ p.title }}</h3>
+                    <p data-en="{{ p.description or p.summary }}" data-it="{{ p.description_it or p.summary_it or p.description or p.summary }}">{{ p.description or p.summary }}</p>
+                </section>
 
-            {% if p.mentee %}
-            <section class="mentor-dialog-part">
-                <p class="mono-label" data-en="Who it is for" data-it="A chi si rivolge">Who it is for</p>
-                <p data-en="{{ p.mentee }}" data-it="{{ p.mentee_it or p.mentee }}">{{ p.mentee }}</p>
-            </section>
-            {% endif %}
+                {% if p.mentee %}
+                <section class="mentor-dialog-part">
+                    <p class="mono-label" data-en="Who it is for" data-it="A chi si rivolge">Who it is for</p>
+                    <p data-en="{{ p.mentee }}" data-it="{{ p.mentee_it or p.mentee }}">{{ p.mentee }}</p>
+                </section>
+                {% endif %}
 
-            {% if p.deliverable %}
-            <section class="mentor-dialog-part">
-                <p class="mono-label" data-en="Deliverable" data-it="Risultato">Deliverable</p>
-                <p data-en="{{ p.deliverable }}" data-it="{{ p.deliverable_it or p.deliverable }}">{{ p.deliverable }}</p>
-            </section>
+                {% if p.deliverable %}
+                <section class="mentor-dialog-part">
+                    <p class="mono-label" data-en="Deliverable" data-it="Risultato">Deliverable</p>
+                    <p data-en="{{ p.deliverable }}" data-it="{{ p.deliverable_it or p.deliverable }}">{{ p.deliverable }}</p>
+                </section>
+                {% endif %}
+            </div>
             {% endif %}
 
             {% if mt.orientation %}
-            <section class="mentor-dialog-part">
+            <section class="mentor-dialog-part" data-mentor-block="orientation">
                 <p class="mono-label" data-en="Career orientation: can help with" data-it="Orientamento: può aiutarti con">Career orientation: can help with</p>
                 <p data-en="{{ mt.orientation }}" data-it="{{ mt.orientation_it or mt.orientation }}">{{ mt.orientation }}</p>
             </section>
