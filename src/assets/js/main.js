@@ -794,7 +794,7 @@
 
   // ── The mentee call (content/mentorship.njk, content/index.njk) ────────
   // The pages are static, so they ask the form itself: its status and dates in
-  // the dashboard open and close the call. No answer leaves "opening soon".
+  // the dashboard open and close the call. No answer leaves the call hidden.
   function initMenteeCall() {
     var link = document.querySelector('a[data-call-open]');
     if (!link) return;
