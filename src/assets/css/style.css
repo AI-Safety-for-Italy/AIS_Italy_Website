@@ -2079,6 +2079,19 @@ a:hover {
   border-top: 1px solid var(--border-muted);
 }
 
+/* Nothing under the name, or no research areas: no empty line. The card's
+   gap is taken back so the empty foot adds no space. */
+.mentor-card-head.is-alone {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.mentor-card-foot.is-empty {
+  margin-top: -1rem;
+  padding-top: 0;
+  border-top: 0;
+}
+
 .mentor-area-tags {
   margin: 0;
   padding: 0;

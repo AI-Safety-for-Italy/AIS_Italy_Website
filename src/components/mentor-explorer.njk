@@ -107,25 +107,31 @@
                 {% for mt in mx.mentors %}
                 {% set p = mx.mentors | projectOf(mt) %}
                 {% set hasOrientation = mt.orientation or mt.orientation_it %}
+                {# The card previews the project: its summary, or the start of its description. #}
+                {% set previewEn = p.summary or p.description if p else "" %}
+                {% set previewIt = p.summary_it or p.description_it if p else "" %}
+                {% set hasProject = p and (p.title or p.title_it or previewEn or previewIt) %}
+                {% set hasBody = mt.tracks or hasProject or hasOrientation %}
                 <article class="mentor-card" data-mentor="{{ mt.id }}" data-tracks="{{ (mt.tracks or []) | join(' ') }}" data-areas="{{ (mt.areas or []) | join(' ') }}"
                     data-search="{{ [mt.name, mt.affiliation, mt.role, mt.role_it, p.title, p.title_it, p.summary, p.summary_it, mt.orientation, mt.orientation_it] | join(' ') | lower }}">
                     {% if mt.co_mentors %}
                     <span class="mentor-co-badge">Co-mentor</span>
                     {% endif %}
-                    <div class="mentor-card-head">
+                    <div class="mentor-card-head{% if not hasBody %} is-alone{% endif %}">
                         {{ avatar(mt, "") }}
                         <div class="mentor-card-who">
                             <h3 class="mentor-name">{{ mt.name }}</h3>
                             {{ roleLine(mt) }}
                         </div>
                     </div>
+                    {% if hasBody %}
                     <div class="mentor-card-body">
                         {{ trackPills(mt) }}
                         {# With both, main.js shows the one of the track filter, the project by default. #}
-                        {% if p and (p.title or p.title_it or p.summary or p.summary_it) %}
+                        {% if hasProject %}
                         <div data-mentor-view="projects">
                             {{ both("p", p.title, p.title_it, "mentor-project-title") }}
-                            {{ both("p", p.summary, p.summary_it, "mentor-summary") }}
+                            {{ both("p", previewEn, previewIt, "mentor-summary") }}
                         </div>
                         {% endif %}
                         {% if hasOrientation %}
@@ -135,7 +141,9 @@
                         </div>
                         {% endif %}
                     </div>
-                    <div class="mentor-card-foot">
+                    {% endif %}
+                    {# Without research areas the foot holds only the link: no line above it. #}
+                    <div class="mentor-card-foot{% if not mt.areas %} is-empty{% endif %}">
                         {{ cardTags(mt) }}
                         <a class="mentor-open" href="#{{ mt.id }}" data-mentor-open="{{ mt.id }}" aria-haspopup="dialog">
                             <span class="sr-only" data-en="{{ 'Read the project' if p and not hasOrientation else 'Read the profile' }}" data-it="{{ 'Leggi il progetto' if p and not hasOrientation else 'Leggi il profilo' }}">{{ 'Read the project' if p and not hasOrientation else 'Read the profile' }}</span><span class="sr-only">: {{ mt.name }}</span>
