@@ -8,7 +8,7 @@
 # The expression-of-interest form, shared by mentors and mentees
 # (server/forms/templates.js, mentorship_interest).
 links:
-  interest_form: '/form/?f=manifestazione-interesse-mentorship'
+  interest_form: '/form/?f=expression-of-interest'
   # The mentee application form (server/forms/templates.js, mentee_application).
   mentee_form: '/form/?f=candidatura-mentee'
 

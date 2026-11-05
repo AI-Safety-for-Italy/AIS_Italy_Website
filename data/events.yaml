@@ -140,7 +140,7 @@ upcoming_events:
       # Same form as links.interest_form in data/mentorship.yaml.
       secondary_text: 'Register your interest'
       secondary_text_it: 'Manifesta il tuo interesse'
-      secondary_link: '/form/?f=manifestazione-interesse-mentorship'
+      secondary_link: '/form/?f=expression-of-interest'
     title: 'AI Safety for Italy Mentorship Program: call opening soon'
     title_it: 'Programma di mentorship AI Safety for Italy: call in apertura'
     date: 'First edition, 15 December 2026 – 15 March 2027'
