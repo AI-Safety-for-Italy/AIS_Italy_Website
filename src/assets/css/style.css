@@ -641,6 +641,11 @@ a:hover {
   gap: 0.55rem;
 }
 
+[data-call-open][hidden],
+[data-call-soon][hidden] {
+  display: none;
+}
+
 @media (max-width: 640px) {
   .announce-bar {
     font-size: 0.82rem;

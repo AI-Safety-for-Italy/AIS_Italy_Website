@@ -792,6 +792,29 @@
     if (location.hash) open(decodeURIComponent(location.hash.slice(1)));
   }
 
+  // ── The mentee call (content/mentorship.njk, content/index.njk) ────────
+  // The pages are static, so they ask the form itself: its status and dates in
+  // the dashboard open and close the call. No answer leaves "opening soon".
+  function initMenteeCall() {
+    var link = document.querySelector('a[data-call-open]');
+    if (!link) return;
+
+    fetch('/api/form' + link.search)
+      .then(function (res) {
+        return res.ok ? res.json() : null;
+      })
+      .then(function (form) {
+        if (!form || !form.open) return;
+        document.querySelectorAll('[data-call-open]').forEach(function (el) {
+          el.hidden = false;
+        });
+        document.querySelectorAll('[data-call-soon]').forEach(function (el) {
+          el.hidden = true;
+        });
+      })
+      .catch(function () {});
+  }
+
   // ── Mentorship key dates (content/mentorship.njk) ──────────────────────
   // Like the calendar, the steps follow today's date: the ones over are done,
   // the one in progress gets "Now" and, between two steps, the next one gets
@@ -849,4 +872,5 @@
   initHeroGlow();
   initDotSpotlight();
   initConsent();
+  initMenteeCall();
 })();
