@@ -21,10 +21,10 @@ items:
 
   - id: 5
     type: "mentorship"
-    title_en: "Mentorship program: open call"
-    title_it: "Programma di mentorship: call aperta"
-    description_en: "First edition from 15 December 2026 to 15 March 2027. Mentor applications close 20 October; mentee applications open 1 November."
-    description_it: "Prima edizione dal 15 dicembre 2026 al 15 marzo 2027. Candidature mentor entro il 20 ottobre; candidature mentee dal 1 novembre."
+    title_en: "Mentorship program: call opening soon"
+    title_it: "Programma di mentorship: call in apertura"
+    description_en: "First edition from 15 December 2026 to 15 March 2027. Mentee applications are about to open: express your interest in the meantime."
+    description_it: "Prima edizione dal 15 dicembre 2026 al 15 marzo 2027. Le candidature mentee stanno per aprire: intanto manifesta il tuo interesse."
     details_url: "/mentorship/"
     link_url: "/mentorship/#timeline"
     link_text_en: "Key dates"

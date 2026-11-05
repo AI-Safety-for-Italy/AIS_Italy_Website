@@ -34,6 +34,9 @@ seoDescription_it: "Il programma di mentorship di AI Safety for Italy mette in c
             <h1 data-en="{{ m.title }}" data-it="{{ m.title_it }}">{{ m.title }}</h1>
             <p class="mentorship-edition" data-en="{{ m.edition }}" data-it="{{ m.edition_it }}">{{ m.edition }}</p>
             <p class="lede" data-en="{{ m.lede }}" data-it="{{ m.lede_it }}">{{ m.lede }}</p>
+            {% if not m.call_open and m.notice %}
+            <p class="lede" data-en="{{ m.notice }}" data-it="{{ m.notice_it }}">{{ m.notice }}</p>
+            {% endif %}
             <div class="home-hero-ctas mentorship-ctas">
                 <a href="{{ m.links.interest_form }}" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-lg" data-en="{{ m.interest.button }}" data-it="{{ m.interest.button_it }}">{{ m.interest.button }}</a>
                 {#- During a call mentees apply on the site's own form. -#}

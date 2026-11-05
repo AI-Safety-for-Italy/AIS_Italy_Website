@@ -52,6 +52,8 @@ const TEMPLATES = {
 
   mentorship_interest: {
     label: 'Mentorship: expression of interest',
+    // The address the site's "Express your interest" button opens.
+    slug: 'expression-of-interest',
     schema: (title) => ({
       languages: ['it'],
       title: { it: title },
