@@ -136,3 +136,134 @@ supporters:
     logo: '/assets/img/supporters/coefficient-giving.png'
     width: 456
     height: 176
+
+# Affiliations Section
+# Logo slideshow under the "At a glance" numbers on the home page: universities
+# and organisations where our members work. Only list a place where at least
+# one member works now; PhD students and postdocs count, master's students do
+# not.
+#
+# Logos live in src/assets/img/affiliations/ as one-colour artwork: black on a
+# transparent background, PNG at twice the size it is shown at. The CSS fades
+# them on the light theme and inverts them on the dark one, so the original
+# colours do not matter. `width` and `height` are the display size in px (the
+# file is drawn at twice that); pick them so each logo covers about 44 x 160 px of area,
+# between 30 and 58 px tall, so a long wordmark and a square mark look equally
+# heavy. A very bold one can go a little smaller (Imperial, EUI).
+#
+# The page shuffles the logos on every visit; the order here is only what
+# visitors without JavaScript see.
+#
+# Each logo is the organisation's own, taken from its website and recoloured.
+# Apart, SPAR and the Cambridge AI Safety Hub publish only a mark: their entry
+# is that mark with the name set beside it in their own site's font, as their
+# site header shows it.
+affiliations:
+  - name: 'SaferAI'
+    logo: '/assets/img/affiliations/saferai.png'
+    width: 177
+    height: 40
+  - name: 'Università degli Studi di Milano'
+    logo: '/assets/img/affiliations/unimi.png'
+    width: 102
+    height: 58
+  - name: 'Imperial College London'
+    logo: '/assets/img/affiliations/imperial.png'
+    width: 218
+    height: 24
+  - name: 'Parallax'
+    logo: '/assets/img/affiliations/parallax.png'
+    width: 160
+    height: 44
+  - name: 'Università degli Studi di Trieste'
+    logo: '/assets/img/affiliations/units.png'
+    width: 145
+    height: 49
+  - name: 'ERA Cambridge'
+    logo: '/assets/img/affiliations/era-cambridge.png'
+    width: 58
+    height: 58
+  - name: 'University of Copenhagen'
+    logo: '/assets/img/affiliations/copenhagen.png'
+    width: 174
+    height: 41
+  - name: 'Apart Research'
+    logo: '/assets/img/affiliations/apart.png'
+    width: 218
+    height: 32
+  - name: 'Università degli Studi di Cagliari'
+    logo: '/assets/img/affiliations/unica.png'
+    width: 210
+    height: 34
+  - name: 'LASR Labs'
+    logo: '/assets/img/affiliations/lasr-labs.png'
+    width: 58
+    height: 58
+  - name: 'Area Science Park'
+    logo: '/assets/img/affiliations/area-science-park.png'
+    width: 112
+    height: 58
+  - name: 'Ada Lovelace Institute'
+    logo: '/assets/img/affiliations/ada-lovelace.png'
+    width: 65
+    height: 58
+  - name: 'Università di Trento'
+    logo: '/assets/img/affiliations/unitn.png'
+    width: 151
+    height: 47
+  - name: 'CePTE'
+    logo: '/assets/img/affiliations/cepte.png'
+    width: 215
+    height: 33
+  - name: 'Inria'
+    logo: '/assets/img/affiliations/inria.png'
+    width: 155
+    height: 45
+  - name: 'sAIfer Lab'
+    logo: '/assets/img/affiliations/saifer-lab.png'
+    width: 182
+    height: 39
+  - name: 'Università di Genova'
+    logo: '/assets/img/affiliations/unige.png'
+    width: 167
+    height: 42
+  - name: 'Cambridge AI Safety Hub'
+    logo: '/assets/img/affiliations/caish.png'
+    width: 253
+    height: 30
+  - name: 'ELLIS Institute Tübingen'
+    logo: '/assets/img/affiliations/ellis-tuebingen.png'
+    width: 306
+    height: 30
+  - name: 'Università degli Studi di Milano-Bicocca'
+    logo: '/assets/img/affiliations/unimib.png'
+    width: 54
+    height: 58
+  - name: 'SPAR'
+    logo: '/assets/img/affiliations/spar.png'
+    width: 136
+    height: 52
+  - name: 'European University Institute'
+    logo: '/assets/img/affiliations/eui.png'
+    width: 97
+    height: 46
+  - name: 'Università degli Studi di Udine'
+    logo: '/assets/img/affiliations/uniud.png'
+    width: 140
+    height: 50
+  - name: 'Future Impact Group'
+    logo: '/assets/img/affiliations/future-impact-group.png'
+    width: 143
+    height: 49
+  - name: 'Örebro University'
+    logo: '/assets/img/affiliations/orebro.png'
+    width: 80
+    height: 58
+  - name: 'Università degli Studi di Modena e Reggio Emilia'
+    logo: '/assets/img/affiliations/unimore.png'
+    width: 140
+    height: 50
+  - name: 'Università della Calabria'
+    logo: '/assets/img/affiliations/unical.png'
+    width: 367
+    height: 30
