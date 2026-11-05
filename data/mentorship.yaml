@@ -24,11 +24,9 @@ partner:
   # transparent, inverted by CSS on the dark theme.
   logo: '/assets/img/orgs/cepte-wordmark.png'
 
-# Shown as a pulsing "Open call" label while true.
-call_open: false
-
-# Shown under the intro while call_open is false: the mentee application form
-# is not up yet, so people leave their interest meanwhile.
+# Shown until the mentee application form (links.mentee_form) is open: people
+# leave their interest meanwhile. The form's status and dates in the dashboard
+# decide, and the pages follow them by themselves (initMenteeCall in main.js).
 notice: "We are finishing a few internal technical things: the mentee application form will open shortly. In the meantime, please express your interest by filling in the expression of interest form, and we will write to you as soon as applications open."
 notice_it: "Stiamo terminando alcune questioni tecniche interne: il form di candidatura per i mentee aprirà a breve. Nel frattempo ti chiediamo di esprimere il tuo interesse compilando la manifestazione di interesse; ti scriveremo non appena le candidature saranno aperte."
 
