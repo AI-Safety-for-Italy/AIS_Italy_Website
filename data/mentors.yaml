@@ -6,9 +6,8 @@
 # data/mentorship.yaml publishes it on 31 October 2026).
 published: true
 
-# Optional: a short line on an orange background under the intro.
-more_coming: 'More mentors will be announced in the coming days.'
-more_coming_it: 'Altri mentor verranno pubblicati nei prossimi giorni.'
+# Optional: a short line on an orange background under the intro, as
+# `more_coming` / `more_coming_it`. None for now.
 
 title: 'Mentors and projects'
 title_it: 'Mentor e progetti'
