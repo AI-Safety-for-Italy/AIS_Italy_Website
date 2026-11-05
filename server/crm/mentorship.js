@@ -218,10 +218,21 @@ async function activeMatches() {
   return rows;
 }
 
+/** Who the board published or took off: person key -> hidden. */
+async function siteRows() {
+  const { rows } = await db.query('select person_key, hidden from mentor_site_entries');
+  return new Map(rows.map((r) => [r.person_key, r.hidden]));
+}
+
 /** The whole board for the page. */
 async function board(user) {
   const { people, unlinked, problems } = await gather();
-  const [state, notes, matches] = await Promise.all([states(), noteCounts(), activeMatches()]);
+  const [state, notes, matches, site] = await Promise.all([
+    states(),
+    noteCounts(),
+    activeMatches(),
+    siteRows(),
+  ]);
   const matchCount = new Map();
   matches.forEach((m) => {
     matchCount.set(`mentor:${m.mentor_key}`, (matchCount.get(`mentor:${m.mentor_key}`) || 0) + 1);
@@ -230,6 +241,11 @@ async function board(user) {
   const cards = [...people.entries()].map(([id, person]) =>
     card(person, state.get(id), { notes: notes.get(person.key), matches: matchCount.get(id) })
   );
+  cards
+    .filter((c) => c.kind === 'mentor')
+    .forEach((c) => {
+      c.online = site.has(c.key) ? !site.get(c.key) : Boolean(siteYaml(c.name));
+    });
   const byName = (a, b) => a.name.localeCompare(b.name, 'it');
   const names = new Map(cards.map((c) => [`${c.kind}:${c.key}`, c.name]));
   await audit.record(user, 'view-list', null, {
@@ -681,6 +697,9 @@ async function siteOf(key, found, name) {
   return {
     bio: draft.bio || '',
     photo: draft.photo || null,
+    // The photo data/mentors.yaml puts on the site: toPublish() keeps it unless they said no.
+    yamlPhoto: (consent !== 'no' && yamlHit && yamlHit.photo) || null,
+    online: pub ? !pub.hidden : Boolean(yamlHit),
     updatedAt: row ? row.updated_at : null,
     updatedBy: row ? row.updated_by_name : null,
     consent,

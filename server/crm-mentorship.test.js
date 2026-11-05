@@ -656,6 +656,8 @@ test('a person comes with the stages and tracks, and a mentor with their draft f
     {
       bio: '',
       photo: null,
+      yamlPhoto: null,
+      online: false,
       updatedAt: null,
       updatedBy: null,
       consent: null,
@@ -872,16 +874,24 @@ test('a mentor already in data/mentors.yaml starts from their entry there', asyn
   assert.equal(site.id, one.id);
   assert.equal(site.entry.bio, one.bio);
   assert.equal(site.entry.photo, undefined);
+  assert.equal(site.yamlPhoto, one.photo || null);
   assert.equal(site.published, null);
+  const onBoard = async () =>
+    (await mentorship.board(me)).mentors.find((c) => c.key === key).online;
+  assert.equal(site.online, true);
+  assert.equal(await onBoard(), true);
 
   // Taken off the site from the board: hidden, so the YAML entry stays off too.
   const { site: after } = await mentorship.unpublish(me, key, 'mentor');
   assert.equal(after.published, null);
+  assert.equal(after.online, false);
+  assert.equal(await onBoard(), false);
   assert.deepEqual(await mentorship.publicExport(), { live: true, mentors: [], hidden: [one.id] });
   // Published again, the board's copy replaces the YAML one, its photo path kept.
   await mentorship.update(me, key, 'mentor', { status: 'selected' });
   const { site: back } = await mentorship.publish(me, key, 'mentor');
   assert.equal(back.published.id, one.id);
+  assert.equal(await onBoard(), true);
   const out = await mentorship.publicExport();
   assert.deepEqual(out.hidden, []);
   assert.equal(out.mentors[0].id, one.id);

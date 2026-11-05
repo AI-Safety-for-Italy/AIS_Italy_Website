@@ -624,7 +624,8 @@
               },
             },
             h('span', { class: 'crm-pick-name' }, c.name),
-            c.org ? h('span', { class: 'crm-pick-org' }, c.org) : null
+            c.org ? h('span', { class: 'crm-pick-org' }, c.org) : null,
+            siteTag(c)
           ),
           c.track
             ? h('span', null, trackLabel(c.track))
@@ -735,6 +736,16 @@
     board.appendChild(columns);
   }
 
+  // Mentors only: whether they are on /mentorship/.
+  function siteTag(c) {
+    if (c.kind !== 'mentor') return null;
+    return h(
+      'span',
+      { class: 'crm-tag crm-site-tag ' + (c.online ? 'is-online' : 'is-offline') },
+      c.online ? 'Online' : 'Not online'
+    );
+  }
+
   function cardEl(c) {
     var used = c.capacity ? c.matches + '/' + c.capacity + ' mentees' : null;
     var el = h(
@@ -759,6 +770,7 @@
       h(
         'span',
         { class: 'crm-card-meta' },
+        siteTag(c),
         c.track ? h('span', { class: 'crm-tag crm-track-' + c.track }, trackLabel(c.track)) : null,
         used ? h('span', { class: 'crm-tag' }, used) : null,
         c.notes

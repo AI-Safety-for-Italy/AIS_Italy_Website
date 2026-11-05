@@ -680,7 +680,8 @@
     var photo = h('div', { class: 'crm-avatar', 'aria-hidden': 'true' });
     function paintAvatar() {
       M.clear(photo);
-      if (p.site && p.site.photo) photo.appendChild(h('img', { src: p.site.photo, alt: '' }));
+      var src = p.site && (p.site.photo || p.site.yamlPhoto);
+      if (src) photo.appendChild(h('img', { src: src, alt: '' }));
       else photo.textContent = initials(p.name);
     }
     paintAvatar();
@@ -1235,7 +1236,11 @@
       });
 
       var chip = !site.published
-        ? h('span', { class: 'crm-chip-pill' }, 'Draft')
+        ? h(
+            'span',
+            { class: 'crm-chip-pill ' + (site.online ? 'is-green' : 'is-red') },
+            site.online ? 'Online' : 'Not online'
+          )
         : site.unpublishedChanges
         ? h('span', { class: 'crm-chip-pill is-amber' }, 'Changes not published')
         : h('span', { class: 'crm-chip-pill is-green' }, 'Published');
@@ -1281,8 +1286,12 @@
         h(
           'div',
           { class: 'crm-photo-row' },
-          site.photo
-            ? h('img', { class: 'crm-photo', src: site.photo, alt: 'Photo of ' + p.name })
+          site.photo || site.yamlPhoto
+            ? h('img', {
+                class: 'crm-photo',
+                src: site.photo || site.yamlPhoto,
+                alt: 'Photo of ' + p.name,
+              })
             : h('div', { class: 'crm-photo is-empty' }, 'No photo'),
           h(
             'div',
@@ -1296,7 +1305,7 @@
                   fileInput.click();
                 },
               },
-              site.photo ? 'Replace photo' : 'Upload a photo'
+              site.photo || site.yamlPhoto ? 'Replace photo' : 'Upload a photo'
             ),
             site.photo
               ? h(

@@ -104,3 +104,17 @@ test('load fetches the photos, and a failed photo stops the build', async () => 
   );
   await assert.rejects(mentorsBuild.load(), /not a JPEG/);
 });
+
+test('a photo from data/mentors.yaml stays when its mentor is published from the board', async () => {
+  process.env.CONTENT_SOURCE = 'https://example.org';
+  const inRepo = fs.readdirSync(mentorsBuild.PHOTO_DIR).find((f) => /^[a-z-]+\.jpg$/.test(f));
+  const mentors = [
+    { id: 'anna-uno', name: 'Anna Uno', photo: `/assets/img/mentors/${inRepo}` },
+    { id: 'bruno-due', name: 'Bruno Due', photo: '/assets/img/mentors/no-such-file.jpg' },
+  ];
+  mentorsBuild.setFetch(async () => answer(200, { live: true, mentors, hidden: [] }));
+
+  const data = await mentorsBuild.load();
+  assert.equal(data.mentors[0].photo, mentors[0].photo);
+  assert.equal(data.mentors[1].photo, undefined, 'a file that is not there is dropped');
+});
