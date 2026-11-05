@@ -5,9 +5,10 @@
 # must stay verbatim; the English texts are their translation. Change the
 # wording only together with the team.
 
-# The expression-of-interest form, shared by mentors and mentees.
+# The expression-of-interest form, shared by mentors and mentees
+# (server/forms/templates.js, mentorship_interest).
 links:
-  interest_form: 'https://forms.gle/eopxRMZVf7gK5XPW7'
+  interest_form: '/form/?f=manifestazione-interesse-mentorship'
   # The mentee application form (server/forms/templates.js, mentee_application).
   mentee_form: '/form/?f=candidatura-mentee'
 
@@ -24,7 +25,7 @@ partner:
   logo: '/assets/img/orgs/cepte-wordmark.png'
 
 # Shown as a pulsing "Open call" label while true.
-call_open: true
+call_open: false
 
 title: 'AI Safety for Italy Mentorship Program'
 title_it: 'Programma di mentorship AI Safety for Italy'
