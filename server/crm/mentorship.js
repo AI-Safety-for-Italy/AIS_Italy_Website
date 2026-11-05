@@ -443,6 +443,8 @@ function siteEntry(name) {
 const TEXTS = { name: 200, role: 200, affiliation: 200, bio: 1500, orientation: 1000 };
 const LANG = { language: 200 };
 const PROJECT = { title: 200, summary: 1000, description: 4000, mentee: 1000, deliverable: 1000 };
+// The site leaves these sections out when they are empty.
+const OPTIONAL_PROJECT = ['mentee', 'deliverable'];
 const LINKS = ['website', 'linkedin', 'scholar', 'github'];
 const ID = /^[a-z0-9-]{1,80}$/;
 const MAX_PLACES = 50;
@@ -550,7 +552,8 @@ function missingOf(e) {
   // Co-mentors show the project written on one of them.
   const project = e.tracks.includes('projects') && !e.co_mentors.length;
   for (const f of Object.keys(PROJECT)) {
-    if (project) [f, `${f}_it`].forEach((k) => need(e.project, k, 'project.'));
+    if (project && !OPTIONAL_PROJECT.includes(f))
+      [f, `${f}_it`].forEach((k) => need(e.project, k, 'project.'));
     else pair(e.project, f, 'project.');
   }
   return out;

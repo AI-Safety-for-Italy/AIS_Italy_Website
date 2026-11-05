@@ -915,6 +915,17 @@ test('only a selected mentor with every text in both languages is published', as
   assert.deepEqual((await siteOfAda(me)).missing, ['role_it']);
   await rejects(mentorship.publish(me, ADA(), 'mentor'), 400);
 
+  // The ideal mentee and the deliverable can stay empty, but not in one language only.
+  const noExtras = fullEntry();
+  ['mentee', 'mentee_it', 'deliverable', 'deliverable_it'].forEach(
+    (f) => delete noExtras.project[f]
+  );
+  await mentorship.saveEntry(me, ADA(), 'mentor', noExtras);
+  assert.deepEqual((await siteOfAda(me)).missing, []);
+  noExtras.project.deliverable_it = 'Un blogpost.';
+  await mentorship.saveEntry(me, ADA(), 'mentor', noExtras);
+  assert.deepEqual((await siteOfAda(me)).missing, ['project.deliverable']);
+
   // Checked as it is saved.
   for (const bad of [
     { links: { website: 'http://example.org' } },
