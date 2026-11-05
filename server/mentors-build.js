@@ -17,6 +17,8 @@ const SNAPSHOT = path.join(__dirname, '..', '_mentors-snapshot.json');
 const PHOTO_DIR = path.join(__dirname, '..', 'src', 'assets', 'img', 'mentors');
 // The only photo path the build writes: a name from the network never picks the file.
 const PHOTO = /^\/assets\/img\/mentors\/([a-z0-9-]+-[0-9a-f]{8}\.jpg)$/;
+// A photo from data/mentors.yaml: already in the repository, nothing to fetch.
+const REPO_PHOTO = /^\/assets\/img\/mentors\/([a-z0-9-]+\.jpg)$/;
 
 let fetchImpl = (...args) => fetch(...args);
 function setFetch(fn) {
@@ -31,11 +33,17 @@ function isJpeg(base64) {
   return typeof base64 === 'string' && base64.startsWith('/9j/'); // FF D8 FF
 }
 
-// A photo stays only with a safe name and JPEG bytes; otherwise the card shows initials.
+function inRepo(photo) {
+  const match = REPO_PHOTO.exec(photo);
+  return Boolean(match) && fs.existsSync(path.join(PHOTO_DIR, match[1]));
+}
+
+// A photo stays only with a safe name and JPEG bytes, or as a file of the
+// repository; otherwise the card shows initials.
 function clean(data) {
   const photos = data.photos || {};
   const mentors = data.mentors.map((m) => {
-    if (!m.photo || (PHOTO.test(m.photo) && isJpeg(photos[m.id]))) return m;
+    if (!m.photo || (PHOTO.test(m.photo) ? isJpeg(photos[m.id]) : inRepo(m.photo))) return m;
     const rest = { ...m };
     delete rest.photo;
     return rest;

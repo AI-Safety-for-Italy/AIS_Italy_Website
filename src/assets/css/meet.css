@@ -3841,6 +3841,23 @@ dialog.crm-panel {
   color: var(--text-primary);
 }
 
+.crm-chip-pill.is-red,
+.crm-site-tag.is-offline {
+  background: color-mix(in srgb, var(--error) 14%, var(--card-bg));
+  border-color: transparent;
+  color: var(--error);
+}
+
+.crm-site-tag {
+  align-self: flex-start;
+}
+
+.crm-site-tag.is-online {
+  background: color-mix(in srgb, var(--accent) 14%, var(--card-bg));
+  border-color: transparent;
+  color: var(--accent);
+}
+
 .crm-site.is-wide {
   grid-column: 1 / -1;
 }
