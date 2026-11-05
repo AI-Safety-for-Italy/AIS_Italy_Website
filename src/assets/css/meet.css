@@ -3920,12 +3920,6 @@ dialog.crm-panel {
   gap: 4px;
 }
 
-.crm-se-field.is-missing,
-.crm-se-checks.is-missing {
-  padding-left: 8px;
-  border-left: 3px solid var(--crm-st-applied);
-}
-
 .crm-se-actions {
   display: flex;
   flex-wrap: wrap;

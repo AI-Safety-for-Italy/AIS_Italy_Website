@@ -443,8 +443,6 @@ function siteEntry(name) {
 const TEXTS = { name: 200, role: 200, affiliation: 200, bio: 1500, orientation: 1000 };
 const LANG = { language: 200 };
 const PROJECT = { title: 200, summary: 1000, description: 4000, mentee: 1000, deliverable: 1000 };
-// The site leaves these sections out when they are empty.
-const OPTIONAL_PROJECT = ['mentee', 'deliverable'];
 const LINKS = ['website', 'linkedin', 'scholar', 'github'];
 const ID = /^[a-z0-9-]{1,80}$/;
 const MAX_PLACES = 50;
@@ -532,31 +530,6 @@ function cleanEntry(raw) {
       throw new HttpError(400, `places: a number from 1 to ${MAX_PLACES}`);
   }
   return shape(raw);
-}
-
-/** The fields that keep an entry off the site, as paths ('bio', 'project.summary_it'). */
-function missingOf(e) {
-  const out = [];
-  const need = (obj, f, prefix = '') => !obj[f] && out.push(prefix + f);
-  ['name', 'affiliation'].forEach((f) => need(e, f));
-  if (!e.tracks.length) out.push('tracks');
-  if (!e.areas.length) out.push('areas');
-  ['bio', 'bio_it', 'language', 'language_it'].forEach((f) => need(e, f));
-  if (e.tracks.includes('orientation'))
-    ['orientation', 'orientation_it'].forEach((f) => need(e, f));
-  // Optional texts: written in one language, they are needed in the other too.
-  const pair = (obj, f, prefix = '') => {
-    if (obj[f] || obj[`${f}_it`]) [f, `${f}_it`].forEach((k) => need(obj, k, prefix));
-  };
-  pair(e, 'role');
-  // Co-mentors show the project written on one of them.
-  const project = e.tracks.includes('projects') && !e.co_mentors.length;
-  for (const f of Object.keys(PROJECT)) {
-    if (project && !OPTIONAL_PROJECT.includes(f))
-      [f, `${f}_it`].forEach((k) => need(e.project, k, 'project.'));
-    else pair(e.project, f, 'project.');
-  }
-  return out;
 }
 
 /** Without the empty fields, as data/mentors.yaml writes a mentor. */
@@ -693,6 +666,8 @@ async function siteOf(key, found, name) {
     entry = fromApplication(found.records.mentors_applications || {}, name, draft.bio);
     entryFrom = 'application';
   }
+  // The card needs a name: without one, the board's.
+  if (!entry.name) entry.name = name;
   const unpublishedChanges = live
     ? canonical(toPublish(id, entry, consent, draft.photo, yamlHit).entry) !== canonical(live.entry)
     : false;
@@ -713,7 +688,6 @@ async function siteOf(key, found, name) {
     entryFrom,
     published: live ? { at: live.published_at, by: live.published_by_name, id: live.id } : null,
     unpublishedChanges,
-    missing: missingOf(entry),
     vocab: { tracks, areas },
   };
 }
@@ -813,9 +787,9 @@ async function publish(user, key, kind, { siteOrigin = '' } = {}) {
   const state = await stateOf(key, kind);
   if (!['selected', 'matched'].includes(card(found, state, {}).status))
     throw new HttpError(400, 'Only selected mentors go on the site');
+  // Nothing else is required: the site shows initials for a missing photo and
+  // leaves out whatever is empty.
   const site = await siteOf(key, found, name);
-  if (site.missing.length)
-    throw new HttpError(400, `Missing: ${site.missing.join(', ')}`, { missing: site.missing });
   const taken = (
     await db.query('select person_key from mentor_site_entries where id = $1', [site.id])
   ).rows[0];

@@ -5,7 +5,10 @@
    card is listed and a card's link scrolls to its profile.
    Co-mentors are separate entries that list each other in `co_mentors`; one
    of them writes the project and the others take it from there (projectOf in
-   .eleventy.js). #}
+   .eleventy.js).
+   Mentors published from the board may leave anything empty: without a photo
+   the card shows initials, and an empty field shows nothing, not even its
+   heading. A text in one language only shows in both. #}
 {% set mx = mentors %}
 {% set m = mentorship %}
 {% set PREVIEW = 6 %}
@@ -24,8 +27,19 @@
 {% endif %}
 {%- endmacro %}
 
+{# A text in both languages, each falling back to the other; nothing when both are empty. #}
+{% macro both(tag, en, it, cls = "") -%}
+{% if en or it %}<{{ tag }}{% if cls %} class="{{ cls }}"{% endif %} data-en="{{ en or it }}" data-it="{{ it or en }}">{{ en or it }}</{{ tag }}>{% endif %}
+{%- endmacro %}
+
+{# Role and affiliation, or nothing. #}
+{% macro roleLine(x, tag = "p") -%}
+{% if x.role or x.role_it or x.affiliation %}<{{ tag }} class="mentor-role">{{ both("span", x.role, x.role_it) }}{% if x.affiliation %}<span class="mentor-affiliation">{{ x.affiliation }}</span>{% endif %}</{{ tag }}>{% endif %}
+{%- endmacro %}
+
 {# The tracks a mentor takes part in. #}
 {% macro trackPills(mt) -%}
+{% if mt.tracks %}
 <ul class="mentor-track-pills">
     {% for t in m.tracks %}
     {% if t.id in mt.tracks %}
@@ -33,10 +47,12 @@
     {% endif %}
     {% endfor %}
 </ul>
+{% endif %}
 {%- endmacro %}
 
 {# The research areas of a mentor. #}
 {% macro cardTags(mt) -%}
+{% if mt.areas %}
 <ul class="tags mentor-area-tags">
     {% for id in mt.areas %}
     {% set a = mx.research_areas | where("id", id) | first %}
@@ -45,6 +61,7 @@
     {% endif %}
     {% endfor %}
 </ul>
+{% endif %}
 {%- endmacro %}
 
 <section class="section section-alt mentors-section" id="mentors">
@@ -89,7 +106,8 @@
             <div class="mentor-grid">
                 {% for mt in mx.mentors %}
                 {% set p = mx.mentors | projectOf(mt) %}
-                <article class="mentor-card" data-mentor="{{ mt.id }}" data-tracks="{{ mt.tracks | join(' ') }}" data-areas="{{ mt.areas | join(' ') }}"
+                {% set hasOrientation = mt.orientation or mt.orientation_it %}
+                <article class="mentor-card" data-mentor="{{ mt.id }}" data-tracks="{{ (mt.tracks or []) | join(' ') }}" data-areas="{{ (mt.areas or []) | join(' ') }}"
                     data-search="{{ [mt.name, mt.affiliation, mt.role, mt.role_it, p.title, p.title_it, p.summary, p.summary_it, mt.orientation, mt.orientation_it] | join(' ') | lower }}">
                     {% if mt.co_mentors %}
                     <span class="mentor-co-badge">Co-mentor</span>
@@ -98,29 +116,29 @@
                         {{ avatar(mt, "") }}
                         <div class="mentor-card-who">
                             <h3 class="mentor-name">{{ mt.name }}</h3>
-                            <p class="mentor-role">{% if mt.role %}<span data-en="{{ mt.role }}" data-it="{{ mt.role_it or mt.role }}">{{ mt.role }}</span>{% endif %}{% if mt.affiliation %}<span class="mentor-affiliation">{{ mt.affiliation }}</span>{% endif %}</p>
+                            {{ roleLine(mt) }}
                         </div>
                     </div>
                     <div class="mentor-card-body">
                         {{ trackPills(mt) }}
                         {# With both, main.js shows the one of the track filter, the project by default. #}
-                        {% if p %}
+                        {% if p and (p.title or p.title_it or p.summary or p.summary_it) %}
                         <div data-mentor-view="projects">
-                            <p class="mentor-project-title" data-en="{{ p.title }}" data-it="{{ p.title_it or p.title }}">{{ p.title }}</p>
-                            <p class="mentor-summary" data-en="{{ p.summary }}" data-it="{{ p.summary_it or p.summary }}">{{ p.summary }}</p>
+                            {{ both("p", p.title, p.title_it, "mentor-project-title") }}
+                            {{ both("p", p.summary, p.summary_it, "mentor-summary") }}
                         </div>
                         {% endif %}
-                        {% if mt.orientation %}
+                        {% if hasOrientation %}
                         <div data-mentor-view="orientation">
                             <p class="mentor-help-label" data-en="Can help with" data-it="Può aiutarti con">Can help with</p>
-                            <p class="mentor-summary" data-en="{{ mt.orientation }}" data-it="{{ mt.orientation_it or mt.orientation }}">{{ mt.orientation }}</p>
+                            {{ both("p", mt.orientation, mt.orientation_it, "mentor-summary") }}
                         </div>
                         {% endif %}
                     </div>
                     <div class="mentor-card-foot">
                         {{ cardTags(mt) }}
                         <a class="mentor-open" href="#{{ mt.id }}" data-mentor-open="{{ mt.id }}" aria-haspopup="dialog">
-                            <span class="sr-only" data-en="{{ 'Read the project' if p and not mt.orientation else 'Read the profile' }}" data-it="{{ 'Leggi il progetto' if p and not mt.orientation else 'Leggi il profilo' }}">{{ 'Read the project' if p and not mt.orientation else 'Read the profile' }}</span><span class="sr-only">: {{ mt.name }}</span>
+                            <span class="sr-only" data-en="{{ 'Read the project' if p and not hasOrientation else 'Read the profile' }}" data-it="{{ 'Leggi il progetto' if p and not hasOrientation else 'Leggi il profilo' }}">{{ 'Read the project' if p and not hasOrientation else 'Read the profile' }}</span><span class="sr-only">: {{ mt.name }}</span>
                         </a>
                     </div>
                 </article>
@@ -154,11 +172,11 @@
                     <span class="mentor-co-badge is-inline">Co-mentor</span>
                     {% endif %}
                     <h2 class="mentor-dialog-name" id="{{ mt.id }}-name">{{ mt.name }}</h2>
-                    <p class="mentor-role">{% if mt.role %}<span data-en="{{ mt.role }}" data-it="{{ mt.role_it or mt.role }}">{{ mt.role }}</span>{% endif %}{% if mt.affiliation %}<span class="mentor-affiliation">{{ mt.affiliation }}</span>{% endif %}</p>
-                    {% if mt.places or mt.language %}
+                    {{ roleLine(mt) }}
+                    {% if mt.places or mt.language or mt.language_it %}
                     <p class="mentor-dialog-meta">
                         {% if mt.places %}<span data-en="{{ mt.places }} {{ 'place' if mt.places == 1 else 'places' }}" data-it="{{ mt.places }} {{ 'posto' if mt.places == 1 else 'posti' }}">{{ mt.places }} {{ 'place' if mt.places == 1 else 'places' }}</span>{% endif %}
-                        {% if mt.language %}<span data-en="{{ mt.language }}" data-it="{{ mt.language_it or mt.language }}">{{ mt.language }}</span>{% endif %}
+                        {{ both("span", mt.language, mt.language_it) }}
                     </p>
                     {% endif %}
                     {% if mt.links %}
@@ -172,10 +190,12 @@
                 </div>
             </header>
 
+            {% if mt.tracks or mt.areas %}
             <div class="mentor-dialog-tags">
                 {{ trackPills(mt) }}
                 {{ cardTags(mt) }}
             </div>
+            {% endif %}
 
             {% if mt.co_mentors %}
             <section class="mentor-dialog-part">
@@ -189,7 +209,7 @@
                             {{ avatar(co, "is-small") }}
                             <span class="mentor-co-who">
                                 <span class="mentor-co-name">{{ co.name }}</span>
-                                <span class="mentor-role">{% if co.role %}<span data-en="{{ co.role }}" data-it="{{ co.role_it or co.role }}">{{ co.role }}</span>{% endif %}{% if co.affiliation %}<span class="mentor-affiliation">{{ co.affiliation }}</span>{% endif %}</span>
+                                {{ roleLine(co, "span") }}
                             </span>
                         </a>
                     </li>
@@ -202,39 +222,41 @@
             {# The block of the track filter comes first (open() in main.js). #}
             {% if p %}
             <div data-mentor-block="projects">
+                {% if p.title or p.title_it or p.description or p.description_it or p.summary or p.summary_it %}
                 <section class="mentor-dialog-part">
                     <p class="mono-label" data-en="Project" data-it="Progetto">Project</p>
-                    <h3 data-en="{{ p.title }}" data-it="{{ p.title_it or p.title }}">{{ p.title }}</h3>
-                    <p data-en="{{ p.description or p.summary }}" data-it="{{ p.description_it or p.summary_it or p.description or p.summary }}">{{ p.description or p.summary }}</p>
-                </section>
-
-                {% if p.mentee %}
-                <section class="mentor-dialog-part">
-                    <p class="mono-label" data-en="Who it is for" data-it="A chi si rivolge">Who it is for</p>
-                    <p data-en="{{ p.mentee }}" data-it="{{ p.mentee_it or p.mentee }}">{{ p.mentee }}</p>
+                    {{ both("h3", p.title, p.title_it) }}
+                    {{ both("p", p.description or p.summary, p.description_it or p.summary_it) }}
                 </section>
                 {% endif %}
 
-                {% if p.deliverable %}
+                {% if p.mentee or p.mentee_it %}
+                <section class="mentor-dialog-part">
+                    <p class="mono-label" data-en="Who it is for" data-it="A chi si rivolge">Who it is for</p>
+                    {{ both("p", p.mentee, p.mentee_it) }}
+                </section>
+                {% endif %}
+
+                {% if p.deliverable or p.deliverable_it %}
                 <section class="mentor-dialog-part">
                     <p class="mono-label" data-en="Deliverable" data-it="Risultato">Deliverable</p>
-                    <p data-en="{{ p.deliverable }}" data-it="{{ p.deliverable_it or p.deliverable }}">{{ p.deliverable }}</p>
+                    {{ both("p", p.deliverable, p.deliverable_it) }}
                 </section>
                 {% endif %}
             </div>
             {% endif %}
 
-            {% if mt.orientation %}
+            {% if mt.orientation or mt.orientation_it %}
             <section class="mentor-dialog-part" data-mentor-block="orientation">
                 <p class="mono-label" data-en="Career orientation: can help with" data-it="Orientamento: può aiutarti con">Career orientation: can help with</p>
-                <p data-en="{{ mt.orientation }}" data-it="{{ mt.orientation_it or mt.orientation }}">{{ mt.orientation }}</p>
+                {{ both("p", mt.orientation, mt.orientation_it) }}
             </section>
             {% endif %}
 
-            {% if mt.bio %}
+            {% if mt.bio or mt.bio_it %}
             <section class="mentor-dialog-part">
                 <p class="mono-label" data-en="About the mentor" data-it="Chi è">About the mentor</p>
-                <p data-en="{{ mt.bio }}" data-it="{{ mt.bio_it or mt.bio }}">{{ mt.bio }}</p>
+                {{ both("p", mt.bio, mt.bio_it) }}
             </section>
             {% endif %}
         </div>
