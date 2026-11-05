@@ -5,10 +5,7 @@
 # must stay verbatim; the English texts are their translation. Change the
 # wording only together with the team.
 
-# The expression-of-interest form, shared by mentors and mentees
-# (server/forms/templates.js, mentorship_interest).
 links:
-  interest_form: '/form/?f=expression-of-interest'
   # The mentee application form (server/forms/templates.js, mentee_application).
   mentee_form: '/form/?f=candidatura-mentee'
 
@@ -24,11 +21,9 @@ partner:
   # transparent, inverted by CSS on the dark theme.
   logo: '/assets/img/orgs/cepte-wordmark.png'
 
-# Shown until the mentee application form (links.mentee_form) is open: people
-# leave their interest meanwhile. The form's status and dates in the dashboard
-# decide, and the pages follow them by themselves (initMenteeCall in main.js).
-notice: "We are finishing a few internal technical things: the mentee application form will open shortly. In the meantime, please express your interest by filling in the expression of interest form, and we will write to you as soon as applications open."
-notice_it: "Stiamo terminando alcune questioni tecniche interne: il form di candidatura per i mentee aprirà a breve. Nel frattempo ti chiediamo di esprimere il tuo interesse compilando la manifestazione di interesse; ti scriveremo non appena le candidature saranno aperte."
+# The "Open call" label and the apply button show while the mentee application
+# form (links.mentee_form) is open: its status and dates in the dashboard
+# decide (initMenteeCall in main.js).
 
 title: 'AI Safety for Italy Mentorship Program'
 title_it: 'Programma di mentorship AI Safety for Italy'
@@ -37,14 +32,8 @@ edition_it: 'Prima edizione, inverno 2026/27: dal 15 dicembre 2026 al 15 marzo 2
 lede: "The AI Safety for Italy mentorship program connects people who want to enter the field of AI safety, ethics and governance with people who already work in it, in Italy and abroad. The goal is to lower the barrier to entry for those who have no one around them working on AI safety, to produce concrete work that stays with the community, and to build lasting connections between people working in this field inside and outside Italy."
 lede_it: "Il programma di mentorship di AI Safety for Italy mette in contatto chi vuole entrare nel campo della sicurezza, dell'etica e della governance dell'intelligenza artificiale con persone che ci lavorano già, in Italia e all'estero. L'obiettivo è abbassare la barriera d'ingresso per chi non ha nel proprio ambiente persone che si occupano di AI safety, produrre lavoro concreto che resti alla comunità e costruire connessioni durature tra chi lavora in questo campo dentro e fuori dall'Italia."
 
-# "Express your interest": the single call to action for both roles.
+# The buttons of the hero.
 interest:
-  title: 'Express your interest'
-  title_it: 'Manifesta il tuo interesse'
-  text: 'Would you like to be a mentor, or take part as a mentee? Fill in the expression of interest form.'
-  text_it: 'Vuoi fare da mentor o partecipare come mentee? Compila la manifestazione di interesse.'
-  button: 'Express your interest'
-  button_it: 'Manifesta il tuo interesse'
   mentee_button: 'Apply as a mentee'
   mentee_button_it: 'Candidati come mentee'
   dates_button: 'Key dates'
@@ -140,11 +129,6 @@ timeline_notes:
   - text: 'A spring edition is planned, indicatively from 1 April to 30 June 2027.'
     text_it: "Un'edizione primaverile è prevista indicativamente dal 1 aprile al 30 giugno 2027."
 timeline:
-  - date: 'Until 20 October 2026'
-    date_it: 'Fino al 20 ottobre 2026'
-    title: 'Expression of interest for mentors and mentees'
-    title_it: 'Manifestazione di interesse per mentor e mentee'
-    until: '2026-10-20'
   - date: '20 October 2026'
     date_it: '20 ottobre 2026'
     title: 'Mentor applications close'
@@ -213,13 +197,9 @@ mentee:
   title_it: 'Mentee'
   text: 'Students, recent graduates, PhD students, professionals and researchers, but also people with other backgrounds. No experience in AI safety is required.'
   text_it: 'Studenti, neolaureati, dottorandi, professionisti e ricercatori, ma anche persone con altri percorsi. Non è richiesta esperienza in AI safety.'
-  button: 'Express interest as a mentee'
-  button_it: 'Manifesta interesse come mentee'
 
 mentor:
   title: 'Mentors'
   title_it: 'Mentor'
   text: 'People with relevant experience in AI safety or AI governance, from universities, research, industry, policy or institutions. You do not need to be a senior figure: what matters is being able to offer competent, continuous support.'
   text_it: "Persone con esperienza rilevante in AI safety o governance dell'IA, da università, ricerca, industria, policy o istituzioni. Non serve essere figure senior: serve poter offrire un supporto competente e continuativo."
-  button: 'Express interest as a mentor'
-  button_it: 'Manifesta interesse come mentor'
