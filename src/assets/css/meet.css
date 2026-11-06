@@ -9613,6 +9613,196 @@ a.hub-todo-card:hover {
   width: auto;
 }
 
+/* The setup's sections (review-settings.js) and their tabs (review-score.js) */
+.rv-sections {
+  flex-wrap: wrap;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 0 12px;
+}
+
+.rv-sections a {
+  padding: 0.45rem 1.1rem;
+  border-radius: var(--radius-sm);
+  color: var(--text-tertiary);
+  font-size: 0.88rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.rv-sections a:hover {
+  color: var(--text-primary);
+}
+
+.rv-sections a[aria-current='page'] {
+  background: var(--card-bg);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.rv-sections small {
+  font-weight: 500;
+  color: var(--text-tertiary);
+}
+
+.rv-grid-inline {
+  margin: 10px 0 4px;
+}
+
+.rv-grid-inline[hidden] {
+  display: none;
+}
+
+.rv-mini th small {
+  display: block;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.rv-field-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 260px);
+  gap: 4px 12px;
+  align-items: center;
+}
+
+.rv-field-row .form-label {
+  margin: 0;
+}
+
+.rv-field-row small {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 640px) {
+  .rv-field-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.rv-hidden-qs summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.rv-hidden-qs ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  font-size: 13px;
+}
+
+.rv-hidden-qs small,
+.rv-q-label small {
+  color: var(--text-tertiary);
+}
+
+.rv-section {
+  padding: 16px 0;
+}
+
+.rv-section .rv-part-head {
+  justify-content: flex-start;
+}
+
+.rv-sec-num {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--bg-overlay);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.rv-sec-label {
+  flex: 1 1 200px;
+  width: auto;
+  font-weight: 600;
+}
+
+.rv-prefix {
+  width: 72px;
+  text-transform: uppercase;
+}
+
+.rv-sub {
+  margin: 6px 0 0;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-tertiary);
+}
+
+.rv-qs {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rv-q {
+  display: grid;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius-sm);
+}
+
+.rv-q.is-missing {
+  border-style: dashed;
+}
+
+.rv-q-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.rv-q-label {
+  min-width: 0;
+  font-size: 14px;
+}
+
+.rv-q-actions {
+  display: inline-flex;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.rv-icon-btn {
+  min-width: 32px;
+  padding-inline: 0;
+  justify-content: center;
+}
+
+.rv-criteria {
+  display: grid;
+  gap: 8px;
+}
+
+.rv-mode {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+}
+
+.rv-save-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  padding: 10px 0;
+  background: var(--card-bg);
+  border-top: 1px solid var(--border-muted);
+}
+
 /* Working groups: who coordinates each (community-groups.js) */
 .wg-coords {
   display: flex;

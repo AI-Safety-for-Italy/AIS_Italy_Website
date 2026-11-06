@@ -116,6 +116,15 @@ function scoreAll(part, value) {
   return out;
 }
 
+/** Sets the weight of each section of the setup. */
+async function reweigh(boss, weights) {
+  const sections = (await review.getSettings()).sections;
+  sections.forEach((s) => {
+    s.weight = weights[s.key];
+  });
+  await review.saveSettings(boss, { sections });
+}
+
 async function codeOf(user, part, key) {
   const list = (await call({ url: `/api/app/crm/review?part=${part}`, user })).body;
   const want = review.codeOf(key, part);
@@ -190,7 +199,7 @@ test('only the panel admins and the reviewers get in, each to their own part', a
   assert.equal(mine.reviewer, true);
   assert.equal(mine.admin, false);
   assert.deepEqual(
-    mine.parts.map((p) => [p.key, p.total, p.done]),
+    mine.sections.map((p) => [p.key, p.total, p.done]),
     [
       ['cv', 2, 0],
       ['answers', 2, 0],
@@ -276,25 +285,25 @@ test('the answers come without who wrote them; the CV part only with safe links'
   const code = await codeOf(ann, 'answers', LIA_KEY());
   const app = (await call({ url: `/api/app/crm/review?part=answers&code=${code}`, user: ann }))
     .body;
-  const background = app.answers.find((a) => a.label === 'Background').text;
+  const background = app.items.find((a) => a.label === 'Background').text;
   assert.equal(
     background,
     'Mi chiamo [name] [name], faccio la [role] alla [affiliation]. Scrivimi a [email] o su [link], tel. [phone].'
   );
-  assert.equal(app.answers[0].label, 'Track');
+  assert.equal(app.items[0].label, 'Track');
+  assert.ok(app.items.every((a) => a.url === null));
 
   const liaCv = await codeOf(ann, 'cv', LIA_KEY());
   const cv = (await call({ url: `/api/app/crm/review?part=cv&code=${liaCv}`, user: ann })).body;
-  assert.deepEqual(cv.links, [
-    { label: 'CV', url: 'https://drive.example.org/lia-cv.pdf' },
-    { label: 'Profile', url: 'https://example.org/lia' },
+  assert.deepEqual(cv.items, [
+    { id: 'cv', label: 'CV', text: '', url: 'https://drive.example.org/lia-cv.pdf' },
+    { id: 'profile', label: 'Profile', text: '', url: 'https://example.org/lia' },
   ]);
-  assert.equal(cv.answers, undefined);
   // A link that is not http(s) is never handed to the page.
   const marcoCv = await codeOf(ann, 'cv', MARCO_KEY());
   const marco = (await call({ url: `/api/app/crm/review?part=cv&code=${marcoCv}`, user: ann }))
     .body;
-  assert.deepEqual(marco.links, []);
+  assert.deepEqual(marco.items, []);
 });
 
 // ── Scores ───────────────────────────────────────────────────────────────────
@@ -350,7 +359,7 @@ test('the summary: means of the complete reviews, the spread, the parts weighted
   await score(ann, 'answers', MARCO_KEY(), {}, { conflict: true });
   await score(ben, 'answers', MARCO_KEY(), { motivation: 5 });
 
-  await review.saveSettings(boss, { weights: { cv: 1, answers: 3 } });
+  await reweigh(boss, { cv: 1, answers: 3 });
   const sum = (await call({ url: '/api/app/crm/review?action=summary', user: boss })).body;
   const lia = sum.people.find((p) => p.name === 'Lia Candidata');
   assert.equal(lia.parts.answers.mean, 3.5);
@@ -380,17 +389,15 @@ test('the summary: means of the complete reviews, the spread, the parts weighted
 
 test('the criteria weigh as set, and a renamed criterion keeps its scores', async () => {
   const { boss, ann } = await panel();
-  await review.saveSettings(boss, {
-    grid: {
-      answers: [
-        { key: 'motivation', label: 'Motivazione', help: '', weight: 3 },
-        { label: 'Chiarezza', help: 'Scrive in modo chiaro', weight: 1 },
-      ],
-    },
-  });
+  const sections = (await review.getSettings()).sections;
+  sections[1].criteria = [
+    { key: 'motivation', label: 'Motivazione', help: '', weight: 3 },
+    { label: 'Chiarezza', help: 'Scrive in modo chiaro', weight: 1 },
+  ];
+  await review.saveSettings(boss, { sections });
   const settings = await review.getSettings();
   assert.deepEqual(
-    settings.grid.answers.map((c) => c.key),
+    settings.sections[1].criteria.map((c) => c.key),
     ['motivation', 'chiarezza']
   );
   await review.score(ann, {
@@ -402,10 +409,249 @@ test('the criteria weigh as set, and a renamed criterion keeps its scores', asyn
   assert.equal(lia.parts.answers.mean, 4);
   assert.equal(lia.partial, true);
 
-  await assert.rejects(review.saveSettings(boss, { grid: { cv: [] } }), (e) => e.status === 400);
+  const broken = (change) => {
+    const copy = JSON.parse(JSON.stringify(settings.sections));
+    change(copy);
+    return review.saveSettings(boss, { sections: copy });
+  };
   await assert.rejects(
-    review.saveSettings(boss, { weights: { cv: -1, answers: 1 } }),
+    broken((s) => (s[0].criteria = [])),
     (e) => e.status === 400
+  );
+  await assert.rejects(
+    broken((s) => (s[0].weight = -1)),
+    (e) => e.status === 400
+  );
+  await assert.rejects(
+    broken((s) => (s[0].questions = [])),
+    (e) => e.status === 400
+  );
+  await assert.rejects(
+    broken((s) => s[0].questions.push('nope')),
+    (e) => e.status === 400
+  );
+});
+
+// ── The setup: sections, grids, reviewers per section, the form ──────────────
+
+test('a setup saved before sections keeps its grid and weights', async () => {
+  await db.query(`insert into app_settings (key, value) values ('review_settings', $1)`, [
+    {
+      grid: { cv: [{ key: 'only', label: 'Only', help: '', weight: 1 }] },
+      weights: { answers: 2 },
+    },
+  ]);
+  const { sections } = await review.getSettings();
+  assert.deepEqual(
+    sections.map((s) => [s.key, s.weight, s.criteria.length]),
+    [
+      ['cv', 1, 1],
+      ['answers', 2, 4],
+    ]
+  );
+});
+
+test('sections of their own: chosen questions, a grid per question, given to some reviewers', async () => {
+  const { boss, ann, ben } = await panel();
+  await review.saveSettings(boss, {
+    sections: [
+      {
+        label: 'Motivazione',
+        anonymous: true,
+        weight: 2,
+        reviewers: [ann.id],
+        gridMode: 'question',
+        questions: ['tracks', 'motivation', 'goals'],
+        questionGrids: {
+          motivation: [{ label: 'Sincera', weight: 1 }],
+          goals: [
+            { label: 'Realistici', weight: 1 },
+            { label: 'Chiari', weight: 1 },
+          ],
+        },
+      },
+      {
+        key: 'cv',
+        label: 'Curriculum',
+        prefix: 'cv',
+        questions: ['cv'],
+        criteria: [{ label: 'Esperienza', weight: 1 }],
+      },
+    ],
+  });
+  const { sections } = await review.getSettings();
+  assert.deepEqual(
+    sections.map((s) => [s.key, s.prefix, s.gridMode]),
+    [
+      ['motivazione', 'M', 'question'],
+      ['cv', 'CV', 'section'],
+    ]
+  );
+  // Ann has both sections, Ben only the one given to everyone.
+  const annSees = (await call({ user: ann })).body.sections.map((s) => s.key);
+  const benSees = (await call({ user: ben })).body.sections.map((s) => s.key);
+  assert.deepEqual(annSees, ['motivazione', 'cv']);
+  assert.deepEqual(benSees, ['cv']);
+  assert.equal(
+    (await call({ url: '/api/app/crm/review?part=motivazione', user: ben })).statusCode,
+    403
+  );
+
+  // The questions of the section only, each grid keyed by its question.
+  const code = review.codeOf(LIA_KEY(), sections[0]);
+  assert.match(code, /^M-/);
+  const app = (await call({ url: `/api/app/crm/review?part=motivazione&code=${code}`, user: ann }))
+    .body;
+  assert.deepEqual(
+    app.items.map((i) => i.id),
+    ['tracks', 'motivation', 'goals']
+  );
+  assert.deepEqual(
+    app.grid.map((c) => c.key),
+    ['motivation.sincera', 'goals.realistici', 'goals.chiari']
+  );
+  assert.ok(!JSON.stringify(app).includes('Dottoranda'));
+  // A score of a question outside the grid is refused.
+  assert.equal(
+    (
+      await call({
+        method: 'POST',
+        url: '/api/app/crm/review?action=score',
+        user: ben,
+        body: { part: 'motivazione', code, scores: {} },
+      })
+    ).statusCode,
+    403
+  );
+  await assert.rejects(
+    review.score(ann, { part: 'motivazione', code, scores: { sincera: 4 } }),
+    (e) => e.status === 400
+  );
+  const r = await review.score(ann, {
+    part: 'motivazione',
+    code,
+    scores: { 'motivation.sincera': 5, 'goals.realistici': 3, 'goals.chiari': 4 },
+  });
+  assert.equal(r.state, 'done');
+  // A CV section scored by Ben, under its old key, weighs half.
+  await review.score(ben, {
+    part: 'cv',
+    code: review.codeOf(LIA_KEY(), sections[1]),
+    scores: { esperienza: 1 },
+  });
+
+  const sum = await review.summary(boss);
+  assert.deepEqual(
+    sum.sections.map((s) => [s.key, s.weight, s.reviewers]),
+    [
+      ['motivazione', 2, ['Ann']],
+      ['cv', 1, []],
+    ]
+  );
+  assert.equal(sum.sections[0].grid[0].questionLabel, 'Why they want to take part');
+  const lia = sum.people.find((p) => p.name === 'Lia Candidata');
+  assert.equal(lia.parts.motivazione.mean, 4);
+  // (4 × 2 + 1 × 1) / 3
+  assert.equal(lia.overall, 3);
+
+  // A question grid with no criterion at all is not a grid.
+  await assert.rejects(
+    review.saveSettings(boss, {
+      sections: [{ label: 'X', gridMode: 'question', questions: ['goals'], questionGrids: {} }],
+    }),
+    (e) => e.status === 400
+  );
+});
+
+test('the applications can come from a form chosen by the admins', async () => {
+  const forms = require('./forms/forms');
+  const guard = require('./forms/guard');
+  let clock = Date.now();
+  guard.setClock(() => clock);
+  const { boss, ann } = await panel();
+  const root = await admin();
+  const schema = {
+    languages: ['it'],
+    title: { it: 'Selezione' },
+    items: [
+      { id: 'nome', type: 'short_text', label: { it: 'Il tuo nome' }, required: true },
+      { id: 'email', type: 'email', label: { it: 'Email' }, required: true },
+      { id: 'uni', type: 'short_text', label: { it: 'Università' } },
+      { id: 'cv_link', type: 'url', label: { it: 'CV' } },
+      { id: 'perche', type: 'long_text', label: { it: 'Perché?' } },
+      { id: 'citta', type: 'short_text', label: { it: 'Città' } },
+    ],
+  };
+  const { id, slug } = await forms.create(root, { title: 'Selezione', schema });
+  await forms.updateSettings(root, id, { status: 'open' });
+  const send = async (answers) => {
+    const view = await forms.publicView(slug);
+    clock += 5000;
+    return forms.submit(slug, { version: view.version, token: view.token, answers }, '203.0.113.9');
+  };
+  await send({
+    nome: 'Lia Candidata',
+    email: 'lia@example.org',
+    uni: 'Politecnico di Prova',
+    cv_link: 'https://example.org/cv.pdf',
+    perche: 'Sono Lia, studio al Politecnico di Prova.',
+    citta: 'Torino',
+  });
+  await send({ nome: 'Nuovo Nome', email: 'nuovo@example.org', perche: 'Perché sì.' });
+
+  // Boss cannot read this form's answers: not theirs to pick.
+  await assert.rejects(review.questions(boss, id), (e) => e.status === 404);
+  await assert.rejects(review.saveSettings(boss, { formId: id }), (e) => e.status === 403);
+  // The shared admin can: the questions come with a first split.
+  const q = await review.questions(root, id);
+  assert.deepEqual(
+    q.catalog.map((x) => x.id),
+    ['nome', 'email', 'uni', 'cv_link', 'perche', 'citta']
+  );
+  assert.equal(q.nameQuestion, 'nome');
+  assert.deepEqual(
+    q.sections.map((s) => [s.key, s.questions]),
+    [
+      ['cv', ['cv_link']],
+      ['answers', ['perche']],
+    ]
+  );
+  await review.saveSettings(root, { formId: id, nameQuestion: 'nome', sections: q.sections });
+
+  // The reviewers read the form's answers, scrubbed in the anonymous section.
+  const list = (await call({ url: '/api/app/crm/review?part=answers', user: ann })).body;
+  assert.equal(list.items.length, 2);
+  const liaCode = review.codeOf(LIA_KEY(), q.sections[1]);
+  const app = await review.application(ann, 'answers', liaCode);
+  assert.equal(app.items[0].text, 'Sono [name], studio al [uni].');
+
+  // In the summary: Lia is on the board (her status shows), the other is not.
+  await records.add('mentees_applications', LIA, { origin: 'form' });
+  const sum = await review.summary(boss);
+  assert.equal(sum.source, 'form');
+  assert.deepEqual(sum.people.map((p) => [p.name, p.status]).sort(), [
+    ['Lia Candidata', 'applied'],
+    ['Nuovo Nome', null],
+  ]);
+  const nuovo = sum.people.find((p) => p.name === 'Nuovo Nome');
+  assert.equal(
+    (
+      await call({
+        method: 'POST',
+        url: '/api/app/crm/review?action=status',
+        user: boss,
+        body: { key: nuovo.key, status: 'shortlisted' },
+      })
+    ).statusCode,
+    404
+  );
+  // The settings page lists the form in use for Boss too.
+  const page = (await call({ url: '/api/app/crm/review?action=settings', user: boss })).body;
+  assert.equal(page.formId, id);
+  assert.ok(page.forms.some((f) => f.id === id));
+  assert.deepEqual(
+    page.catalog.map((x) => x.id),
+    ['nome', 'email', 'uni', 'cv_link', 'perche', 'citta']
   );
 });
 

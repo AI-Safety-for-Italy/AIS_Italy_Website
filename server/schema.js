@@ -542,6 +542,10 @@ create table if not exists review_scores (
   primary key (person_key, part, reviewer_id)
 );
 
+-- The sections of the selection are the admins' to name (review_settings):
+-- a score's part is any section's key, no longer only cv or answers.
+alter table review_scores drop constraint if exists review_scores_part_check;
+
 -- The community's members and working groups got a permission of their own
 -- (community), apart from the applications (members). Once, on each
 -- database: whoever held members then keeps both. Later changes are the

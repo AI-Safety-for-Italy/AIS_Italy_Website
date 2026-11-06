@@ -1,7 +1,9 @@
 /* /app/review/: the mentee selection, for a reviewer.
- *   #cv        the CVs to score, each under a code
- *   #answers   the answers to the application, anonymous, under another code
- * The list on the left, the application and the grid on the right. Everything
+ *   #<section>   the sections of the setup given to me (say the CV and the
+ *                answers), each scored apart under its own code
+ * The sections as tabs on top; the list on the left, the application and the
+ * grid on the right. With one grid per question, each question's criteria
+ * sit under it. Everything
  * comes from /api/app/crm/review, which never sends a name or a person key to
  * a reviewer. What the applicants wrote goes on the page as text (h() makes
  * text nodes), never as HTML. */
@@ -13,29 +15,32 @@
   var API = '/api/app/crm/review';
   var root = document.getElementById('rvPage');
 
-  var PARTS = {
-    cv: {
-      title: 'CVs',
-      note: 'A CV says who someone is: this part cannot be anonymous. Score each CV on its merits, and step aside if you know the person.',
-    },
-    answers: {
-      title: 'Answers',
-      note: 'Names, affiliations, emails, links and phone numbers are taken out of the answers. If you recognise the person anyway, step aside.',
-    },
-  };
+  var view = { part: null, overview: null, list: null, open: null, app: null };
 
-  var view = { part: 'cv', overview: null, list: null, open: null, app: null };
-
-  function partOfHash() {
-    var p = window.location.hash.replace('#', '');
-    return PARTS[p] ? p : 'cv';
+  function sections() {
+    return (view.overview && view.overview.sections) || [];
   }
 
-  function markTab() {
-    document.querySelectorAll('.ap-tabs a[data-tab]').forEach(function (a) {
-      if (a.getAttribute('data-tab') === view.part) a.setAttribute('aria-current', 'page');
-      else a.removeAttribute('aria-current');
-    });
+  function sectionOf(key) {
+    return (
+      sections().filter(function (s) {
+        return s.key === key;
+      })[0] || null
+    );
+  }
+
+  function partOfHash() {
+    var p = decodeURIComponent(window.location.hash.replace('#', ''));
+    if (sectionOf(p)) return p;
+    return sections().length ? sections()[0].key : null;
+  }
+
+  // What a reviewer is told when the admins wrote nothing for a section.
+  function noteOf(section) {
+    if (section.note) return section.note;
+    return section.anonymous
+      ? 'Names, affiliations, emails, links and phone numbers are taken out. If you recognise the person anyway, step aside.'
+      : 'This section is not anonymous. Score on the merits, and step aside if you know the person.';
   }
 
   function empty(title, text, extra) {
@@ -56,12 +61,11 @@
   // ── Loading ──────────────────────────────────────────────────────────────
 
   function start() {
-    view.part = partOfHash();
-    markTab();
     M.clear(root).appendChild(M.loading());
     Promise.all([M.me, M.api('GET', API)])
       .then(function (r) {
         view.overview = r[1];
+        view.part = partOfHash();
         if (!view.overview.reviewer) {
           return empty(
             'You are not a reviewer',
@@ -76,6 +80,12 @@
                   '.'
                 )
               : null
+          );
+        }
+        if (!view.part) {
+          return empty(
+            'Nothing to score',
+            'No section of the selection is given to you: the admins choose who scores what.'
           );
         }
         return loadList();
@@ -145,6 +155,9 @@
 
   function renderProgress() {
     var c = counts();
+    // The current section's tab counts along.
+    var tab = root.querySelector('.rv-sections a[aria-current] small');
+    if (tab) tab.textContent = ' ' + c.done + '/' + c.total;
     M.clear(progressEl).appendChild(
       h(
         'div',
@@ -194,16 +207,37 @@
     });
   }
 
+  // The sections given to me, with how far I am in each.
+  function sectionTabs() {
+    return h(
+      'nav',
+      { class: 'fr-views rv-sections', 'aria-label': 'Sections' },
+      sections().map(function (s) {
+        var current = s.key === view.part;
+        return h(
+          'a',
+          {
+            href: '#' + encodeURIComponent(s.key),
+            'aria-current': current ? 'page' : null,
+          },
+          s.label,
+          h('small', null, ' ' + (current ? counts().done : s.done) + '/' + s.total)
+        );
+      })
+    );
+  }
+
   function render() {
     M.clear(root);
     progressEl = h('div');
     listEl = h('div', { class: 'rv-list', role: 'list' });
     detailEl = h('div', { class: 'rv-detail' });
+    if (sections().length > 1) root.appendChild(sectionTabs());
     root.appendChild(
       h(
         'div',
         { class: 'rv-intro' },
-        h('p', { class: 'panel-note' }, PARTS[view.part].note),
+        h('p', { class: 'panel-note' }, noteOf(view.list.section)),
         progressEl
       )
     );
@@ -232,40 +266,43 @@
       });
   }
 
-  function renderApplication(app) {
-    if (app.part === 'cv') {
-      if (!app.links.length) {
-        return h('p', { class: 'panel-note' }, 'No CV nor profile link in this application.');
-      }
-      return h(
-        'div',
-        { class: 'rv-links' },
-        app.links.map(function (l) {
-          return h(
-            'a',
-            {
-              class: 'btn btn-outline btn-sm',
-              href: l.url,
-              target: '_blank',
-              rel: 'noopener noreferrer',
-            },
-            'Open the ' + l.label + ' ↗'
-          );
-        })
+  // One answer: a link to open, or the text as written (scrubbed when the
+  // section is anonymous), and, with one grid per question, its criteria.
+  function renderItem(item, extra) {
+    var body;
+    if (item.url) {
+      body = h(
+        'a',
+        {
+          class: 'btn btn-outline btn-sm',
+          href: item.url,
+          target: '_blank',
+          rel: 'noopener noreferrer',
+        },
+        'Open ↗'
       );
+    } else if (item.text.trim()) {
+      body = item.text;
+    } else {
+      body = h('span', { class: 'panel-note' }, 'No answer');
     }
-    if (!app.answers.length) return h('p', { class: 'panel-note' }, 'No answers.');
+    return [h('dt', null, item.label), h('dd', null, body, extra)];
+  }
+
+  function renderApplication(app, perQuestion) {
+    if (!app.items.length)
+      return h('p', { class: 'panel-note' }, 'Nothing to show in this section.');
     return h(
       'dl',
       { class: 'rv-answers' },
-      app.answers.map(function (a) {
-        return [h('dt', null, a.label), h('dd', null, a.text)];
+      app.items.map(function (item) {
+        return renderItem(item, perQuestion ? perQuestion[item.id] : null);
       })
     );
   }
 
   function scaleRow(criterion, value, onChange) {
-    var name = 'rv-' + criterion.key;
+    var name = 'rv-' + criterion.key.replace(/\./g, '-');
     var options = [];
     for (var n = view.app.scale.min; n <= view.app.scale.max; n++) {
       (function (n) {
@@ -322,19 +359,40 @@
       comment: mine.comment || '',
     };
 
+    // A grid for the whole section goes in the form; one per question goes
+    // under each question, in the same form (form= ties the radios to it).
+    var formId = 'rvForm';
     var grid = h('div', { class: 'rv-grid' });
+    var perQuestion = {};
+    app.grid.forEach(function (c) {
+      if (c.question && !perQuestion[c.question]) {
+        perQuestion[c.question] = h('div', { class: 'rv-grid rv-grid-inline' });
+      }
+    });
+    function row(c) {
+      var el = scaleRow(c, draft.scores[c.key], function (n) {
+        draft.scores[c.key] = n;
+      });
+      el.querySelectorAll('input').forEach(function (input) {
+        input.setAttribute('form', formId);
+      });
+      return el;
+    }
     function renderGrid() {
       M.clear(grid);
       grid.hidden = draft.conflict;
+      Object.keys(perQuestion).forEach(function (q) {
+        M.clear(perQuestion[q]);
+        perQuestion[q].hidden = draft.conflict;
+      });
       app.grid.forEach(function (c) {
-        grid.appendChild(
-          scaleRow(c, draft.scores[c.key], function (n) {
-            draft.scores[c.key] = n;
-          })
-        );
+        (c.question ? perQuestion[c.question] : grid).appendChild(row(c));
       });
     }
     renderGrid();
+    var hasSectionGrid = app.grid.some(function (c) {
+      return !c.question;
+    });
 
     var comment = h('textarea', {
       class: 'form-input',
@@ -359,6 +417,7 @@
       'form',
       {
         class: 'rv-form',
+        id: formId,
         novalidate: true,
         onsubmit: function (e) {
           e.preventDefault();
@@ -418,12 +477,28 @@
             ? h('span', { class: 'panel-note' }, 'Last saved ' + M.fmtDateTime(mine.updatedAt))
             : null
         ),
-        renderApplication(app),
-        h('h3', { class: 'rv-grid-title' }, 'Your scores (1 = weak, 5 = excellent)'),
+        hasSectionGrid
+          ? null
+          : h(
+              'p',
+              { class: 'panel-note' },
+              'Score each question below it (1 = weak, 5 = excellent).'
+            ),
+        renderApplication(app, perQuestion),
+        h(
+          'h3',
+          { class: 'rv-grid-title' },
+          hasSectionGrid ? 'Your scores (1 = weak, 5 = excellent)' : 'Your review'
+        ),
         form
       )
     );
-    scoreFields = M.watchFields(form);
+    // The whole card: the scores under each question are outside the form.
+    scoreFields = M.watchFields(detailEl.firstChild, {
+      buttons: function () {
+        return [save];
+      },
+    });
   }
 
   start();

@@ -1,6 +1,7 @@
 /* /app/review/summary/: every applicant with every score, for the admins of
- * the mentee selection. Best overall score first; a row opens on each
- * reviewer's scores and comment. The status is the board's own: changing it
+ * the mentee selection. One column per section of the setup, best overall
+ * score first; a row opens on each reviewer's scores and comment, criterion
+ * by criterion (grouped by question when a section has one grid per question). The status is the board's own: changing it
  * here moves the mentee on the mentorship board too. "Hide names" shows the
  * codes only, for discussing the scores before the names. */
 (function () {
@@ -53,8 +54,11 @@
     return s ? s.label : key;
   }
 
+  // Blind, someone is the code of the last section (usually the anonymous one).
   function who(p) {
-    return view.blind ? p.parts.answers.code : p.name;
+    if (!view.blind) return p.name;
+    var s = view.data.sections;
+    return p.parts[s[s.length - 1].key].code;
   }
 
   // Reviewers far apart on someone: worth a word before deciding.
@@ -85,6 +89,14 @@
   }
 
   function statusSelect(p) {
+    // Not on the mentorship board (answered a form only): no status to move.
+    if (p.status === null) {
+      return h(
+        'span',
+        { class: 'rv-status panel-note', title: 'Not on the mentorship board' },
+        'Not on the board'
+      );
+    }
     // Past the selection (Selected, Matched…): shown, changed on the board.
     if (view.data.editable.indexOf(p.status) === -1) {
       return h(
@@ -127,7 +139,6 @@
   }
 
   function detailRow(p, colspan) {
-    var grid = view.data.grid;
     return h(
       'tr',
       { class: 'rv-detail-row' },
@@ -137,9 +148,9 @@
         h(
           'div',
           { class: 'rv-detail-parts' },
-          view.data.parts.map(function (part) {
+          view.data.sections.map(function (part) {
             var d = p.parts[part.key];
-            var criteria = grid[part.key];
+            var criteria = part.grid;
             return h(
               'section',
               null,
@@ -156,7 +167,13 @@
                         null,
                         h('th', null, 'Reviewer'),
                         criteria.map(function (c) {
-                          return h('th', { title: c.label }, c.label);
+                          var full = c.questionLabel ? c.questionLabel + ': ' + c.label : c.label;
+                          return h(
+                            'th',
+                            { title: full },
+                            c.questionLabel ? h('small', null, c.questionLabel) : null,
+                            c.label
+                          );
                         }),
                         h('th', null, 'Total')
                       )
@@ -267,9 +284,9 @@
     });
     blind.checked = view.blind;
 
-    var weights = data.parts
+    var weights = data.sections
       .map(function (p) {
-        return p.label + ' ×' + data.weights[p.key];
+        return p.label + ' ×' + p.weight;
       })
       .join(', ');
     root.appendChild(
@@ -283,7 +300,7 @@
           { class: 'panel-note' },
           data.reviewers.length +
             (data.reviewers.length === 1 ? ' reviewer' : ' reviewers') +
-            ' · overall = mean of the parts (' +
+            ' · overall = mean of the sections (' +
             weights +
             ')'
         )
@@ -304,6 +321,8 @@
             null,
             data.people.length
               ? 'No applicant has this status.'
+              : data.source === 'form'
+              ? 'Nobody has answered the form chosen in the setup yet.'
               : 'No mentee has applied yet: applications come from the mentee application form.'
           )
         )
@@ -311,7 +330,7 @@
       return;
     }
 
-    var cols = 6;
+    var cols = 4 + data.sections.length;
     var body = h('tbody');
     shown.forEach(function (p, i) {
       var open = view.open.has(p.key);
@@ -341,13 +360,14 @@
             h('strong', null, who(p)),
             !view.blind && p.org ? h('small', null, p.org) : null
           ),
-          partCell(p.parts.cv),
-          partCell(p.parts.answers),
+          data.sections.map(function (s) {
+            return partCell(p.parts[s.key]);
+          }),
           h(
             'td',
             { class: 'rv-num rv-overall' },
             h('strong', null, num(p.overall)),
-            p.partial ? h('small', { title: 'One part has no score yet' }, ' one part') : null
+            p.partial ? h('small', { title: 'Some sections have no score yet' }, ' partial') : null
           ),
           h('td', null, statusSelect(p))
         )
@@ -370,8 +390,16 @@
               null,
               h('th', null, '#'),
               h('th', null, view.blind ? 'Code' : 'Applicant'),
-              h('th', { class: 'rv-num' }, 'CV'),
-              h('th', { class: 'rv-num' }, 'Answers'),
+              data.sections.map(function (s) {
+                return h(
+                  'th',
+                  {
+                    class: 'rv-num',
+                    title: s.reviewers.length ? 'Scored by ' + s.reviewers.join(', ') : null,
+                  },
+                  s.label
+                );
+              }),
               h('th', { class: 'rv-num' }, 'Overall'),
               h('th', null, 'Status (board)')
             )
@@ -384,7 +412,7 @@
       h(
         'p',
         { class: 'panel-note rv-foot' },
-        'Each part shows the mean of the complete reviews and how many there are; ±n: the reviewers differ by that much. Rejected applicants are no longer shown to the reviewers. Selected and later are set on the mentorship board.'
+        'Each section shows the mean of the complete reviews and how many there are; ±n: the reviewers differ by that much. Rejected applicants are no longer shown to the reviewers. Selected and later are set on the mentorship board.'
       )
     );
   }

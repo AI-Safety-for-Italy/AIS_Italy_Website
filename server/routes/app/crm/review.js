@@ -2,14 +2,16 @@
 // needs an admin of the panel (`review_admin`) or a reviewer, and a recent
 // sign-in; what each may do is checked below, and everything read or changed
 // is on the audit trail. Reviewers never receive a name nor a person key.
-//   GET                                   -> { admin, reviewer, parts: [{ key, total, done }] }
-//   GET  ?part=cv|answers                 -> my list: { grid, items: [{ code, state }] }   (reviewer)
+// `part` is a section of the setup (its key).
+//   GET                                   -> { admin, reviewer, sections: [{ key, total, done }] }
+//   GET  ?part=<section>                  -> my list: { grid, items: [{ code, state }] }   (reviewer)
 //   GET  ?part=…&code=…                   -> one application, anonymous, and my review  (reviewer)
 //   POST ?action=score { part, code, scores, conflict?, comment? }                      (reviewer)
 //   GET  ?action=summary                  -> everyone, with names and every score       (admin)
 //   POST ?action=status { key, status }   -> the board's status of a mentee             (admin)
-//   GET  ?action=settings                 -> { grid, weights, reviewers, candidates }   (admin)
-//   PUT  ?action=settings { grid?, weights? }                                           (admin)
+//   GET  ?action=settings                 -> { formId, sections, catalog, forms, reviewers… } (admin)
+//   GET  ?action=questions&form=<id|>     -> a form's questions and a first split        (admin)
+//   PUT  ?action=settings { formId?, nameQuestion?, sections? }                         (admin)
 //   POST ?action=reviewers { add | remove: userId }                                     (admin)
 const { route, sendJson, readJson, getQuery, HttpError } = require('../../../http');
 const { requireUser } = require('../../../auth');
@@ -29,13 +31,16 @@ async function door(req, { write = false } = {}) {
 module.exports = route({
   async GET(req, res) {
     const { user, role } = await door(req);
-    const { action, part, code } = getQuery(req);
+    const { action, part, code, form } = getQuery(req);
     if (action === 'summary') {
       review.requireAdmin(role);
       sendJson(res, 200, await review.summary(user));
     } else if (action === 'settings') {
       review.requireAdmin(role);
-      sendJson(res, 200, await review.settingsPage());
+      sendJson(res, 200, await review.settingsPage(user));
+    } else if (action === 'questions') {
+      review.requireAdmin(role);
+      sendJson(res, 200, await review.questions(user, form));
     } else if (part && code) {
       review.requireReviewer(role);
       sendJson(res, 200, await review.application(user, part, code));
@@ -52,7 +57,7 @@ module.exports = route({
     const { user, role } = await door(req, { write: true });
     review.requireAdmin(role);
     await review.saveSettings(user, await readJson(req));
-    sendJson(res, 200, await review.settingsPage());
+    sendJson(res, 200, await review.settingsPage(user));
   },
 
   async POST(req, res) {
