@@ -609,7 +609,25 @@
 
   var pages = { pages: [], number: {} };
 
+  // Drawing a panel again empties it first: for an instant the page is
+  // shorter, and the browser pulls the scroll up to fit. Its height is held
+  // while it is drawn, and the scroll put back, so an edit never jumps the
+  // page to the top.
+  function keepPlace(el, draw) {
+    var y = window.scrollY;
+    var top = el.scrollTop;
+    el.style.minHeight = el.offsetHeight + 'px';
+    draw();
+    el.style.minHeight = '';
+    el.scrollTop = top;
+    if (window.scrollY !== y) window.scrollTo({ top: y, behavior: 'instant' });
+  }
+
   function renderCanvas() {
+    keepPlace(canvas, drawCanvas);
+  }
+
+  function drawCanvas() {
     closeMenu();
     pages = pageInfo();
     M.clear(canvas);
@@ -1165,6 +1183,10 @@
   }
 
   function renderProps() {
+    keepPlace(props, drawProps);
+  }
+
+  function drawProps() {
     M.clear(props);
     if (selected === '__form') return formProps();
     var at = find(selected);
