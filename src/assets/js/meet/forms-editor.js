@@ -375,6 +375,8 @@
     else if (!answers) {
       answers = M.formResponses(document.getElementById('tab-responses'), {
         formId: id,
+        // An answer to open first (a link from the mentorship board).
+        open: new URLSearchParams(location.search).get('response'),
         onCount: showCount,
       });
     } else answers.reload();
@@ -2570,6 +2572,29 @@
     };
   }
 
+  // The board's fields, as the editor names them (server/crm/sources.js).
+  var BOARD_FIELDS = {
+    name: 'Name',
+    email: 'Email',
+    form_email: 'Email',
+    role: 'Role',
+    affiliation: 'Affiliation',
+    profile: 'Profile link',
+    cv: 'CV',
+    country: 'Country',
+    background: 'Background',
+    areas: 'Areas',
+    tracks: 'Track',
+    motivation: 'Motivation',
+    goals: 'Goals',
+    project_idea: 'Project idea',
+    hours: 'Hours per week',
+    language: 'Language',
+    timestamp: 'Sent at',
+    consent: 'Consent',
+    applying_as: 'Applying as',
+  };
+
   function crmPanel() {
     var panel = h('div', { class: 'panel form-grid' });
     var lists = [
@@ -2592,12 +2617,62 @@
         current = select.value;
       });
       panel.appendChild(field('Answers to this form also go to the mentorship board as', select));
+      var link = form.board;
+      if (link && link.list === current) {
+        // What the board gets: who is on it, and from which question.
+        panel.appendChild(
+          h(
+            'div',
+            { class: 'fe-board-link' },
+            h(
+              'p',
+              null,
+              h('strong', null, String(link.people)),
+              link.people === 1 ? ' person on the board' : ' people on the board',
+              ' from this form, every answer included, in sync with it.'
+            ),
+            link.missing.length
+              ? h(
+                  'p',
+                  { class: 'form-error', style: 'margin:0' },
+                  'No question found for the ' +
+                    link.missing.join(' and ') +
+                    ': name it “Nome completo” / “Email” (or give it that id), or the board cannot tell who answered.'
+                )
+              : null,
+            link.fields.length
+              ? h(
+                  'details',
+                  null,
+                  h(
+                    'summary',
+                    null,
+                    'Which question goes to which field (' + link.fields.length + ')'
+                  ),
+                  h(
+                    'ul',
+                    { class: 'fe-board-fields' },
+                    link.fields.map(function (f) {
+                      return h(
+                        'li',
+                        null,
+                        h('span', null, BOARD_FIELDS[f.field] || f.field),
+                        h('span', { class: 'fe-board-arrow', 'aria-hidden': 'true' }, '←'),
+                        h('span', null, f.question)
+                      );
+                    })
+                  )
+                )
+              : null
+          )
+        );
+      }
       panel.appendChild(
         h(
           'p',
           { class: 'form-note' },
-          'Questions are matched by their id; the template’s questions are already right.' +
-            (admin ? '' : ' Only whoever holds “Forms: all forms” can change this.')
+          'Each question goes to the board field with its id, or whose wording it has (the email, the name, the CV…). Linking brings the answers already received; unlinking takes them off the board. ' +
+            (admin ? '' : 'Only whoever holds “Forms: all forms” can change this.')
         )
       );
     }

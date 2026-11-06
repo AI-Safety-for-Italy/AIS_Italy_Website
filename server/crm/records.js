@@ -44,17 +44,17 @@ async function insert(q, sourceId, record, { origin, responseId = null, user = n
 
 /**
  * Every record on the board: { bySource: { sourceId: [record] }, unreadable }.
- * Each record also carries `recordId` and `origin`. `unreadable` counts the
+ * Each record also carries `recordId`, `origin` and, from a form, `responseId`. `unreadable` counts the
  * rows the current key cannot open. With `personKey`, only that person's.
  */
 async function list({ personKey } = {}) {
   const { rows } = personKey
     ? await db.query(
-        'select id, source, origin, data_encrypted from crm_records where person_key = $1 order by created_at, id',
+        'select id, source, origin, response_id, data_encrypted from crm_records where person_key = $1 order by created_at, id',
         [personKey]
       )
     : await db.query(
-        'select id, source, origin, data_encrypted from crm_records order by created_at, id'
+        'select id, source, origin, response_id, data_encrypted from crm_records order by created_at, id'
       );
   const bySource = {};
   let unreadable = 0;
@@ -74,6 +74,7 @@ async function list({ personKey } = {}) {
       ...record,
       recordId: r.id,
       origin: r.origin,
+      responseId: r.response_id || null,
     });
   }
   return { bySource, unreadable };

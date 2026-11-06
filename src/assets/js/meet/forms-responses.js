@@ -7,7 +7,7 @@
  *               (arrow keys too) and, for the form's managers, delete
  *   Table       all of them in rows, one column per question
  *
- *   Meet.formResponses(root, { formId, onCount(n) })
+ *   Meet.formResponses(root, { formId, onCount(n), open? (an answer's id to show first) })
  *
  * The answers come decrypted from /api/app/forms?id=…&view=responses, and
  * every look is on the audit trail; the counting is done here. Answers are
@@ -129,6 +129,7 @@
       selected: null,
       showAll: {},
     };
+    var askedOpened = false;
     var chartChoice = remember('fr-charts:' + formId) || {};
     var sorted = remember('fr-sorted:' + formId) || {};
 
@@ -146,6 +147,18 @@
         .then(function (d) {
           data = d;
           prepare();
+          // Asked for one answer (a link from the board): open on it.
+          if (opts.open && !askedOpened) {
+            askedOpened = true;
+            if (
+              data.responses.some(function (r) {
+                return r.id === opts.open;
+              })
+            ) {
+              state.selected = opts.open;
+              state.view = 'individual';
+            }
+          }
           if (opts.onCount) opts.onCount(data.responses.length);
           render();
         })

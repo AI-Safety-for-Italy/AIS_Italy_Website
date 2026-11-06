@@ -1404,6 +1404,72 @@ test('the sign-up form gets the address the site join buttons open, once', async
   assert.notEqual(plain.slug, JOIN_SLUG);
 });
 
+test('a form of its own linked to the board: its answers, past ones too, in sync', async () => {
+  await setRoles();
+  const root = await admin();
+  const mentorship = require('./crm/mentorship');
+  const own = {
+    languages: ['it'],
+    title: { it: 'Mentee 2027' },
+    items: [
+      { id: 'q_nome', type: 'short_text', label: { it: 'Nome' }, required: true },
+      { id: 'q_cognome', type: 'short_text', label: { it: 'Cognome' } },
+      { id: 'q_mail', type: 'email', label: { it: 'La tua email' }, required: true },
+      { id: 'q_cv', type: 'url', label: { it: 'Link al tuo CV' } },
+      { id: 'q_why', type: 'long_text', label: { it: 'Perché vuoi partecipare al programma?' } },
+    ],
+  };
+  const { id, slug } = await forms.create(root, { title: 'Mentee 2027', schema: own });
+  await forms.updateSettings(root, id, { status: 'open' });
+  await answer(slug, {
+    q_nome: 'Lia',
+    q_cognome: 'Candidata',
+    q_mail: 'lia@example.org',
+    q_cv: 'https://example.org/cv.pdf',
+    q_why: 'Interpretability.',
+  });
+  // Not linked yet: nobody on the board.
+  assert.equal((await mentorship.board(root)).mentees.length, 0);
+
+  // Linked: the answer already received goes there, its questions matched by wording.
+  const linked = await forms.updateSettings(root, id, {
+    settings: { crm: 'mentees_applications' },
+  });
+  assert.equal(linked.board.people, 1);
+  assert.deepEqual(linked.board.missing, []);
+  assert.deepEqual(
+    linked.board.fields.map((f) => [f.field, f.question]),
+    [
+      ['cv', 'Link al tuo CV'],
+      ['motivation', 'Perché vuoi partecipare al programma?'],
+      ['email', 'La tua email'],
+      ['name', 'Nome + Cognome'],
+    ]
+  );
+  const [lia] = (await mentorship.board(root)).mentees;
+  assert.equal(lia.name, 'Lia Candidata');
+  assert.equal(lia.status, 'applied');
+  const card = await mentorship.person(root, ['mentorship'], lia.key, 'mentee');
+  const fromForm = card.sheets.find((x) => x.source === 'mentees_applications');
+  assert.equal(fromForm.answer.formId, id);
+  assert.equal(fromForm.answer.form, 'Mentee 2027');
+  assert.equal(fromForm.fields.motivation, 'Interpretability.');
+
+  // A new answer goes there at once; saving the settings again does not double them.
+  await answer(slug, { q_nome: 'Marco', q_mail: 'marco@example.org' });
+  await forms.updateSettings(root, id, { status: 'open' });
+  assert.deepEqual((await mentorship.board(root)).mentees.map((m) => m.name).sort(), [
+    'Lia Candidata',
+    'Marco',
+  ]);
+  const { rows } = await db.query(`select count(*)::int as n from crm_records`);
+  assert.equal(rows[0].n, 2);
+
+  // Unlinked: off the board.
+  await forms.updateSettings(root, id, { settings: { crm: null } });
+  assert.equal((await mentorship.board(root)).mentees.length, 0);
+});
+
 test('a mentee application form feeds the mentorship board, and goes with its answer', async () => {
   await setRoles();
   const root = await admin();
