@@ -3,6 +3,9 @@
 //   GET ?code=…&state=…       -> Discord sends it back here; signs in and
 //                                goes on to `next` (or /app/)
 // Failures land on /app/login/?error=<code>.
+//   POST                      -> a click on a button under the bot's
+//                                messages (server/discord-interactions.js),
+//                                signed by Discord
 //
 // The state cookie ties the return trip to the browser that started it. It
 // is SameSite=Lax because the return is a navigation coming from discord.com,
@@ -12,6 +15,19 @@ const { route, redirect, origin, getQuery, getCookie } = require('../server/http
 const auth = require('../server/auth');
 const discord = require('../server/discord');
 const permissions = require('../server/permissions');
+const interactions = require('../server/discord-interactions');
+
+/** The body as sent, read from the request itself: the signature is over these bytes. */
+async function rawBody(req) {
+  if (typeof req.body === 'string') return req.body;
+  if (Buffer.isBuffer(req.body)) return req.body.toString('utf8');
+  let raw = '';
+  for await (const chunk of req) {
+    raw += chunk;
+    if (raw.length > 100000) break;
+  }
+  return raw;
+}
 
 const STATE_COOKIE = 'ais_oauth';
 const NEXT = /^\/app\/[\w/-]*(\?[\w=&%.-]*)?$/;
@@ -63,5 +79,30 @@ module.exports = route({
       }
       fail(res, err instanceof discord.LoginError ? err.code : 'failed');
     }
+  },
+
+  async POST(req, res) {
+    const raw = await rawBody(req);
+    if (
+      !interactions.verify(
+        raw,
+        req.headers['x-signature-ed25519'],
+        req.headers['x-signature-timestamp']
+      )
+    ) {
+      res.statusCode = 401;
+      return res.end('invalid request signature');
+    }
+    let interaction;
+    try {
+      interaction = JSON.parse(raw);
+    } catch {
+      res.statusCode = 400;
+      return res.end('bad request');
+    }
+    const reply = await interactions.handle(interaction);
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify(reply));
   },
 });

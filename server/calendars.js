@@ -16,6 +16,16 @@
 // The seminars and events of the site (server/content.js) and the chosen time
 // of a meeting poll (server/polls.js) each land in a calendar if asked to: the
 // calendar keeps a copy, changed from there only (source, source_id).
+//
+// Each member also has "My calendar" (personal_of), seen by them alone, for
+// targeted events: an event of any calendar can invite people by name,
+// members or any address (server/calendar-invites.js), who then see it and
+// answer, even without seeing its calendar. Who sees who comes is the
+// calendar's choice (attendees_visible); those invited see each other.
+//
+// Reminders are of two kinds, never mixed up: the event's (its organiser
+// chooses when and how, for everyone it concerns) and each member's own (when
+// and how they choose, for a calendar or one event). See calendar-reminders.js.
 
 const crypto = require('crypto');
 const db = require('./db');
@@ -24,12 +34,16 @@ const permissions = require('./permissions');
 const recurrence = require('./recurrence');
 const timeOf = require('./calendar-expand');
 
+// Required when used: calendar-invites.js requires this module.
+const invites = () => require('./calendar-invites');
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const SHARE_ID = /^[\w-]{1,40}$/;
 const CHANNEL_ID = /^(\d{5,25}|dev-[\w-]{1,30})$/;
 const COLOR = /^#[0-9a-f]{6}$/i;
 const LEVELS = ['view', 'edit', 'manage'];
 const RANK = { public: 0, view: 1, edit: 2, manage: 3 };
+const ATTENDEES = ['members', 'editors', 'counts'];
 const MAX_SHARED = 50;
 const MAX_CALENDARS = 100;
 // The lead times offered for reminders and announcements, in minutes.
@@ -282,6 +296,8 @@ function holds(cal, level, who) {
 
 /** 'manage' | 'edit' | 'view' | 'public' | null: what `who` may do with `cal`. */
 function levelOf(cal, who) {
+  // A member's own calendar: theirs alone, whatever keys anyone holds.
+  if (cal.personal_of) return who.user && who.user.id === cal.personal_of ? 'manage' : null;
   if (who.user) {
     if (who.perms.includes('calendar_admin')) return 'manage';
     if (cal.owner_id && cal.owner_id === who.user.id) return 'manage';
@@ -349,6 +365,8 @@ function calendarOut(cal, level, owners = {}) {
     timezone: cal.timezone,
     isPublic: cal.is_public,
     system: cal.system_key || null,
+    personal: Boolean(cal.personal_of),
+    attendeesVisible: cal.attendees_visible || 'members',
     archived: Boolean(cal.archived_at),
     level,
     canEdit: atLeast(level, 'edit'),
@@ -372,8 +390,10 @@ async function ownerNames(cals) {
 
 /** Every calendar `who` sees, with their level: [{ cal, level }]. */
 async function visible(who, { archived = false } = {}) {
+  if (who.user && who.user.kind === 'discord') await ensurePersonal(who.user);
   const { rows } = await db.query(
-    `select * from calendars order by case system_key when 'seminars' then 0 when 'events' then 1 else 2 end, lower(name)`
+    `select * from calendars order by case when personal_of is not null then 0
+       when system_key = 'seminars' then 1 when system_key = 'events' then 2 else 3 end, lower(name)`
   );
   return rows
     .map((cal) => ({ cal, level: levelOf(cal, who) }))
@@ -381,6 +401,22 @@ async function visible(who, { archived = false } = {}) {
       ({ cal, level }) =>
         level !== null && (!cal.archived_at || (archived && atLeast(level, 'manage')))
     );
+}
+
+/** A member's own calendar, made the first time it is needed: its row. */
+async function ensurePersonal(user, q = db) {
+  if (!user || user.kind !== 'discord') return null;
+  const found = await q.query('select * from calendars where personal_of = $1', [user.id]);
+  if (found.rows.length) return found.rows[0];
+  const { rows } = await q.query(
+    `insert into calendars (slug, name, description, color, personal_of, owner_id, attendees_visible)
+     values ($1, 'My calendar', 'Only you see it, and the people you invite to an event.',
+       '#5d6b62', $2, $2, 'members')
+     on conflict do nothing returning *`,
+    [`me-${crypto.randomBytes(5).toString('hex')}`, user.id]
+  );
+  if (rows.length) return rows[0];
+  return (await q.query('select * from calendars where personal_of = $1', [user.id])).rows[0];
 }
 
 /** The calendars of the Calendars page and the sidebar: { calendars, canCreate, colors }. */
@@ -422,6 +458,14 @@ function cleanCalendar(body, previous) {
     color: color.toLowerCase(),
     timezone: b.timezone === undefined ? p.timezone || 'Europe/Rome' : timezone(b.timezone),
     isPublic: b.isPublic === undefined ? Boolean(p.is_public) : Boolean(b.isPublic),
+    attendeesVisible:
+      b.attendeesVisible === undefined
+        ? p.attendees_visible || (b.isPublic ? 'counts' : 'members')
+        : ATTENDEES.includes(b.attendeesVisible)
+        ? b.attendeesVisible
+        : (() => {
+            throw fail('Choose who sees who comes', 'attendeesVisible');
+          })(),
   };
 }
 
@@ -457,8 +501,8 @@ async function createCalendar(user, body) {
   const { rows } = await db.query(
     `insert into calendars (slug, name, description, color, timezone, is_public,
        view_all, view_roles, view_people, edit_all, edit_roles, edit_people,
-       manage_all, manage_roles, manage_people, announce, owner_id)
-     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+       manage_all, manage_roles, manage_people, announce, owner_id, attendees_visible)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
      returning *`,
     [
       slug,
@@ -478,6 +522,7 @@ async function createCalendar(user, body) {
       JSON.stringify(access.manage.people),
       JSON.stringify(announce),
       user.kind === 'discord' ? user.id : null,
+      fields.attendeesVisible,
     ]
   );
   return calendarOut(rows[0], 'manage', await ownerNames(rows));
@@ -489,14 +534,16 @@ async function updateCalendar(user, id, body) {
   const who = await whoIs(user);
   const { cal } = await calendarFor(id, who, 'manage');
   const fields = cleanCalendar(body, cal);
-  const access = levelsFrom(body, cal);
-  const announce = cleanAnnounce(body && body.announce);
+  // My calendar stays mine: no access to give, not public, no announcements.
+  const access = cal.personal_of ? levelsFrom({ access: {} }, null) : levelsFrom(body, cal);
+  if (cal.personal_of) fields.isPublic = false;
+  const announce = cal.personal_of ? [] : cleanAnnounce(body && body.announce);
   const { rows } = await db.query(
     `update calendars set name = $2, description = $3, color = $4, timezone = $5,
        is_public = $6, view_all = $7, view_roles = $8, view_people = $9,
        edit_all = $10, edit_roles = $11, edit_people = $12,
        manage_all = $13, manage_roles = $14, manage_people = $15,
-       announce = $16, updated_at = now()
+       announce = $16, attendees_visible = $17, updated_at = now()
      where id = $1 returning *`,
     [
       cal.id,
@@ -515,6 +562,7 @@ async function updateCalendar(user, id, body) {
       JSON.stringify(access.manage.roles),
       JSON.stringify(access.manage.people),
       JSON.stringify(announce === undefined || announce === null ? cal.announce : announce),
+      fields.attendeesVisible,
     ]
   );
   const after = rows[0];
@@ -529,6 +577,7 @@ async function archiveCalendar(user, id, archived) {
   const who = await whoIs(user);
   const { cal } = await calendarFor(id, who, 'manage');
   if (cal.system_key) throw fail('The Seminars and Events calendars cannot be archived');
+  if (cal.personal_of) throw fail('My calendar cannot be archived');
   const { rows } = await db.query(
     `update calendars set archived_at = $2, updated_at = now() where id = $1 returning *`,
     [cal.id, archived ? new Date() : null]
@@ -542,6 +591,7 @@ async function deleteCalendar(user, id) {
   const who = await whoIs(user);
   const { cal } = await calendarFor(id, who, 'manage');
   if (cal.system_key) throw fail('The Seminars and Events calendars cannot be deleted');
+  if (cal.personal_of) throw fail('My calendar cannot be deleted');
   if (!cal.archived_at) throw fail('Archive the calendar first');
   await db.query('delete from calendars where id = $1', [cal.id]);
   return { id: cal.id, deleted: true };
@@ -581,7 +631,7 @@ function videoOut(event) {
 }
 
 /** One occurrence for the page. */
-function occurrenceOut(occ, cal, level) {
+function occurrenceOut(occ, cal, level, { invited = false } = {}) {
   const e = occ.event;
   const seriesId = e.series_id || (e.recurrence ? e.id : null);
   return {
@@ -598,6 +648,8 @@ function occurrenceOut(occ, cal, level) {
     video: videoOut(e),
     calendarId: cal.id,
     color: cal.color,
+    // Seen through an invite by name, not through the calendar.
+    invited,
     recurring: Boolean(seriesId),
     changedAlone: Boolean(e.series_id),
     recurrence: e.recurrence || null,
@@ -642,16 +694,39 @@ function range(query) {
  * The occurrences between `from` and `to` of the calendars `who` sees, those
  * of `calendarIds` only when given: [occurrence] (occurrenceOut).
  */
-async function occurrencesFor(who, from, to, calendarIds) {
-  const list = (await visible(who)).filter(
-    ({ cal }) => !calendarIds || calendarIds.includes(cal.id)
-  );
+async function occurrencesFor(who, from, to, calendarIds, { withInvites = false } = {}) {
+  const all = await visible(who);
+  const list = all.filter(({ cal }) => !calendarIds || calendarIds.includes(cal.id));
   const byId = new Map(list.map((x) => [x.cal.id, x]));
   const { rows, overrides } = await eventRows([...byId.keys()], from, to);
-  return timeOf.expand(rows, from, to, overrides).map((occ) => {
+  const out = timeOf.expand(rows, from, to, overrides).map((occ) => {
     const x = byId.get(occ.event.calendar_id);
     return occurrenceOut(occ, x.cal, x.level);
   });
+  if (!withInvites || !who.user) return out;
+  // The events this member is invited to in calendars they do not see.
+  const seen = new Set(all.map((x) => x.cal.id));
+  const { rows: inv } = await db.query(
+    `select e.*, c.color as cal_color, c.name as cal_name from calendar_invites i
+     join calendar_events e on e.id = i.event_id or e.series_id = i.event_id
+     join calendars c on c.id = e.calendar_id
+     where i.user_id = $1 and c.archived_at is null and not (e.calendar_id = any($2::uuid[]))
+       and e.starts_at < $4 and (e.recurrence is not null or e.ends_at > $3)`,
+    [who.user.id, [...seen], from, to]
+  );
+  if (!inv.length) return out;
+  const cals = new Map(inv.map((e) => [e.calendar_id, { id: e.calendar_id, color: e.cal_color }]));
+  const invOverrides = inv
+    .filter((e) => e.series_id)
+    .map((e) => ({
+      series_id: e.series_id,
+      recurrence_id: e.recurrence_id,
+    }));
+  return out.concat(
+    timeOf
+      .expand(inv, from, to, invOverrides)
+      .map((occ) => occurrenceOut(occ, cals.get(occ.event.calendar_id), 'view', { invited: true }))
+  );
 }
 
 /** The dashboard's view: the occurrences of the calendars this member shows. */
@@ -668,7 +743,12 @@ async function listEvents(user, query) {
           .split(',')
           .filter((id) => list.some((x) => x.cal.id === id))
       : shown.map((x) => x.cal.id);
-  return { events: await occurrencesFor(who, from, to, ids) };
+  // The events one is invited to show unless only some calendars are asked for.
+  return {
+    events: await occurrencesFor(who, from, to, ids, {
+      withInvites: query.calendars === undefined,
+    }),
+  };
 }
 
 async function loadEvent(id, q = db) {
@@ -682,9 +762,15 @@ async function loadEvent(id, q = db) {
 /** An event `who` may use at `wanted` or more, with its calendar and their level. */
 async function eventFor(id, who, wanted, { pollMeeting = false } = {}) {
   const event = await loadEvent(id);
-  const { cal, level } = await calendarFor(event.calendar_id, who, 'public').catch(() => {
-    throw new HttpError(404, 'Event not found');
-  });
+  const cal = await loadCalendar(event.calendar_id);
+  let level = levelOf(cal, who);
+  // Invited by name: the event is theirs to see and answer, not its calendar.
+  let invited = false;
+  if (who.user && !atLeast(level, 'view') && (await invites().isInvited(event, who.user.id))) {
+    level = 'view';
+    invited = true;
+  }
+  if (level === null) throw new HttpError(404, 'Event not found');
   if (cal.archived_at && !atLeast(level, 'manage')) throw new HttpError(404, 'Event not found');
   // A copy is changed where it comes from, whoever asks; of a poll's
   // meeting, the callers that ask for it (pollMeeting) change what is the calendar's.
@@ -693,7 +779,7 @@ async function eventFor(id, who, wanted, { pollMeeting = false } = {}) {
   if (!atLeast(level, wanted)) {
     throw new HttpError(403, 'You can see this event but not change it');
   }
-  return { event, cal, level };
+  return { event, cal, level, invited };
 }
 
 /** The occurrence of `event` starting at `occurrence` (ISO), checked against its series. */
@@ -714,44 +800,35 @@ function pickOccurrence(event, occurrence) {
   return { event, start: new Date(ms), end: new Date(ms + length), occurrenceStart: new Date(ms) };
 }
 
-async function rsvpsOf(eventId, occurrenceStart) {
-  const { rows } = await db.query(
-    `select r.answer, r.user_id, u.name, u.avatar_url from calendar_rsvps r
-     join app_users u on u.id = r.user_id
-     where r.event_id = $1 and r.occurrence_start = $2 order by r.updated_at`,
-    [eventId, occurrenceStart]
-  );
-  return rows;
-}
-
 /** One occurrence with who comes, its reminders and announcements: for its card. */
 async function getEvent(user, id, occurrence) {
   const who = await whoIs(user);
-  const { event, cal, level } = await eventFor(id, who, 'public');
+  const { event, cal, level, invited } = await eventFor(id, who, 'public');
   const occ = pickOccurrence(event, occurrence);
-  const out = occurrenceOut(occ, cal, level);
-  const answers = await rsvpsOf(event.id, occ.occurrenceStart);
-  const mine = answers.find((a) => a.user_id === user.id);
+  const out = occurrenceOut(occ, cal, level, { invited });
   const { rows: by } = await db.query('select name from app_users where id = $1', [
     event.created_by,
   ]);
+  const head = event.series_id ? await loadEvent(event.series_id).catch(() => event) : event;
   // An occurrence changed on its own still shows its series' rhythm.
   const series = event.series_id ? await loadEvent(event.series_id).catch(() => null) : null;
   return {
     ...out,
     recurrence: series ? series.recurrence : out.recurrence,
-    calendar: { id: cal.id, name: cal.name, color: cal.color },
-    createdBy: by[0] ? by[0].name : null,
-    rsvp: {
-      mine: mine ? mine.answer : null,
-      counts: {
-        yes: answers.filter((a) => a.answer === 'yes').length,
-        maybe: answers.filter((a) => a.answer === 'maybe').length,
-        no: answers.filter((a) => a.answer === 'no').length,
-      },
-      people: answers.map((a) => ({ name: a.name, avatarUrl: a.avatar_url, answer: a.answer })),
+    calendar: {
+      id: cal.id,
+      name: invited && cal.personal_of ? `${by[0] ? by[0].name : 'Someone'}’s calendar` : cal.name,
+      color: cal.color,
+      personal: Boolean(cal.personal_of),
     },
+    createdBy: by[0] ? by[0].name : null,
+    rsvp: await invites().whoComes(event, cal, level, occ.occurrenceStart, {
+      userId: user && user.kind === 'discord' ? user.id : null,
+    }),
+    // Who is invited by name, with their answer: for whoever changes the event.
+    invites: atLeast(level, 'edit') ? await invites().invitesOut(head.id) : undefined,
     reminders: event.reminders || [],
+    myReminders: user && user.kind === 'discord' ? await myReminders(user, cal, head) : null,
     announce: atLeast(level, 'edit') ? event.announce : undefined,
     calendarAnnounce: atLeast(level, 'edit') ? cal.announce || [] : undefined,
   };
@@ -1007,21 +1084,8 @@ async function rsvp(user, id, occurrence, answer) {
   const { event } = await eventFor(id, who, 'view');
   if (user.kind !== 'discord') throw fail('Sign in with Discord to answer');
   const occ = pickOccurrence(event, occurrence);
-  if (answer === null || answer === undefined || answer === '') {
-    await db.query(
-      'delete from calendar_rsvps where event_id = $1 and occurrence_start = $2 and user_id = $3',
-      [event.id, occ.occurrenceStart, user.id]
-    );
-  } else {
-    if (!['yes', 'maybe', 'no'].includes(answer)) throw fail('Answer yes, maybe or no');
-    await db.query(
-      `insert into calendar_rsvps (event_id, occurrence_start, user_id, answer)
-       values ($1, $2, $3, $4)
-       on conflict (event_id, occurrence_start, user_id)
-       do update set answer = excluded.answer, updated_at = now()`,
-      [event.id, occ.occurrenceStart, user.id, answer]
-    );
-  }
+  if (answer && !['yes', 'maybe', 'no'].includes(answer)) throw fail('Answer yes, maybe or no');
+  await invites().answerOccurrence(event.id, occ.occurrenceStart, user.id, answer || null);
   return getEvent(user, event.id, occ.occurrenceStart.toISOString());
 }
 
@@ -1041,20 +1105,107 @@ function defaultChoice() {
   return true;
 }
 
-/** What a member's choices mean for one calendar: { dashboard, ics, notify }. */
+/**
+ * What a member's choices mean for one calendar: { dashboard, ics, notify,
+ * via, own }. notify: they take its events' reminders (the organiser's);
+ * via: on which channel ('email' | 'discord' | 'both'; null: as each
+ * reminder says); own: their own reminders for its events ([{ minutes, channels }]).
+ */
 function choiceFor(prefs, cal) {
   const stored = (prefs.selection || {})[cal.id];
   const def = defaultChoice(cal);
+  const personal = {
+    via: stored && VIA.includes(stored.via) ? stored.via : null,
+    own: stored && Array.isArray(stored.own) ? stored.own : [],
+  };
   if (prefs.advanced) {
     const pick = (k, fallback) => (stored && typeof stored[k] === 'boolean' ? stored[k] : fallback);
     return {
       dashboard: pick('dashboard', def),
       ics: pick('ics', def),
       notify: pick('notify', def && Boolean(prefs.notify)),
+      ...personal,
     };
   }
   const on = stored && typeof stored.dashboard === 'boolean' ? stored.dashboard : def;
-  return { dashboard: on, ics: on, notify: on && Boolean(prefs.notify) };
+  // A calendar with reminders of one's own is followed for its reminders too.
+  // Reminders are chosen per calendar (Subscribe → Reminders), shown or not.
+  const notify =
+    stored && typeof stored.notify === 'boolean' ? stored.notify : on && Boolean(prefs.notify);
+  return { dashboard: on, ics: on, notify, ...personal };
+}
+
+const VIA = ['email', 'discord', 'both'];
+const viaChannels = (via) => (via === 'both' ? ['email', 'discord'] : [via]);
+
+/**
+ * The reminders one member gets for one event: [{ minutes, channels,
+ * kinds: ['event' | 'own'] }], the event's (its organiser's, when they take
+ * them, on their channel if they chose one) and their own (the event's own
+ * choice, else their calendar's). `attending`: they answered going or maybe,
+ * or are invited and did not decline; `declined`: they answered no.
+ */
+function reminderPlan(event, cal, prefs, eventPref, { attending = false, declined = false } = {}) {
+  const choice = choiceFor(prefs || { selection: {} }, cal);
+  const mode = (eventPref && eventPref.event_reminders) || 'calendar';
+  const takesEvent =
+    mode === 'on' || (mode === 'calendar' && !declined && (choice.notify || attending));
+  const plan = new Map();
+  const add = (minutes, channels, kind) => {
+    const had = plan.get(minutes) || { minutes, channels: [], kinds: [] };
+    channels.forEach((c) => !had.channels.includes(c) && had.channels.push(c));
+    if (!had.kinds.includes(kind)) had.kinds.push(kind);
+    plan.set(minutes, had);
+  };
+  if (takesEvent) {
+    (event.reminders || []).forEach((r) =>
+      add(r.minutes, choice.via ? viaChannels(choice.via) : r.channels, 'event')
+    );
+  }
+  const own = eventPref && Array.isArray(eventPref.own) ? eventPref.own : choice.own;
+  if (!declined) (own || []).forEach((r) => add(r.minutes, r.channels, 'own'));
+  return [...plan.values()].sort((a, b) => b.minutes - a.minutes);
+}
+
+/**
+ * What a member's card of an event says about reminders: the organiser's,
+ * whether they take them and on which channel, and their own (this event's
+ * or their calendar's).
+ */
+async function myReminders(user, cal, head) {
+  const prefs = await prefsOf(user);
+  const choice = choiceFor(prefs, cal);
+  const { rows } = await db.query(
+    'select * from calendar_event_prefs where user_id = $1 and event_id = $2',
+    [user.id, head.id]
+  );
+  const ep = rows[0] || null;
+  return {
+    eventMode: ep ? ep.event_reminders : 'calendar',
+    // As for the calendar: followed (notify), or because they answered or were invited.
+    calendarTakes: choice.notify,
+    via: choice.via,
+    own: ep && Array.isArray(ep.own) ? ep.own : null,
+    calendarOwn: choice.own,
+  };
+}
+
+/** A member's own choices for one event: { eventReminders, own } (own null: the calendar's). */
+async function setEventPrefs(user, id, body) {
+  if (!user || user.kind !== 'discord') throw fail('Sign in with Discord to choose reminders');
+  const who = await whoIs(user);
+  const { event } = await eventFor(id, who, 'view');
+  const head = event.series_id || event.id;
+  const b = body || {};
+  const mode = ['calendar', 'on', 'off'].includes(b.eventReminders) ? b.eventReminders : 'calendar';
+  const own = b.own === null || b.own === undefined ? null : cleanReminders(b.own);
+  await db.query(
+    `insert into calendar_event_prefs (user_id, event_id, event_reminders, own) values ($1, $2, $3, $4)
+     on conflict (user_id, event_id) do update set event_reminders = excluded.event_reminders,
+       own = excluded.own, updated_at = now()`,
+    [user.id, head, mode, own === null ? null : JSON.stringify(own)]
+  );
+  return getEvent(user, event.id, b.occurrence);
 }
 
 /** The member's own row, made with a fresh link the first time. */
@@ -1106,6 +1257,12 @@ async function savePrefs(user, body) {
     ['dashboard', 'ics', 'notify'].forEach((k) => {
       if (typeof c[k] === 'boolean') selection[id][k] = c[k];
     });
+    // How this member takes the reminders of this calendar's events.
+    if (c.via !== undefined && c.via !== null) {
+      if (!VIA.includes(c.via)) throw fail('Choose email, Discord or both', 'via');
+      selection[id].via = c.via;
+    }
+    if (c.own !== undefined && c.own !== null) selection[id].own = cleanReminders(c.own);
   });
   await db.query(
     `update calendar_prefs set advanced = $2, notify = $3, selection = $4, updated_at = now()
@@ -1178,11 +1335,21 @@ async function personalFeed(token) {
   const user = { id: prefs.uid, kind: prefs.kind, name: prefs.name };
   await permissions.refreshIfStale(user, { maxAgeMs: 6 * 60 * 60 * 1000 });
   const who = await whoIs(user);
-  const cals = (await visible(who)).filter(({ cal }) => choiceFor(prefs, cal).ics);
+  const all = await visible(who);
+  const cals = all.filter(({ cal }) => choiceFor(prefs, cal).ics);
+  // And the events they are invited to in calendars they do not see.
+  const { rows: invited } = await db.query(
+    `select e.* from calendar_invites i
+     join calendar_events e on e.id = i.event_id or e.series_id = i.event_id
+     join calendars c on c.id = e.calendar_id
+     where i.user_id = $1 and c.archived_at is null and not (e.calendar_id = any($2::uuid[]))
+       and (i.answer is null or i.answer <> 'no')`,
+    [user.id, all.map((x) => x.cal.id)]
+  );
   return {
     name: 'AI Safety for Italy',
     calendars: cals.map((x) => x.cal),
-    events: await feedRows(cals.map((x) => x.cal.id)),
+    events: (await feedRows(cals.map((x) => x.cal.id))).concat(invited),
   };
 }
 
@@ -1437,7 +1604,10 @@ async function contentChoices(user) {
 async function syncFromPoll(pollId) {
   const { rows } = await db.query('select * from polls where id = $1', [pollId]);
   const poll = rows[0];
-  if (!poll || poll.status !== 'scheduled' || !poll.calendar_id || !poll.final_slot_id) {
+  // The calendar asked for, else its owner's own (My calendar): every
+  // meeting is somewhere, if only for its owner and the people invited.
+  const calendarId = poll ? await meetingCalendarId(poll) : null;
+  if (!poll || poll.status !== 'scheduled' || !calendarId || !poll.final_slot_id) {
     await upsertCopy('poll', String(pollId), null);
     return null;
   }
@@ -1451,7 +1621,7 @@ async function syncFromPoll(pollId) {
     `select starts_at, calendar_id from calendar_events where source = 'poll' and source_id = $1`,
     [String(poll.id)]
   );
-  const eventId = await upsertCopy('poll', poll.id, poll.calendar_id, {
+  const eventId = await upsertCopy('poll', poll.id, calendarId, {
     title: poll.title,
     description: poll.description,
     location: /^https:\/\//i.test(location) ? '' : location,
@@ -1469,9 +1639,21 @@ async function syncFromPoll(pollId) {
   const fresh =
     !had.length ||
     new Date(had[0].starts_at).getTime() !== startsAt.getTime() ||
-    had[0].calendar_id !== poll.calendar_id;
-  if (fresh) await goingFromVotes(poll, eventId, startsAt);
+    had[0].calendar_id !== calendarId;
+  if (fresh) await goingFromVotes({ ...poll, calendar_id: calendarId }, eventId, startsAt);
+  // Those the invite was emailed to are invited to the event: they answer there.
+  await invites().syncPollInvites(eventId, poll.invited_to_meeting);
   return eventId;
+}
+
+/** Where a poll's meeting lands: its calendar, else its owner's own; null if neither. */
+async function meetingCalendarId(poll) {
+  if (poll.calendar_id) return poll.calendar_id;
+  if (!poll.owner_id) return null;
+  const { rows } = await db.query('select id, kind from app_users where id = $1', [poll.owner_id]);
+  if (!rows.length || rows[0].kind !== 'discord') return null;
+  const cal = await ensurePersonal({ id: rows[0].id, kind: 'discord' });
+  return cal ? cal.id : null;
 }
 
 /**
@@ -1527,7 +1709,10 @@ async function setPollCalendar(user, pollId, calendarId) {
 async function sharesCalendars(user) {
   const who = await whoIs(user);
   if (canCreate(who)) return true;
-  return (await visible(who)).some(({ level }) => atLeast(level, 'manage'));
+  // My calendar has nobody to give access to.
+  return (await visible(who)).some(
+    ({ cal, level }) => !cal.personal_of && atLeast(level, 'manage')
+  );
 }
 
 /** The calendars this member may put things in. */
@@ -1535,7 +1720,12 @@ async function writable(user) {
   const who = await whoIs(user);
   return (await visible(who))
     .filter(({ level }) => atLeast(level, 'edit'))
-    .map(({ cal }) => ({ id: cal.id, name: cal.name, color: cal.color }));
+    .map(({ cal }) => ({
+      id: cal.id,
+      name: cal.name,
+      color: cal.color,
+      personal: Boolean(cal.personal_of),
+    }));
 }
 
 module.exports = {
@@ -1543,7 +1733,15 @@ module.exports = {
   LEAD_TIMES,
   LEVELS,
   levelOf,
+  atLeast,
   whoIs,
+  loadEvent,
+  eventFor,
+  pickOccurrence,
+  ensurePersonal,
+  meetingCalendarId,
+  setEventPrefs,
+  reminderPlan,
   visible,
   choiceFor,
   prefsOf,

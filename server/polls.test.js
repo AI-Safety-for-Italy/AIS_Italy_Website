@@ -979,10 +979,7 @@ test('a meeting in a calendar is one meeting: moved, edited and emailed as such'
   assert.match(sent[1].subject, /^Aggiornata: /);
   assert.match(sent[1].icalEvent.content, new RegExp(`SEQUENCE:${after.sequence}\r\n`));
   assert.ok(after.sequence > first.sequence);
-  assert.equal(
-    (await call('POST', '&action=move', { slotId: slots[1].id })).statusCode,
-    409
-  );
+  assert.equal((await call('POST', '&action=move', { slotId: slots[1].id })).statusCode, 409);
 
   // Edited: told only when asked, and only when what the invite says changed.
   await call('PATCH', '', { deadline: null, notifyInvitees: true });
@@ -1105,9 +1102,16 @@ test('the calendar keeps its own on a poll meeting, and those who voted come', a
   const moved = await call('POST', '&action=calendar', { calendarId: other[0].id });
   assert.equal(moved.body.calendar.name, 'Board');
   assert.equal(moved.body.calendar.eventId, eventId);
+  // No calendar named: the meeting goes to its owner's own, the same event.
   const none = await call('POST', '&action=calendar', { calendarId: null });
-  assert.equal(none.body.calendar, null);
-  assert.equal((await db.query('select 1 from calendar_events')).rows.length, 0);
+  assert.equal(none.body.calendar.name, 'My calendar');
+  assert.equal(none.body.calendar.personal, true);
+  assert.equal(none.body.calendar.eventId, eventId);
+  // The people the invite went to are invited to the event.
+  const { rows: inv } = await db.query('select email from calendar_invites where event_id = $1', [
+    eventId,
+  ]);
+  assert.deepEqual(inv, []);
 });
 
 test('a new poll sees the events of the calendars its maker shows', async () => {

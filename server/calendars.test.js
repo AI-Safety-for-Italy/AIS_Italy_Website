@@ -76,14 +76,16 @@ test('the site has its two public calendars, Seminars and Events, once', async (
   assert.deepEqual(
     list.map((c) => [c.name, c.system, c.isPublic, c.level]),
     [
+      ['My calendar', null, false, 'manage'],
       ['Seminars', 'seminars', true, 'view'],
       ['Events', 'events', true, 'view'],
     ]
   );
   assert.equal(canCreate, false);
   await db.ensureSchema();
+  // The two of the site, and Anyone's own.
   const { rows } = await db.query('select count(*)::int as n from calendars');
-  assert.equal(rows[0].n, 2);
+  assert.equal(rows[0].n, 3);
 });
 
 test('creating a calendar needs calendar_create, and its creator manages it', async () => {
@@ -95,7 +97,7 @@ test('creating a calendar needs calendar_create, and its creator manages it', as
   assert.equal(cal.slug, 'team-meetings');
   assert.equal(cal.color, '#7c3aed');
   // By default every member sees it, and only its creator writes in it.
-  assert.equal((await calendars.listCalendars(plain)).calendars.length, 3);
+  assert.equal((await calendars.listCalendars(plain)).calendars.length, 4);
   await rejects(calendars.createEvent(plain, eventBody(cal.id)), 403);
 });
 
@@ -273,7 +275,7 @@ test('members answer going, maybe or no, per occurrence', async () => {
   const [first, second] = await eventsOf(member);
   let card = await calendars.rsvp(member, id, first.occurrence, 'yes');
   assert.equal(card.rsvp.mine, 'yes');
-  assert.deepEqual(card.rsvp.counts, { yes: 1, maybe: 0, no: 0 });
+  assert.deepEqual(card.rsvp.counts, { yes: 1, maybe: 0, no: 0, waiting: 0 });
   card = await calendars.getEvent(member, id, second.occurrence);
   assert.equal(card.rsvp.mine, null);
   card = await calendars.rsvp(member, id, first.occurrence, null);

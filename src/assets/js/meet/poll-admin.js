@@ -657,7 +657,7 @@
         })
           .then(function (data) {
             show(data);
-            M.toast(data.calendar ? 'Now in ' + data.calendar.name : 'Taken out of the calendar');
+            M.toast('Now in ' + (data.calendar ? data.calendar.name : 'My calendar'));
           })
           .catch(function (err) {
             pick.disabled = false;
@@ -667,18 +667,19 @@
           });
       },
     });
-    pick.appendChild(h('option', { value: '' }, 'In no calendar'));
-    if (poll.calendar) {
+    pick.appendChild(h('option', { value: '' }, 'In My calendar (only me and the invited)'));
+    // My calendar is the "" choice: the meeting goes there when none is named.
+    var named = poll.calendar && !poll.calendar.personal;
+    if (named) {
       pick.appendChild(h('option', { value: poll.calendar.id }, 'In ' + poll.calendar.name));
       pick.value = poll.calendar.id;
     }
     // The others this member adds to, once known.
     calendarsList().then(function (list) {
       list.forEach(function (c) {
-        if (poll.calendar && c.id === poll.calendar.id) return;
+        if (c.personal || (named && c.id === poll.calendar.id)) return;
         pick.appendChild(h('option', { value: c.id }, 'In ' + c.name));
       });
-      if (!list.length && !poll.calendar) line.hidden = true;
     });
     var line = h(
       'div',
@@ -1063,9 +1064,11 @@
     calendarsList().then(function (list) {
       var select = document.getElementById('finalizeCalendar');
       if (!list.length) return;
-      M.clear(select).appendChild(h('option', { value: '' }, 'No calendar'));
+      M.clear(select).appendChild(
+        h('option', { value: '' }, 'My calendar (only me and the invited)')
+      );
       list.forEach(function (c) {
-        select.appendChild(h('option', { value: c.id }, c.name));
+        if (!c.personal) select.appendChild(h('option', { value: c.id }, c.name));
       });
       select.value = poll.calendarId || '';
       row.hidden = false;

@@ -448,15 +448,26 @@ async function getPollAdmin(id, ownerId) {
  * event once a time is chosen), or null without a calendar.
  */
 async function meetingCalendar(poll) {
-  if (!poll.calendar_id) return null;
+  // The calendar asked for, else the owner's own (My calendar).
+  const id = await require('./calendars').meetingCalendarId(poll);
+  if (!id) return null;
   const { rows } = await db.query(
-    `select c.id, c.name, c.color,
+    `select c.id, c.name, c.color, c.personal_of is not null as personal,
        (select e.id from calendar_events e where e.source = 'poll' and e.source_id = $2) as event_id
      from calendars c where c.id = $1`,
-    [poll.calendar_id, String(poll.id)]
+    [id, String(poll.id)]
   );
   if (!rows.length) return null;
-  return { id: rows[0].id, name: rows[0].name, color: rows[0].color, eventId: rows[0].event_id };
+  const r = rows[0];
+  return {
+    id: r.id,
+    name: r.name,
+    color: r.color,
+    // My calendar: chosen by default, not by name (calendar_id stays null).
+    personal: r.personal,
+    chosen: Boolean(poll.calendar_id),
+    eventId: r.event_id,
+  };
 }
 
 /**

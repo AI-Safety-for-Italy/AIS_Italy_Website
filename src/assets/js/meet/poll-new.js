@@ -733,7 +733,8 @@
       if (!list.length) return;
       var pick = document.getElementById('calendarPick');
       list.forEach(function (c) {
-        pick.appendChild(h('option', { value: c.id }, c.name));
+        // My calendar is the first choice already ("").
+        if (!c.personal) pick.appendChild(h('option', { value: c.id }, c.name));
       });
       if (
         list.some(function (c) {

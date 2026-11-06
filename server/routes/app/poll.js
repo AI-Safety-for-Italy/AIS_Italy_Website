@@ -41,13 +41,45 @@ const polls = require('../../polls');
 const notify = require('../../notify');
 const ics = require('../../ics');
 const calendars = require('../../calendars');
+const invites = require('../../calendar-invites');
+const db = require('../../db');
+
+/**
+ * Each person's links to answer the meeting from the email (Going / Maybe /
+ * Can't go): an invite of theirs to its calendar event. Null when the
+ * meeting is in no calendar.
+ */
+async function answersFor(pollId, site) {
+  const { rows } = await db.query(
+    `select id from calendar_events where source = 'poll' and source_id = $1`,
+    [String(pollId)]
+  );
+  if (!rows.length) return null;
+  const eventId = rows[0].id;
+  return async (person) => {
+    const invite = await invites.addInvite(eventId, { email: person.email, name: person.name });
+    await db.query('update calendar_invites set sent_at = now() where id = $1', [invite.id]);
+    return invites.answerLinks(site, { e: eventId, i: invite.id });
+  };
+}
+
+/** The invite emailed, its calendar event first so the answers have an invite to go to. */
+async function emailMeeting(id, user, body, site) {
+  const meeting = await polls.prepareMeetingInvite(id, user.id, body);
+  await syncCalendar(id);
+  return notify.sendMeeting({
+    ...meeting,
+    ownerId: user.id,
+    answers: await answersFor(id, site),
+  });
+}
 
 /**
  * Emails the updated invite to whoever already has it, when asked; the
  * poll's `update` (from polls.js) says to whom. Returns the poll as the page
  * wants it, with `outcome` when something was sent.
  */
-async function withNotice(result, wanted, ownerId) {
+async function withNotice(result, wanted, ownerId, site) {
   const { update, ...poll } = result;
   if (!update || !wanted) return poll;
   poll.outcome = await notify.sendMeeting({
@@ -57,6 +89,7 @@ async function withNotice(result, wanted, ownerId) {
     ownerId,
     sequence: update.sequence,
     update: true,
+    answers: await answersFor(poll.id, site),
   });
   return poll;
 }
@@ -109,7 +142,11 @@ module.exports = route({
     await syncCalendar(id);
     // Read again after the calendar followed, so the page sees its event.
     const result = { ...(await polls.getPollAdmin(id, user.id)), update };
-    sendJson(res, 200, await withNotice(result, body.notifyInvitees === true, user.id));
+    sendJson(
+      res,
+      200,
+      await withNotice(result, body.notifyInvitees === true, user.id, siteUrl(req))
+    );
   },
   async DELETE(req, res) {
     const user = await requireUser(req);
@@ -148,9 +185,7 @@ module.exports = route({
       await syncCalendar(id);
       let result = await polls.getPollAdmin(id, user.id);
       if (body.sendInvite) {
-        const meeting = await polls.prepareMeetingInvite(id, user.id, body);
-        const outcome = await notify.sendMeeting({ ...meeting, ownerId: user.id });
-        await syncCalendar(id);
+        const outcome = await emailMeeting(id, user, body, siteUrl(req));
         result = { ...(await polls.getPollAdmin(id, user.id)), outcome };
       }
       sendJson(res, 200, result);
@@ -158,12 +193,14 @@ module.exports = route({
       const { update } = await polls.reschedulePoll(id, body, user.id);
       await syncCalendar(id);
       const result = { ...(await polls.getPollAdmin(id, user.id)), update };
-      sendJson(res, 200, await withNotice(result, body.notifyInvitees === true, user.id));
+      sendJson(
+        res,
+        200,
+        await withNotice(result, body.notifyInvitees === true, user.id, siteUrl(req))
+      );
     } else if (action === 'send-meeting') {
-      const meeting = await polls.prepareMeetingInvite(id, user.id, body);
-      const outcome = await notify.sendMeeting({ ...meeting, ownerId: user.id });
       // The invite's newer version: the calendar's copy follows it.
-      await syncCalendar(id);
+      const outcome = await emailMeeting(id, user, body, siteUrl(req));
       sendJson(res, 200, { ...(await polls.getPollAdmin(id, user.id)), outcome });
     } else if (action === 'unschedule') {
       const { cancel } = await polls.unschedulePoll(id, user.id);
