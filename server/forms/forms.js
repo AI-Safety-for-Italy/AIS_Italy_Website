@@ -371,6 +371,7 @@ async function get(user, id) {
     version: form.current_version,
     schema: await schemaOf(form.id, form.current_version),
     settings: { ...DEFAULT_SETTINGS, ...form.settings },
+    board: await boardLink(form, { ...DEFAULT_SETTINGS, ...form.settings }),
     accessRoles: form.access_roles,
     // Only for those who change the form: the people who read it are theirs to know.
     ...(canManage(user, who, form) ? { readers: await readersOf(form) } : {}),
@@ -470,6 +471,8 @@ async function saveSchema(user, id, input) {
     );
   });
   await audit.record(user, 'form-edit', form.id, { version });
+  // The board follows the questions: a name question added shows there.
+  if (form.settings && form.settings.crm) await syncBoard(form, form.settings.crm);
   return { version };
 }
 
@@ -610,6 +613,8 @@ async function updateSettings(user, id, body) {
     throw err;
   }
   await audit.record(user, 'form-settings', form.id, { status, roles: roles.length });
+  // Linked, the board holds every answer the form has; unlinked, none.
+  if (settings.crm || (form.settings && form.settings.crm)) await syncBoard(form, settings.crm);
   return get(user, id);
 }
 
@@ -738,7 +743,7 @@ async function submit(slug, body, ip) {
       ]
     );
     application = await toBoard(form, schema, settings, answers, id, tx);
-    if (settings.crm) await toMentorship(settings.crm, schema, answers, id, tx);
+    if (settings.crm) await toMentorship(settings.crm, schema, answers, id, tx, email);
   });
   // The copy is built here, from the cleaned answers, and only sent by the
   // caller (api/form.js): it never travels back to the page.
@@ -787,17 +792,139 @@ async function toBoard(form, schema, settings, answers, responseId, q) {
 }
 
 /**
- * The answer also goes to the mentorship board (server/crm/records.js): each
- * field of the list is the answer to the question with that id.
+ * Which question fills each field of a board list: { field: item }. First the
+ * question with the field's own id (the templates'), then the one whose
+ * wording the list expects (sources.js, as for a sheet's headers), then, for
+ * a form of its own, the essentials by their type and wording: the email, the
+ * name, the CV, a profile link. A "Cognome" beside a "Nome" joins the name.
  */
-async function toMentorship(sourceId, schema, answers, responseId, q) {
+function boardFields(sourceId, schema) {
+  const wanted = sources.SOURCES[sourceId].fields;
+  const items = schemaLib.answerable(schema).filter((i) => i.type !== 'consent');
+  const label = (i) => schemaLib.textIn(schema, i.label, schema.languages[0]);
+  const out = {};
+  const taken = new Set();
+  const take = (field, item) => {
+    if (!item || out[field] || taken.has(item.id)) return;
+    out[field] = item;
+    taken.add(item.id);
+  };
+  Object.keys(wanted).forEach((f) =>
+    take(
+      f,
+      items.find((i) => i.id === f)
+    )
+  );
+  const rest = items.filter((i) => !taken.has(i.id));
+  const byWording = sources.mapColumns(sourceId, rest.map(label));
+  Object.entries(byWording).forEach(([f, header]) => {
+    if (header)
+      take(
+        f,
+        rest.find((i) => label(i) === header && !taken.has(i.id))
+      );
+  });
+  const pick = (field, test) => {
+    if (!wanted[field] || out[field]) return;
+    take(
+      field,
+      items.find((i) => !taken.has(i.id) && test(i, sources.norm(label(i))))
+    );
+  };
+  const SURNAME = /cognome|surname|last name|family name/;
+  pick('email', (i) => i.type === 'email');
+  pick('form_email', (i) => i.type === 'email');
+  pick('name', (i, l) => i.type === 'short_text' && /\b(nome|name)\b/.test(l) && !SURNAME.test(l));
+  pick('cv', (i, l) => /\bcv\b|curricul|resume/.test(l));
+  pick(
+    'profile',
+    (i, l) => i.type === 'url' && /linkedin|profil|github|scholar|sito|website|portfolio/.test(l)
+  );
+  const surname = items.find(
+    (i) => !taken.has(i.id) && i.type === 'short_text' && SURNAME.test(sources.norm(label(i)))
+  );
+  return { fields: out, surname: out.name && wanted.name ? surname || null : null };
+}
+
+/**
+ * The answer also goes to the mentorship board (server/crm/records.js), each
+ * field from the question boardFields() finds for it. Without an email
+ * question there, the form's first email answer (`email`) stands in.
+ */
+async function toMentorship(sourceId, schema, answers, responseId, q, email) {
+  const { fields: map, surname } = boardFields(sourceId, schema);
+  const text = (item) =>
+    item && answers[item.id] !== undefined && answers[item.id] !== null
+      ? schemaLib.answerText(schema, item, answers[item.id])
+      : '';
   const fields = {};
-  for (const name of Object.keys(sources.SOURCES[sourceId].fields)) {
-    const item = schema.items.find((i) => i.id === name);
-    fields[name] =
-      item && answers[name] !== undefined ? schemaLib.answerText(schema, item, answers[name]) : '';
-  }
-  await records.add(sourceId, fields, { origin: 'form', responseId, q });
+  Object.keys(sources.SOURCES[sourceId].fields).forEach((f) => {
+    fields[f] = text(map[f]);
+  });
+  if (surname && text(surname))
+    fields.name = [fields.name, text(surname)].filter(Boolean).join(' ');
+  if (!fields.email && email) fields.email = email;
+  return records.add(sourceId, fields, { origin: 'form', responseId, q });
+}
+
+/**
+ * Puts the form's answers on the board again, as they are now: every one of
+ * them on the list it is linked to (`sourceId`), or none when it is not. So
+ * linking a form brings the answers it already had, and a change to its
+ * questions shows on the board. Returns how many are on the board.
+ */
+async function syncBoard(form, sourceId) {
+  const { rows } = sourceId
+    ? await db.query(
+        `select id, version, answers_encrypted from form_responses
+         where form_id = $1 and deleted_at is null order by submitted_at`,
+        [form.id]
+      )
+    : { rows: [] };
+  const schemas = {};
+  for (const v of new Set(rows.map((r) => r.version))) schemas[v] = await schemaOf(form.id, v);
+  let count = 0;
+  await db.transaction(async (tx) => {
+    await tx.query(
+      `delete from crm_records where origin = 'form'
+       and response_id in (select id from form_responses where form_id = $1)`,
+      [form.id]
+    );
+    for (const r of rows) {
+      const answers = openAnswers(form, r);
+      if (answers.unreadable) continue;
+      const schema = schemas[r.version];
+      const emailItem = schemaLib
+        .answerable(schema)
+        .find((i) => i.type === 'email' && answers[i.id]);
+      const email = emailItem ? answers[emailItem.id] : '';
+      if (await toMentorship(sourceId, schema, answers, r.id, tx, email)) count++;
+    }
+  });
+  return count;
+}
+
+/** For the editor: which question goes to which field of the board, and how many answers are there. */
+async function boardLink(form, settings) {
+  if (!settings.crm) return null;
+  const schema = await schemaOf(form.id, form.current_version);
+  const { fields, surname } = boardFields(settings.crm, schema);
+  const { rows } = await db.query(
+    `select count(*)::int as n from crm_records r join form_responses f on f.id = r.response_id
+     where r.origin = 'form' and f.form_id = $1`,
+    [form.id]
+  );
+  const label = (i) => schemaLib.textIn(schema, i.label, schema.languages[0]);
+  return {
+    list: settings.crm,
+    people: rows[0].n,
+    fields: Object.entries(fields).map(([field, item]) => ({
+      field,
+      question: label(item) + (field === 'name' && surname ? ' + ' + label(surname) : ''),
+    })),
+    // Without these the board cannot tell who someone is.
+    missing: ['email', 'name'].filter((f) => sources.SOURCES[settings.crm].fields[f] && !fields[f]),
+  };
 }
 
 /**

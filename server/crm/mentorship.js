@@ -318,11 +318,24 @@ async function person(user, perms, key, kind) {
   const found = await find(key, kind);
   const state = await stateOf(key, kind);
   const card_ = card(found, state, {});
+  // The answers the form records came from: their form, to open them there.
+  const responseIds = Object.values(found.records)
+    .map((r) => r.responseId)
+    .filter(Boolean);
+  const { rows: answerRows } = responseIds.length
+    ? await db.query(
+        `select r.id, r.form_id, r.submitted_at, f.title from form_responses r
+         join forms f on f.id = r.form_id where r.id = any($1)`,
+        [responseIds]
+      )
+    : { rows: [] };
+  const answerOf = new Map(answerRows.map((a) => [a.id, a]));
   const sheetsView = Object.entries(found.records).map(([sourceId, record]) => {
     // The key and the record's id are dropped on purpose: lookup ids, not
     // fields to show.
     // eslint-disable-next-line no-unused-vars
-    const { key: _key, recordId, origin, row, ...fields } = record;
+    const { key: _key, recordId, origin, row, responseId, ...fields } = record;
+    const answer = responseId && answerOf.get(responseId);
     const shown = access.redact(fields, perms);
     // Only what has an answer.
     Object.keys(shown).forEach((f) => !shown[f] && delete shown[f]);
@@ -333,6 +346,15 @@ async function person(user, perms, key, kind) {
       origin,
       // Only those added by hand can be removed from the board.
       recordId: origin === 'board' ? recordId : undefined,
+      // The form answer it came from: whoever may read that form opens it there.
+      answer: answer
+        ? {
+            formId: answer.form_id,
+            responseId: answer.id,
+            form: answer.title,
+            submittedAt: answer.submitted_at,
+          }
+        : null,
       fields: shown,
     };
   });

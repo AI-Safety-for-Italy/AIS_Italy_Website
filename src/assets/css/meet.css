@@ -10383,6 +10383,66 @@ a.hub-todo-card:hover {
   content: '● ';
 }
 
+/* A form linked to the mentorship board: what goes there (forms-editor.js) */
+.fe-board-link {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--accent) 5%, var(--card-bg));
+  font-size: 13px;
+}
+
+.fe-board-link p {
+  margin: 0;
+}
+
+.fe-board-link summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.fe-board-fields {
+  display: grid;
+  margin-top: 8px !important;
+  grid-template-columns: max-content max-content minmax(0, 1fr);
+  gap: 4px 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fe-board-fields li {
+  display: contents;
+}
+
+.fe-board-fields li > span:first-child {
+  font-weight: 600;
+}
+
+.fe-board-arrow {
+  color: var(--text-tertiary);
+}
+
+.fe-board-fields li > span:last-child {
+  overflow: hidden;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* The form answer a board card came from (crm-person.js) */
+.crm-answer-link {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 0 0 12px;
+  font-size: 12px;
+}
+
 /* Working groups: who coordinates each (community-groups.js) */
 .wg-coords {
   display: flex;

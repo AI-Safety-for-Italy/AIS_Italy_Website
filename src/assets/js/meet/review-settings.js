@@ -451,7 +451,7 @@
       { class: 'rv-step-body' },
       stepHead(
         'Which applications are reviewed?',
-        'Pick the form whose answers the reviewers score. Its questions are imported and split into a first set of sections, which you adjust in the next step.'
+        'Pick the form whose answers the reviewers score: best one linked to the mentorship board (in its Settings), so each applicant is on the board too and their status moves in both. Its questions are imported and split into a first set of sections, which you adjust in the next step.'
       ),
       data.formMissing
         ? h('p', { class: 'form-error' }, 'The form in use no longer exists: choose another one.')
@@ -461,15 +461,16 @@
         { class: 'rv-sources' },
         sourceCard(
           null,
-          'Mentee applications on the mentorship board',
-          'Everyone who applied as a mentee, as the board has them'
+          'All the mentee applications on the board',
+          'From every form linked to the mentorship board as “Mentee applications”, with the board’s statuses'
         ),
         data.forms.map(function (f) {
           var meta =
             f.responses === null || f.responses === undefined
               ? 'A form'
               : plural(f.responses, 'answer', 'answers');
-          return sourceCard(f.id, f.title, meta, f.board ? 'Feeds the board' : null);
+          if (!f.board) meta += ' · not linked to the board: no statuses to move';
+          return sourceCard(f.id, f.title, meta, f.board ? 'Linked to the board' : null);
         })
       ),
       h('div', { class: 'rv-row-end' }, go),
@@ -999,7 +1000,7 @@
   }
 
   function formTitle() {
-    if (!draft.formId) return 'Board applications';
+    if (!draft.formId) return 'All board applications';
     var f = data.forms.filter(function (x) {
       return x.id === draft.formId;
     })[0];
