@@ -213,6 +213,17 @@ async function run({ now = new Date(), origin } = {}) {
       row: userRows.get(p.uid),
     }));
 
+  // Each event's own choices of its members, read once.
+  const heads = [...new Set(rows.map((r) => r.series_id || r.id))];
+  const { rows: allEventPrefs } = heads.length
+    ? await db.query('select * from calendar_event_prefs where event_id = any($1::uuid[])', [heads])
+    : { rows: [] };
+  const prefsByEvent = new Map();
+  allEventPrefs.forEach((p) => {
+    if (!prefsByEvent.has(p.event_id)) prefsByEvent.set(p.event_id, []);
+    prefsByEvent.get(p.event_id).push(p);
+  });
+
   const whoCache = new Map();
   const whoOf = async (user) => {
     if (!whoCache.has(user.id)) whoCache.set(user.id, await calendars.whoIs(user));
@@ -231,10 +242,7 @@ async function run({ now = new Date(), origin } = {}) {
       const chosen = (f.prefs.selection || {})[cal.id];
       ((chosen && chosen.own) || []).forEach((r) => leads.add(r.minutes));
     });
-    const { rows: eventPrefs } = await db.query(
-      'select * from calendar_event_prefs where event_id = $1',
-      [invites.headOf(e)]
-    );
+    const eventPrefs = prefsByEvent.get(invites.headOf(e)) || [];
     eventPrefs.forEach((p) => (p.own || []).forEach((r) => leads.add(r.minutes)));
     if (![...leads].some((m) => due(startMs, m))) {
       announcements += await announce(occ, cal, startMs, due, site);

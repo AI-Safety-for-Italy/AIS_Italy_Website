@@ -5,7 +5,12 @@
 // https://<site>/api/discord, and its "Public Key" goes in DISCORD_PUBLIC_KEY.
 //
 // Every request is checked against that key before anything is read; one
-// that fails is refused (Discord itself tests that, with bad signatures).
+// that fails is refused (Discord itself tests that, with bad signatures), and
+// so is one signed more than five minutes ago (a click sent again).
+//
+// The signature is over the bytes Discord sent: Vercel must not read the body
+// first. NODEJS_HELPERS=0 on Vercel switches its helpers off (nothing of the
+// site uses them: server/http.js reads bodies and queries itself).
 
 const crypto = require('crypto');
 const invites = require('./calendar-invites');
@@ -18,8 +23,11 @@ function configured() {
 }
 
 /** Whether `rawBody` was signed by Discord for this application. */
-function verify(rawBody, signature, timestamp) {
-  if (!configured() || !signature || !timestamp) return false;
+const MAX_AGE_S = 5 * 60;
+
+function verify(rawBody, signature, timestamp, now = Date.now()) {
+  if (!configured() || !signature || !timestamp || !rawBody) return false;
+  if (Math.abs(now / 1000 - Number(timestamp)) > MAX_AGE_S) return false;
   try {
     const key = crypto.createPublicKey({
       key: Buffer.concat([SPKI_PREFIX, Buffer.from(process.env.DISCORD_PUBLIC_KEY, 'hex')]),

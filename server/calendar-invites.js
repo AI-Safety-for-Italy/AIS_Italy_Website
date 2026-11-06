@@ -26,6 +26,9 @@ const { isEmail } = require('./email');
 
 const ANSWERS = ['yes', 'maybe', 'no'];
 const MAX_INVITES = 200;
+// Emails to addresses outside the community, per member and day: the site's
+// mailbox must not become a way to mail anyone anything.
+const MAX_GUEST_EMAILS_PER_DAY = 40;
 const ANSWER_TEXT = {
   yes: 'Going',
   maybe: 'Maybe',
@@ -142,6 +145,15 @@ async function addInvite(eventId, { userId = null, email = null, name = null }, 
   const address = email ? String(email).trim().toLowerCase() : null;
   const member = userId || (address ? await memberByEmail(address, q) : null);
   if (member) {
+    // Invited by address before signing in: that invite becomes theirs.
+    await q.query(
+      `update calendar_invites i set user_id = $2
+       from app_users u
+       where i.event_id = $1 and i.user_id is null and u.id = $2
+         and (lower(i.email) = lower(u.email) or lower(i.email) = lower(u.notify_email))
+         and not exists (select 1 from calendar_invites m where m.event_id = $1 and m.user_id = $2)`,
+      [eventId, member]
+    );
     const { rows } = await q.query(
       `insert into calendar_invites (event_id, user_id, email, name) values ($1, $2, $3, $4)
        on conflict (event_id, user_id) where user_id is not null do update set
@@ -329,6 +341,8 @@ async function seesNames(event, cal, level, viewerInvited) {
 
 /** Who comes, for a card or a page: { mine, counts, people|null, namesHidden }. */
 async function whoComes(event, cal, level, occurrenceStart, { userId = null, key = null } = {}) {
+  // An address is shown to whoever changes the event only; to others, a guest.
+  const editor = calendars().atLeast(level, 'edit');
   const head = event.series_id ? { ...event, id: event.series_id } : event;
   const answers = await answersOf(event, occurrenceStart);
   const invited = Boolean(
@@ -349,7 +363,14 @@ async function whoComes(event, cal, level, occurrenceStart, { userId = null, key
     namesHidden: !names,
     people: names
       ? answers.map((a) => ({
-          name: a.name,
+          name:
+            a.userId || editor
+              ? a.name
+              : key && a.key === key
+              ? 'You'
+              : a.name && !a.name.includes('@')
+              ? a.name
+              : 'A guest',
           avatarUrl: a.avatarUrl,
           answer: a.answer,
           invited: a.invited,
@@ -357,6 +378,18 @@ async function whoComes(event, cal, level, occurrenceStart, { userId = null, key
         }))
       : null,
   };
+}
+
+/** The next occurrence of an event from now (or its first, if none is ahead). */
+function nextOccurrence(event) {
+  const c = calendars();
+  if (!event.recurrence || event.series_id) return c.pickOccurrence(event, null);
+  const timeOf = require('./calendar-expand');
+  const now = Date.now();
+  const next = timeOf
+    .expand([event], new Date(now), new Date(now + 400 * 86400000), [])
+    .find((o) => o.event.id === event.id);
+  return c.pickOccurrence(event, next ? next.occurrenceStart.toISOString() : null);
 }
 
 /** The event and occurrence a link or a button points to, checked. */
@@ -378,7 +411,6 @@ async function byLink(token, answer) {
   const p = readToken(token);
   if (!p) throw new HttpError(404, 'This link does not work: it may be incomplete');
   const { event, occ, cal } = await pointed(p.e, p.o);
-  const c = calendars();
   let userId = p.u || null;
   let key = null;
   if (p.i) {
@@ -401,10 +433,8 @@ async function byLink(token, answer) {
   } else if (userId && answer && occ) {
     await answerOccurrence(event.id, occ.occurrenceStart, userId, answer);
   }
-  const at = occ
-    ? occ.occurrenceStart
-    : new Date(event.series_id ? event.recurrence_id : event.starts_at);
-  const shown = occ || c.pickOccurrence(event, null);
+  const shown = occ || nextOccurrence(event);
+  const at = shown.occurrenceStart;
   return {
     title: event.title,
     start: shown.start.toISOString(),
@@ -444,7 +474,7 @@ async function byDiscord({ discordId, name, avatarUrl, roles }, customId) {
   const c = calendars();
   const who = await c.whoIs(user);
   const level = c.levelOf(cal, who);
-  if (!c.atLeast(level, 'view') && !(await isInvited(event, user.id)))
+  if (level === null && !(await isInvited(event, user.id)))
     return 'You cannot answer for this event: its calendar is not one you see.';
   await answerOccurrence(event.id, occ.occurrenceStart, user.id, answer);
   const when = new Intl.DateTimeFormat('en-GB', {
@@ -492,6 +522,19 @@ async function sendInvites(user, eventId, { again = false, site }) {
   const notify = require('./notify');
   const interactions = require('./discord-interactions');
   const list = (await invitesOf(event.id)).filter((i) => again || !i.sent_at);
+  const guests = list.filter((i) => !i.user_id).length;
+  if (guests) {
+    const { rows } = await db.query(
+      `select count(*)::int as n from calendar_invites
+       where sent_by = $1 and user_id is null and sent_at > now() - interval '1 day'`,
+      [user.id]
+    );
+    if (rows[0].n + guests > MAX_GUEST_EMAILS_PER_DAY)
+      throw new HttpError(
+        429,
+        `At most ${MAX_GUEST_EMAILS_PER_DAY} invites a day to addresses outside the community: try again tomorrow`
+      );
+  }
   const occ = c.pickOccurrence(event, null);
   const asPoll = {
     id: event.id,
@@ -552,7 +595,10 @@ async function sendInvites(user, eventId, { again = false, site }) {
     }
     if (ok) {
       sent++;
-      await db.query('update calendar_invites set sent_at = now() where id = $1', [i.id]);
+      await db.query('update calendar_invites set sent_at = now(), sent_by = $2 where id = $1', [
+        i.id,
+        user.kind === 'discord' ? user.id : null,
+      ]);
     } else failed++;
   }
   return { sent, failed };

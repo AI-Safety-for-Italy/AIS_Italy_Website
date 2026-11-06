@@ -659,7 +659,7 @@ function occurrenceOut(occ, cal, level, { invited = false } = {}) {
     // announcements and Discord channel, and skipping an occurrence, the
     // calendar's (tuneCopy).
     canTune: atLeast(level, 'edit') && e.source === 'poll' && !e.series_id,
-    canAnswer: level !== null && level !== 'public',
+    canAnswer: level !== null,
   };
 }
 
@@ -716,12 +716,16 @@ async function occurrencesFor(who, from, to, calendarIds, { withInvites = false 
   );
   if (!inv.length) return out;
   const cals = new Map(inv.map((e) => [e.calendar_id, { id: e.calendar_id, color: e.cal_color }]));
-  const invOverrides = inv
-    .filter((e) => e.series_id)
-    .map((e) => ({
-      series_id: e.series_id,
-      recurrence_id: e.recurrence_id,
-    }));
+  // A series' occurrences changed on their own, wherever they moved to.
+  const seriesIds = inv.filter((e) => e.recurrence).map((e) => e.id);
+  const invOverrides = seriesIds.length
+    ? (
+        await db.query(
+          'select series_id, recurrence_id from calendar_events where series_id = any($1::uuid[])',
+          [seriesIds]
+        )
+      ).rows
+    : [];
   return out.concat(
     timeOf
       .expand(inv, from, to, invOverrides)
@@ -1081,7 +1085,7 @@ async function deleteEvent(user, id, { scope = 'all', occurrence } = {}) {
 /** This member comes to an occurrence, maybe, or not (null takes the answer back). */
 async function rsvp(user, id, occurrence, answer) {
   const who = await whoIs(user);
-  const { event } = await eventFor(id, who, 'view');
+  const { event } = await eventFor(id, who, 'public');
   if (user.kind !== 'discord') throw fail('Sign in with Discord to answer');
   const occ = pickOccurrence(event, occurrence);
   if (answer && !['yes', 'maybe', 'no'].includes(answer)) throw fail('Answer yes, maybe or no');

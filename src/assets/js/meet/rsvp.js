@@ -36,7 +36,7 @@
     return M.fmtDay(d.start, tz) + ', ' + M.fmtTime(d.start, tz) + '–' + M.fmtTime(d.end, tz);
   }
 
-  function draw(d, justSaved) {
+  function draw(d, justSaved, wanted) {
     M.clear(titleEl).appendChild(document.createTextNode(d.title));
     M.clear(metaEl).appendChild(
       h(
@@ -111,6 +111,7 @@
             )
           : null,
         h('h2', null, 'Ci sarai? · Will you be there?'),
+        wanted ? confirmBox(wanted) : null,
         buttons,
         counts,
         people,
@@ -134,6 +135,28 @@
     );
   }
 
+  function confirmBox(a) {
+    var label = ANSWERS.filter(function (x) {
+      return x[0] === a;
+    })[0];
+    return h(
+      'div',
+      { class: 'rsvp-confirm' },
+      h('span', null, 'Confermi? · Confirm?'),
+      h(
+        'button',
+        {
+          type: 'button',
+          class: 'btn btn-primary',
+          onclick: function () {
+            answer(a);
+          },
+        },
+        label[1] + ' · ' + label[2]
+      )
+    );
+  }
+
   function answer(a) {
     M.api('POST', API, { rsvp: token, answer: a })
       .then(function (d) {
@@ -147,14 +170,13 @@
   if (!token) return fail({ message: 'Manca il codice del link · The link is incomplete.' });
   M.api('GET', API + '?rsvp=' + encodeURIComponent(token))
     .then(function (d) {
-      // The answer clicked in the email, unless it is already the one given.
-      if (asked && ['yes', 'maybe', 'no'].indexOf(asked) !== -1 && d.rsvp.mine !== asked) {
-        answer(asked);
-        // Drop it from the address, so a reload does not answer again.
-        history.replaceState(null, '', location.pathname + '?t=' + encodeURIComponent(token));
-      } else {
-        draw(d, Boolean(asked));
-      }
+      // The answer clicked in the email is only offered: a click confirms
+      // it, so the link checkers of mailboxes, which open pages, answer nothing.
+      var wanted =
+        asked && ['yes', 'maybe', 'no'].indexOf(asked) !== -1 && d.rsvp.mine !== asked
+          ? asked
+          : null;
+      draw(d, false, wanted);
     })
     .catch(fail);
 })();

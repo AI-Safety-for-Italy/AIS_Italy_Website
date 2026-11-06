@@ -867,6 +867,8 @@ create unique index if not exists calendar_invites_member on calendar_invites (e
 create unique index if not exists calendar_invites_address on calendar_invites (event_id, lower(email))
   where user_id is null;
 create index if not exists calendar_invites_user on calendar_invites (user_id);
+-- Who emailed it: invites to addresses are limited per member and day.
+alter table calendar_invites add column if not exists sent_by uuid references app_users(id) on delete set null;
 
 -- A member's own choices for one event: its organiser's reminders
 -- ('calendar': as for its calendar, 'on', 'off') and their own reminders

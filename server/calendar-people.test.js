@@ -156,10 +156,13 @@ test('invited by name or by address: they see the event, and answer from the ema
   assert.equal(page.rsvp.mine, 'yes');
   assert.deepEqual(page.rsvp.people.map((p) => [p.name, p.answer]).sort(), [
     ['Marco', null],
-    ['guest@elsewhere.org', 'yes'],
+    ['You', 'yes'],
   ]);
   // A link altered by a single character answers nothing.
-  await assert.rejects(invites.byLink(token.slice(0, -1) + (token.endsWith('A') ? 'B' : 'A'), 'no'), (e) => e.status === 404);
+  await assert.rejects(
+    invites.byLink(token.slice(0, -1) + (token.endsWith('A') ? 'B' : 'A'), 'no'),
+    (e) => e.status === 404
+  );
 
   // Marco answers in the calendar; Anna sees both, with names.
   await calendars.rsvp(marco, id, iso(start), 'maybe');
@@ -220,10 +223,14 @@ test('a Discord button answers for whoever clicks, signed by Discord only', asyn
     data: { custom_id: row.components[0].custom_id },
     member: { roles: [], user: { id: '987654321098', username: 'newbie' } },
   });
-  const ts = '1700000000';
+  const ts = String(Math.floor(Date.now() / 1000));
   const signature = crypto.sign(null, Buffer.from(ts + body), privateKey).toString('hex');
   assert.equal(interactions.verify(body, signature, ts), true);
   assert.equal(interactions.verify(body + ' ', signature, ts), false);
+  // Signed long ago: a click sent again is refused.
+  const oldTs = '1700000000';
+  const oldSig = crypto.sign(null, Buffer.from(oldTs + body), privateKey).toString('hex');
+  assert.equal(interactions.verify(body, oldSig, oldTs), false);
   assert.deepEqual(await interactions.handle({ type: 1 }), { type: 1 });
 
   // Someone who never signed in: made a member, and answers (Team is open to all).
