@@ -1,15 +1,18 @@
-/* /app/review/settings/: the setup of the mentee selection, for its admins.
- *   The source     the form whose answers are reviewed (or the mentee
- *                  applications on the board), and its questions, imported.
- *   The sections   the tabs the reviewers score apart: each with its
- *                  questions (a question in no section is shown to no one),
- *                  its grid (one for the section, or one per question), its
- *                  weight in the overall score, whether its text is made
- *                  anonymous, and the reviewers it is given to (none ticked:
- *                  every reviewer). A renamed section or criterion keeps its
- *                  scores.
- *   Reviewers      who scores: anyone who signed in with Discord. A reviewer
- *                  removed keeps the scores already given. */
+/* /app/review/settings/: the setup of the mentee selection, for its admins,
+ * in three steps:
+ *   1 The form       the form whose answers are reviewed (or the mentee
+ *                    applications on the board), its questions imported, and
+ *                    which of them holds the name.
+ *   2 The sections   a grid of the questions against the sections: a tick
+ *                    shows the question in that section, a question with no
+ *                    tick is shown to no one. Sections are added (empty, or
+ *                    from the questions left), renamed and removed there.
+ *   3 Grids and      each section's order of questions, grid (one for the
+ *     reviewers      section, or one per question), weight, anonymity, note
+ *                    and reviewers (none ticked: every reviewer); and who
+ *                    reviews at all: anyone who signed in with Discord.
+ * Nothing is saved until "Save the setup". A renamed section or criterion
+ * keeps its scores; a reviewer removed keeps the scores already given. */
 (function () {
   'use strict';
   var M = window.Meet;
@@ -21,8 +24,9 @@
   var catalog = []; // the source's questions: [{ id, label, type }]
   var draft = null;
   var savedDraft = ''; // the draft as saved: the setup is unsaved while they differ
-  // 1: which question goes in which section; 2: each section's grid and reviewers.
   var step = 1;
+  var choice = null; // the form picked in step 1, before its questions are imported
+  var bar = null; // the bar at the bottom, kept to tell when something changed
 
   var TYPES = {
     short_text: 'Short text',
@@ -36,9 +40,10 @@
     ranking: 'Ranking',
     scale: 'Scale',
     yes_no: 'Yes / no',
-    consent: 'Consent',
     date: 'Date',
   };
+  // The sections' colours (meet.css .rv-c0 to .rv-c7), the same in every step.
+  var COLOURS = 8;
 
   function fail(err) {
     if (err.status === 401) return M.appError(err);
@@ -60,9 +65,14 @@
     return JSON.parse(JSON.stringify(value));
   }
 
+  function plural(n, one, many) {
+    return n + ' ' + (n === 1 ? one : many);
+  }
+
   function setData(d) {
     data = d;
     catalog = d.catalog;
+    choice = d.formId || null;
     draft = {
       formId: d.formId || null,
       nameQuestion: d.nameQuestion || null,
@@ -90,16 +100,20 @@
     render();
   }
 
-  M.unsaved(
-    function () {
-      return Boolean(draft) && JSON.stringify(draft) !== savedDraft;
+  function isUnsaved() {
+    return Boolean(draft) && JSON.stringify(draft) !== savedDraft;
+  }
+
+  M.unsaved(isUnsaved, {
+    buttons: function () {
+      return [root.querySelector('.rv-setup-save')];
     },
-    {
-      buttons: function () {
-        return [root.querySelector('.rv-setup-save')];
-      },
-    }
-  );
+  });
+
+  // Typing changes the draft without drawing the page again: the bar follows.
+  root.addEventListener('input', function () {
+    if (bar) bar.update();
+  });
 
   root.appendChild(M.loading());
   Promise.all([M.me, M.api('GET', API + '?action=settings')])
@@ -107,6 +121,8 @@
       setData(r[1]);
     })
     .catch(fail);
+
+  // ── Helpers ──────────────────────────────────────────────────────────────
 
   function question(id) {
     return (
@@ -131,6 +147,10 @@
     return out;
   }
 
+  function colourOf(s) {
+    return 'rv-c' + (draft.sections.indexOf(s) % COLOURS);
+  }
+
   function move(list, item, by) {
     var i = list.indexOf(item);
     var j = i + by;
@@ -145,7 +165,10 @@
       'button',
       {
         type: 'button',
-        class: 'btn btn-outline btn-sm' + (opts.icon ? ' rv-icon-btn' : ''),
+        class:
+          'btn btn-sm ' +
+          (opts.ghost ? 'rv-ghost' : 'btn-outline') +
+          (opts.icon ? ' rv-icon-btn' : ''),
         'aria-label': opts.aria || null,
         title: opts.aria || null,
         disabled: opts.disabled ? true : null,
@@ -168,6 +191,10 @@
       criteria: copy(data.defaults.criteria.answers),
       questionGrids: {},
     };
+  }
+
+  function nextName() {
+    return 'Section ' + (draft.sections.length + 1);
   }
 
   function indexIn(id) {
@@ -207,9 +234,32 @@
     render();
   }
 
+  // A segmented control: [[value, label]], the current one pressed.
+  function segmented(options, current, onpick, label) {
+    return h(
+      'div',
+      { class: 'fr-views rv-seg', role: 'radiogroup', 'aria-label': label },
+      options.map(function (o) {
+        return h(
+          'button',
+          {
+            type: 'button',
+            role: 'radio',
+            'aria-checked': String(o[0] === current),
+            'aria-selected': String(o[0] === current),
+            onclick: function () {
+              if (o[0] !== current) onpick(o[0]);
+            },
+          },
+          o[1]
+        );
+      })
+    );
+  }
+
   // ── Criteria ─────────────────────────────────────────────────────────────
 
-  function criterionRow(list, c, rerender) {
+  function criterionRow(list, c) {
     var label = h('input', {
       class: 'form-input is-compact',
       value: c.label,
@@ -238,6 +288,7 @@
       step: '0.5',
       value: String(c.weight),
       'aria-label': 'Weight',
+      title: 'Weight',
       oninput: function () {
         c.weight = Number(weight.value);
       },
@@ -248,15 +299,19 @@
       label,
       help,
       weight,
-      smallButton('Remove', function () {
-        list.splice(list.indexOf(c), 1);
-        rerender();
-      })
+      smallButton(
+        '×',
+        function () {
+          list.splice(list.indexOf(c), 1);
+          render();
+        },
+        { icon: true, ghost: true, aria: 'Remove the criterion ' + (c.label || '') }
+      )
     );
   }
 
   /** A list of criteria with its "Add" button; `optional`: may be left empty. */
-  function criteriaEditor(list, rerender, optional) {
+  function criteriaEditor(list, optional) {
     return h(
       'div',
       { class: 'rv-criteria' },
@@ -271,34 +326,33 @@
           )
         : h(
             'p',
-            { class: 'form-note', style: 'margin:0' },
+            { class: 'rv-muted' },
             optional ? 'Shown to the reviewers, not scored.' : 'No criterion yet.'
           ),
       list.map(function (c) {
-        return criterionRow(list, c, rerender);
+        return criterionRow(list, c);
       }),
       h(
         'div',
         null,
         smallButton(
-          'Add a criterion',
+          '+ Criterion',
           function () {
             list.push({ label: '', help: '', weight: 1 });
-            rerender();
+            render();
           },
-          { disabled: list.length >= data.limits.criteria }
+          { ghost: true, disabled: list.length >= data.limits.criteria }
         )
       )
     );
   }
 
-  // ── The source ───────────────────────────────────────────────────────────
+  // ── Step 1: the form ─────────────────────────────────────────────────────
 
   function importQuestions(formId) {
     return M.api('GET', API + '?action=questions&form=' + encodeURIComponent(formId || '')).then(
       function (q) {
-        var sameForm = (q.formId || null) === draft.formId;
-        if (sameForm) {
+        if ((q.formId || null) === draft.formId) {
           // The same form again: its new questions come in, the sections stay.
           var before = catalog.length;
           catalog = q.catalog;
@@ -306,7 +360,7 @@
           var added = catalog.length - before;
           M.toast(
             added > 0
-              ? added + (added === 1 ? ' new question' : ' new questions') + ', not shown yet'
+              ? plural(added, 'new question', 'new questions') + ': place them in step 2'
               : 'The questions are up to date'
           );
           return;
@@ -316,55 +370,60 @@
           !window.confirm(
             'Use this form? Its questions replace the sections set up now (the scores already given stay, under their section).'
           )
-        ) {
-          render();
+        )
           return;
-        }
         catalog = q.catalog;
         draft.formId = q.formId;
         draft.nameQuestion = q.nameQuestion;
         draft.sections = q.sections;
-        step = 1;
+        step = 2;
         render();
-        M.toast('Questions imported: check the sections, then save');
+        M.toast('Questions imported and split into a first set of sections');
       }
     );
   }
 
-  function sourcePanel() {
-    var pick = h(
-      'select',
-      { class: 'form-input is-compact', 'aria-label': 'Form', id: 'rvForm' },
-      h('option', { value: '' }, 'Mentee applications on the mentorship board'),
-      data.forms.map(function (f) {
-        var bits = [f.title];
-        if (f.responses !== null && f.responses !== undefined) {
-          bits.push(f.responses + (f.responses === 1 ? ' answer' : ' answers'));
-        }
-        if (f.board) bits.push('feeds the board');
-        var o = h('option', { value: f.id }, bits.join(' · '));
-        o.selected = f.id === draft.formId;
-        return o;
-      })
-    );
-    var importBtn = h(
+  function sourceCard(id, title, meta, badge) {
+    var current = (id || null) === draft.formId;
+    var picked = (id || null) === choice;
+    return h(
       'button',
       {
         type: 'button',
-        class: 'btn btn-primary btn-sm',
+        class: 'rv-source' + (picked ? ' is-picked' : ''),
+        'aria-pressed': picked ? 'true' : 'false',
         onclick: function () {
-          importBtn.disabled = true;
-          importQuestions(pick.value || null)
+          choice = id || null;
+          render();
+        },
+      },
+      h('span', { class: 'rv-source-radio', 'aria-hidden': 'true' }),
+      h('span', { class: 'rv-source-text' }, h('strong', null, title), h('small', null, meta)),
+      current ? h('span', { class: 'rv-pill is-on' }, 'In use') : null,
+      badge ? h('span', { class: 'rv-pill' }, badge) : null
+    );
+  }
+
+  function stepForm() {
+    var changing = choice !== draft.formId;
+    var go = h(
+      'button',
+      {
+        type: 'button',
+        class: 'btn btn-sm ' + (changing ? 'btn-primary' : 'btn-outline'),
+        onclick: function () {
+          go.disabled = true;
+          importQuestions(choice)
             .catch(function (err) {
               if (err.status === 401) return M.appError(err);
               M.toast(err.message, true);
             })
             .then(function () {
-              importBtn.disabled = false;
+              go.disabled = false;
             });
         },
       },
-      'Import the questions'
+      changing ? 'Use this form and import its questions' : 'Check for new questions'
     );
     var nameQ = h(
       'select',
@@ -373,6 +432,7 @@
         id: 'rvNameQ',
         onchange: function () {
           draft.nameQuestion = nameQ.value || null;
+          bar.update();
         },
       },
       h('option', { value: '' }, 'None'),
@@ -386,71 +446,193 @@
           return o;
         })
     );
-    var taken = used();
-    var hiddenQs = catalog.filter(function (q) {
-      return !taken[q.id];
-    });
     return h(
-      'section',
-      { class: 'panel form-grid' },
-      h('div', { class: 'panel-head', style: 'margin:0' }, h('h2', null, '1. The applications')),
-      h(
-        'p',
-        { class: 'panel-note', style: 'margin:0' },
-        'Choose the form whose answers the reviewers score, then import its questions: they are split into a first set of sections to adjust below. Importing the same form again only adds its new questions.'
+      'div',
+      { class: 'rv-step-body' },
+      stepHead(
+        'Which applications are reviewed?',
+        'Pick the form whose answers the reviewers score. Its questions are imported and split into a first set of sections, which you adjust in the next step.'
       ),
       data.formMissing
         ? h('p', { class: 'form-error' }, 'The form in use no longer exists: choose another one.')
         : null,
-      h('div', { class: 'rv-add' }, pick, importBtn),
-      draft.formId !== (pick.value || null)
-        ? h(
-            'p',
-            { class: 'form-note', style: 'margin:0' },
-            'Import the questions to switch to this form.'
-          )
-        : null,
       h(
         'div',
-        { class: 'rv-field-row' },
-        h('label', { class: 'form-label', for: 'rvNameQ' }, 'The question with the name'),
+        { class: 'rv-sources' },
+        sourceCard(
+          null,
+          'Mentee applications on the mentorship board',
+          'Everyone who applied as a mentee, as the board has them'
+        ),
+        data.forms.map(function (f) {
+          var meta =
+            f.responses === null || f.responses === undefined
+              ? 'A form'
+              : plural(f.responses, 'answer', 'answers');
+          return sourceCard(f.id, f.title, meta, f.board ? 'Feeds the board' : null);
+        })
+      ),
+      h('div', { class: 'rv-row-end' }, go),
+      h(
+        'div',
+        { class: 'rv-field' },
+        h('label', { class: 'form-label', for: 'rvNameQ' }, 'Which question holds the name?'),
         nameQ,
         h(
           'small',
-          { class: 'form-note' },
-          'For the summary, and taken out of the anonymous sections’ text.'
+          { class: 'rv-muted' },
+          'Shown in the summary, and taken out of the text of the anonymous sections.'
         )
-      ),
-      h(
-        'details',
-        { class: 'rv-hidden-qs' },
-        h(
-          'summary',
-          null,
-          'Not shown to the reviewers (' + hiddenQs.length + ' of ' + catalog.length + ')'
-        ),
-        hiddenQs.length
-          ? h(
-              'ul',
-              null,
-              hiddenQs.map(function (q) {
-                return h('li', null, q.label, h('small', null, ' · ' + (TYPES[q.type] || q.type)));
-              })
-            )
-          : h('p', { class: 'form-note' }, 'Every question is in a section.')
       )
     );
   }
 
-  // ── Sections ─────────────────────────────────────────────────────────────
+  // ── Step 2: which question goes where ───────────────────────────────────
 
-  function sectionCard(s, index, rerender) {
+  function stepSections() {
+    var taken = used();
+    var left = catalog.filter(function (q) {
+      return !taken[q.id];
+    });
+    var full = draft.sections.length >= data.limits.sections;
+    var heads = draft.sections.map(function (s) {
+      var name = h('input', {
+        class: 'rv-matrix-name',
+        value: s.label,
+        maxlength: '40',
+        'aria-label': 'Name of the section',
+        oninput: function () {
+          s.label = name.value;
+        },
+      });
+      return h(
+        'th',
+        { class: 'rv-matrix-sec ' + colourOf(s), scope: 'col' },
+        h(
+          'div',
+          { class: 'rv-matrix-head' },
+          name,
+          smallButton(
+            '×',
+            function () {
+              removeSection(s);
+            },
+            {
+              icon: true,
+              ghost: true,
+              aria: 'Remove the section ' + s.label,
+              disabled: draft.sections.length <= 1,
+            }
+          )
+        ),
+        h('small', null, plural(s.questions.length, 'question', 'questions'))
+      );
+    });
+    var addCol = h(
+      'th',
+      { class: 'rv-matrix-add' },
+      smallButton(
+        '+ Section',
+        function () {
+          draft.sections.push(newSection(nextName()));
+          render();
+        },
+        { ghost: true, disabled: full }
+      )
+    );
+    var rows = catalog.map(function (q) {
+      var shown = taken[q.id];
+      return h(
+        'tr',
+        { class: shown ? '' : 'is-left' },
+        h(
+          'th',
+          { scope: 'row' },
+          h('span', null, q.label),
+          h(
+            'small',
+            null,
+            TYPES[q.type] || q.type,
+            q.id === draft.nameQuestion ? ' · the name' : '',
+            shown ? '' : ' · not shown'
+          )
+        ),
+        draft.sections.map(function (s) {
+          var on = s.questions.indexOf(q.id) !== -1;
+          var box = h('input', {
+            type: 'checkbox',
+            'aria-label': 'Show “' + q.label + '” in ' + s.label,
+            onchange: function () {
+              if (box.checked) addTo(s, q.id);
+              else takeFrom(s, q.id);
+              render();
+            },
+          });
+          box.checked = on;
+          return h(
+            'td',
+            { class: colourOf(s) },
+            h('label', { class: 'rv-tile' + (on ? ' is-on' : '') }, box)
+          );
+        }),
+        h('td', { class: 'rv-matrix-add' })
+      );
+    });
+    return h(
+      'div',
+      { class: 'rv-step-body' },
+      stepHead(
+        'Which question goes in which section?',
+        'Each section is a tab the reviewers score apart, under a code of its own. Click a cell to show the question in that section; a question can go in more than one. A question with no tick is shown to no one, as an email or a phone number should be.'
+      ),
+      h(
+        'div',
+        { class: 'rv-matrix-tools' },
+        h(
+          'span',
+          { class: 'rv-muted' },
+          h('strong', null, String(catalog.length - left.length)),
+          ' of ' + plural(catalog.length, 'question', 'questions') + ' shown'
+        ),
+        left.length
+          ? smallButton(
+              '+ New section from the ' + plural(left.length, 'question', 'questions') + ' left',
+              function () {
+                var s = newSection(nextName());
+                left.forEach(function (q) {
+                  addTo(s, q.id);
+                });
+                draft.sections.push(s);
+                render();
+              },
+              { disabled: full }
+            )
+          : null
+      ),
+      catalog.length
+        ? h(
+            'div',
+            { class: 'rv-matrix-wrap' },
+            h(
+              'table',
+              { class: 'rv-matrix' },
+              h('thead', null, h('tr', null, h('th', { scope: 'col' }, 'Question'), heads, addCol)),
+              h('tbody', null, rows)
+            )
+          )
+        : h('p', { class: 'rv-muted' }, 'No questions yet: pick a form in step 1.')
+    );
+  }
+
+  // ── Step 3: each section, and the reviewers ─────────────────────────────
+
+  function sectionCard(s, index) {
     var label = h('input', {
-      class: 'form-input is-compact rv-sec-label',
+      class: 'rv-card-name',
       value: s.label,
       maxlength: '40',
       'aria-label': 'Name of the section',
-      placeholder: 'Name (the reviewers’ tab)',
+      placeholder: 'Name of the section',
       oninput: function () {
         s.label = label.value;
       },
@@ -460,8 +642,7 @@
       value: s.prefix || '',
       maxlength: '4',
       'aria-label': 'Code prefix',
-      title: 'The codes of this section start with it, e.g. CV-K7P2Q',
-      placeholder: 'Code',
+      placeholder: 'Auto',
       oninput: function () {
         prefix.value = prefix.value.toUpperCase().replace(/[^A-Z]/g, '');
         s.prefix = prefix.value;
@@ -481,17 +662,20 @@
     });
     var anon = h('input', {
       type: 'checkbox',
+      class: 'rv-switch',
+      role: 'switch',
       onchange: function () {
         s.anonymous = anon.checked;
+        bar.update();
       },
     });
     anon.checked = Boolean(s.anonymous);
     var note = h('textarea', {
       class: 'form-input',
-      rows: '2',
+      rows: '3',
       maxlength: String(data.limits.note),
       'aria-label': 'Note for the reviewers',
-      placeholder: 'What the reviewers should look at in this section (optional)',
+      placeholder: 'What the reviewers should look at here (optional)',
       oninput: function () {
         s.note = note.value;
       },
@@ -500,97 +684,104 @@
 
     // The grid: one for the section, or one per question.
     var perQuestion = s.gridMode === 'question';
-    function modeRadio(value, text) {
-      var input = h('input', {
-        type: 'radio',
-        name: 'rv-mode-' + index,
-        value: value,
-        onchange: function () {
-          s.gridMode = value;
-          if (value === 'question') {
-            // Each long answer starts with one criterion; the rest is shown only.
-            s.questions.forEach(function (q) {
-              if (s.questionGrids[q] && s.questionGrids[q].length) return;
-              var info = question(q);
-              s.questionGrids[q] =
-                info && info.type === 'long_text'
-                  ? [{ label: 'Quality of the answer', help: '', weight: 1 }]
-                  : [];
-            });
-          } else if (!s.criteria.length) {
-            s.criteria = copy(data.defaults.criteria.answers);
-          }
-          rerender();
-        },
-      });
-      input.checked = (s.gridMode || 'section') === value;
-      return h('label', { class: 'check-row' }, input, h('span', null, text));
-    }
+    var mode = segmented(
+      [
+        ['section', 'One grid for the section'],
+        ['question', 'One grid per question'],
+      ],
+      perQuestion ? 'question' : 'section',
+      function (value) {
+        s.gridMode = value;
+        if (value === 'question') {
+          // Each long answer starts with one criterion; the rest is shown only.
+          s.questions.forEach(function (q) {
+            if (s.questionGrids[q] && s.questionGrids[q].length) return;
+            var info = question(q);
+            s.questionGrids[q] =
+              info && info.type === 'long_text'
+                ? [{ label: 'Quality of the answer', help: '', weight: 1 }]
+                : [];
+          });
+        } else if (!s.criteria.length) {
+          s.criteria = copy(data.defaults.criteria.answers);
+        }
+        render();
+      },
+      'How the section is scored'
+    );
 
     // The questions, in order, each with its grid when there is one per question.
-    var questions = h(
-      'ol',
-      { class: 'rv-qs' },
-      s.questions.map(function (id) {
-        var grid = s.questionGrids[id] || [];
-        if (perQuestion) s.questionGrids[id] = grid;
-        var q = question(id);
-        return h(
-          'li',
-          { class: 'rv-q' + (q ? '' : ' is-missing') },
-          h(
-            'div',
-            { class: 'rv-q-head' },
-            h(
-              'span',
-              { class: 'rv-q-label' },
-              questionLabel(id),
-              q ? h('small', null, ' · ' + (TYPES[q.type] || q.type)) : null
-            ),
-            h(
-              'span',
-              { class: 'rv-q-actions' },
-              smallButton(
-                '↑',
-                function () {
-                  move(s.questions, id, -1);
-                  rerender();
-                },
-                { icon: true, aria: 'Move up', disabled: s.questions.indexOf(id) === 0 }
+    var questions = s.questions.length
+      ? h(
+          'ol',
+          { class: 'rv-qs' },
+          s.questions.map(function (id, i) {
+            var grid = s.questionGrids[id] || [];
+            if (perQuestion) s.questionGrids[id] = grid;
+            var q = question(id);
+            return h(
+              'li',
+              { class: 'rv-q' + (q ? '' : ' is-missing') },
+              h(
+                'div',
+                { class: 'rv-q-head' },
+                h('span', { class: 'rv-q-num' }, String(i + 1)),
+                h(
+                  'span',
+                  { class: 'rv-q-label' },
+                  questionLabel(id),
+                  q ? h('small', null, TYPES[q.type] || q.type) : null
+                ),
+                h(
+                  'span',
+                  { class: 'rv-q-actions' },
+                  smallButton(
+                    '↑',
+                    function () {
+                      move(s.questions, id, -1);
+                      render();
+                    },
+                    { icon: true, ghost: true, aria: 'Move up', disabled: i === 0 }
+                  ),
+                  smallButton(
+                    '↓',
+                    function () {
+                      move(s.questions, id, 1);
+                      render();
+                    },
+                    {
+                      icon: true,
+                      ghost: true,
+                      aria: 'Move down',
+                      disabled: i === s.questions.length - 1,
+                    }
+                  ),
+                  smallButton(
+                    '×',
+                    function () {
+                      takeFrom(s, id);
+                      render();
+                    },
+                    { icon: true, ghost: true, aria: 'Take it out of this section' }
+                  )
+                )
               ),
-              smallButton(
-                '↓',
-                function () {
-                  move(s.questions, id, 1);
-                  rerender();
-                },
-                {
-                  icon: true,
-                  aria: 'Move down',
-                  disabled: s.questions.indexOf(id) === s.questions.length - 1,
-                }
-              ),
-              smallButton(
-                'Remove',
-                function () {
-                  s.questions.splice(s.questions.indexOf(id), 1);
-                  delete s.questionGrids[id];
-                  rerender();
-                },
-                { aria: 'Take ' + questionLabel(id) + ' out of this section' }
-              )
-            )
-          ),
-          perQuestion ? criteriaEditor(grid, rerender, true) : null
+              perQuestion ? criteriaEditor(grid, true) : null
+            );
+          })
+        )
+      : h(
+          'p',
+          { class: 'form-error', style: 'margin:0' },
+          'No question in this section: tick some in step 2.'
         );
-      })
-    );
+
     // Who scores it: none ticked, everyone.
-    var who = h(
-      'div',
-      { class: 'chip-group rv-who-chips' },
-      data.reviewers.length
-        ? data.reviewers.map(function (r) {
+    var who = data.reviewers.length
+      ? h(
+          'div',
+          { class: 'chip-group rv-who-chips' },
+          data.reviewers.map(function (r) {
             var on = s.reviewers.indexOf(r.userId) !== -1;
             return h(
               'button',
@@ -601,25 +792,23 @@
                 onclick: function () {
                   if (on) s.reviewers.splice(s.reviewers.indexOf(r.userId), 1);
                   else s.reviewers.push(r.userId);
-                  rerender();
+                  render();
                 },
               },
               r.name
             );
           })
-        : h('span', { class: 'form-note' }, 'Add reviewers below first.')
-    );
+        )
+      : h('span', { class: 'rv-muted' }, 'Add reviewers below first.');
 
     return h(
       'section',
-      { class: 'rv-part rv-section' },
+      { class: 'rv-card-sec ' + colourOf(s) },
       h(
-        'div',
-        { class: 'rv-part-head' },
-        h('span', { class: 'rv-sec-num' }, String(index + 1)),
+        'header',
+        { class: 'rv-card-sec-head' },
+        h('span', { class: 'rv-dot', 'aria-hidden': 'true' }),
         label,
-        prefix,
-        h('label', { class: 'rv-part-weight' }, 'Weight ', weight),
         h(
           'span',
           { class: 'rv-q-actions' },
@@ -627,18 +816,19 @@
             '↑',
             function () {
               move(draft.sections, s, -1);
-              rerender();
+              render();
             },
-            { icon: true, aria: 'Move the section up', disabled: index === 0 }
+            { icon: true, ghost: true, aria: 'Move the section up', disabled: index === 0 }
           ),
           smallButton(
             '↓',
             function () {
               move(draft.sections, s, 1);
-              rerender();
+              render();
             },
             {
               icon: true,
+              ghost: true,
               aria: 'Move the section down',
               disabled: index === draft.sections.length - 1,
             }
@@ -648,273 +838,67 @@
             function () {
               removeSection(s);
             },
-            { disabled: draft.sections.length <= 1, aria: 'Remove the section' }
+            { ghost: true, disabled: draft.sections.length <= 1, aria: 'Remove the section' }
           )
         )
       ),
-      h(
-        'label',
-        { class: 'check-row' },
-        anon,
-        h(
-          'span',
-          null,
-          'Anonymous: take names, emails, links, phone numbers and the person’s short answers out of the text'
-        )
-      ),
-      note,
-      h('h4', { class: 'rv-sub' }, 'Questions shown, in this order'),
-      s.questions.length
-        ? questions
-        : h(
-            'p',
-            { class: 'form-error', style: 'margin:0' },
-            'No question yet: give it some in step 1.'
-          ),
-      h('h4', { class: 'rv-sub' }, 'Grid'),
       h(
         'div',
-        { class: 'rv-mode' },
-        modeRadio('section', 'One grid for the whole section'),
-        modeRadio('question', 'One grid per question')
-      ),
-      perQuestion
-        ? h(
-            'p',
-            { class: 'form-note', style: 'margin:0' },
-            'Each question’s criteria are set under it, above. A question without criteria is shown, not scored.'
-          )
-        : criteriaEditor(s.criteria, rerender, false),
-      h('h4', { class: 'rv-sub' }, 'Scored by'),
-      h(
-        'p',
-        { class: 'form-note', style: 'margin:0' },
-        s.reviewers.length
-          ? 'Only the reviewers ticked see this section.'
-          : 'Every reviewer: tick some to give the section to them only.'
-      ),
-      who
-    );
-  }
-
-  // ── Step 1: which question goes where ───────────────────────────────────
-
-  // A matrix: the questions down, the sections across. A tick shows the
-  // question in that section; a row with no tick is shown to no one.
-  function assignBody() {
-    var left = catalog.filter(function (q) {
-      return !used()[q.id];
-    });
-    var full = draft.sections.length >= data.limits.sections;
-    var heads = draft.sections.map(function (s) {
-      var name = h('input', {
-        class: 'form-input is-compact',
-        value: s.label,
-        maxlength: '40',
-        'aria-label': 'Name of the section',
-        oninput: function () {
-          s.label = name.value;
-        },
-      });
-      return h(
-        'th',
-        { class: 'rv-matrix-sec' },
+        { class: 'rv-card-sec-body' },
         h(
           'div',
-          { class: 'rv-matrix-head' },
-          name,
-          smallButton(
-            '×',
-            function () {
-              removeSection(s);
-            },
-            {
-              icon: true,
-              aria: 'Remove the section ' + s.label,
-              disabled: draft.sections.length <= 1,
-            }
-          )
+          { class: 'rv-card-main' },
+          h('h4', { class: 'rv-sub' }, 'How it is scored (1 = weak, 5 = excellent)'),
+          mode,
+          h('h4', { class: 'rv-sub' }, 'Questions, in the order shown'),
+          questions,
+          perQuestion
+            ? h(
+                'p',
+                { class: 'rv-muted' },
+                'Each question has its own criteria; a question without any is shown, not scored.'
+              )
+            : [
+                h('h4', { class: 'rv-sub' }, 'Criteria, for the whole section'),
+                criteriaEditor(s.criteria, false),
+              ]
         ),
         h(
-          'small',
-          null,
-          s.questions.length + (s.questions.length === 1 ? ' question' : ' questions')
-        )
-      );
-    });
-    var rows = catalog.map(function (q) {
-      var shown = used()[q.id];
-      return h(
-        'tr',
-        { class: shown ? '' : 'is-left' },
-        h(
-          'th',
-          { scope: 'row' },
-          q.label,
-          h('small', null, TYPES[q.type] || q.type),
-          q.id === draft.nameQuestion ? h('small', null, ' · the name') : null
-        ),
-        draft.sections.map(function (s) {
-          var box = h('input', {
-            type: 'checkbox',
-            'aria-label': 'Show “' + q.label + '” in ' + s.label,
-            onchange: function () {
-              if (box.checked) addTo(s, q.id);
-              else takeFrom(s, q.id);
-              render();
-            },
-          });
-          box.checked = s.questions.indexOf(q.id) !== -1;
-          return h('td', null, h('label', { class: 'rv-matrix-cell' }, box));
-        }),
-        h('td', { class: 'rv-matrix-left' }, shown ? '' : 'Not shown')
-      );
-    });
-    return h(
-      'div',
-      { class: 'form-grid' },
-      h(
-        'p',
-        { class: 'panel-note', style: 'margin:0' },
-        'Tick where each question is shown: each section is a tab the reviewers score apart, under a code of its own. A question can go in more than one section; one with no tick is shown to no one (an email, a phone number, practical details).'
-      ),
-      h(
-        'div',
-        { class: 'rv-matrix-tools' },
-        smallButton(
-          'Add an empty section',
-          function () {
-            draft.sections.push(newSection('Section ' + (draft.sections.length + 1)));
-            render();
-          },
-          { disabled: full }
-        ),
-        smallButton(
-          'New section from the ' +
-            left.length +
-            (left.length === 1 ? ' question' : ' questions') +
-            ' not shown',
-          function () {
-            var s = newSection('Section ' + (draft.sections.length + 1));
-            left.forEach(function (q) {
-              addTo(s, q.id);
-            });
-            draft.sections.push(s);
-            render();
-          },
-          { disabled: full || !left.length }
-        )
-      ),
-      catalog.length
-        ? h(
-            'div',
-            { class: 'rv-matrix-wrap' },
+          'aside',
+          { class: 'rv-card-side' },
+          h(
+            'label',
+            { class: 'rv-switch-row' },
+            anon,
             h(
-              'table',
-              { class: 'rv-matrix' },
-              h('thead', null, h('tr', null, h('th', null, 'Question'), heads, h('th', null, ''))),
-              h('tbody', null, rows)
+              'span',
+              null,
+              h('strong', null, 'Anonymous'),
+              h('small', null, 'Names, emails, links, phone numbers and short answers taken out')
             )
+          ),
+          h(
+            'div',
+            { class: 'rv-side-pair' },
+            h('label', { class: 'rv-side-field' }, h('span', null, 'Weight'), weight),
+            h('label', { class: 'rv-side-field' }, h('span', null, 'Code prefix'), prefix)
+          ),
+          h('div', { class: 'rv-side-field' }, h('span', null, 'Note for the reviewers'), note),
+          h(
+            'div',
+            { class: 'rv-side-field' },
+            h(
+              'span',
+              null,
+              'Scored by',
+              h('small', null, s.reviewers.length ? ' · only those ticked' : ' · every reviewer')
+            ),
+            who
           )
-        : h('p', { class: 'form-note' }, 'No questions: import them from a form above.')
+        )
+      )
     );
   }
-
-  // ── Step 2: each section ────────────────────────────────────────────────
-
-  function sectionsBody() {
-    return h(
-      'div',
-      { class: 'form-grid' },
-      h(
-        'p',
-        { class: 'panel-note', style: 'margin:0' },
-        'Each criterion is scored from 1 (weak) to 5 (excellent); a review’s total is the weighted mean of its criteria, the overall score the weighted mean of the sections. Changing the setup recomputes the summary; a criterion or section removed no longer counts, its scores are kept.'
-      ),
-      draft.sections.map(function (s, i) {
-        return sectionCard(s, i, render);
-      })
-    );
-  }
-
-  function stepper() {
-    function tab(n, text) {
-      return h(
-        'button',
-        {
-          type: 'button',
-          role: 'tab',
-          'aria-selected': String(step === n),
-          onclick: function () {
-            step = n;
-            render();
-          },
-        },
-        text
-      );
-    }
-    return h(
-      'div',
-      { class: 'fr-views rv-steps', role: 'tablist', 'aria-label': 'Steps' },
-      tab(1, '1 · Questions → sections'),
-      tab(2, '2 · Grids and reviewers')
-    );
-  }
-
-  function editorPanel() {
-    var error = h('p', { class: 'form-error', role: 'alert', hidden: true });
-    var save = h(
-      'button',
-      { type: 'submit', class: 'btn btn-primary btn-sm rv-setup-save' },
-      'Save the setup'
-    );
-    var next =
-      step === 1
-        ? h(
-            'button',
-            {
-              type: 'button',
-              class: 'btn btn-outline btn-sm',
-              onclick: function () {
-                step = 2;
-                render();
-                root.scrollIntoView();
-              },
-            },
-            'Next: grids and reviewers →'
-          )
-        : null;
-    return h(
-      'form',
-      {
-        class: 'panel form-grid',
-        novalidate: true,
-        onsubmit: function (e) {
-          e.preventDefault();
-          error.hidden = true;
-          save.disabled = true;
-          M.api('PUT', API + '?action=settings', draft)
-            .then(function (d) {
-              setData(d);
-              M.toast('Setup saved');
-            })
-            .catch(function (err) {
-              if (err.status === 401) return M.appError(err);
-              error.textContent = err.message;
-              error.hidden = false;
-              save.disabled = false;
-            });
-        },
-      },
-      h('div', { class: 'panel-head', style: 'margin:0' }, h('h2', null, '2. Sections')),
-      stepper(),
-      step === 1 ? assignBody() : sectionsBody(),
-      error,
-      h('div', { class: 'rv-save-bar' }, save, next)
-    );
-  }
-
-  // ── Reviewers ────────────────────────────────────────────────────────────
 
   function setReviewer(body) {
     return M.api('POST', API + '?action=reviewers', body)
@@ -933,27 +917,30 @@
       });
   }
 
-  function reviewersPanel() {
+  function reviewersBlock() {
     var pick = h(
       'select',
       { class: 'form-input is-compact', 'aria-label': 'Person to add' },
       h(
         'option',
         { value: '' },
-        data.candidates.length ? 'Choose someone…' : 'Nobody else has signed in'
+        data.candidates.length ? 'Add someone who signed in…' : 'Nobody else has signed in'
       ),
       data.candidates.map(function (c) {
         return h('option', { value: c.userId }, c.name);
       })
     );
+    pick.onchange = function () {
+      if (pick.value) setReviewer({ add: pick.value });
+    };
     return h(
       'section',
-      { class: 'panel form-grid' },
-      h('div', { class: 'panel-head', style: 'margin:0' }, h('h2', null, '3. Reviewers')),
+      { class: 'rv-reviewers' },
+      h('h3', null, 'The reviewers'),
       h(
         'p',
-        { class: 'panel-note', style: 'margin:0' },
-        'Reviewers see the applications under a code and their own scores only: never the names, the others’ scores nor the summary. Anyone who has signed in here with Discord can be added; each section says who scores it. Removing someone keeps the scores they gave.'
+        { class: 'rv-muted' },
+        'They see the applications under a code and their own scores only: never the names, the others’ scores nor the summary. Added and removed at once; removing someone keeps the scores they gave.'
       ),
       data.reviewers.length
         ? h(
@@ -975,50 +962,168 @@
                   'span',
                   null,
                   h('strong', null, r.name),
-                  h(
-                    'small',
-                    null,
-                    (mine.length ? 'Scores ' + mine.join(', ') : 'No section') +
-                      ' · added by ' +
-                      r.addedBy
-                  )
+                  h('small', null, mine.length ? 'Scores ' + mine.join(', ') : 'No section')
                 ),
-                h(
-                  'button',
-                  {
-                    type: 'button',
-                    class: 'btn btn-outline btn-sm',
-                    onclick: function () {
-                      setReviewer({ remove: r.userId });
-                    },
+                smallButton(
+                  'Remove',
+                  function () {
+                    setReviewer({ remove: r.userId });
                   },
-                  'Remove'
+                  { ghost: true }
                 )
               );
             })
           )
-        : h('p', { class: 'form-note', style: 'margin:0' }, 'No reviewers yet.'),
-      h(
-        'form',
-        {
-          class: 'rv-add',
-          onsubmit: function (e) {
-            e.preventDefault();
-            if (pick.value) setReviewer({ add: pick.value });
-          },
+        : h('p', { class: 'rv-muted' }, 'No reviewers yet.'),
+      h('div', { class: 'rv-add' }, pick)
+    );
+  }
+
+  function stepGrids() {
+    return h(
+      'div',
+      { class: 'rv-step-body' },
+      stepHead(
+        'How is each section scored, and by whom?',
+        'A review’s total is the weighted mean of its criteria; the overall score, the weighted mean of the sections. Changing this recomputes the summary; a criterion or section removed no longer counts, its scores are kept.'
+      ),
+      draft.sections.map(sectionCard),
+      reviewersBlock()
+    );
+  }
+
+  // ── The wizard ───────────────────────────────────────────────────────────
+
+  function stepHead(title, text) {
+    return h('div', { class: 'rv-step-head' }, h('h2', null, title), h('p', null, text));
+  }
+
+  function formTitle() {
+    if (!draft.formId) return 'Board applications';
+    var f = data.forms.filter(function (x) {
+      return x.id === draft.formId;
+    })[0];
+    return f ? f.title : 'A form';
+  }
+
+  function wizard() {
+    var shown = Object.keys(used()).length;
+    var steps = [
+      [1, 'Form', formTitle()],
+      [
+        2,
+        'Sections',
+        plural(draft.sections.length, 'section', 'sections') + ' · ' + shown + ' shown',
+      ],
+      [3, 'Grids & reviewers', plural(data.reviewers.length, 'reviewer', 'reviewers')],
+    ];
+    return h(
+      'ol',
+      { class: 'rv-wizard' },
+      steps.map(function (st) {
+        return h(
+          'li',
+          null,
+          h(
+            'button',
+            {
+              type: 'button',
+              class: 'rv-wizard-step' + (st[0] === step ? ' is-current' : ''),
+              'aria-current': st[0] === step ? 'step' : null,
+              onclick: function () {
+                step = st[0];
+                render();
+              },
+            },
+            h('span', { class: 'rv-wizard-num' }, String(st[0])),
+            h('span', null, h('strong', null, st[1]), h('small', null, st[2]))
+          )
+        );
+      })
+    );
+  }
+
+  function saveBar() {
+    var error = h('p', { class: 'form-error', role: 'alert', hidden: true });
+    var state = h('span', { class: 'rv-state-note' });
+    var save = h(
+      'button',
+      {
+        type: 'button',
+        class: 'btn btn-primary btn-sm rv-setup-save',
+        onclick: function () {
+          error.hidden = true;
+          save.disabled = true;
+          M.api('PUT', API + '?action=settings', draft)
+            .then(function (d) {
+              setData(d);
+              M.toast('Setup saved');
+            })
+            .catch(function (err) {
+              if (err.status === 401) return M.appError(err);
+              error.textContent = err.message;
+              error.hidden = false;
+              save.disabled = false;
+            });
         },
-        pick,
-        h('button', { type: 'submit', class: 'btn btn-primary btn-sm' }, 'Add reviewer')
+      },
+      'Save the setup'
+    );
+    function go(to) {
+      return function () {
+        step = to;
+        render();
+        root.scrollIntoView({ block: 'start' });
+      };
+    }
+    var el = h(
+      'div',
+      { class: 'rv-savebar' },
+      error,
+      h(
+        'div',
+        { class: 'rv-savebar-row' },
+        step > 1 ? smallButton('← Back', go(step - 1), { ghost: true }) : h('span'),
+        h(
+          'span',
+          { class: 'rv-savebar-end' },
+          state,
+          step < 3
+            ? smallButton(
+                step === 1 ? 'Next: sections →' : 'Next: grids & reviewers →',
+                go(step + 1)
+              )
+            : null,
+          save
+        )
       )
     );
+    bar = {
+      el: el,
+      update: function () {
+        var dirty = isUnsaved();
+        state.textContent = dirty ? 'Unsaved changes' : 'All saved';
+        state.className = 'rv-state-note' + (dirty ? ' is-dirty' : '');
+        save.disabled = !dirty;
+      },
+    };
+    bar.update();
+    return el;
   }
 
   function render() {
     // Keep the page where it was: the whole setup is drawn again on each change.
     var y = window.scrollY;
     M.clear(root);
+    var body = step === 1 ? stepForm() : step === 2 ? stepSections() : stepGrids();
     root.appendChild(
-      h('div', { class: 'rv-settings' }, sourcePanel(), editorPanel(), reviewersPanel())
+      h(
+        'div',
+        { class: 'rv-setup' },
+        wizard(),
+        h('div', { class: 'panel rv-step' }, body),
+        saveBar()
+      )
     );
     window.scrollTo(0, y);
   }
