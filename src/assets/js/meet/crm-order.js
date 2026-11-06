@@ -14,7 +14,7 @@
   var error = form.querySelector('.form-error');
   var saveBtn = form.querySelector('button[type="submit"]');
   var teams = [];
-  var saved = '';
+  var saved = '[]';
 
   function ids() {
     return teams.reduce(function (all, team) {
