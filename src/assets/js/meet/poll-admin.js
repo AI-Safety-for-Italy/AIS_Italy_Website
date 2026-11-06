@@ -112,6 +112,18 @@
           : null,
         poll.location ? h('span', null, M.icon('pin'), poll.location) : null,
         h('span', null, M.icon('globe'), M.tzLabel(poll.timezone)),
+        poll.calendar
+          ? h(
+              'span',
+              { class: 'poll-cal' },
+              h('span', {
+                class: 'poll-cal-dot',
+                style: 'background:' + (poll.calendar.color || 'var(--accent)'),
+                'aria-hidden': 'true',
+              }),
+              (poll.status === 'scheduled' ? 'In ' : 'Lands in ') + poll.calendar.name
+            )
+          : null,
         poll.deadline
           ? h(
               'span',
@@ -571,6 +583,7 @@
                 (poll.invitedToMeeting.length === 1 ? ' person' : ' people')
               : '')
         ),
+        poll.canManage ? calendarLine(slot) : null,
         !poll.canManage
           ? null
           : h(
@@ -607,15 +620,88 @@
                 {
                   type: 'button',
                   class: 'btn btn-ghost btn-sm',
+                  onclick: function () {
+                    // The other times, each with "Move here", are in the answers below.
+                    var table = document.querySelector('.results-wrap');
+                    if (table) table.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    M.toast('Pick “Move here” under another time');
+                  },
+                },
+                'Move to another time'
+              ),
+              h(
+                'button',
+                {
+                  type: 'button',
+                  class: 'btn btn-ghost btn-sm',
                   onclick: function (e) {
                     unschedule(e.currentTarget);
                   },
                 },
-                'Change time'
+                'Cancel the meeting'
               )
             )
       )
     );
+  }
+
+  // Where the meeting is in the calendar, and which calendar: changed here.
+  function calendarLine(slot) {
+    var pick = h('select', {
+      class: 'form-input is-compact poll-cal-pick',
+      'aria-label': 'Calendar of the meeting',
+      onchange: function () {
+        pick.disabled = true;
+        M.api('POST', '/api/app/poll?id=' + encodeURIComponent(id) + '&action=calendar', {
+          calendarId: pick.value || null,
+        })
+          .then(function (data) {
+            show(data);
+            M.toast(data.calendar ? 'Now in ' + data.calendar.name : 'Taken out of the calendar');
+          })
+          .catch(function (err) {
+            pick.disabled = false;
+            pick.value = poll.calendar ? poll.calendar.id : '';
+            if (err.status === 401) return M.appError(err);
+            M.toast(err.message, true);
+          });
+      },
+    });
+    pick.appendChild(h('option', { value: '' }, 'In no calendar'));
+    if (poll.calendar) {
+      pick.appendChild(h('option', { value: poll.calendar.id }, 'In ' + poll.calendar.name));
+      pick.value = poll.calendar.id;
+    }
+    // The others this member adds to, once known.
+    calendarsList().then(function (list) {
+      list.forEach(function (c) {
+        if (poll.calendar && c.id === poll.calendar.id) return;
+        pick.appendChild(h('option', { value: c.id }, 'In ' + c.name));
+      });
+      if (!list.length && !poll.calendar) line.hidden = true;
+    });
+    var line = h(
+      'div',
+      { class: 'poll-cal-line' },
+      pick,
+      poll.calendar && poll.calendar.eventId
+        ? h(
+            'a',
+            {
+              class: 'btn btn-ghost btn-sm',
+              href:
+                '/app/calendar/?event=' +
+                encodeURIComponent(poll.calendar.eventId) +
+                '&at=' +
+                encodeURIComponent(slot.start) +
+                '&date=' +
+                encodeURIComponent(slot.start.slice(0, 10)),
+            },
+            'Open in the calendar'
+          )
+        : null
+    );
+    return line;
   }
 
   function calendarIcon(iso, tz) {
@@ -649,25 +735,45 @@
               'Remove'
             );
           },
-      footerExtra: canPick
-        ? function (slot) {
-            return h(
-              'div',
-              null,
-              h(
-                'button',
-                {
-                  type: 'button',
-                  class: 'btn btn-outline pick-btn',
-                  onclick: function () {
-                    openFinalize(slot);
+      footerExtra:
+        poll.canManage && poll.status === 'scheduled'
+          ? function (slot) {
+              if (slot.id === poll.finalSlotId) return h('div', { class: 'panel-note' }, 'Chosen');
+              return h(
+                'div',
+                null,
+                h(
+                  'button',
+                  {
+                    type: 'button',
+                    class: 'btn btn-outline pick-btn',
+                    onclick: function () {
+                      openMove(slot);
+                    },
                   },
-                },
-                'Choose'
-              )
-            );
-          }
-        : null,
+                  'Move here'
+                )
+              );
+            }
+          : canPick
+          ? function (slot) {
+              return h(
+                'div',
+                null,
+                h(
+                  'button',
+                  {
+                    type: 'button',
+                    class: 'btn btn-outline pick-btn',
+                    onclick: function () {
+                      openFinalize(slot);
+                    },
+                  },
+                  'Choose'
+                )
+              );
+            }
+          : null,
     });
 
     var actions = [];
@@ -802,25 +908,25 @@
   function unschedule(button) {
     var invited = poll.invitedToMeeting.length;
     var question = invited
-      ? 'Clear the chosen time? The ' +
+      ? 'Cancel the meeting? The ' +
         invited +
         (invited === 1 ? ' person' : ' people') +
-        ' who got the calendar invite will be sent a cancellation.'
-      : 'Clear the chosen time? You can then pick another one.';
+        ' who got the calendar invite will be sent a cancellation, and it leaves the calendar. To change its time instead, use “Move here” under another time.'
+      : 'Cancel the meeting? It leaves the calendar, and you can pick a time again.';
     if (!window.confirm(question)) return;
     busy(
       button,
-      invited ? 'Sending cancellations…' : 'Clearing…',
+      invited ? 'Sending cancellations…' : 'Cancelling…',
       M.api('POST', '/api/app/poll?id=' + encodeURIComponent(id) + '&action=unschedule', {})
     )
       .then(function (data) {
         show(data);
         M.toast(
           data.outcome && data.outcome.failed
-            ? 'Time cleared, but ' + data.outcome.failed + ' cancellation(s) could not be sent'
+            ? 'Meeting cancelled, but ' + data.outcome.failed + ' cancellation(s) could not be sent'
             : data.outcome
-            ? 'Time cleared and cancellation sent'
-            : 'Time cleared',
+            ? 'Meeting cancelled and cancellation sent'
+            : 'Meeting cancelled',
           Boolean(data.outcome && data.outcome.failed)
         );
       })
@@ -937,23 +1043,28 @@
   // The calendars the owner adds to (server/calendars.js): the chosen time
   // can land in one of them. Hidden when there is none.
   var calendarsReq = null;
+  function calendarsList() {
+    if (!calendarsReq) {
+      calendarsReq = M.api('GET', '/api/app/poll?id=' + encodeURIComponent(id) + '&calendars=1')
+        .then(function (r) {
+          return r.calendars;
+        })
+        .catch(function () {
+          return [];
+        });
+    }
+    return calendarsReq;
+  }
+
   function calendarRow(show) {
     var row = document.getElementById('calendarRow');
     row.hidden = true;
     if (!show) return;
-    if (!calendarsReq) {
-      calendarsReq = M.api(
-        'GET',
-        '/api/app/poll?id=' + encodeURIComponent(id) + '&calendars=1'
-      ).catch(function () {
-        return { calendars: [] };
-      });
-    }
-    calendarsReq.then(function (r) {
+    calendarsList().then(function (list) {
       var select = document.getElementById('finalizeCalendar');
-      if (!r.calendars.length) return;
+      if (!list.length) return;
       M.clear(select).appendChild(h('option', { value: '' }, 'No calendar'));
-      r.calendars.forEach(function (c) {
+      list.forEach(function (c) {
         select.appendChild(h('option', { value: c.id }, c.name));
       });
       select.value = poll.calendarId || '';
@@ -990,7 +1101,10 @@
         })
       : M.api('POST', '/api/app/poll?id=' + encodeURIComponent(id) + '&action=finalize', {
           slotId: chosenSlot.id,
-          calendarId: document.getElementById('finalizeCalendar').value || null,
+          // Only when the choice was offered: else the one set before stays.
+          calendarId: document.getElementById('calendarRow').hidden
+            ? undefined
+            : document.getElementById('finalizeCalendar').value || null,
           sendInvite: sendInvite,
           emails: emails,
           extraEmails: extraEmails,
@@ -1024,6 +1138,71 @@
       });
   });
 
+  // ── Moving the meeting ─────────────────────────────────────────────────────
+
+  /** A toast for something saved, and maybe emailed: `outcome` from the server. */
+  function sentText(o, done, sentTo) {
+    if (!o) return done;
+    if (o.failed) return done + ', but ' + o.failed + ' email(s) could not be sent';
+    return sentTo + o.sent + (o.sent === 1 ? ' person' : ' people');
+  }
+
+  var moveDialog = document.getElementById('moveDialog');
+  var moveError = document.getElementById('moveError');
+  var moveTo = null;
+
+  function openMove(slot) {
+    moveTo = slot;
+    moveError.hidden = true;
+    document.getElementById('moveTitle').textContent = M.fmtDay(slot.start, poll.timezone);
+    document.getElementById('moveWhen').textContent =
+      M.fmtTime(slot.start, poll.timezone) +
+      '–' +
+      M.fmtTime(slot.end, poll.timezone) +
+      ' · ' +
+      M.tzLabel(poll.timezone) +
+      ' · ' +
+      (slot.yes || 0) +
+      ' available' +
+      (slot.maybe ? ', ' + slot.maybe + ' if needed' : '');
+    var invited = poll.invitedToMeeting.length;
+    document.getElementById('moveNotifyRow').hidden = !invited || !mailReady;
+    document.getElementById('moveNotify').checked = true;
+    document.getElementById('moveNotifyCount').textContent =
+      invited + (invited === 1 ? ' person' : ' people');
+    moveDialog.showModal();
+  }
+
+  document.getElementById('moveForm').addEventListener('submit', function (e) {
+    if (e.submitter && e.submitter.value === 'cancel') return;
+    e.preventDefault();
+    var notifyInvitees =
+      !document.getElementById('moveNotifyRow').hidden &&
+      document.getElementById('moveNotify').checked;
+    busy(
+      document.getElementById('moveSubmit'),
+      notifyInvitees ? 'Moving and sending…' : 'Moving…',
+      M.api('POST', '/api/app/poll?id=' + encodeURIComponent(id) + '&action=move', {
+        slotId: moveTo.id,
+        notifyInvitees: notifyInvitees,
+      })
+    )
+      .then(function (data) {
+        moveDialog.close();
+        show(data);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        M.toast(
+          sentText(data.outcome, 'Meeting moved', 'Meeting moved and new time sent to '),
+          Boolean(data.outcome && data.outcome.failed)
+        );
+      })
+      .catch(function (err) {
+        if (err.status === 401) return M.appError(err);
+        moveError.textContent = err.message;
+        moveError.hidden = false;
+      });
+  });
+
   // ── Edit details ───────────────────────────────────────────────────────────
 
   var editDialog = document.getElementById('editDialog');
@@ -1044,7 +1223,11 @@
     document.getElementById('editPollTitle').value = poll.title;
     document.getElementById('editLocation').value = poll.location || '';
     document.getElementById('editDescription').value = poll.description || '';
-    document.getElementById('editInvitedNote').hidden = !poll.invitedToMeeting.length;
+    var invited = poll.status === 'scheduled' ? poll.invitedToMeeting.length : 0;
+    document.getElementById('editNotifyRow').hidden = !invited || !mailReady;
+    document.getElementById('editNotify').checked = true;
+    document.getElementById('editNotifyCount').textContent =
+      invited + (invited === 1 ? ' person' : ' people');
     editError.hidden = true;
     editDialog.showModal();
   }
@@ -1061,12 +1244,15 @@
         location: document.getElementById('editLocation').value,
         description: document.getElementById('editDescription').value,
         recurrence: editRepeat.get(),
+        notifyInvitees:
+          !document.getElementById('editNotifyRow').hidden &&
+          document.getElementById('editNotify').checked,
       })
     )
       .then(function (data) {
         editDialog.close();
         show(data);
-        M.toast('Saved');
+        M.toast(sentText(data.outcome, 'Saved', 'Saved and update sent to '));
       })
       .catch(function (err) {
         if (err.status === 401) return M.appError(err);

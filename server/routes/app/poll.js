@@ -7,7 +7,9 @@
 //   POST   &action=share { roles, people }  -> who the poll is shared with (owner)
 //   POST   &action=notify-me { on }         -> this user hears of new answers, or not
 //   PATCH  { status | title | description | location | deadline |
-//            hideResponses | notify }
+//            hideResponses | notify, notifyInvitees? }
+//                                           -> notifyInvitees: emails the
+//                                              updated invite to whoever has it
 //   DELETE                                  -> deletes the poll
 //   DELETE &response=<response id>          -> deletes one response
 //   DELETE &invite=<invite id>              -> removes a guest (and their answer)
@@ -18,7 +20,12 @@
 //   POST   &action=send-meeting { emails?, extraEmails? }
 //                                           -> emails the calendar invite for
 //                                              the chosen time (again)
-//   POST   &action=unschedule               -> clears it (and cancels the
+//   POST   &action=move { slotId, notifyInvitees? }
+//                                           -> moves the meeting to another of
+//                                              the poll's times (the same
+//                                              meeting: invite and calendar
+//                                              event updated, not cancelled)
+//   POST   &action=unschedule               -> cancels the meeting (and the
 //                                              emailed invite, if any)
 //   POST   &action=invite { emails }        -> invites more guests
 //   POST   &action=resend&invite=<invite id> -> emails a guest's link again
@@ -34,6 +41,25 @@ const polls = require('../../polls');
 const notify = require('../../notify');
 const ics = require('../../ics');
 const calendars = require('../../calendars');
+
+/**
+ * Emails the updated invite to whoever already has it, when asked; the
+ * poll's `update` (from polls.js) says to whom. Returns the poll as the page
+ * wants it, with `outcome` when something was sent.
+ */
+async function withNotice(result, wanted, ownerId) {
+  const { update, ...poll } = result;
+  if (!update || !wanted) return poll;
+  poll.outcome = await notify.sendMeeting({
+    poll: await polls.meetingRow(poll.id),
+    slot: update.slot,
+    recipients: update.emails.map((email) => ({ email })),
+    ownerId,
+    sequence: update.sequence,
+    update: true,
+  });
+  return poll;
+}
 
 /** The calendar's copy of the poll, after it changed; it never fails the change. */
 async function syncCalendar(id) {
@@ -78,9 +104,12 @@ module.exports = route({
   },
   async PATCH(req, res) {
     const user = await requireUser(req);
-    const result = await polls.updatePoll(getQuery(req).id, await readJson(req), user.id);
-    await syncCalendar(result.id);
-    sendJson(res, 200, result);
+    const body = (await readJson(req)) || {};
+    const { id, update } = await polls.updatePoll(getQuery(req).id, body, user.id);
+    await syncCalendar(id);
+    // Read again after the calendar followed, so the page sees its event.
+    const result = { ...(await polls.getPollAdmin(id, user.id)), update };
+    sendJson(res, 200, await withNotice(result, body.notifyInvitees === true, user.id));
   },
   async DELETE(req, res) {
     const user = await requireUser(req);
@@ -107,33 +136,39 @@ module.exports = route({
     } else if (action === 'notify-me') {
       sendJson(res, 200, await polls.setNotifyMe(id, user, Boolean(body.on)));
     } else if (action === 'finalize') {
-      // The calendar is checked before the time is set.
-      if (body.calendarId) await polls.getPollAdmin(id, user.id);
-      const calendarId = body.calendarId
-        ? (await calendars.writable(user)).find((c) => c.id === body.calendarId)
-        : null;
-      if (body.calendarId && !calendarId)
-        throw new HttpError(403, 'You cannot add to that calendar');
-      let result = await polls.finalizePoll(id, body, user.id);
-      // The calendar chosen with the time, or none: the copy follows.
+      // The calendar is checked before the time is set, and set with it: a
+      // time is never chosen with its calendar lost on the way. Left out
+      // (undefined), the one chosen before stays.
+      let calendarId;
       if (body.calendarId !== undefined) {
-        await calendars.setPollCalendar(user, id, calendarId ? calendarId.id : null);
-        result = await polls.getPollAdmin(id, user.id);
+        await polls.getPollAdmin(id, user.id);
+        calendarId = await calendars.pollCalendarChoice(user, body.calendarId);
       }
+      await polls.finalizePoll(id, body, user.id, { calendarId });
+      await syncCalendar(id);
+      let result = await polls.getPollAdmin(id, user.id);
       if (body.sendInvite) {
         const meeting = await polls.prepareMeetingInvite(id, user.id, body);
         const outcome = await notify.sendMeeting({ ...meeting, ownerId: user.id });
+        await syncCalendar(id);
         result = { ...(await polls.getPollAdmin(id, user.id)), outcome };
       }
       sendJson(res, 200, result);
+    } else if (action === 'move') {
+      const { update } = await polls.reschedulePoll(id, body, user.id);
+      await syncCalendar(id);
+      const result = { ...(await polls.getPollAdmin(id, user.id)), update };
+      sendJson(res, 200, await withNotice(result, body.notifyInvitees === true, user.id));
     } else if (action === 'send-meeting') {
       const meeting = await polls.prepareMeetingInvite(id, user.id, body);
       const outcome = await notify.sendMeeting({ ...meeting, ownerId: user.id });
+      // The invite's newer version: the calendar's copy follows it.
+      await syncCalendar(id);
       sendJson(res, 200, { ...(await polls.getPollAdmin(id, user.id)), outcome });
     } else if (action === 'unschedule') {
-      const result = await polls.unschedulePoll(id, user.id);
+      const { cancel } = await polls.unschedulePoll(id, user.id);
       await syncCalendar(id);
-      const { cancel, ...poll } = result;
+      const poll = await polls.getPollAdmin(id, user.id);
       if (cancel) {
         poll.outcome = await notify.sendMeeting({
           poll,

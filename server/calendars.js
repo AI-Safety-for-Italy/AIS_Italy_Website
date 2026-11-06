@@ -603,6 +603,10 @@ function occurrenceOut(occ, cal, level) {
     recurrence: e.recurrence || null,
     source: sourceOf(e),
     canEdit: atLeast(level, 'edit') && !e.source,
+    // A poll's meeting: its time and words are the poll's; its reminders,
+    // announcements and Discord channel, and skipping an occurrence, the
+    // calendar's (tuneCopy).
+    canTune: atLeast(level, 'edit') && e.source === 'poll' && !e.series_id,
     canAnswer: level !== null && level !== 'public',
   };
 }
@@ -676,14 +680,15 @@ async function loadEvent(id, q = db) {
 }
 
 /** An event `who` may use at `wanted` or more, with its calendar and their level. */
-async function eventFor(id, who, wanted) {
+async function eventFor(id, who, wanted, { pollMeeting = false } = {}) {
   const event = await loadEvent(id);
   const { cal, level } = await calendarFor(event.calendar_id, who, 'public').catch(() => {
     throw new HttpError(404, 'Event not found');
   });
   if (cal.archived_at && !atLeast(level, 'manage')) throw new HttpError(404, 'Event not found');
-  // A copy is changed where it comes from, whoever asks.
-  if (wanted === 'edit' && event.source)
+  // A copy is changed where it comes from, whoever asks; of a poll's
+  // meeting, the callers that ask for it (pollMeeting) change what is the calendar's.
+  if (wanted === 'edit' && event.source && !(pollMeeting && event.source === 'poll'))
     throw new HttpError(409, 'This event is changed where it comes from');
   if (!atLeast(level, wanted)) {
     throw new HttpError(403, 'You can see this event but not change it');
@@ -816,11 +821,53 @@ function endBefore(master, at) {
  * and a new one starts) or 'all' (the series, moved by as much as this
  * occurrence was).
  */
+/**
+ * What the calendar sets on a poll's meeting: its reminders, its
+ * announcements and, when the poll gives no video link, a Discord voice
+ * channel. The rest is the poll's. Its version stays the poll's (the emailed
+ * invite and this copy are one event): nothing here is in the invite.
+ */
+async function tuneCopy(event, b, user) {
+  const reminders = cleanReminders(b.reminders);
+  const announce = cleanAnnounce(b.announce === undefined ? null : b.announce);
+  let video = {
+    kind: event.video_kind,
+    url: event.video_url,
+    channelId: event.discord_channel_id,
+    channelName: event.discord_channel_name,
+  };
+  if (event.video_kind !== 'link') {
+    const asked = cleanVideo(b.video);
+    video =
+      asked.kind === 'discord'
+        ? asked
+        : { kind: null, url: '', channelId: null, channelName: null };
+  }
+  await db.query(
+    `update calendar_events set reminders = $2, announce = $3, video_kind = $4, video_url = $5,
+       discord_channel_id = $6, discord_channel_name = $7, updated_by = $8, updated_at = now()
+     where id = $1`,
+    [
+      event.id,
+      JSON.stringify(reminders),
+      announce === null ? null : JSON.stringify(announce),
+      video.kind,
+      video.url || '',
+      video.channelId,
+      video.channelName,
+      user.kind === 'discord' ? user.id : null,
+    ]
+  );
+  return { id: event.id };
+}
+
 async function updateEvent(user, id, body, { scope = 'all', occurrence } = {}) {
   await permissions.refreshIfStale(user);
   const who = await whoIs(user);
-  const { event } = await eventFor(id, who, 'edit');
+  const { event } = await eventFor(id, who, 'edit', { pollMeeting: true });
   const b = body || {};
+  // A poll's meeting: here, only what is the calendar's.
+  if (event.source === 'poll') return tuneCopy(event, b, user);
   // Moving it to another calendar takes edit there too.
   let calendarId = event.calendar_id;
   if (b.calendarId && b.calendarId !== event.calendar_id) {
@@ -911,7 +958,11 @@ async function updateEvent(user, id, body, { scope = 'all', occurrence } = {}) {
 async function deleteEvent(user, id, { scope = 'all', occurrence } = {}) {
   await permissions.refreshIfStale(user);
   const who = await whoIs(user);
-  const { event } = await eventFor(id, who, 'edit');
+  const { event } = await eventFor(id, who, 'edit', { pollMeeting: true });
+  // Of a poll's repeating meeting, one occurrence can be skipped here; the
+  // meeting itself is cancelled from the poll.
+  if (event.source === 'poll' && !(event.recurrence && scope === 'this'))
+    throw new HttpError(409, 'This is the meeting of a poll: cancel it from the poll');
   if (!event.recurrence && !event.series_id) {
     await db.query('delete from calendar_events where id = $1', [event.id]);
     return { deleted: true };
@@ -1201,7 +1252,7 @@ async function systemCalendar(key, q = db) {
 /** Puts in (or takes out of) a calendar the copy of something from elsewhere. */
 async function upsertCopy(source, sourceId, calendarId, f) {
   const { rows } = await db.query(
-    'select id, starts_at, recurrence from calendar_events where source = $1 and source_id = $2',
+    'select * from calendar_events where source = $1 and source_id = $2',
     [source, sourceId]
   );
   if (!calendarId) {
@@ -1226,13 +1277,26 @@ async function upsertCopy(source, sourceId, calendarId, f) {
   ];
   if (rows.length) {
     const before = rows[0];
+    // What the calendar set on a poll's meeting (tuneCopy) stays: its
+    // reminders, announcements and Discord channel when the poll has no link.
+    if (source === 'poll') {
+      values[12] = JSON.stringify(before.reminders || []);
+      values[13] = before.announce === null ? null : JSON.stringify(before.announce);
+      if (!f.videoUrl && before.video_kind === 'discord') {
+        values[3] = 'discord';
+        values[5] = before.discord_channel_id;
+        values[6] = before.discord_channel_name;
+      }
+    }
     await db.transaction(async (tx) => {
+      // A copy with a version of its own (a poll's meeting, whose emailed
+      // invite has the same UID) takes it; the others count up.
       await tx.query(
         `update calendar_events set calendar_id = $1, (${EVENT_COLUMNS}) =
            ($2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15),
-           sequence = sequence + 1, updated_at = now()
+           sequence = coalesce($17::int, sequence + 1), updated_at = now()
          where id = $16`,
-        [calendarId, ...values, before.id]
+        [calendarId, ...values, before.id, Number.isInteger(f.sequence) ? f.sequence : null]
       );
       // A single event moved in time keeps who said they come.
       const moved = new Date(before.starts_at).getTime() !== new Date(f.startsAt).getTime();
@@ -1247,10 +1311,10 @@ async function upsertCopy(source, sourceId, calendarId, f) {
     return before.id;
   }
   const { rows: made } = await db.query(
-    `insert into calendar_events (calendar_id, ${EVENT_COLUMNS}, source, source_id)
-     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+    `insert into calendar_events (calendar_id, ${EVENT_COLUMNS}, source, source_id, sequence)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
      returning id`,
-    [calendarId, ...values, source, sourceId]
+    [calendarId, ...values, source, sourceId, Number.isInteger(f.sequence) ? f.sequence : 0]
   );
   return made[0].id;
 }
@@ -1383,7 +1447,11 @@ async function syncFromPoll(pollId) {
   if (!slot.length) return upsertCopy('poll', poll.id, null);
   const startsAt = new Date(slot[0].starts_at);
   const location = poll.location || '';
-  return upsertCopy('poll', poll.id, poll.calendar_id, {
+  const { rows: had } = await db.query(
+    `select starts_at, calendar_id from calendar_events where source = 'poll' and source_id = $1`,
+    [String(poll.id)]
+  );
+  const eventId = await upsertCopy('poll', poll.id, poll.calendar_id, {
     title: poll.title,
     description: poll.description,
     location: /^https:\/\//i.test(location) ? '' : location,
@@ -1392,7 +1460,52 @@ async function syncFromPoll(pollId) {
     endsAt: new Date(startsAt.getTime() + poll.duration_minutes * 60000),
     timezone: poll.timezone,
     recurrence: poll.recurrence,
+    // The meeting's own version: the emailed invite and this copy are one
+    // event (the same UID, calendar-feed.js), so they must agree.
+    sequence: poll.meeting_sequence || 0,
   });
+  // A time newly chosen (or moved, or another calendar): those who said
+  // they are available then come, unless they answered otherwise already.
+  const fresh =
+    !had.length ||
+    new Date(had[0].starts_at).getTime() !== startsAt.getTime() ||
+    had[0].calendar_id !== poll.calendar_id;
+  if (fresh) await goingFromVotes(poll, eventId, startsAt);
+  return eventId;
+}
+
+/**
+ * The members who voted "available" for the chosen time, found by their
+ * email, answer "going" to the meeting's first occurrence; only those who
+ * see its calendar, and only where they have not answered yet.
+ */
+async function goingFromVotes(poll, eventId, startsAt) {
+  const { rows: people } = await db.query(
+    `select distinct u.* from poll_responses r
+     join poll_votes v on v.response_id = r.id and v.slot_id = $2 and v.value = 2
+     join app_users u on u.kind = 'discord'
+       and (lower(u.email) = lower(r.email) or lower(u.notify_email) = lower(r.email))
+     where r.poll_id = $1`,
+    [poll.id, poll.final_slot_id]
+  );
+  if (!people.length) return;
+  const cal = await loadCalendar(poll.calendar_id);
+  for (const person of people) {
+    const who = await whoIs({ id: person.id, kind: 'discord', name: person.name, row: person });
+    if (!atLeast(levelOf(cal, who), 'view')) continue;
+    await db.query(
+      `insert into calendar_rsvps (event_id, occurrence_start, user_id, answer)
+       values ($1, $2, $3, 'yes') on conflict do nothing`,
+      [eventId, startsAt, person.id]
+    );
+  }
+}
+
+/** A calendar the member chose for a poll's meeting, checked: its id (they edit it), or null for none. */
+async function pollCalendarChoice(user, calendarId) {
+  if (!calendarId) return null;
+  const who = await whoIs(user);
+  return (await calendarFor(calendarId, who, 'edit')).cal.id;
 }
 
 /** Which calendar a poll's time goes in (its owner, who edits that calendar); null for none. */
@@ -1459,6 +1572,7 @@ module.exports = {
   contentChoice,
   contentChoices,
   setPollCalendar,
+  pollCalendarChoice,
   writable,
   sharesCalendars,
   ensureContentBackfill,

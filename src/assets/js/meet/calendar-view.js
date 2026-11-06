@@ -929,6 +929,37 @@
         )
       );
     }
+    if (full && ev.canTune) {
+      actions.appendChild(
+        h(
+          'button',
+          {
+            type: 'button',
+            class: 'btn btn-outline btn-sm',
+            onclick: function () {
+              card.close();
+              editEvent(ev, true);
+            },
+          },
+          'Reminders & Discord'
+        )
+      );
+      if (ev.recurring) {
+        actions.appendChild(
+          h(
+            'button',
+            {
+              type: 'button',
+              class: 'btn btn-outline btn-sm',
+              onclick: function () {
+                skipOccurrence(ev);
+              },
+            },
+            'Skip this time'
+          )
+        );
+      }
+    }
     if (full && ev.source) {
       actions.appendChild(
         h('a', { class: 'btn btn-outline btn-sm', href: ev.source.url }, ev.source.label)
@@ -1044,6 +1075,27 @@
         })
         .catch(M.appError);
     });
+  }
+
+  // One occurrence of a poll's repeating meeting left out, here only (the
+  // invite by email keeps the series: the poll's owner tells people).
+  function skipOccurrence(ev) {
+    if (!window.confirm('Skip “' + ev.title + '” on ' + whenText(ev) + '? Only this time.')) return;
+    M.api(
+      'POST',
+      Cal.API +
+        '?action=delete-event&id=' +
+        encodeURIComponent(ev.id) +
+        '&scope=this&at=' +
+        encodeURIComponent(ev.occurrence),
+      {}
+    )
+      .then(function () {
+        if (card.open) card.close();
+        M.toast('Skipped this time');
+        go();
+      })
+      .catch(M.appError);
   }
 
   // ── The editor ──────────────────────────────────────────────────────────
@@ -1333,12 +1385,19 @@
   }
 
   /** Opens the editor: `occ` an occurrence to change (with its details), else `preset`. */
-  function openEditor(occ, preset) {
+  var tuning = false; // a poll's meeting: only what is the calendar's changes
+
+  function openEditor(occ, preset, tune) {
     editing = occ;
+    tuning = Boolean(tune && occ);
     dirty = false;
     showError('');
-    document.getElementById('calEditorTitle').textContent = occ ? 'Edit event' : 'New event';
-    f.del.hidden = !occ;
+    document.getElementById('calEditorTitle').textContent = tuning
+      ? 'Reminders & Discord'
+      : occ
+      ? 'Edit event'
+      : 'New event';
+    f.del.hidden = !occ || tuning;
     var tz = occ ? (occ.allDay ? TZ : occ.timezone || TZ) : TZ;
     fillZones(tz);
     fillCalendars(occ ? occ.calendarId : null);
@@ -1392,10 +1451,42 @@
     });
     M.clear(document.getElementById('evAnnounceList')).appendChild(announce.el);
     setAnnounceMode(own === null || own === undefined ? 'inherit' : own.length ? 'own' : 'none');
+    lockForTune(occ);
     if (!editor.open) editor.showModal();
     setTimeout(function () {
       if (!occ) f.title.focus();
     }, 30);
+  }
+
+  // A poll's meeting: what the poll says is shown, not changed here.
+  function lockForTune(occ) {
+    var note = document.getElementById('evTuneNote');
+    note.hidden = !tuning;
+    if (tuning && occ.source) document.getElementById('evTuneLink').href = occ.source.url;
+    var owned = [f.title, f.calendar, f.allDay, f.startDate, f.startTime, f.endDate, f.endTime];
+    owned = owned.concat([f.tz, f.location, f.description]);
+    owned.forEach(function (el) {
+      el.disabled = tuning;
+      // Not shown at all: the note says where they change.
+      var block = el;
+      while (block.parentElement && !block.parentElement.classList.contains('cal-editor-body'))
+        block = block.parentElement;
+      block.hidden = tuning;
+    });
+    form.querySelectorAll('.cal-fieldset').forEach(function (fs) {
+      // The recurrence's fields are in the "When" one, with the times.
+      if (fs.contains(f.startDate)) {
+        fs.querySelectorAll('input, select, button').forEach(function (el) {
+          el.disabled = tuning;
+        });
+      }
+    });
+    var hasLink = tuning && occ.video && occ.video.kind === 'link';
+    form.querySelectorAll('input[name="evVideo"]').forEach(function (r) {
+      // The poll's link stays; without one, a Discord channel can be added.
+      r.disabled = tuning && (hasLink || r.value === 'link');
+    });
+    f.videoUrl.disabled = tuning;
   }
 
   function nextHalfHour(date) {
@@ -1409,7 +1500,7 @@
     openEditor(null, preset);
   }
 
-  function editEvent(ev) {
+  function editEvent(ev, tune) {
     var go2 = ev.reminders
       ? Promise.resolve(ev)
       : M.api(
@@ -1422,7 +1513,7 @@
         );
     go2
       .then(function (detail) {
-        openEditor(detail);
+        openEditor(detail, null, tune);
       })
       .catch(M.appError);
   }
@@ -1480,7 +1571,7 @@
       return;
     }
     var ask =
-      editing && editing.recurring
+      editing && editing.recurring && !tuning
         ? askScope('Change a repeating event', 'Save')
         : Promise.resolve('all');
     ask.then(function (scope) {
@@ -1610,6 +1701,22 @@
       var canWrite = writable().length > 0;
       document.getElementById('calNew').hidden = !canWrite;
       document.getElementById('calNewTop').hidden = !canWrite;
+      // "Find a time": a poll whose chosen time lands in the calendar last used.
+      if (canWrite) {
+        var last = null;
+        try {
+          last = window.localStorage.getItem(LAST_CAL);
+        } catch (err) {
+          /* none remembered */
+        }
+        // The last one used, else a team calendar before the site's own.
+        var team = writable().filter(function (c) {
+          return !c.system;
+        });
+        var target = byId[last] && byId[last].canEdit ? last : (team[0] || writable()[0]).id;
+        document.getElementById('calFindTime').href =
+          '/app/polls/new/?calendar=' + encodeURIComponent(target);
+      }
       return go().then(function () {
         if (params.get('new') && canWrite) newEvent({});
         if (params.get('event')) {

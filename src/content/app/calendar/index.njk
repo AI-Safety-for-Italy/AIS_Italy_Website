@@ -13,7 +13,7 @@ eleventyExcludeFromCollections: true
 seoTitle: 'Calendar | AI Safety for Italy'
 ---
 {% extends "app.njk" %}
-{% block actions %}<button type="button" class="btn btn-primary btn-sm" id="calNewTop" hidden>+ New event</button>{% endblock %}
+{% block actions %}<a class="btn btn-outline btn-sm" id="calFindTime" href="/app/polls/new/" title="Propose some times in a meeting poll; the one chosen lands in the calendar">Find a time</a> <button type="button" class="btn btn-primary btn-sm" id="calNewTop" hidden>+ New event</button>{% endblock %}
 {% block page %}
 <div class="cal-app" id="calApp">
   <aside class="cal-side" aria-label="Calendars">
@@ -84,6 +84,7 @@ seoTitle: 'Calendar | AI Safety for Italy'
       </button>
     </div>
     <div class="cal-editor-body form-grid">
+      <p class="notice cal-tune-note" id="evTuneNote" hidden style="margin:0"><span>ℹ</span><span>The meeting of a poll: its time, title, place and description change in the poll (<a id="evTuneLink" href="#">open it</a>). Here, the calendar's own: reminders, announcements and a Discord channel.</span></p>
       <div>
         <label class="form-label" for="evTitle">Title</label>
         <input class="form-input cal-title-input" id="evTitle" required maxlength="200" placeholder="Add a title" autocomplete="off">

@@ -21,9 +21,6 @@ create table if not exists polls (
   hide_responses boolean not null default false,
   status text not null default 'open' check (status in ('open', 'closed', 'scheduled')),
   final_slot_id uuid,
-  calendar_event_id text,
-  calendar_event_link text,
-  meet_link text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -834,6 +831,12 @@ create unique index if not exists calendar_reminders_once on calendar_reminders_
 -- Which calendar a seminar or event of the site lands in: null for the
 -- default one of its type, 'none' for none, else a calendar's id.
 alter table content_items add column if not exists calendar_choice text;
+
+-- Left from when a poll's meeting went to Google Calendar: the meeting is the
+-- app's own now (its emailed invite, its copy in a calendar of the app).
+alter table polls drop column if exists calendar_event_id;
+alter table polls drop column if exists calendar_event_link;
+alter table polls drop column if exists meet_link;
 
 -- The calendar a poll's chosen time lands in, if any.
 alter table polls add column if not exists calendar_id uuid references calendars(id) on delete set null;

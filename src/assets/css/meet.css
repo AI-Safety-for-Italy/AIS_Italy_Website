@@ -766,6 +766,98 @@ textarea.form-input.is-short {
   pointer-events: none;
 }
 
+/* The calendar a poll's meeting lands in (poll-admin.js) */
+.poll-cal {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.poll-cal-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+
+.poll-cal-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 0.6rem;
+}
+
+.poll-cal-pick {
+  width: auto;
+  max-width: 240px;
+}
+
+/* The events this member already has, under the times picked (poll-new.js) */
+.wk-busy {
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  z-index: 1;
+  padding: 0.15rem 0.35rem;
+  overflow: hidden;
+  border-left: 3px solid var(--busy);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--busy) 12%, var(--card-bg));
+  color: var(--text-secondary);
+  font-size: 0.68rem;
+  line-height: 1.2;
+  pointer-events: none;
+}
+
+.wk-busy span {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.wk-slot.is-clash {
+  background: repeating-linear-gradient(
+    135deg,
+    var(--accent),
+    var(--accent) 6px,
+    color-mix(in srgb, var(--accent) 75%, #000) 6px,
+    color-mix(in srgb, var(--accent) 75%, #000) 12px
+  );
+}
+
+.slot-chip.is-clash {
+  border-color: var(--warning, #b45309);
+}
+
+.wk-allday {
+  display: block;
+  max-width: 100%;
+  margin-top: 2px;
+  padding: 0 4px;
+  overflow: hidden;
+  border-left: 2px solid var(--busy);
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--busy) 12%, transparent);
+  color: var(--text-secondary);
+  font-size: 0.62rem;
+  font-weight: 500;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.wk-hint-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.wk-busy-toggle {
+  font-size: 0.8rem;
+}
+
 [data-theme='dark'] .wk-slot {
   background: var(--accent-600);
   border-color: var(--accent-400);

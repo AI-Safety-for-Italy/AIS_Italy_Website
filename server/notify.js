@@ -291,9 +291,19 @@ function when(slot, timezone, rec) {
 
 /**
  * Emails each recipient the calendar event (one email each, naming only
- * them), or its cancellation when `cancel` is set. Returns { sent, failed }.
+ * them), or its cancellation when `cancel` is set. `update`: the meeting
+ * changed (moved, or its details): the same invite, newer, says so. Returns
+ * { sent, failed }.
  */
-async function sendMeeting({ poll, slot, recipients, ownerId, sequence, cancel = false }) {
+async function sendMeeting({
+  poll,
+  slot,
+  recipients,
+  ownerId,
+  sequence,
+  cancel = false,
+  update = false,
+}) {
   const from = await inviter(ownerId);
   const settings = await mail.publicSettings();
   const organizer = {
@@ -302,7 +312,11 @@ async function sendMeeting({ poll, slot, recipients, ownerId, sequence, cancel =
   };
   const rec = poll.recurrence || null;
   const whenText = when(slot, poll.timezone, rec);
-  const subject = cancel ? `Annullata: ${poll.title}` : `Invito: ${poll.title} · ${whenText}`;
+  const subject = cancel
+    ? `Annullata: ${poll.title}`
+    : update
+    ? `Aggiornata: ${poll.title} · ${whenText}`
+    : `Invito: ${poll.title} · ${whenText}`;
   const lines = cancel
     ? [
         (rec
@@ -313,6 +327,16 @@ async function sendMeeting({ poll, slot, recipients, ownerId, sequence, cancel =
           ? `The “${poll.title}” meeting series has been cancelled.`
           : `The meeting “${poll.title}” has been cancelled.`,
       ]
+    : update
+    ? [
+        `${rec ? 'La serie di riunioni' : 'La riunione'} “${
+          poll.title
+        }” è stata aggiornata: ${whenText}.` +
+          (poll.location ? `\nDove: ${poll.location}` : '') +
+          '\n\nL’invito aggiornato è allegato: aprilo e il tuo calendario sostituisce quello di prima.',
+        `“${poll.title}” has changed: the time above is the current one. The updated invitation is attached: open it and your calendar replaces the previous one.`,
+        from.name ? `— ${from.name}` : null,
+      ].filter(Boolean)
     : [
         `${from.name ? `${from.name} ha fissato` : 'È stata fissata'} ${
           rec ? 'la serie di riunioni' : 'la riunione'
