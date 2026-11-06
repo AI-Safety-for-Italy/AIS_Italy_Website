@@ -21,6 +21,8 @@
   var catalog = []; // the source's questions: [{ id, label, type }]
   var draft = null;
   var savedDraft = ''; // the draft as saved: the setup is unsaved while they differ
+  // 1: which question goes in which section; 2: each section's grid and reviewers.
+  var step = 1;
 
   var TYPES = {
     short_text: 'Short text',
@@ -153,6 +155,58 @@
     );
   }
 
+  function newSection(label, questions) {
+    return {
+      label: label,
+      prefix: '',
+      note: '',
+      anonymous: true,
+      weight: 1,
+      reviewers: [],
+      gridMode: 'section',
+      questions: questions || [],
+      criteria: copy(data.defaults.criteria.answers),
+      questionGrids: {},
+    };
+  }
+
+  function indexIn(id) {
+    for (var i = 0; i < catalog.length; i++) if (catalog[i].id === id) return i;
+    return catalog.length;
+  }
+
+  /** Puts a question in a section, where the form has it among the others there. */
+  function addTo(s, id) {
+    if (s.questions.indexOf(id) !== -1) return;
+    var at = s.questions.length;
+    for (var i = 0; i < s.questions.length; i++) {
+      if (indexIn(s.questions[i]) > indexIn(id)) {
+        at = i;
+        break;
+      }
+    }
+    s.questions.splice(at, 0, id);
+    if (s.gridMode === 'question') s.questionGrids[id] = [];
+  }
+
+  function takeFrom(s, id) {
+    var i = s.questions.indexOf(id);
+    if (i !== -1) s.questions.splice(i, 1);
+    delete s.questionGrids[id];
+  }
+
+  function removeSection(s) {
+    if (
+      s.key &&
+      !window.confirm(
+        'Remove the section “' + s.label + '”? Its scores are kept, but no longer count nor show.'
+      )
+    )
+      return;
+    draft.sections.splice(draft.sections.indexOf(s), 1);
+    render();
+  }
+
   // ── Criteria ─────────────────────────────────────────────────────────────
 
   function criterionRow(list, c, rerender) {
@@ -270,6 +324,7 @@
         draft.formId = q.formId;
         draft.nameQuestion = q.nameQuestion;
         draft.sections = q.sections;
+        step = 1;
         render();
         M.toast('Questions imported: check the sections, then save');
       }
@@ -530,29 +585,6 @@
         );
       })
     );
-    var addable = catalog.filter(function (q) {
-      return s.questions.indexOf(q.id) === -1;
-    });
-    var taken = used();
-    var addPick = h(
-      'select',
-      { class: 'form-input is-compact', 'aria-label': 'Question to add' },
-      h('option', { value: '' }, addable.length ? 'Add a question…' : 'Every question is here'),
-      addable.map(function (q) {
-        return h(
-          'option',
-          { value: q.id },
-          q.label + (taken[q.id] ? ' (also in another section)' : '')
-        );
-      })
-    );
-    addPick.onchange = function () {
-      if (!addPick.value) return;
-      s.questions.push(addPick.value);
-      if (perQuestion) s.questionGrids[addPick.value] = [];
-      rerender();
-    };
-
     // Who scores it: none ticked, everyone.
     var who = h(
       'div',
@@ -614,17 +646,7 @@
           smallButton(
             'Remove',
             function () {
-              if (
-                s.key &&
-                !window.confirm(
-                  'Remove the section “' +
-                    s.label +
-                    '”? Its scores are kept, but no longer count nor show.'
-                )
-              )
-                return;
-              draft.sections.splice(draft.sections.indexOf(s), 1);
-              rerender();
+              removeSection(s);
             },
             { disabled: draft.sections.length <= 1, aria: 'Remove the section' }
           )
@@ -641,11 +663,14 @@
         )
       ),
       note,
-      h('h4', { class: 'rv-sub' }, 'Questions shown'),
+      h('h4', { class: 'rv-sub' }, 'Questions shown, in this order'),
       s.questions.length
         ? questions
-        : h('p', { class: 'form-error', style: 'margin:0' }, 'Pick at least one question.'),
-      h('div', { class: 'rv-add' }, addPick),
+        : h(
+            'p',
+            { class: 'form-error', style: 'margin:0' },
+            'No question yet: give it some in step 1.'
+          ),
       h('h4', { class: 'rv-sub' }, 'Grid'),
       h(
         'div',
@@ -672,21 +697,193 @@
     );
   }
 
-  function setupPanel() {
-    var error = h('p', { class: 'form-error', role: 'alert', hidden: true });
-    var body = h('div');
-    function rerender() {
-      // Redraw the whole page: the source panel lists what no section shows.
-      render();
-    }
-    draft.sections.forEach(function (s, i) {
-      body.appendChild(sectionCard(s, i, rerender));
+  // ── Step 1: which question goes where ───────────────────────────────────
+
+  // A matrix: the questions down, the sections across. A tick shows the
+  // question in that section; a row with no tick is shown to no one.
+  function assignBody() {
+    var left = catalog.filter(function (q) {
+      return !used()[q.id];
     });
+    var full = draft.sections.length >= data.limits.sections;
+    var heads = draft.sections.map(function (s) {
+      var name = h('input', {
+        class: 'form-input is-compact',
+        value: s.label,
+        maxlength: '40',
+        'aria-label': 'Name of the section',
+        oninput: function () {
+          s.label = name.value;
+        },
+      });
+      return h(
+        'th',
+        { class: 'rv-matrix-sec' },
+        h(
+          'div',
+          { class: 'rv-matrix-head' },
+          name,
+          smallButton(
+            '×',
+            function () {
+              removeSection(s);
+            },
+            {
+              icon: true,
+              aria: 'Remove the section ' + s.label,
+              disabled: draft.sections.length <= 1,
+            }
+          )
+        ),
+        h(
+          'small',
+          null,
+          s.questions.length + (s.questions.length === 1 ? ' question' : ' questions')
+        )
+      );
+    });
+    var rows = catalog.map(function (q) {
+      var shown = used()[q.id];
+      return h(
+        'tr',
+        { class: shown ? '' : 'is-left' },
+        h(
+          'th',
+          { scope: 'row' },
+          q.label,
+          h('small', null, TYPES[q.type] || q.type),
+          q.id === draft.nameQuestion ? h('small', null, ' · the name') : null
+        ),
+        draft.sections.map(function (s) {
+          var box = h('input', {
+            type: 'checkbox',
+            'aria-label': 'Show “' + q.label + '” in ' + s.label,
+            onchange: function () {
+              if (box.checked) addTo(s, q.id);
+              else takeFrom(s, q.id);
+              render();
+            },
+          });
+          box.checked = s.questions.indexOf(q.id) !== -1;
+          return h('td', null, h('label', { class: 'rv-matrix-cell' }, box));
+        }),
+        h('td', { class: 'rv-matrix-left' }, shown ? '' : 'Not shown')
+      );
+    });
+    return h(
+      'div',
+      { class: 'form-grid' },
+      h(
+        'p',
+        { class: 'panel-note', style: 'margin:0' },
+        'Tick where each question is shown: each section is a tab the reviewers score apart, under a code of its own. A question can go in more than one section; one with no tick is shown to no one (an email, a phone number, practical details).'
+      ),
+      h(
+        'div',
+        { class: 'rv-matrix-tools' },
+        smallButton(
+          'Add an empty section',
+          function () {
+            draft.sections.push(newSection('Section ' + (draft.sections.length + 1)));
+            render();
+          },
+          { disabled: full }
+        ),
+        smallButton(
+          'New section from the ' +
+            left.length +
+            (left.length === 1 ? ' question' : ' questions') +
+            ' not shown',
+          function () {
+            var s = newSection('Section ' + (draft.sections.length + 1));
+            left.forEach(function (q) {
+              addTo(s, q.id);
+            });
+            draft.sections.push(s);
+            render();
+          },
+          { disabled: full || !left.length }
+        )
+      ),
+      catalog.length
+        ? h(
+            'div',
+            { class: 'rv-matrix-wrap' },
+            h(
+              'table',
+              { class: 'rv-matrix' },
+              h('thead', null, h('tr', null, h('th', null, 'Question'), heads, h('th', null, ''))),
+              h('tbody', null, rows)
+            )
+          )
+        : h('p', { class: 'form-note' }, 'No questions: import them from a form above.')
+    );
+  }
+
+  // ── Step 2: each section ────────────────────────────────────────────────
+
+  function sectionsBody() {
+    return h(
+      'div',
+      { class: 'form-grid' },
+      h(
+        'p',
+        { class: 'panel-note', style: 'margin:0' },
+        'Each criterion is scored from 1 (weak) to 5 (excellent); a review’s total is the weighted mean of its criteria, the overall score the weighted mean of the sections. Changing the setup recomputes the summary; a criterion or section removed no longer counts, its scores are kept.'
+      ),
+      draft.sections.map(function (s, i) {
+        return sectionCard(s, i, render);
+      })
+    );
+  }
+
+  function stepper() {
+    function tab(n, text) {
+      return h(
+        'button',
+        {
+          type: 'button',
+          role: 'tab',
+          'aria-selected': String(step === n),
+          onclick: function () {
+            step = n;
+            render();
+          },
+        },
+        text
+      );
+    }
+    return h(
+      'div',
+      { class: 'fr-views rv-steps', role: 'tablist', 'aria-label': 'Steps' },
+      tab(1, '1 · Questions → sections'),
+      tab(2, '2 · Grids and reviewers')
+    );
+  }
+
+  function editorPanel() {
+    var error = h('p', { class: 'form-error', role: 'alert', hidden: true });
     var save = h(
       'button',
       { type: 'submit', class: 'btn btn-primary btn-sm rv-setup-save' },
       'Save the setup'
     );
+    var next =
+      step === 1
+        ? h(
+            'button',
+            {
+              type: 'button',
+              class: 'btn btn-outline btn-sm',
+              onclick: function () {
+                step = 2;
+                render();
+                root.scrollIntoView();
+              },
+            },
+            'Next: grids and reviewers →'
+          )
+        : null;
     return h(
       'form',
       {
@@ -709,38 +906,11 @@
             });
         },
       },
-      h('div', { class: 'panel-head', style: 'margin:0' }, h('h2', null, '2. Sections and grids')),
-      h(
-        'p',
-        { class: 'panel-note', style: 'margin:0' },
-        'Each section is a tab the reviewers score apart, under a code of its own, so nobody can match one section with another. Each criterion is scored from 1 (weak) to 5 (excellent); a review’s total is the weighted mean of its criteria, the overall score the weighted mean of the sections. Changing the setup recomputes the summary; a criterion or section removed no longer counts, its scores are kept.'
-      ),
-      body,
-      h(
-        'div',
-        null,
-        smallButton(
-          'Add a section',
-          function () {
-            draft.sections.push({
-              label: 'Section ' + (draft.sections.length + 1),
-              prefix: '',
-              note: '',
-              anonymous: true,
-              weight: 1,
-              reviewers: [],
-              gridMode: 'section',
-              questions: [],
-              criteria: copy(data.defaults.criteria.answers),
-              questionGrids: {},
-            });
-            rerender();
-          },
-          { disabled: draft.sections.length >= data.limits.sections }
-        )
-      ),
+      h('div', { class: 'panel-head', style: 'margin:0' }, h('h2', null, '2. Sections')),
+      stepper(),
+      step === 1 ? assignBody() : sectionsBody(),
       error,
-      h('div', { class: 'rv-save-bar' }, save)
+      h('div', { class: 'rv-save-bar' }, save, next)
     );
   }
 
@@ -848,7 +1018,7 @@
     var y = window.scrollY;
     M.clear(root);
     root.appendChild(
-      h('div', { class: 'rv-settings' }, sourcePanel(), setupPanel(), reviewersPanel())
+      h('div', { class: 'rv-settings' }, sourcePanel(), editorPanel(), reviewersPanel())
     );
     window.scrollTo(0, y);
   }

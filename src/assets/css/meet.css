@@ -9794,6 +9794,138 @@ a.hub-todo-card:hover {
   gap: 4px 16px;
 }
 
+.rv-steps {
+  flex-wrap: wrap;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0;
+}
+
+.rv-matrix-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.rv-matrix-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius-sm);
+}
+
+.rv-matrix {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.rv-matrix th,
+.rv-matrix td {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border-muted);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.rv-matrix tbody tr:last-child > * {
+  border-bottom: 0;
+}
+
+.rv-matrix thead th {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-tertiary);
+  vertical-align: bottom;
+}
+
+.rv-matrix tbody th {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  min-width: 200px;
+  max-width: 340px;
+  background: var(--card-bg);
+  font-weight: 500;
+}
+
+.rv-matrix tbody th small {
+  display: block;
+  color: var(--text-tertiary);
+  font-weight: 400;
+}
+
+.rv-matrix tbody th small + small {
+  display: inline;
+}
+
+.rv-matrix-sec {
+  min-width: 170px;
+  text-align: center !important;
+}
+
+.rv-matrix-sec small {
+  display: block;
+  margin-top: 4px;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.rv-matrix-head {
+  display: flex;
+  gap: 4px;
+}
+
+.rv-matrix-head input {
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--text-primary);
+}
+
+.rv-matrix td:has(.rv-matrix-cell) {
+  padding: 0;
+  text-align: center;
+}
+
+.rv-matrix-cell {
+  display: grid;
+  place-items: center;
+  min-height: 40px;
+  cursor: pointer;
+}
+
+.rv-matrix-cell:hover {
+  background: var(--bg-overlay);
+}
+
+.rv-matrix-cell input {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+.rv-matrix tr.is-left th {
+  color: var(--text-tertiary);
+}
+
+.rv-matrix-left {
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.rv-save-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .rv-save-bar {
   position: sticky;
   bottom: 0;

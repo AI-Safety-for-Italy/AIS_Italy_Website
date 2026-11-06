@@ -1038,7 +1038,8 @@ async function questionsOf(formId) {
   const seen = new Set();
   rows.forEach(({ schema }) => {
     schemaLib.answerable(schema).forEach((item) => {
-      if (seen.has(item.id)) return;
+      // A consent ticked is nothing to review.
+      if (seen.has(item.id) || item.type === 'consent') return;
       seen.add(item.id);
       out.push({
         id: item.id,
