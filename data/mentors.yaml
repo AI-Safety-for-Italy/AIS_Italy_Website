@@ -43,7 +43,9 @@ research_areas:
     label: 'Careers in AI safety'
     label_it: "Carriere nell'AI safety"
 
-# One entry per mentor, shown in this order.
+# One entry per mentor. The site shows them in the order set on the board
+# (Mentorship > Site order); without one, by surname. Co-mentors always follow
+# the one who wrote the project.
 #
 #   id            unique, lowercase-with-dashes: the profile's link is
 #                 /mentorship/#<id>

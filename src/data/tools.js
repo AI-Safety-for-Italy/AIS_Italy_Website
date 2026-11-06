@@ -125,6 +125,7 @@ module.exports = [
       { key: 'mentors', label: 'Mentors', url: '/app/crm/#mentors' },
       { key: 'mentees', label: 'Mentees', url: '/app/crm/#mentees' },
       { key: 'pairs', label: 'Pairs', url: '/app/crm/#pairs' },
+      { key: 'order', label: 'Site order', url: '/app/crm/order/' },
       { key: 'settings', label: 'Sheets', url: '/app/crm/settings/', needs: 'crm_admin' },
     ],
     actions: [],

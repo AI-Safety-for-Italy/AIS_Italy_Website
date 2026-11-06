@@ -1,8 +1,10 @@
 {# "Mentors and projects" on the mentorship page: a filterable grid of mentor
-   cards, each opening a dialog with the full project. Data in data/mentors.yaml,
-   track names from `tracks` in data/mentorship.yaml. Filtering, the "show all"
-   button and the dialogs are initMentorExplorer in main.js; without it every
-   card is listed and a card's link scrolls to its profile.
+   cards, one track at a time, each opening a dialog with the full project. Data
+   in data/mentors.yaml, track names from `tracks` in data/mentorship.yaml. The
+   cards come in the order of mentorsBuild.arrange (server/mentors-build.js).
+   Filtering, sorting, the "show all" button and the dialogs are
+   initMentorExplorer in main.js; without it every card is listed and a card's
+   link scrolls to its profile.
    Co-mentors are separate entries that list each other in `co_mentors`; one
    of them writes the project and the others take it from there (projectOf in
    .eleventy.js).
@@ -85,11 +87,19 @@
                     </label>
                     <span class="sr-only" id="mentor-filter-track" data-en="Track" data-it="Percorso">Track</span>
                     <div class="mentor-segmented" role="group" aria-labelledby="mentor-filter-track">
-                        <button type="button" class="mentor-segment" data-mentor-track="" aria-pressed="true" data-en="All tracks" data-it="Tutti i percorsi">All tracks</button>
                         {% for t in m.tracks %}
-                        <button type="button" class="mentor-segment" data-mentor-track="{{ t.id }}" aria-pressed="false" data-en="{{ t.title }}" data-it="{{ t.title_it }}">{{ t.title }}</button>
+                        <button type="button" class="mentor-segment" data-mentor-track="{{ t.id }}" aria-pressed="{{ 'true' if loop.first else 'false' }}" data-en="{{ t.tab }}" data-it="{{ t.tab_it }}">{{ t.tab }}</button>
                         {% endfor %}
                     </div>
+                    <label class="mentor-sort">
+                        <span class="sr-only" data-en="Sort by" data-it="Ordina per">Sort by</span>
+                        <select data-mentor-sort>
+                            <option value="" data-en="Suggested order" data-it="Ordine consigliato">Suggested order</option>
+                            <option value="name" data-en="Name A–Z" data-it="Nome A–Z">Name A–Z</option>
+                            <option value="project" data-en="Project A–Z" data-it="Progetto A–Z">Project A–Z</option>
+                            <option value="organisation" data-en="Organisation A–Z" data-it="Ente A–Z">Organisation A–Z</option>
+                        </select>
+                    </label>
                 </div>
 
                 <span class="sr-only" id="mentor-filter-area" data-en="Research area" data-it="Area di ricerca">Research area</span>
@@ -112,7 +122,9 @@
                 {% set previewIt = p.summary_it or p.description_it if p else "" %}
                 {% set hasProject = p and (p.title or p.title_it or previewEn or previewIt) %}
                 {% set hasBody = mt.tracks or hasProject or hasOrientation %}
-                <article class="mentor-card" data-mentor="{{ mt.id }}" data-tracks="{{ (mt.tracks or []) | join(' ') }}" data-areas="{{ (mt.areas or []) | join(' ') }}"
+                {# A mentor with no track yet stays on the site, under projects. #}
+                <article class="mentor-card" data-mentor="{{ mt.id }}" data-tracks="{{ (mt.tracks or []) | join(' ') or 'projects' }}" data-areas="{{ (mt.areas or []) | join(' ') }}"
+                    data-sort-name="{{ mt.name }}" data-sort-project="{{ p.title }}" data-sort-project-it="{{ p.title_it or p.title }}" data-sort-organisation="{{ mt.affiliation }}"
                     data-search="{{ [mt.name, mt.affiliation, mt.role, mt.role_it, p.title, p.title_it, p.summary, p.summary_it, mt.orientation, mt.orientation_it] | join(' ') | lower }}">
                     {% if mt.co_mentors %}
                     <span class="mentor-co-badge">Co-mentor</span>

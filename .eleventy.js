@@ -410,7 +410,9 @@ module.exports = function(eleventyConfig) {
         return localGroupsBuild.community(withGroups, await localGroupsBuild.load());
       }
       if (filename === 'mentors.yaml') {
-        return mentorsBuild.merge(data, await (mentorsPublished || mentorsBuild.load()));
+        const published = await (mentorsPublished || mentorsBuild.load());
+        const merged = mentorsBuild.merge(data, published);
+        return { ...merged, mentors: mentorsBuild.arrange(merged.mentors, published.order) };
       }
       return data;
     });
