@@ -13,7 +13,7 @@ eleventyExcludeFromCollections: true
 seoTitle: 'Calendar | AI Safety for Italy'
 ---
 {% extends "app.njk" %}
-{% block actions %}<button type="button" class="btn btn-primary btn-sm" id="calNewTop" hidden>+ New event</button>{% endblock %}
+{% block actions %}<a class="btn btn-outline btn-sm" id="calFindTime" href="/app/polls/new/" title="Propose some times in a meeting poll; the one chosen lands in the calendar">Find a time</a> <button type="button" class="btn btn-primary btn-sm" id="calNewTop" hidden>+ New event</button>{% endblock %}
 {% block page %}
 <div class="cal-app" id="calApp">
   <aside class="cal-side" aria-label="Calendars">
@@ -84,6 +84,7 @@ seoTitle: 'Calendar | AI Safety for Italy'
       </button>
     </div>
     <div class="cal-editor-body form-grid">
+      <p class="notice cal-tune-note" id="evTuneNote" hidden style="margin:0"><span>ℹ</span><span>The meeting of a poll: its time, title, place and description change in the poll (<a id="evTuneLink" href="#">open it</a>). Here, the calendar's own: reminders, announcements and a Discord channel.</span></p>
       <div>
         <label class="form-label" for="evTitle">Title</label>
         <input class="form-input cal-title-input" id="evTitle" required maxlength="200" placeholder="Add a title" autocomplete="off">
@@ -149,9 +150,21 @@ seoTitle: 'Calendar | AI Safety for Italy'
         <textarea class="form-input is-compact" id="evDescription" rows="4" maxlength="8000" placeholder="Agenda, links, what to prepare…"></textarea>
       </div>
 
+      <fieldset class="cal-fieldset" id="evInviteSet">
+        <legend class="form-label">Invite people</legend>
+        <p class="form-note cal-fieldset-note">They see the event and answer Going, Maybe or Can’t go, even without seeing this calendar. Those invited see who else comes.</p>
+        <div class="cal-inv-picked" id="evInvPicked"></div>
+        <div class="cal-inv-search">
+          <input class="form-input is-compact" id="evInvSearch" type="search" autocomplete="off" placeholder="Add a member by name…" aria-label="Search a member to invite" data-unsaved-ignore>
+          <div class="cal-inv-results" id="evInvResults" role="listbox" hidden></div>
+        </div>
+        <textarea class="form-input is-compact" id="evInvEmails" rows="2" placeholder="Anyone else, by email: anna@example.org, marco@example.org" aria-label="Emails to invite"></textarea>
+        <label class="check-row"><input type="checkbox" id="evInvSend" checked><span>Email the invite to the new ones when I save <span class="panel-note">(with Going / Maybe / Can’t go)</span></span></label>
+      </fieldset>
+
       <fieldset class="cal-fieldset">
-        <legend class="form-label">Reminders</legend>
-        <p class="form-note cal-fieldset-note">Sent to whoever follows this calendar with notifications on, and to whoever answers going or maybe.</p>
+        <legend class="form-label">Reminders for everyone</legend>
+        <p class="form-note cal-fieldset-note">The event’s reminders: for whoever follows this calendar’s reminders, whoever answers going or maybe, and whoever is invited. Each person can turn them off, or add their own, on their side.</p>
         <div class="cal-rows" id="evReminders"></div>
         <button type="button" class="btn btn-outline btn-sm cal-add" id="evAddReminder">+ Add a reminder</button>
       </fieldset>

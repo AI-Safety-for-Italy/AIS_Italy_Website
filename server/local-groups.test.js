@@ -259,7 +259,10 @@ test('the board as CSV: one row per group, formulas kept as text, for the board 
   await localGroups.saveGroup(board, { city: 'Bergamo', notes: '=1+1' });
   const { filename, csv } = await localGroups.exportCsv(board);
   assert.match(filename, /^local-groups-\d{4}-\d{2}-\d{2}\.csv$/);
-  const lines = csv.replace(/^\ufeff/, '').trim().split('\r\n');
+  const lines = csv
+    .replace(/^\ufeff/, '')
+    .trim()
+    .split('\r\n');
   assert.equal(lines[0], 'City,Status,Leads,Emails,Phones,WhatsApp,On the site,Notes,Last changed');
   assert.equal(lines.length, 10);
   assert.ok(lines.find((l) => l.startsWith('Bergamo,')).includes("'=1+1"));

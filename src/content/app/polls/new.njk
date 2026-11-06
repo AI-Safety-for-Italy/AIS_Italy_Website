@@ -6,6 +6,7 @@ excludeFromSitemap: true
 eleventyExcludeFromCollections: true
 seoTitle: 'New poll | AI Safety for Italy'
 tool: polls
+wide: true
 ---
 {% extends "app.njk" %}
 {% block page %}
@@ -60,6 +61,11 @@ tool: polls
             <textarea class="form-input is-compact is-short" id="invitees" placeholder="anna@example.org, marco@example.org"></textarea>
             <p class="form-note" style="margin-top:.4rem">Each gets a personal link by email.</p>
           </div>
+          <div id="calendarRow" hidden>
+            <label class="form-label" for="calendarPick">When a time is chosen, add it to <span class="panel-note">(optional)</span></label>
+            <select class="form-input is-compact" id="calendarPick"><option value="">My calendar (private)</option></select>
+            <p class="form-note" style="margin-top:.4rem">The meeting lands there for whoever sees that calendar; in My calendar, only you and the people you email the invite to see it. The invite by email stays yours to send.</p>
+          </div>
           <label class="check-row">
             <input type="checkbox" id="hideResponses" name="hideResponses">
             <span>Hide answers from participants</span>
@@ -79,7 +85,13 @@ tool: polls
               <button type="button" class="icon-btn" id="wkNext" aria-label="Next days"></button>
             </div>
           </div>
-          <p class="wk-hint">Click or drag to add times, even overlapping ones · × removes a time</p>
+          <div class="wk-hint-row">
+            <p class="wk-hint">Click or drag to add times, even overlapping ones · × removes a time</p>
+            <label class="check-row wk-busy-toggle" id="busyToggle" hidden>
+              <input type="checkbox" id="showBusy" checked>
+              <span>Show my calendar</span>
+            </label>
+          </div>
           <div class="wk" id="wk"></div>
           <div class="slot-summary" id="slotSummary"></div>
         </div>

@@ -30,7 +30,14 @@
     days: 7,
     start: null,
     slots: new Set(),
+    // The events of the calendars this member shows, around the visible days,
+    // so the times picked go around them: [{ startMs, endMs, allDay, title, color }].
+    busy: [],
+    busyRange: '',
+    showBusy: true,
   };
+  // From the calendar's "Find a time": ?title=…&duration=…&calendar=…
+  var asked = new URLSearchParams(window.location.search);
 
   document.getElementById('wkPrev').appendChild(M.icon('left'));
   document.getElementById('wkNext').appendChild(M.icon('right'));
@@ -239,7 +246,14 @@
             },
             h('span', { class: 'wd' }, dateFmt(date, { weekday: 'short' })),
             h('span', { class: 'dn' }, dateFmt(date, { day: 'numeric' })),
-            h('span', { class: 'count' }, n ? n + (n === 1 ? ' slot' : ' slots') : '')
+            h('span', { class: 'count' }, n ? n + (n === 1 ? ' slot' : ' slots') : ''),
+            allDayOn(date).map(function (b) {
+              return h(
+                'span',
+                { class: 'wk-allday', title: b.title, style: '--busy:' + b.color },
+                b.title
+              );
+            })
           );
         })
       )
@@ -256,6 +270,9 @@
         class:
           'wk-day' + (date < todayDate ? ' is-past' : '') + (date === todayDate ? ' is-today' : ''),
         'data-index': index,
+      });
+      busyOn(date).forEach(function (b) {
+        col.appendChild(busyBlock(b));
       });
       layoutLanes(slotsOn(date)).forEach(function (s) {
         col.appendChild(slotBlock(s));
@@ -278,17 +295,132 @@
     else scrollToHour(8);
 
     renderSummary();
+    loadBusy(dates);
   }
+
+  // ── What this member already has ───────────────────────────────────────────
+
+  function loadBusy(dates) {
+    if (!state.showBusy) return;
+    var from = M.zonedToUtc(M.addDays(dates[0], -1), 0, state.tz);
+    var to = M.zonedToUtc(M.addDays(dates[dates.length - 1], 2), 0, state.tz);
+    var key = from + '-' + to;
+    if (state.busyRange === key) return;
+    state.busyRange = key;
+    M.api(
+      'GET',
+      '/api/app/polls?busy=1&from=' +
+        encodeURIComponent(new Date(from).toISOString()) +
+        '&to=' +
+        encodeURIComponent(new Date(to).toISOString())
+    )
+      .then(function (r) {
+        if (state.busyRange !== key) return;
+        state.busy = r.busy.map(function (b) {
+          return {
+            startMs: new Date(b.start).getTime(),
+            endMs: new Date(b.end).getTime(),
+            allDay: b.allDay,
+            title: b.title,
+            color: b.color || 'var(--text-tertiary)',
+          };
+        });
+        document.getElementById('busyToggle').hidden = false;
+        render();
+      })
+      .catch(function () {
+        // Without the calendar, times are picked as before.
+      });
+  }
+
+  function dayBounds(date) {
+    return {
+      from: M.zonedToUtc(date, 0, state.tz),
+      to: M.zonedToUtc(M.addDays(date, 1), 0, state.tz),
+    };
+  }
+
+  /** The timed events on a day, as minutes in the poll's time zone. */
+  function busyOn(date) {
+    if (!state.showBusy) return [];
+    var day = dayBounds(date);
+    return state.busy
+      .filter(function (b) {
+        return !b.allDay && b.endMs > day.from && b.startMs < day.to;
+      })
+      .map(function (b) {
+        var start = Math.max(b.startMs, day.from);
+        var end = Math.min(b.endMs, day.to);
+        return {
+          title: b.title,
+          color: b.color,
+          time:
+            M.fmtTime(new Date(b.startMs).toISOString(), state.tz) +
+            '–' +
+            M.fmtTime(new Date(b.endMs).toISOString(), state.tz),
+          top: (start - day.from) / 60000,
+          length: Math.max(15, (end - start) / 60000),
+        };
+      });
+  }
+
+  function allDayOn(date) {
+    if (!state.showBusy) return [];
+    var day = dayBounds(date);
+    return state.busy.filter(function (b) {
+      return b.allDay && b.endMs > day.from && b.startMs < day.to;
+    });
+  }
+
+  function busyBlock(b) {
+    return h(
+      'div',
+      {
+        class: 'wk-busy',
+        title: b.title + ' · ' + b.time,
+        style:
+          '--busy:' +
+          b.color +
+          ';top:' +
+          (b.top / 1440) * 100 +
+          '%;height:calc(' +
+          (b.length / 1440) * 100 +
+          '% - 2px)',
+      },
+      h('span', null, b.title),
+      b.length >= 40 ? h('small', null, b.time) : null
+    );
+  }
+
+  /** The events a time would clash with: their titles. */
+  function clashes(ms) {
+    if (!state.showBusy) return [];
+    var end = ms + state.duration * 60000;
+    return state.busy
+      .filter(function (b) {
+        return !b.allDay && b.startMs < end && b.endMs > ms;
+      })
+      .map(function (b) {
+        return b.title;
+      });
+  }
+
+  document.getElementById('showBusy').addEventListener('change', function (e) {
+    state.showBusy = e.target.checked;
+    if (state.showBusy) state.busyRange = '';
+    render();
+  });
 
   function slotBlock(s) {
     var width = 100 / s.lanes;
     var label = M.hhmm(s.minutes) + '–' + M.hhmm(s.minutes + state.duration);
+    var clash = clashes(s.ms);
     // The block itself lets clicks through to the grid (see .wk-slot in
     // meet.css), so a new slot can start inside it; only the × removes it.
     return h(
       'div',
       {
-        class: 'wk-slot',
+        class: 'wk-slot' + (clash.length ? ' is-clash' : ''),
         style:
           'top:' +
           (s.minutes / 1440) * 100 +
@@ -299,7 +431,7 @@
             ? 'left:calc(' + s.lane * width + '% + 2px);right:auto;width:calc(' + width + '% - 4px)'
             : ''),
       },
-      label,
+      (clash.length ? '⚠ ' : '') + label,
       h(
         'button',
         {
@@ -320,7 +452,8 @@
   }
 
   function scrollToHour(hour) {
-    if (scroller) scroller.scrollTop = Math.max(0, hour) * hourPx();
+    // A little above the hour, so its label is not cut.
+    if (scroller) scroller.scrollTop = Math.max(0, hour - 0.3) * hourPx();
   }
 
   function renderSummary() {
@@ -359,10 +492,17 @@
               null,
               g.slots.map(function (s) {
                 var end = new Date(s.ms + state.duration * 60000).toISOString();
+                var clash = clashes(s.ms);
                 return h(
                   'span',
-                  { class: 'slot-chip' },
-                  M.fmtTime(s.start, state.tz) + '–' + M.fmtTime(end, state.tz),
+                  {
+                    class: 'slot-chip' + (clash.length ? ' is-clash' : ''),
+                    title: clash.length ? 'At the same time as: ' + clash.join(', ') : null,
+                  },
+                  (clash.length ? '⚠ ' : '') +
+                    M.fmtTime(s.start, state.tz) +
+                    '–' +
+                    M.fmtTime(end, state.tz),
                   h(
                     'button',
                     {
@@ -526,6 +666,7 @@
       notify: form.notify.checked,
       inviteOnly: inviteOnly(),
       invitees: inviteOnly() ? document.getElementById('invitees').value : undefined,
+      calendarId: document.getElementById('calendarPick').value || null,
       slots: Array.from(state.slots).map(function (ms) {
         return new Date(ms).toISOString();
       }),
@@ -586,8 +727,32 @@
   });
 
   M.me.then(function () {
-    setDuration(60);
+    var minutes = Math.round(Number(asked.get('duration')));
+    setDuration(minutes >= 5 && minutes <= 1440 ? minutes : 60);
+    if (asked.get('title')) form.title.value = asked.get('title').slice(0, 200);
   });
+
+  // The calendars the meeting can land in: those this member adds to.
+  Promise.all([M.me, M.api('GET', '/api/app/polls?calendars=1')])
+    .then(function (r) {
+      var list = r[1].calendars;
+      if (!list.length) return;
+      var pick = document.getElementById('calendarPick');
+      list.forEach(function (c) {
+        // My calendar is the first choice already ("").
+        if (!c.personal) pick.appendChild(h('option', { value: c.id }, c.name));
+      });
+      if (
+        list.some(function (c) {
+          return c.id === asked.get('calendar');
+        })
+      )
+        pick.value = asked.get('calendar');
+      document.getElementById('calendarRow').hidden = false;
+    })
+    .catch(function () {
+      // No calendar to offer: the poll works without.
+    });
   Promise.all([M.me, M.api('GET', '/api/app/settings')])
     .then(function (r) {
       if (r[1].mail.configured) return;

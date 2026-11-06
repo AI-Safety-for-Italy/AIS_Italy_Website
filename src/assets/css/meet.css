@@ -498,6 +498,20 @@ textarea.form-input.is-short {
   margin-top: 0;
 }
 
+/* A field never makes its column wider than the panel (a select sizes
+   itself to its longest option otherwise). */
+.create-layout .form-grid > *,
+.create-layout .form-grid select {
+  min-width: 0;
+  max-width: 100%;
+}
+
+@media (min-width: 1400px) {
+  .create-layout {
+    grid-template-columns: 340px minmax(0, 1fr);
+  }
+}
+
 .chip-group {
   display: flex;
   flex-wrap: wrap;
@@ -616,6 +630,9 @@ textarea.form-input.is-short {
 .wk-head {
   display: grid;
   grid-template-columns: var(--wk-gutter) repeat(var(--wk-days), minmax(0, 1fr));
+  /* The same room for a scroll bar as the grid below, so the days line up. */
+  overflow-y: hidden;
+  scrollbar-gutter: stable;
   border-bottom: 1px solid var(--border-default);
   background: var(--card-bg);
 }
@@ -669,8 +686,9 @@ textarea.form-input.is-short {
 }
 
 .wk-scroll {
-  height: min(560px, 62vh);
+  height: min(620px, 66vh);
   overflow-y: auto;
+  scrollbar-gutter: stable;
   overscroll-behavior: contain;
 }
 
@@ -764,6 +782,118 @@ textarea.form-input.is-short {
   /* Clicks go through to the grid, so a new slot can start inside this one
      (overlapping slots); only the × catches them. */
   pointer-events: none;
+}
+
+/* The calendar a poll's meeting lands in (poll-admin.js) */
+.poll-cal {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.poll-cal-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+
+.poll-cal-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 0.6rem;
+}
+
+.poll-cal-pick {
+  width: auto;
+  max-width: 240px;
+}
+
+/* The events this member already has, under the times picked (poll-new.js) */
+.wk-busy {
+  position: absolute;
+  left: 3px;
+  right: 3px;
+  z-index: 1;
+  padding: 0.2rem 0.4rem;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--busy) 35%, transparent);
+  border-left: 3px solid var(--busy);
+  border-radius: 5px;
+  background: repeating-linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--busy) 14%, var(--card-bg)),
+    color-mix(in srgb, var(--busy) 14%, var(--card-bg)) 6px,
+    color-mix(in srgb, var(--busy) 8%, var(--card-bg)) 6px,
+    color-mix(in srgb, var(--busy) 8%, var(--card-bg)) 12px
+  );
+  color: var(--text-primary);
+  font-size: 0.7rem;
+  line-height: 1.25;
+  pointer-events: none;
+}
+
+.wk-busy small {
+  display: block;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+}
+
+.wk-busy span {
+  display: block;
+  overflow: hidden;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.wk-slot.is-clash {
+  background: repeating-linear-gradient(
+    135deg,
+    var(--accent),
+    var(--accent) 6px,
+    color-mix(in srgb, var(--accent) 75%, #000) 6px,
+    color-mix(in srgb, var(--accent) 75%, #000) 12px
+  );
+}
+
+.slot-chip.is-clash {
+  border-color: var(--warning, #b45309);
+}
+
+.wk-allday {
+  display: block;
+  max-width: 100%;
+  margin-top: 2px;
+  padding: 0 4px;
+  overflow: hidden;
+  border-left: 2px solid var(--busy);
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--busy) 12%, transparent);
+  color: var(--text-secondary);
+  font-size: 0.62rem;
+  font-weight: 500;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.wk-hint-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.wk-hint-row .wk-hint {
+  margin: 0;
+}
+
+.wk-busy-toggle {
+  font-size: 0.8rem;
 }
 
 [data-theme='dark'] .wk-slot {
@@ -14949,4 +15079,352 @@ dialog.cal-editor[open] {
 
 .hub-cal-back:hover {
   background: var(--bg-overlay);
+}
+
+/* /rsvp/: answering an invite from its email (rsvp.js) */
+.rsvp-panel {
+  display: grid;
+  gap: 14px;
+  max-width: 640px;
+}
+
+.rsvp-panel h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.rsvp-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--accent) 8%, var(--card-bg));
+}
+
+.rsvp-saved {
+  margin: 0;
+}
+
+.rsvp-buttons {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.rsvp-btn {
+  display: grid;
+  gap: 2px;
+  padding: 12px 8px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--card-bg);
+  color: var(--text-primary);
+  font: inherit;
+  cursor: pointer;
+}
+
+.rsvp-btn small {
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+.rsvp-btn:hover {
+  border-color: var(--accent-300);
+}
+
+.rsvp-btn[aria-pressed='true'].is-yes {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--card-bg));
+}
+
+.rsvp-btn[aria-pressed='true'].is-maybe {
+  border-color: #c98500;
+  background: color-mix(in srgb, #c98500 12%, var(--card-bg));
+}
+
+.rsvp-btn[aria-pressed='true'].is-no {
+  border-color: #a81a22;
+  background: color-mix(in srgb, #a81a22 10%, var(--card-bg));
+}
+
+.rsvp-counts {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.rsvp-people {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 14px;
+}
+
+.rsvp-people li {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.rsvp-people li.is-waiting {
+  color: var(--text-tertiary);
+}
+
+.rsvp-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--bg-overlay);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.rsvp-people .is-yes .rsvp-mark {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* Who comes, invites and reminders on an event's card (calendar-view.js) */
+.cal-rsvp-note {
+  margin: 6px 0 0;
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+.cal-who {
+  display: grid;
+  gap: 4px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+}
+
+.cal-who li {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.cal-who li.is-waiting,
+.cal-who li.is-no {
+  color: var(--text-tertiary);
+}
+
+.cal-who small {
+  color: var(--text-tertiary);
+  font-size: 11px;
+}
+
+.cal-who-mark {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--bg-overlay);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.cal-who .is-yes .cal-who-mark {
+  background: var(--accent);
+  color: #fff;
+}
+
+.cal-inv-box,
+.cal-rem {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-muted);
+}
+
+.cal-rem-kind {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+}
+
+.cal-rem-kind small {
+  color: var(--text-tertiary);
+}
+
+.cal-rem-kind .cal-rem-state {
+  display: block;
+  color: var(--text-secondary);
+}
+
+.cal-rem-kind select {
+  width: auto;
+}
+
+.cal-rem-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+/* One's own reminders: when and how (calendar-common.js) */
+.cal-own {
+  display: grid;
+  gap: 6px;
+}
+
+.cal-own-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) 28px;
+  gap: 6px;
+  align-items: center;
+}
+
+.cal-own-x {
+  border: 0;
+  background: none;
+  color: var(--text-tertiary);
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.cal-own-add {
+  justify-self: start;
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  color: var(--accent-700);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* Subscribe → Reminders */
+.cal-rem-kinds {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 10px;
+}
+
+.cal-rem-kinds p {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-overlay);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.cal-rem-list {
+  display: grid;
+}
+
+.cal-rem-row {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) minmax(180px, 1fr) minmax(260px, 1.6fr);
+  gap: 10px 16px;
+  align-items: start;
+  padding: 12px 0;
+  border-top: 1px solid var(--border-muted);
+}
+
+@media (max-width: 760px) {
+  .cal-rem-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.cal-rem-field {
+  display: grid;
+  gap: 4px;
+}
+
+.cal-rem-field > span {
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Inviting people in the event editor */
+.cal-inv-picked {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.cal-inv-chip {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  padding: 3px 4px 3px 10px;
+  border-radius: 999px;
+  background: var(--bg-overlay);
+  font-size: 13px;
+}
+
+.cal-inv-chip small {
+  color: var(--text-tertiary);
+}
+
+.cal-inv-chip button {
+  border: 0;
+  background: none;
+  color: var(--text-tertiary);
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.cal-inv-search {
+  position: relative;
+}
+
+.cal-inv-results {
+  position: absolute;
+  inset: calc(100% + 4px) 0 auto;
+  z-index: 5;
+  display: grid;
+  padding: 4px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--card-bg);
+  box-shadow: var(--card-shadow);
+}
+
+.cal-inv-results .form-note {
+  margin: 6px;
+}
+
+.cal-inv-result {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cal-inv-result:hover {
+  background: var(--bg-overlay);
+}
+
+.cal-attendees {
+  flex-wrap: wrap;
 }

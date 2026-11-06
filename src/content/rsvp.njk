@@ -1,0 +1,32 @@
+---
+title: Will you be there?
+# Where the answer links of an invite or reminder email land:
+# /rsvp/?t=<signed token>&a=yes|maybe|no. rsvp.js shows the event and
+# records the answer (a POST from the page, so mail scanners that open
+# links answer nothing). Not indexed and not in the sitemap.
+permalink: /rsvp/
+noindex: true
+excludeFromSitemap: true
+eleventyExcludeFromCollections: true
+meetHead: true
+seoTitle: 'Will you be there? | AI Safety for Italy'
+---
+{% extends "base.njk" %}
+{% block content %}
+<section class="page-hero meet-hero">
+  <div class="container">
+    <span class="eyebrow">Ci sarai? · Will you be there?</span>
+    <h1 id="rsvpTitle"><span class="skeleton skeleton-title" aria-hidden="true"></span></h1>
+    <div class="meet-meta" id="rsvpMeta"></div>
+  </div>
+</section>
+
+<section class="meet-main">
+  <div class="container">
+    <div id="rsvpView" class="rsvp-view"></div>
+  </div>
+</section>
+
+<script src="/assets/js/meet/common.js?v={{ build }}" defer></script>
+<script src="/assets/js/meet/rsvp.js?v={{ build }}" defer></script>
+{% endblock %}

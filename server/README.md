@@ -134,11 +134,36 @@ told once everyone invited has answered.
 
 Tables are created automatically on first use (`server/schema.js`).
 
-### Google Calendar (not connected)
+### The meeting and the calendar
 
-Sending the invite through Google Calendar is switched off for now:
-`server/calendar.js` and `scripts/meet-google-auth.js` are kept but unused.
-Reconnecting means calling the calendar from `finalizePoll()` again.
+A poll finds the time; the meeting is then one thing, whether people get it
+by email or see it in a calendar of the app (`server/calendars.js`):
+
+- **The invite by email** is always there: choosing a time can email it
+  (`.ics`, METHOD:REQUEST, one email per person), and it can be emailed again
+  later. Its UID is the poll's id and its SEQUENCE the poll's
+  `meeting_sequence`.
+- **A calendar** (optional) is chosen when the poll is made, when the time is
+  chosen, or later on the poll's page. The meeting lands there as an event
+  (`calendar_events.source = 'poll'`) with the **same UID and SEQUENCE** as
+  the emailed invite (`calendar-feed.js`), so whoever has both sees one
+  meeting.
+- **Moving** the meeting to another of the poll's times (`action=move`) keeps
+  the same meeting: the event moves and keeps who said they come, and the
+  people invited can be emailed the new time (an updated REQUEST). Changing
+  its title, place, description or recurrence can be emailed the same way
+  (`notifyInvitees`). **Cancelling** (`action=unschedule`) removes the event
+  and emails the cancellation.
+- In the calendar, the poll owns the meeting's time and words; the calendar
+  owns its reminders, announcements, a Discord voice channel (when the poll
+  gives no link) and skipping one occurrence of a repeating meeting
+  (`tuneCopy`, kept through every later change of the poll).
+- When a time is chosen (or moved, or the calendar changed), the members who
+  voted "available" for it, found by their email, answer "going" to it if
+  they see that calendar and have not answered yet.
+- From the calendar, **Find a time** opens a new poll whose meeting lands
+  there; making a poll shows the events of the calendars one shows
+  (`GET /api/app/polls?busy=1`), and marks the times that clash with them.
 
 ## Privacy
 

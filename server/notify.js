@@ -31,14 +31,34 @@ const NO_REPLY =
  */
 function render(lines, { noReply = false } = {}) {
   const text =
-    lines.map((l) => (typeof l === 'string' ? l : `${l.label}: ${l.link}`)).join('\n\n') +
-    (noReply ? `\n\n${NO_REPLY}` : '');
+    lines
+      .map((l) =>
+        typeof l === 'string'
+          ? l
+          : l.answers
+          ? l.answers.map((a) => `${a.label}: ${a.link}`).join('\n')
+          : `${l.label}: ${l.link}`
+      )
+      .join('\n\n') + (noReply ? `\n\n${NO_REPLY}` : '');
   const html =
     '<div style="font-family:system-ui,sans-serif;font-size:15px;line-height:1.55;color:#0f1a14;max-width:560px">' +
     lines
       .map((l) =>
         typeof l === 'string'
           ? `<p>${escapeHtml(l).replace(/\n/g, '<br>')}</p>`
+          : l.answers
+          ? `<p>${l.answers
+              .map(
+                (a, i) =>
+                  `<a href="${escapeHtml(
+                    a.link
+                  )}" style="display:inline-block;margin:0 6px 6px 0;padding:9px 16px;border-radius:8px;text-decoration:none;font-weight:600;${
+                    i === 0
+                      ? 'background:#00703a;color:#fff'
+                      : 'background:#fff;color:#0f1a14;border:1px solid #c9d3cc'
+                  }">${escapeHtml(a.label)}</a>`
+              )
+              .join('')}</p>`
           : `<p><a href="${escapeHtml(
               l.link
             )}" style="display:inline-block;padding:10px 18px;background:#00703a;color:#fff;border-radius:8px;text-decoration:none;font-weight:600">${escapeHtml(
@@ -67,7 +87,7 @@ function discordAvailable() {
 }
 
 /** Sends a direct message from the AIS bot. Fails if the user blocks DMs. */
-async function discordDm(discordId, content) {
+async function discordDm(discordId, content, { components } = {}) {
   const headers = {
     Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN_AIS_TEAM_AREA}`,
     'Content-Type': 'application/json',
@@ -82,7 +102,11 @@ async function discordDm(discordId, content) {
   const sent = await fetchImpl(`${DISCORD_API}/channels/${id}/messages`, {
     method: 'POST',
     headers,
-    body: JSON.stringify({ content, allowed_mentions: { parse: [] } }),
+    body: JSON.stringify({
+      content,
+      allowed_mentions: { parse: [] },
+      ...(components ? { components } : {}),
+    }),
   });
   if (!sent.ok) throw new Error(`Discord DM failed (${sent.status})`);
 }
@@ -291,9 +315,20 @@ function when(slot, timezone, rec) {
 
 /**
  * Emails each recipient the calendar event (one email each, naming only
- * them), or its cancellation when `cancel` is set. Returns { sent, failed }.
+ * them), or its cancellation when `cancel` is set. `update`: the meeting
+ * changed (moved, or its details): the same invite, newer, says so. Returns
+ * { sent, failed }.
  */
-async function sendMeeting({ poll, slot, recipients, ownerId, sequence, cancel = false }) {
+async function sendMeeting({
+  poll,
+  slot,
+  recipients,
+  ownerId,
+  sequence,
+  cancel = false,
+  update = false,
+  answers = null,
+}) {
   const from = await inviter(ownerId);
   const settings = await mail.publicSettings();
   const organizer = {
@@ -302,7 +337,11 @@ async function sendMeeting({ poll, slot, recipients, ownerId, sequence, cancel =
   };
   const rec = poll.recurrence || null;
   const whenText = when(slot, poll.timezone, rec);
-  const subject = cancel ? `Annullata: ${poll.title}` : `Invito: ${poll.title} · ${whenText}`;
+  const subject = cancel
+    ? `Annullata: ${poll.title}`
+    : update
+    ? `Aggiornata: ${poll.title} · ${whenText}`
+    : `Invito: ${poll.title} · ${whenText}`;
   const lines = cancel
     ? [
         (rec
@@ -313,6 +352,16 @@ async function sendMeeting({ poll, slot, recipients, ownerId, sequence, cancel =
           ? `The “${poll.title}” meeting series has been cancelled.`
           : `The meeting “${poll.title}” has been cancelled.`,
       ]
+    : update
+    ? [
+        `${rec ? 'La serie di riunioni' : 'La riunione'} “${
+          poll.title
+        }” è stata aggiornata: ${whenText}.` +
+          (poll.location ? `\nDove: ${poll.location}` : '') +
+          '\n\nL’invito aggiornato è allegato: aprilo e il tuo calendario sostituisce quello di prima.',
+        `“${poll.title}” has changed: the time above is the current one. The updated invitation is attached: open it and your calendar replaces the previous one.`,
+        from.name ? `— ${from.name}` : null,
+      ].filter(Boolean)
     : [
         `${from.name ? `${from.name} ha fissato` : 'È stata fissata'} ${
           rec ? 'la serie di riunioni' : 'la riunione'
@@ -324,8 +373,13 @@ async function sendMeeting({ poll, slot, recipients, ownerId, sequence, cancel =
       ].filter(Boolean);
 
   const method = cancel ? 'CANCEL' : 'REQUEST';
+  // Each person's own links to answer (Going / Maybe / Can't go), when given.
+  const own = [];
+  for (const person of recipients) {
+    own.push(!cancel && answers ? await answers(person) : null);
+  }
   const results = await batch(
-    recipients.map((person) => ({
+    recipients.map((person, i) => ({
       to: person.email,
       subject,
       senderName: from.name,
@@ -334,14 +388,23 @@ async function sendMeeting({ poll, slot, recipients, ownerId, sequence, cancel =
         filename: 'invite.ics',
         content: ics.build(poll, slot, { method, sequence, organizer, attendee: person }),
       },
-      ...render(lines, { noReply: true }),
+      ...render(own[i] ? lines.concat(answerBlock(own[i])) : lines, { noReply: true }),
     }))
   );
   const sent = results.filter((r) => r.ok).length;
   return { sent, failed: results.length - sent };
 }
 
+/**
+ * The answer buttons of an invite or a reminder, as lines for render():
+ * the question, then a row of three links ({ answers: [{ label, link }] }).
+ */
+function answerBlock(links) {
+  return ['Ci sarai? · Will you be there?', { answers: links }];
+}
+
 module.exports = {
+  answerBlock,
   sendMeeting,
   render,
   discordAvailable,

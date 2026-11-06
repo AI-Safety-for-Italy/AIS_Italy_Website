@@ -1,9 +1,12 @@
-/* /app/calendar/subscribe/: the personal .ics link, and what it carries.
+/* /app/calendar/subscribe/: the personal .ics link, what it carries, and
+ * the reminders.
  *
- * Simple: one tick per calendar shows it on the dashboard and puts it in the
- * link, and one switch sends the reminders of the same calendars.
- * Per calendar: three switches each (dashboard, link, reminders), with “all”
- * and “none” per column. Going back to simple merges them, after asking.
+ * What you follow, simple: one tick per calendar shows it on the dashboard
+ * and puts it in the link. Per calendar: two switches each (dashboard, link),
+ * with “all” and “none” per column. Going back to simple merges them, after
+ * asking.
+ * Reminders, per calendar: the event's (its organiser's: off, or on and on
+ * which channel) and one's own (when and how, for each of its events).
  * Every change saves itself (server/calendars.js, savePrefs). */
 (function () {
   'use strict';
@@ -22,12 +25,8 @@
   var COLUMNS = [
     { key: 'dashboard', label: 'Dashboard', help: 'shown on the calendar page here' },
     { key: 'ics', label: 'Calendar link', help: 'in your Google, Outlook or Apple calendar' },
-    {
-      key: 'notify',
-      label: 'Reminders',
-      help: 'the reminders its events send, on Discord or by email',
-    },
   ];
+  var remBody = document.getElementById('subRemBody');
 
   function origin() {
     return window.location.origin;
@@ -207,9 +206,14 @@
   function selection() {
     var out = {};
     prefs.calendars.forEach(function (c) {
-      out[c.id] = prefs.advanced
-        ? { dashboard: c.choice.dashboard, ics: c.choice.ics, notify: c.choice.notify }
-        : { dashboard: c.choice.dashboard, ics: c.choice.dashboard };
+      out[c.id] = {
+        dashboard: c.choice.dashboard,
+        ics: prefs.advanced ? c.choice.ics : c.choice.dashboard,
+        // The reminders: chosen per calendar, in either mode.
+        notify: Boolean(c.choice.notify),
+        via: c.choice.via || null,
+        own: c.choice.own || [],
+      };
     });
     return out;
   }
@@ -265,7 +269,6 @@
       toggle(input, function (on) {
         c.choice.dashboard = on;
         c.choice.ics = on;
-        c.choice.notify = on && prefs.notify;
         drawCount();
       });
       list.appendChild(
@@ -291,7 +294,6 @@
         prefs.calendars.forEach(function (c) {
           c.choice.dashboard = on;
           c.choice.ics = on;
-          c.choice.notify = on && prefs.notify;
         });
         draw();
         save();
@@ -320,31 +322,6 @@
     );
     wrap.appendChild(list);
 
-    var notify = h('input', { type: 'checkbox', role: 'switch', class: 'fe-switch-input' });
-    notify.checked = prefs.notify;
-    toggle(notify, function (on) {
-      prefs.notify = on;
-      prefs.calendars.forEach(function (c) {
-        c.choice.notify = on && c.choice.dashboard;
-      });
-    });
-    wrap.appendChild(
-      h(
-        'label',
-        { class: 'cal-sub-notify' },
-        h(
-          'span',
-          null,
-          h('strong', null, 'Also send me reminders for these calendars'),
-          h(
-            'small',
-            null,
-            'When an event has reminders, you get them on Discord or by email, as the event says. Events you answer “going” always remind you.'
-          )
-        ),
-        notify
-      )
-    );
     return wrap;
   }
 
@@ -435,17 +412,57 @@
       return;
     }
     pickBody.appendChild(prefs.advanced ? advancedView() : simpleView());
+    drawReminders();
+  }
+
+  // ── Reminders ────────────────────────────────────────────────────────────
+
+  function drawReminders() {
+    M.clear(remBody);
+    var list = h('div', { class: 'cal-rem-list' });
+    prefs.calendars.forEach(function (c) {
+      var takes = h(
+        'select',
+        {
+          class: 'form-input is-compact',
+          'aria-label': 'The event’s reminders: ' + c.name,
+          onchange: function () {
+            c.choice.notify = takes.value !== 'off';
+            c.choice.via = takes.value === 'off' || takes.value === '' ? null : takes.value;
+            save();
+          },
+        },
+        h('option', { value: 'off' }, 'Off'),
+        Cal.VIA.map(function (v) {
+          return h('option', { value: v[0] }, v[1]);
+        })
+      );
+      takes.value = c.choice.notify ? c.choice.via || '' : 'off';
+      var own = Cal.ownReminders({
+        value: c.choice.own || [],
+        onChange: function (value) {
+          c.choice.own = value;
+          save();
+        },
+      });
+      list.appendChild(
+        h(
+          'div',
+          { class: 'cal-rem-row' },
+          h('div', { class: 'cal-rem-cal' }, nameCell(c)),
+          h('label', { class: 'cal-rem-field' }, h('span', null, 'The event’s reminders'), takes),
+          h('div', { class: 'cal-rem-field' }, h('span', null, 'Your own'), own.el)
+        )
+      );
+    });
+    remBody.appendChild(list);
   }
 
   /** Whether the per-calendar choices would change on going back to simple. */
   function wouldMerge() {
     return prefs.calendars.some(function (c) {
       var on = c.choice.dashboard || c.choice.ics;
-      return (
-        c.choice.dashboard !== c.choice.ics ||
-        (on && c.choice.notify !== prefs.notify) ||
-        (!on && c.choice.notify)
-      );
+      return c.choice.dashboard !== c.choice.ics && on;
     });
   }
 
@@ -455,21 +472,16 @@
       if (advanced === prefs.advanced) return;
       if (!advanced && wouldMerge()) {
         var ok = window.confirm(
-          'Back to simple: a calendar on in the dashboard or in your link stays on in both, and reminders follow the one switch. Go on?'
+          'Back to simple: a calendar on in the dashboard or in your link stays on in both. Your reminders do not change. Go on?'
         );
         if (!ok) {
           draw();
           return;
         }
-        var anyNotify = prefs.calendars.some(function (c) {
-          return c.choice.notify;
-        });
-        prefs.notify = anyNotify;
         prefs.calendars.forEach(function (c) {
           var on = c.choice.dashboard || c.choice.ics;
           c.choice.dashboard = on;
           c.choice.ics = on;
-          c.choice.notify = on && anyNotify;
         });
       }
       prefs.advanced = advanced;

@@ -118,5 +118,5 @@ _local-groups-snapshot.json
 # Mentor photos the build writes from the published copy (server/mentors-build.js)
 src/assets/img/mentors/*-[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f].jpg
 
-# Local credentials (e.g. the Google OAuth client for scripts/meet-google-auth.js)
+# Local credentials, never committed
 .secrets/

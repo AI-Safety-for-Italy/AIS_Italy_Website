@@ -323,7 +323,11 @@
           { class: 'cal-check' },
           input,
           h('span', { class: 'cal-check-name' }, c.name),
-          c.level === 'view' || c.level === 'public' ? null : Cal.levelBadge(c.level)
+          c.personal
+            ? h('span', { class: 'cal-tag', title: 'Only you see it' }, 'Only you')
+            : c.level === 'view' || c.level === 'public'
+            ? null
+            : Cal.levelBadge(c.level)
         )
       );
     });
@@ -842,24 +846,242 @@
     });
     box.appendChild(h('p', { class: 'cal-card-label' }, 'Are you coming?'));
     box.appendChild(buttons);
-    var coming = detail.rsvp.people.filter(function (p) {
-      return p.answer !== 'no';
-    });
-    if (coming.length) {
+    var r = detail.rsvp;
+    if (r.counts.waiting) {
       box.appendChild(
-        M.accessFaces(
-          coming.map(function (p) {
-            return {
-              kind: 'person',
-              name: p.name,
-              avatarUrl: p.avatarUrl,
-              what: p.answer === 'yes' ? 'Going' : 'Maybe',
-            };
-          })
+        h(
+          'p',
+          { class: 'cal-rsvp-note' },
+          r.counts.waiting +
+            (r.counts.waiting === 1 ? ' invited has' : ' invited have') +
+            ' not answered yet'
         )
       );
     }
+    if (r.people && r.people.length) {
+      box.appendChild(
+        h(
+          'ul',
+          { class: 'cal-who' },
+          r.people.map(function (p) {
+            return h(
+              'li',
+              { class: 'is-' + (p.answer || 'waiting') },
+              h(
+                'span',
+                { class: 'cal-who-mark', 'aria-hidden': 'true' },
+                { yes: '✓', maybe: '?', no: '✕' }[p.answer] || '…'
+              ),
+              h('span', { class: 'cal-who-name' }, p.name),
+              p.external
+                ? h('small', null, 'by email')
+                : p.invited
+                ? h('small', null, 'invited')
+                : null
+            );
+          })
+        )
+      );
+    } else if (r.namesHidden && (r.counts.yes || r.counts.maybe)) {
+      box.appendChild(
+        h('p', { class: 'cal-rsvp-note' }, 'This calendar shows how many come, not who.')
+      );
+    }
     return box;
+  }
+
+  // ── Reminders on the card: the event's, for everyone, and this member's own ──
+
+  function remindersBox(detail) {
+    var mine = detail.myReminders;
+    if (!mine) return null;
+    var box = h('div', { class: 'cal-rem' });
+    box.appendChild(h('p', { class: 'cal-card-label' }, 'Reminders'));
+    var eventText = Cal.remindersText(detail.reminders) || 'none';
+    var takesNow =
+      mine.eventMode === 'on' ||
+      (mine.eventMode === 'calendar' &&
+        (mine.calendarTakes ||
+          detail.rsvp.mine === 'yes' ||
+          detail.rsvp.mine === 'maybe' ||
+          detail.invited));
+    var mode = h(
+      'select',
+      { class: 'form-input is-compact', 'aria-label': 'The event’s reminders, for you' },
+      h('option', { value: 'calendar' }, 'As my calendar settings'),
+      h('option', { value: 'on' }, 'I want them'),
+      h('option', { value: 'off' }, 'Not for me')
+    );
+    mode.value = mine.eventMode;
+    box.appendChild(
+      h(
+        'div',
+        { class: 'cal-rem-kind' },
+        h(
+          'div',
+          null,
+          h('strong', null, 'The event’s'),
+          h('small', null, ' set by its organiser, for everyone: ' + eventText),
+          detail.reminders && detail.reminders.length
+            ? h(
+                'small',
+                { class: 'cal-rem-state' },
+                takesNow
+                  ? 'You get them' +
+                      (mine.via
+                        ? ', ' +
+                          Cal.channelText(mine.via === 'both' ? ['email', 'discord'] : [mine.via])
+                        : '')
+                  : 'You do not get them'
+              )
+            : null
+        ),
+        detail.reminders && detail.reminders.length ? mode : null
+      )
+    );
+    var ownList = mine.own !== null ? mine.own : mine.calendarOwn;
+    var ownText = Cal.remindersText(ownList) || 'none';
+    var editor = null;
+    var ownBody = h('div', { class: 'cal-rem-own' });
+    function drawOwn() {
+      M.clear(ownBody);
+      if (editor) {
+        ownBody.appendChild(editor.el);
+        return;
+      }
+      ownBody.appendChild(
+        h(
+          'button',
+          {
+            type: 'button',
+            class: 'cal-own-add',
+            onclick: function () {
+              editor = Cal.ownReminders({ value: ownList });
+              drawOwn();
+              save.hidden = false;
+            },
+          },
+          'Change, for this event'
+        )
+      );
+    }
+    box.appendChild(
+      h(
+        'div',
+        { class: 'cal-rem-kind is-own' },
+        h(
+          'div',
+          null,
+          h('strong', null, 'Yours'),
+          h(
+            'small',
+            null,
+            ' only for you: ' +
+              ownText +
+              (mine.own === null ? ' (from your calendar settings)' : ' (for this event)')
+          )
+        )
+      )
+    );
+    box.appendChild(ownBody);
+    drawOwn();
+    var save = h(
+      'button',
+      {
+        type: 'button',
+        class: 'btn btn-primary btn-sm',
+        hidden: true,
+        onclick: function () {
+          send({ eventReminders: mode.value, own: editor ? editor.get() : mine.own });
+        },
+      },
+      'Save my reminders'
+    );
+    var reset =
+      mine.own !== null
+        ? h(
+            'button',
+            {
+              type: 'button',
+              class: 'cal-own-add',
+              onclick: function () {
+                send({ eventReminders: mode.value, own: null });
+              },
+            },
+            'Back to my calendar settings'
+          )
+        : null;
+    mode.addEventListener('change', function () {
+      send({ eventReminders: mode.value, own: editor ? editor.get() : mine.own });
+    });
+    function send(body) {
+      body.occurrence = detail.occurrence;
+      M.api('POST', Cal.API + '?action=my-reminders&id=' + encodeURIComponent(detail.id), body)
+        .then(function (fresh) {
+          drawCard(fresh, true);
+          M.toast('Your reminders are saved');
+        })
+        .catch(M.appError);
+    }
+    box.appendChild(h('div', { class: 'cal-rem-actions' }, save, reset));
+    return box;
+  }
+
+  // Who is invited, for whoever changes the event: send the invite.
+  function invitesBox(detail) {
+    if (!detail.invites || !detail.invites.length) return null;
+    var unsent = detail.invites.filter(function (i) {
+      return !i.sent;
+    }).length;
+    var poll = detail.source && detail.source.kind === 'poll';
+    return h(
+      'div',
+      { class: 'cal-inv-box' },
+      h(
+        'p',
+        { class: 'cal-card-label' },
+        detail.invites.length +
+          (detail.invites.length === 1 ? ' person invited' : ' people invited')
+      ),
+      poll
+        ? h(
+            'p',
+            { class: 'cal-rsvp-note' },
+            'The invite of a poll’s meeting is emailed from the poll.'
+          )
+        : h(
+            'button',
+            {
+              type: 'button',
+              class: 'btn btn-outline btn-sm',
+              onclick: function (e) {
+                var b = e.currentTarget;
+                b.disabled = true;
+                M.api(
+                  'POST',
+                  Cal.API + '?action=send-invites&id=' + encodeURIComponent(detail.id),
+                  {
+                    again: !unsent,
+                  }
+                )
+                  .then(function (r) {
+                    M.toast(
+                      r.failed
+                        ? r.failed + ' invite(s) could not be sent'
+                        : 'Invite sent to ' + r.sent + (r.sent === 1 ? ' person' : ' people'),
+                      Boolean(r.failed)
+                    );
+                    openCard(detail);
+                  })
+                  .catch(function (err) {
+                    b.disabled = false;
+                    M.appError(err);
+                  });
+              },
+            },
+            unsent ? 'Send the invite (' + unsent + ' not sent yet)' : 'Send the invite again'
+          )
+    );
   }
 
   function openCard(ev) {
@@ -929,19 +1151,42 @@
         )
       );
     }
+    if (full && ev.canTune) {
+      actions.appendChild(
+        h(
+          'button',
+          {
+            type: 'button',
+            class: 'btn btn-outline btn-sm',
+            onclick: function () {
+              card.close();
+              editEvent(ev, true);
+            },
+          },
+          'Reminders & Discord'
+        )
+      );
+      if (ev.recurring) {
+        actions.appendChild(
+          h(
+            'button',
+            {
+              type: 'button',
+              class: 'btn btn-outline btn-sm',
+              onclick: function () {
+                skipOccurrence(ev);
+              },
+            },
+            'Skip this time'
+          )
+        );
+      }
+    }
     if (full && ev.source) {
       actions.appendChild(
         h('a', { class: 'btn btn-outline btn-sm', href: ev.source.url }, ev.source.label)
       );
     }
-    var reminders =
-      full && ev.reminders && ev.reminders.length
-        ? ev.reminders
-            .map(function (r) {
-              return Cal.leadLabel(r.minutes).toLowerCase();
-            })
-            .join(', ')
-        : '';
     M.clear(card).appendChild(
       h(
         'div',
@@ -988,9 +1233,16 @@
               full && ev.createdBy ? h('small', null, ' · by ' + ev.createdBy) : null
             )
           ),
-          reminders ? row(M.icon('clock'), h('span', null, 'Reminders ' + reminders)) : null,
+          full && ev.invited
+            ? row(
+                M.icon('users'),
+                h('span', null, 'Invited' + (ev.createdBy ? ' by ' + ev.createdBy : ''))
+              )
+            : null,
           ev.description ? h('div', { class: 'cal-card-desc' }, M.linkify(ev.description)) : null,
-          full ? rsvpBox(ev) : h('div', { class: 'cal-card-loading' }, M.loading())
+          full ? rsvpBox(ev) : h('div', { class: 'cal-card-loading' }, M.loading()),
+          full ? invitesBox(ev) : null,
+          full ? remindersBox(ev) : null
         ),
         actions.childNodes.length ? actions : null
       )
@@ -1044,6 +1296,27 @@
         })
         .catch(M.appError);
     });
+  }
+
+  // One occurrence of a poll's repeating meeting left out, here only (the
+  // invite by email keeps the series: the poll's owner tells people).
+  function skipOccurrence(ev) {
+    if (!window.confirm('Skip “' + ev.title + '” on ' + whenText(ev) + '? Only this time.')) return;
+    M.api(
+      'POST',
+      Cal.API +
+        '?action=delete-event&id=' +
+        encodeURIComponent(ev.id) +
+        '&scope=this&at=' +
+        encodeURIComponent(ev.occurrence),
+      {}
+    )
+      .then(function () {
+        if (card.open) card.close();
+        M.toast('Skipped this time');
+        go();
+      })
+      .catch(M.appError);
   }
 
   // ── The editor ──────────────────────────────────────────────────────────
@@ -1333,12 +1606,19 @@
   }
 
   /** Opens the editor: `occ` an occurrence to change (with its details), else `preset`. */
-  function openEditor(occ, preset) {
+  var tuning = false; // a poll's meeting: only what is the calendar's changes
+
+  function openEditor(occ, preset, tune) {
     editing = occ;
+    tuning = Boolean(tune && occ);
     dirty = false;
     showError('');
-    document.getElementById('calEditorTitle').textContent = occ ? 'Edit event' : 'New event';
-    f.del.hidden = !occ;
+    document.getElementById('calEditorTitle').textContent = tuning
+      ? 'Reminders & Discord'
+      : occ
+      ? 'Edit event'
+      : 'New event';
+    f.del.hidden = !occ || tuning;
     var tz = occ ? (occ.allDay ? TZ : occ.timezone || TZ) : TZ;
     fillZones(tz);
     fillCalendars(occ ? occ.calendarId : null);
@@ -1392,10 +1672,197 @@
     });
     M.clear(document.getElementById('evAnnounceList')).appendChild(announce.el);
     setAnnounceMode(own === null || own === undefined ? 'inherit' : own.length ? 'own' : 'none');
+    lockForTune(occ);
+    fillInvites(occ);
+    // A poll's meeting invites the people its invite goes to, from the poll.
+    document.getElementById('evInviteSet').hidden = tuning;
     if (!editor.open) editor.showModal();
     setTimeout(function () {
       if (!occ) f.title.focus();
     }, 30);
+  }
+
+  // ── Who is invited ──────────────────────────────────────────────────────
+
+  var inv = { picked: [], before: '' };
+  var invSearch = document.getElementById('evInvSearch');
+  var invResults = document.getElementById('evInvResults');
+  var invEmails = document.getElementById('evInvEmails');
+
+  function invState() {
+    return JSON.stringify([
+      inv.picked
+        .map(function (p) {
+          return p.userId;
+        })
+        .sort(),
+      invEmails.value.trim(),
+    ]);
+  }
+
+  function drawPicked() {
+    var box = M.clear(document.getElementById('evInvPicked'));
+    inv.picked.forEach(function (p) {
+      box.appendChild(
+        h(
+          'span',
+          { class: 'cal-inv-chip' },
+          p.name,
+          p.answer
+            ? h('small', null, ' · ' + { yes: 'going', maybe: 'maybe', no: 'can’t go' }[p.answer])
+            : null,
+          h(
+            'button',
+            {
+              type: 'button',
+              'aria-label': 'Remove ' + p.name,
+              onclick: function () {
+                inv.picked = inv.picked.filter(function (x) {
+                  return x !== p;
+                });
+                dirty = true;
+                drawPicked();
+              },
+            },
+            '×'
+          )
+        )
+      );
+    });
+  }
+
+  function fillInvites(occ) {
+    var list = (occ && occ.invites) || [];
+    inv.picked = list
+      .filter(function (i) {
+        return i.kind === 'member';
+      })
+      .map(function (i) {
+        return { userId: i.userId, name: i.name, answer: i.answer };
+      });
+    invEmails.value = list
+      .filter(function (i) {
+        return i.kind === 'email';
+      })
+      .map(function (i) {
+        return i.email;
+      })
+      .join(', ');
+    invSearch.value = '';
+    invResults.hidden = true;
+    inv.before = invState();
+    drawPicked();
+  }
+
+  var invTimer = null;
+  invSearch.addEventListener('input', function () {
+    clearTimeout(invTimer);
+    var q = invSearch.value.trim();
+    if (q.length < 2) {
+      invResults.hidden = true;
+      return;
+    }
+    invTimer = setTimeout(function () {
+      M.api('GET', Cal.API + '?invitable=' + encodeURIComponent(q))
+        .then(function (r) {
+          M.clear(invResults);
+          var fresh = r.people.filter(function (p) {
+            return !inv.picked.some(function (x) {
+              return x.userId === p.userId;
+            });
+          });
+          if (!fresh.length) {
+            invResults.appendChild(
+              h(
+                'p',
+                { class: 'form-note' },
+                'Nobody by that name has signed in here: invite them by email below.'
+              )
+            );
+          }
+          fresh.forEach(function (p) {
+            invResults.appendChild(
+              h(
+                'button',
+                {
+                  type: 'button',
+                  role: 'option',
+                  class: 'cal-inv-result',
+                  onclick: function () {
+                    inv.picked.push({ userId: p.userId, name: p.name });
+                    dirty = true;
+                    invSearch.value = '';
+                    invResults.hidden = true;
+                    drawPicked();
+                  },
+                },
+                M.avatar({ name: p.name, avatarUrl: p.avatarUrl }, 22),
+                p.name
+              )
+            );
+          });
+          invResults.hidden = false;
+        })
+        .catch(function () {
+          invResults.hidden = true;
+        });
+    }, 250);
+  });
+
+  /**
+   * Saves who is invited when it changed, and emails the new ones if asked.
+   * Resolves to a note for the toast.
+   */
+  function saveInvites(eventId) {
+    if (!eventId || tuning || invState() === inv.before) return Promise.resolve('');
+    return M.api('POST', Cal.API + '?action=invites&id=' + encodeURIComponent(eventId), {
+      members: inv.picked.map(function (p) {
+        return p.userId;
+      }),
+      emails: invEmails.value,
+    }).then(function (r) {
+      if (!r.added.length || !document.getElementById('evInvSend').checked) return '';
+      return M.api(
+        'POST',
+        Cal.API + '?action=send-invites&id=' + encodeURIComponent(eventId),
+        {}
+      ).then(function (out) {
+        return out.sent
+          ? ' · invite sent to ' + out.sent + (out.sent === 1 ? ' person' : ' people')
+          : '';
+      });
+    });
+  }
+
+  // A poll's meeting: what the poll says is shown, not changed here.
+  function lockForTune(occ) {
+    var note = document.getElementById('evTuneNote');
+    note.hidden = !tuning;
+    if (tuning && occ.source) document.getElementById('evTuneLink').href = occ.source.url;
+    var owned = [f.title, f.calendar, f.allDay, f.startDate, f.startTime, f.endDate, f.endTime];
+    owned = owned.concat([f.tz, f.location, f.description]);
+    owned.forEach(function (el) {
+      el.disabled = tuning;
+      // Not shown at all: the note says where they change.
+      var block = el;
+      while (block.parentElement && !block.parentElement.classList.contains('cal-editor-body'))
+        block = block.parentElement;
+      block.hidden = tuning;
+    });
+    form.querySelectorAll('.cal-fieldset').forEach(function (fs) {
+      // The recurrence's fields are in the "When" one, with the times.
+      if (fs.contains(f.startDate)) {
+        fs.querySelectorAll('input, select, button').forEach(function (el) {
+          el.disabled = tuning;
+        });
+      }
+    });
+    var hasLink = tuning && occ.video && occ.video.kind === 'link';
+    form.querySelectorAll('input[name="evVideo"]').forEach(function (r) {
+      // The poll's link stays; without one, a Discord channel can be added.
+      r.disabled = tuning && (hasLink || r.value === 'link');
+    });
+    f.videoUrl.disabled = tuning;
   }
 
   function nextHalfHour(date) {
@@ -1409,7 +1876,7 @@
     openEditor(null, preset);
   }
 
-  function editEvent(ev) {
+  function editEvent(ev, tune) {
     var go2 = ev.reminders
       ? Promise.resolve(ev)
       : M.api(
@@ -1422,7 +1889,7 @@
         );
     go2
       .then(function (detail) {
-        openEditor(detail);
+        openEditor(detail, null, tune);
       })
       .catch(M.appError);
   }
@@ -1480,7 +1947,7 @@
       return;
     }
     var ask =
-      editing && editing.recurring
+      editing && editing.recurring && !tuning
         ? askScope('Change a repeating event', 'Save')
         : Promise.resolve('all');
     ask.then(function (scope) {
@@ -1496,7 +1963,10 @@
           encodeURIComponent(editing.occurrence)
         : Cal.API + '?action=create-event';
       M.api('POST', url, b)
-        .then(function () {
+        .then(function (saved) {
+          return saveInvites(saved && saved.id ? saved.id : editing && editing.id);
+        })
+        .then(function (sentNote) {
           try {
             window.localStorage.setItem(LAST_CAL, b.calendarId);
           } catch (err) {
@@ -1504,7 +1974,7 @@
           }
           dirty = false;
           editor.close();
-          M.toast(editing ? 'Event saved' : 'Event created');
+          M.toast((editing ? 'Event saved' : 'Event created') + (sentNote || ''));
           // Show the day of a new event, in a calendar maybe hidden so far.
           if (!editing) {
             var c = (prefs.calendars || []).find(function (x) {
@@ -1610,6 +2080,22 @@
       var canWrite = writable().length > 0;
       document.getElementById('calNew').hidden = !canWrite;
       document.getElementById('calNewTop').hidden = !canWrite;
+      // "Find a time": a poll whose chosen time lands in the calendar last used.
+      if (canWrite) {
+        var last = null;
+        try {
+          last = window.localStorage.getItem(LAST_CAL);
+        } catch (err) {
+          /* none remembered */
+        }
+        // The last one used, else a team calendar before the site's own.
+        var team = writable().filter(function (c) {
+          return !c.system && !c.personal;
+        });
+        var target = byId[last] && byId[last].canEdit ? last : (team[0] || writable()[0]).id;
+        document.getElementById('calFindTime').href =
+          '/app/polls/new/?calendar=' + encodeURIComponent(target);
+      }
       return go().then(function () {
         if (params.get('new') && canWrite) newEvent({});
         if (params.get('event')) {
