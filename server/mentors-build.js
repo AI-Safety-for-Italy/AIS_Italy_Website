@@ -48,7 +48,7 @@ function clean(data) {
     delete rest.photo;
     return rest;
   });
-  return { live: true, mentors, hidden: data.hidden, photos };
+  return { live: true, mentors, hidden: data.hidden, order: data.order, photos };
 }
 
 async function get(url, accept) {
@@ -95,7 +95,7 @@ function writeSnapshot(data) {
   );
 }
 
-/** { live, mentors, hidden, photos: { [id]: base64 } } for this build. */
+/** { live, mentors, hidden, order, photos: { [id]: base64 } } for this build. */
 async function load() {
   const origin = process.env.CONTENT_SOURCE;
   if (!origin) return fromSnapshot();
@@ -134,4 +134,78 @@ function merge(yaml, published) {
   return { ...yaml, mentors };
 }
 
-module.exports = { SNAPSHOT, PHOTO_DIR, setFetch, load, writeSnapshot, writePhotos, merge };
+function surname(m) {
+  return String(m.name || '')
+    .trim()
+    .split(/\s+/)
+    .pop();
+}
+
+function bySurname(a, b) {
+  return (
+    surname(a).localeCompare(surname(b), 'it') ||
+    String(a.name || '').localeCompare(String(b.name || ''), 'it')
+  );
+}
+
+function hasProject(m) {
+  return Object.values(m.project || {}).some(Boolean);
+}
+
+/**
+ * The mentors in teams, tied by `co_mentors` even when only one side lists the
+ * other. A team starts with its main mentor, the one who wrote the project,
+ * then the others by surname. Teams follow `order` (ids, from the board's
+ * "Site order"); those not in it come after, by the main mentor's surname.
+ */
+function groups(mentors, order) {
+  const byId = new Map(mentors.map((m) => [m.id, m]));
+  const links = new Map(mentors.map((m) => [m.id, new Set()]));
+  for (const m of mentors) {
+    for (const id of m.co_mentors || []) {
+      if (!links.has(id)) continue;
+      links.get(m.id).add(id);
+      links.get(id).add(m.id);
+    }
+  }
+  const seen = new Set();
+  const teams = [];
+  for (const m of mentors) {
+    if (seen.has(m.id)) continue;
+    seen.add(m.id);
+    const ids = [m.id];
+    for (const id of ids) {
+      for (const co of links.get(id)) {
+        if (seen.has(co)) continue;
+        seen.add(co);
+        ids.push(co);
+      }
+    }
+    const team = ids.map((id) => byId.get(id)).sort(bySurname);
+    const lead = team.find(hasProject) || team[0];
+    teams.push([lead, ...team.filter((x) => x !== lead)]);
+  }
+  const at = new Map((Array.isArray(order) ? order : []).map((id, i) => [id, i]));
+  const place = (team) => Math.min(...team.map((m) => (at.has(m.id) ? at.get(m.id) : Infinity)));
+  return teams.sort((a, b) => {
+    const [x, y] = [place(a), place(b)];
+    return x === y ? bySurname(a[0], b[0]) : x - y;
+  });
+}
+
+/** The mentors in the order the site shows them. */
+function arrange(mentors, order) {
+  return groups(mentors || [], order).flat();
+}
+
+module.exports = {
+  SNAPSHOT,
+  PHOTO_DIR,
+  setFetch,
+  load,
+  writeSnapshot,
+  writePhotos,
+  merge,
+  groups,
+  arrange,
+};

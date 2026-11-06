@@ -881,7 +881,12 @@ test('a mentor already in data/mentors.yaml starts from their entry there', asyn
   assert.equal(after.published, null);
   assert.equal(after.online, false);
   assert.equal(await onBoard(), false);
-  assert.deepEqual(await mentorship.publicExport(), { live: true, mentors: [], hidden: [one.id] });
+  assert.deepEqual(await mentorship.publicExport(), {
+    live: true,
+    mentors: [],
+    hidden: [one.id],
+    order: [],
+  });
   // Published again, the board's copy replaces the YAML one, its photo path kept.
   await mentorship.update(me, key, 'mentor', { status: 'selected' });
   const { site: back } = await mentorship.publish(me, key, 'mentor');
@@ -891,6 +896,26 @@ test('a mentor already in data/mentors.yaml starts from their entry there', asyn
   assert.deepEqual(out.hidden, []);
   assert.equal(out.mentors[0].id, one.id);
   if (one.photo) assert.equal(out.mentors[0].photo, one.photo);
+});
+
+test('the site order is saved, reaches the build and is checked', async () => {
+  const me = await admin();
+  const { groups } = await mentorship.siteGroups();
+  const ids = groups.flat().map((m) => m.id);
+  assert.ok(ids.length > 2);
+  const last = groups[groups.length - 1];
+  const out = await mentorship.saveSiteOrder(me, [last[0].id, last[0].id]);
+  assert.equal(out.groups[0][0].id, last[0].id);
+  assert.deepEqual((await mentorship.publicExport()).order, [last[0].id]);
+  assert.deepEqual(
+    out.groups
+      .flat()
+      .map((m) => m.id)
+      .sort(),
+    [...ids].sort()
+  );
+  await assert.rejects(mentorship.saveSiteOrder(me, 'nope'), { status: 400 });
+  await assert.rejects(mentorship.saveSiteOrder(me, ['../x']), { status: 400 });
 });
 
 test('a selected mentor is published whatever is left empty', async () => {
@@ -971,7 +996,12 @@ test('the photo goes on the site only with consent, and comes off when it is wit
 
   // Not in the YAML: unpublishing removes the board's entry altogether.
   await mentorship.unpublish(me, ADA(), 'mentor');
-  assert.deepEqual(await mentorship.publicExport(), { live: true, mentors: [], hidden: [] });
+  assert.deepEqual(await mentorship.publicExport(), {
+    live: true,
+    mentors: [],
+    hidden: [],
+    order: [],
+  });
   const [line] = await audit.recent({ subjectKey: ADA() });
   assert.equal(line.action, 'unpublish');
 });

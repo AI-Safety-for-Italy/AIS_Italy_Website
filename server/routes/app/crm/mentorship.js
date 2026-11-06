@@ -18,6 +18,8 @@
 //   POST ?action=publish { key, kind: 'mentor' }  -> { site, build }: the entry goes on
 //        /mentorship/ with the next build (selected or matched mentors, entry complete)
 //   POST ?action=unpublish { key, kind: 'mentor' } -> { site, build }
+//   GET  ?action=site-order               -> { groups }: everyone on /mentorship/, in teams
+//   POST ?action=site-order { ids }       -> { groups, build }: their order on the site
 //   POST ?action=emails { kind, keys }    -> { people: [{ name, email }] }, to copy
 //   POST ?action=import&source=… [{ csv }] -> copies that sheet (or its CSV) onto the board (crm_admin)
 //        replacing an earlier import also needs { replace: true, adminPassword }; without
@@ -64,7 +66,11 @@ module.exports = route({
       return;
     }
     const { user, perms } = await door(req);
-    const { key, kind } = getQuery(req);
+    const { key, kind, action } = getQuery(req);
+    if (action === 'site-order') {
+      sendJson(res, 200, await mentorship.siteGroups());
+      return;
+    }
     if (key) {
       sendJson(res, 200, await mentorship.person(user, perms, key, kind));
       return;
@@ -130,6 +136,10 @@ module.exports = route({
     }
     if (action === 'unpublish') {
       sendJson(res, 200, await mentorship.unpublish(user, body.key, body.kind));
+      return;
+    }
+    if (action === 'site-order') {
+      sendJson(res, 200, await mentorship.saveSiteOrder(user, body.ids));
       return;
     }
     if (action === 'emails') {

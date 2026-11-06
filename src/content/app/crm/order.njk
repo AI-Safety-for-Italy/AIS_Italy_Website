@@ -1,0 +1,29 @@
+---
+title: Site order
+# The order of the mentors on /mentorship/ (server/crm/mentorship.js). Empty
+# until the API has checked the `mentorship` permission.
+permalink: /app/crm/order/
+tool: crm
+tab: order
+pageTitle: Site order
+noindex: true
+excludeFromSitemap: true
+eleventyExcludeFromCollections: true
+seoTitle: 'Site order | AI Safety for Italy'
+---
+{% extends "app.njk" %}
+{% block page %}
+    <form class="panel form-grid" id="orderForm" novalidate>
+      <div class="panel-head" style="margin:0">
+        <h2>Order of the mentors on the site</h2>
+      </div>
+      <p class="panel-note" style="margin:0">Drag the rows, or use the arrows. Each tab of the site shows this list without the mentors of the other track, and people who share a project move together. Mentors added later go at the bottom, by surname, until the next time you save.</p>
+      <ol class="fm-rank" id="orderList"></ol>
+      <div class="form-error" role="alert" hidden></div>
+      <div><button class="btn btn-primary btn-sm" type="submit">Save</button></div>
+    </form>
+
+<script src="/assets/js/meet/common.js?v={{ build }}" defer></script>
+<script src="/assets/js/meet/app-common.js?v={{ build }}" defer></script>
+<script src="/assets/js/meet/crm-order.js?v={{ build }}" defer></script>
+{% endblock %}

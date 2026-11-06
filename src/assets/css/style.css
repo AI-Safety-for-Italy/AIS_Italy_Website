@@ -1752,7 +1752,7 @@ a:hover {
   box-shadow: var(--ring);
 }
 
-/* Track: one choice out of three, as a segmented control */
+/* Track: one or the other, as a segmented control */
 .mentor-segmented {
   display: inline-flex;
   justify-self: start;
@@ -1787,6 +1787,24 @@ a:hover {
   color: var(--text-primary);
   background: var(--card-bg);
   box-shadow: var(--shadow-sm), 0 0 0 1px var(--border-default);
+}
+
+.mentor-sort select {
+  max-width: 100%;
+  padding: 0.6rem 0.9rem;
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  background: var(--card-bg);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+}
+
+.mentor-sort select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--ring);
 }
 
 /* Area: any number of chips, each with how many mentors it would show */
@@ -2315,7 +2333,7 @@ html:has(.mentor-dialog[open]) {
     flex-shrink: 0;
   }
 
-  /* The three tracks share the width, wrapping their names if needed */
+  /* The tracks share the width, wrapping their names if needed */
   .mentor-segmented {
     display: flex;
     width: 100%;
@@ -2326,6 +2344,11 @@ html:has(.mentor-dialog[open]) {
     padding: 0.45rem 0.6rem;
     font-size: 0.85rem;
     line-height: 1.25;
+  }
+
+  .mentor-sort,
+  .mentor-sort select {
+    width: 100%;
   }
 
   .mentor-dialog {

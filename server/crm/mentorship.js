@@ -19,6 +19,7 @@ const sources = require('./sources');
 const records = require('./records');
 const crm = require('./crypto');
 const audit = require('./audit');
+const mentorsBuild = require('../mentors-build');
 const access = require('../access');
 
 const STATUSES = {
@@ -850,8 +851,9 @@ async function unpublish(user, key, kind) {
 
 /**
  * What the site's build reads (GET /api/content?part=mentors): the entries
- * published from the board, oldest first, and the ids of data/mentors.yaml
- * taken off. Photos are only paths: their bytes come from photoOf().
+ * published from the board, oldest first, the ids of data/mentors.yaml taken
+ * off, and the order set on the board. Photos are only paths: their bytes come
+ * from photoOf().
  */
 async function publicExport() {
   const { rows } = await db.query(
@@ -861,7 +863,41 @@ async function publicExport() {
     live: true,
     mentors: rows.filter((r) => !r.hidden).map((r) => ({ ...r.entry, id: r.id })),
     hidden: rows.filter((r) => r.hidden).map((r) => r.id),
+    order: await siteOrder(),
   };
+}
+
+const SITE_ORDER = 'mentor_site_order';
+
+/** The ids in the order set on the board; [] until someone saves one. */
+async function siteOrder() {
+  const { rows } = await db.query('select value from app_settings where key = $1', [SITE_ORDER]);
+  return rows[0] ? rows[0].value : [];
+}
+
+/** Everyone on /mentorship/, in teams as the site shows them: { groups: [[{ id, name, tracks }]] }. */
+async function siteGroups() {
+  const published = await publicExport();
+  const { mentors } = mentorsBuild.merge({ mentors: siteYamls().mentors }, published);
+  return {
+    groups: mentorsBuild
+      .groups(mentors, published.order)
+      .map((team) => team.map((m) => ({ id: m.id, name: m.name || m.id, tracks: m.tracks || [] }))),
+  };
+}
+
+/** Saves the order of /mentorship/ (with the next build). Returns siteGroups() and { build }. */
+async function saveSiteOrder(user, ids) {
+  if (!Array.isArray(ids) || ids.length > 500 || ids.some((id) => !ID.test(String(id))))
+    throw new HttpError(400, 'A list of mentor ids');
+  await db.query(
+    `insert into app_settings (key, value, updated_at) values ($1, $2::jsonb, now())
+     on conflict (key) do update set value = excluded.value, updated_at = now()`,
+    [SITE_ORDER, JSON.stringify([...new Set(ids.map(String))])]
+  );
+  await audit.record(user, 'change-settings', null, { siteOrder: true });
+  const build = await contentPublish().triggerBuild();
+  return { ...(await siteGroups()), build };
 }
 
 /** A published mentor's photo, as JPEG bytes, or null. */
@@ -1129,6 +1165,8 @@ module.exports = {
   saveEntry,
   publish,
   unpublish,
+  siteGroups,
+  saveSiteOrder,
   publicExport,
   photoOf,
   snapshotData,

@@ -58,6 +58,36 @@ test('merge keeps the YAML when nothing is live', () => {
   assert.equal(mentorsBuild.merge(yaml, { live: false }), yaml);
 });
 
+test('arrange: co-mentors follow their main mentor, by surname without an order', () => {
+  const mentors = [
+    { id: 'zeno-alfa', name: 'Zeno Alfa', co_mentors: ['ugo-beta'] },
+    { id: 'ugo-beta', name: 'Ugo Beta', project: { title: 'P' }, co_mentors: ['zeno-alfa'] },
+    { id: 'ada-gamma', name: 'Ada Gamma', project: { title: '' } },
+    { id: 'eva-zeta', name: 'Eva Zeta', co_mentors: ['ada-gamma'] },
+    { id: 'ida-delta', name: 'Ida Delta' },
+  ];
+  assert.deepEqual(
+    mentorsBuild.arrange(mentors).map((m) => m.id),
+    ['ugo-beta', 'zeno-alfa', 'ida-delta', 'ada-gamma', 'eva-zeta']
+  );
+});
+
+test('arrange: teams follow the order, the unknown ones come after', () => {
+  const mentors = [
+    { id: 'zeno-alfa', name: 'Zeno Alfa' },
+    { id: 'ugo-beta', name: 'Ugo Beta', project: { title: 'P' }, co_mentors: ['nora-tau'] },
+    { id: 'nora-tau', name: 'Nora Tau', co_mentors: ['ugo-beta'] },
+    { id: 'ida-delta', name: 'Ida Delta' },
+    { id: 'ada-gamma', name: 'Ada Gamma' },
+  ];
+  // nora-tau alone in the list still brings her whole team there.
+  const order = ['ida-delta', 'gone-away', 'nora-tau'];
+  assert.deepEqual(
+    mentorsBuild.arrange(mentors, order).map((m) => m.id),
+    ['ida-delta', 'ugo-beta', 'nora-tau', 'zeno-alfa', 'ada-gamma']
+  );
+});
+
 test('load: a site without the mentors leaves the YAML, an error stops the build', async () => {
   process.env.CONTENT_SOURCE = 'https://example.org/';
   mentorsBuild.setFetch(async () => answer(404));
