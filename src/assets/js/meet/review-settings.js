@@ -808,7 +808,7 @@
       h(
         'header',
         { class: 'rv-card-sec-head' },
-        h('span', { class: 'rv-dot', 'aria-hidden': 'true' }),
+        h('span', { class: 'rv-sec-dot', 'aria-hidden': 'true' }),
         label,
         h(
           'span',

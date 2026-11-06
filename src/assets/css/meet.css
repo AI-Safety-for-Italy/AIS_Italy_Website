@@ -10050,7 +10050,7 @@ a.hub-todo-card:hover {
   border-radius: var(--radius-sm) var(--radius-sm) 0 0;
 }
 
-.rv-dot {
+.rv-sec-dot {
   flex: none;
   width: 10px;
   height: 10px;
