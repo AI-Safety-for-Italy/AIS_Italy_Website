@@ -592,11 +592,12 @@
   }
 
   // ── Mentors and projects (components/mentor-explorer.njk) ──────────────
-  // Search, one track and any number of areas narrow the cards down; an area
-  // chip that would show no mentor with the other filters as they are is
-  // dimmed. With no filter only the first `data-preview` cards show, behind a
-  // "Show all" button. The filters live in the query string and an open
-  // profile in the hash, so both can be linked to.
+  // One track is always on, the first by default; search and any number of
+  // areas narrow its cards down. An area chip that would show no mentor with
+  // the other filters as they are is dimmed. The cards keep the page's order
+  // unless the visitor sorts them. With no search or area only the first
+  // `data-preview` cards show, behind a "Show all" button. The filters live in
+  // the query string and an open profile in the hash, so both can be linked to.
   function initMentorExplorer() {
     var box = document.querySelector('[data-mentor-explorer]');
     if (!box) return;
@@ -606,12 +607,15 @@
     var segments = box.querySelectorAll('[data-mentor-track]');
     var chips = box.querySelectorAll('[data-mentor-area]');
     var search = box.querySelector('[data-mentor-search]');
+    var sort = box.querySelector('[data-mentor-sort]');
+    var grid = box.querySelector('.mentor-grid');
     // In the section title, outside the explorer.
     var count = box.closest('section').querySelector('[data-mentor-count]');
     var resets = box.querySelectorAll('[data-mentor-reset]');
     var empty = box.querySelector('[data-mentor-empty]');
     var moreWrap = box.querySelector('[data-mentor-more-wrap]');
     var more = box.querySelector('[data-mentor-more]');
+    var moreCount = box.querySelector('.mentor-more-count');
     var preview = parseInt(box.getAttribute('data-preview'), 10) || cards.length;
     // On a phone the cards stack, so fewer of them before "Show all".
     if (window.matchMedia('(max-width: 640px)').matches) preview = Math.min(preview, 4);
@@ -630,13 +634,25 @@
         tracks: (card.getAttribute('data-tracks') || '').split(' '),
         areas: (card.getAttribute('data-areas') || '').split(' '),
         text: fold(card.getAttribute('data-search')),
+        sort: {
+          name: card.getAttribute('data-sort-name'),
+          project: card.getAttribute(it ? 'data-sort-project-it' : 'data-sort-project'),
+          organisation: card.getAttribute('data-sort-organisation'),
+        },
         views: Array.prototype.slice.call(card.querySelectorAll('[data-mentor-view]')),
       };
     });
 
     var params = new URLSearchParams(location.search);
+    var firstTrack = segments[0].getAttribute('data-mentor-track');
+    var linkedTrack = Array.prototype.some.call(segments, function (b) {
+      return b.getAttribute('data-mentor-track') === params.get('track');
+    });
+    sort.value = params.get('sort') || '';
+    if (sort.selectedIndex === -1) sort.value = '';
     var state = {
-      track: params.get('track') || '',
+      track: linkedTrack ? params.get('track') : firstTrack,
+      sort: sort.value,
       areas: (params.get('area') || '').split(',').filter(Boolean),
       query: params.get('q') || '',
       expanded: false,
@@ -648,7 +664,7 @@
     }
 
     function matches(item, areas) {
-      if (state.track && item.tracks.indexOf(state.track) === -1) return false;
+      if (item.tracks.indexOf(state.track) === -1) return false;
       if (
         areas.length &&
         !areas.some(function (a) {
@@ -663,10 +679,25 @@
       });
     }
 
+    // Those with nothing to sort by go last, in the page's order.
+    function sorted() {
+      if (!state.sort) return items;
+      return items.slice().sort(function (a, b) {
+        var x = a.sort[state.sort];
+        var y = b.sort[state.sort];
+        if (!x || !y) return x ? -1 : y ? 1 : 0;
+        return x.localeCompare(y, root.lang);
+      });
+    }
+
     function render() {
-      var filtered = !!(state.track || state.areas.length || state.query.trim());
-      var shown = items.filter(function (item) {
+      var filtered = !!(state.areas.length || state.query.trim());
+      var ordered = sorted();
+      var shown = ordered.filter(function (item) {
         return matches(item, state.areas);
+      });
+      ordered.forEach(function (item) {
+        grid.appendChild(item.card);
       });
       var limit = filtered || state.expanded ? shown.length : preview;
 
@@ -698,16 +729,21 @@
         b.classList.toggle('is-empty', n === 0);
       });
 
-      var total = items.length + (it ? ' mentor' : ' mentors');
+      var inTrack = items.filter(function (item) {
+        return item.tracks.indexOf(state.track) !== -1;
+      }).length;
+      var total = inTrack + (it ? ' mentor' : ' mentors');
       count.textContent = filtered ? shown.length + (it ? ' di ' : ' of ') + total : total;
       resets.forEach(function (b) {
         b.hidden = !filtered;
       });
       empty.hidden = shown.length > 0;
       moreWrap.hidden = limit >= shown.length;
+      moreCount.textContent = '(' + shown.length + ')';
 
       var next = new URLSearchParams();
-      if (state.track) next.set('track', state.track);
+      if (state.track !== firstTrack) next.set('track', state.track);
+      if (state.sort) next.set('sort', state.sort);
       if (state.areas.length) next.set('area', state.areas.join(','));
       if (state.query.trim()) next.set('q', state.query.trim());
       var qs = next.toString();
@@ -733,9 +769,12 @@
       state.query = search.value;
       render();
     });
+    sort.addEventListener('change', function () {
+      state.sort = sort.value;
+      render();
+    });
     resets.forEach(function (b) {
       b.addEventListener('click', function () {
-        state.track = '';
         state.areas = [];
         state.query = search.value = '';
         render();

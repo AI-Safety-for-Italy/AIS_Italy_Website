@@ -668,7 +668,6 @@ test('a person comes with the stages and tracks, and a mentor with their draft f
       entryFrom: 'application',
       published: null,
       unpublishedChanges: false,
-      missing: ada.site.missing,
       vocab: ada.site.vocab,
     }
   );
@@ -845,13 +844,9 @@ test('a new mentor’s entry starts from their application, in Italian', async (
   assert.equal(site.entry.project.description_it, 'Un progetto di prova.');
   assert.equal(site.entry.language_it, 'Italiano');
   assert.equal(site.entry.bio_it, 'Bio dal tabellone.');
-  for (const f of ['bio', 'areas', 'language', 'project.title', 'project.summary_it'])
-    assert.ok(site.missing.includes(f), f);
-  assert.ok(!site.missing.includes('bio_it'));
   // Both tracks: projects and orientation.
   const elena = (await mentorship.person(me, ['mentorship'], ELENA(), 'mentor')).site;
   assert.deepEqual(elena.entry.tracks, ['projects', 'orientation']);
-  assert.ok(elena.missing.includes('orientation_it'));
 });
 
 test('a mentor already in data/mentors.yaml starts from their entry there', async () => {
@@ -886,7 +881,12 @@ test('a mentor already in data/mentors.yaml starts from their entry there', asyn
   assert.equal(after.published, null);
   assert.equal(after.online, false);
   assert.equal(await onBoard(), false);
-  assert.deepEqual(await mentorship.publicExport(), { live: true, mentors: [], hidden: [one.id] });
+  assert.deepEqual(await mentorship.publicExport(), {
+    live: true,
+    mentors: [],
+    hidden: [one.id],
+    order: [],
+  });
   // Published again, the board's copy replaces the YAML one, its photo path kept.
   await mentorship.update(me, key, 'mentor', { status: 'selected' });
   const { site: back } = await mentorship.publish(me, key, 'mentor');
@@ -898,33 +898,40 @@ test('a mentor already in data/mentors.yaml starts from their entry there', asyn
   if (one.photo) assert.equal(out.mentors[0].photo, one.photo);
 });
 
-test('only a selected mentor with every text in both languages is published', async () => {
+test('the site order is saved, reaches the build and is checked', async () => {
+  const me = await admin();
+  const { groups } = await mentorship.siteGroups();
+  const ids = groups.flat().map((m) => m.id);
+  assert.ok(ids.length > 2);
+  const last = groups[groups.length - 1];
+  const out = await mentorship.saveSiteOrder(me, [last[0].id, last[0].id]);
+  assert.equal(out.groups[0][0].id, last[0].id);
+  assert.deepEqual((await mentorship.publicExport()).order, [last[0].id]);
+  assert.deepEqual(
+    out.groups
+      .flat()
+      .map((m) => m.id)
+      .sort(),
+    [...ids].sort()
+  );
+  await assert.rejects(mentorship.saveSiteOrder(me, 'nope'), { status: 400 });
+  await assert.rejects(mentorship.saveSiteOrder(me, ['../x']), { status: 400 });
+});
+
+test('a selected mentor is published whatever is left empty', async () => {
   const me = await admin();
   await mentorship.saveEntry(me, ADA(), 'mentor', fullEntry());
   await rejects(mentorship.publish(me, ADA(), 'mentor'), 400); // not selected
   await mentorship.update(me, ADA(), 'mentor', { status: 'selected' });
-  const noEnglish = fullEntry();
-  noEnglish.project.summary = '';
-  await mentorship.saveEntry(me, ADA(), 'mentor', noEnglish);
-  await assert.rejects(mentorship.publish(me, ADA(), 'mentor'), (err) => {
-    assert.equal(err.status, 400);
-    assert.deepEqual(err.details.missing, ['project.summary']);
-    return true;
-  });
-  await mentorship.saveEntry(me, ADA(), 'mentor', fullEntry({ role: 'Researcher' }));
-  assert.deepEqual((await siteOfAda(me)).missing, ['role_it']);
-  await rejects(mentorship.publish(me, ADA(), 'mentor'), 400);
 
-  // The ideal mentee and the deliverable can stay empty, but not in one language only.
-  const noExtras = fullEntry();
-  ['mentee', 'mentee_it', 'deliverable', 'deliverable_it'].forEach(
-    (f) => delete noExtras.project[f]
-  );
-  await mentorship.saveEntry(me, ADA(), 'mentor', noExtras);
-  assert.deepEqual((await siteOfAda(me)).missing, []);
-  noExtras.project.deliverable_it = 'Un blogpost.';
-  await mentorship.saveEntry(me, ADA(), 'mentor', noExtras);
-  assert.deepEqual((await siteOfAda(me)).missing, ['project.deliverable']);
+  // Nothing written but an Italian title, not even the name: still published,
+  // under the board's name, with only what there is.
+  await mentorship.saveEntry(me, ADA(), 'mentor', { project: { title_it: 'Sonde lineari' } });
+  await mentorship.publish(me, ADA(), 'mentor');
+  assert.deepEqual((await mentorship.publicExport()).mentors, [
+    { id: 'ada-esempio', name: 'Ada Esempio', project: { title_it: 'Sonde lineari' } },
+  ]);
+  await mentorship.unpublish(me, ADA(), 'mentor');
 
   // Checked as it is saved.
   for (const bad of [
@@ -989,7 +996,12 @@ test('the photo goes on the site only with consent, and comes off when it is wit
 
   // Not in the YAML: unpublishing removes the board's entry altogether.
   await mentorship.unpublish(me, ADA(), 'mentor');
-  assert.deepEqual(await mentorship.publicExport(), { live: true, mentors: [], hidden: [] });
+  assert.deepEqual(await mentorship.publicExport(), {
+    live: true,
+    mentors: [],
+    hidden: [],
+    order: [],
+  });
   const [line] = await audit.recent({ subjectKey: ADA() });
   assert.equal(line.action, 'unpublish');
 });
@@ -1005,7 +1017,6 @@ test('the API saves, publishes and unpublishes an entry only for the mentorship 
   const saved = await post(maria, 'site-entry', entry);
   assert.equal(saved.statusCode, 200);
   assert.equal(saved.body.entryFrom, 'draft');
-  assert.deepEqual(saved.body.missing, []);
   assert.equal((await post(paolo, 'publish', { key: ADA(), kind: 'mentor' })).statusCode, 403);
   const refused = await post(maria, 'publish', { key: ADA(), kind: 'mentor' });
   assert.equal(refused.statusCode, 400);

@@ -816,15 +816,6 @@
   ];
   var LINK_FIELDS = ['website', 'linkedin', 'scholar', 'github'];
 
-  /** 'project.summary_it' -> 'Project summary (IT)'. */
-  function missingLabel(path) {
-    var base = path.replace(/_it$/, '');
-    var label = ENTRY_LABELS[base] || path;
-    if (base === 'name' || base === 'affiliation' || base === 'tracks' || base === 'areas')
-      return label;
-    return label + (base === path ? ' (EN)' : ' (IT)');
-  }
-
   function siteBox(p, onPhoto) {
     var box = h('section', { class: 'crm-card-box crm-site' });
     var site = p.site;
@@ -897,10 +888,6 @@
           M.toast('Published: live in about 3 minutes');
         })
         .catch(function (err) {
-          if (err.data && err.data.missing) {
-            site.missing = err.data.missing;
-            draw();
-          }
           if (err.shown) return;
           if (err.status === 401) M.appError(err);
           else M.toast(err.message, true);
@@ -1010,9 +997,6 @@
 
     // ── The site entry editor ──
     function editor() {
-      var missing = site.missing || [];
-      var publishBtn;
-
       function get(path) {
         var parts = path.split('.');
         return parts.length > 1 ? entry[parts[0]][parts[1]] : entry[path];
@@ -1024,8 +1008,6 @@
       }
       function touch() {
         dirty = true;
-        // The server checks again what is missing once the edits are saved.
-        if (publishBtn) publishBtn.disabled = false;
       }
       function field(path, label, max, rows, attrs) {
         var input = h(
@@ -1047,7 +1029,7 @@
         });
         return h(
           'label',
-          { class: 'crm-se-field' + (missing.indexOf(path) >= 0 ? ' is-missing' : '') },
+          { class: 'crm-se-field' },
           h('span', { class: 'crm-field-label' }, label),
           input
         );
@@ -1064,7 +1046,7 @@
       function checks(name, items) {
         return h(
           'fieldset',
-          { class: 'crm-se-checks' + (missing.indexOf(name) >= 0 ? ' is-missing' : '') },
+          { class: 'crm-se-checks' },
           h('legend', { class: 'crm-field-label' }, ENTRY_LABELS[name]),
           items.map(function (it) {
             var box = h('input', { type: 'checkbox', name: name, value: it.id });
@@ -1139,12 +1121,11 @@
         'Save draft'
       );
       entrySave = saveBtn;
-      publishBtn = h(
+      var publishBtn = h(
         'button',
         { type: 'button', class: 'btn btn-primary btn-sm', onclick: publish },
         site.published ? 'Publish the changes' : 'Publish'
       );
-      publishBtn.disabled = !dirty && missing.length > 0;
 
       return h(
         'div',
@@ -1193,13 +1174,6 @@
           )
         ),
         h('div', { class: 'crm-se-pair' }, places),
-        missing.length
-          ? h(
-              'p',
-              { class: 'crm-warn', role: 'note' },
-              'Missing before publishing: ' + missing.map(missingLabel).join(', ')
-            )
-          : null,
         h(
           'div',
           { class: 'crm-se-actions' },
