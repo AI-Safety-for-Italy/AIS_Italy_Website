@@ -481,7 +481,7 @@
           ? null
           : h(
               'p',
-              { class: 'panel-note' },
+              { class: 'panel-note rv-hint' },
               'Score each question below it (1 = weak, 5 = excellent).'
             ),
         renderApplication(app, perQuestion),
