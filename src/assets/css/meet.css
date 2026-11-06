@@ -9219,29 +9219,43 @@ a.hub-todo-card:hover {
 
 .rv-answers {
   display: grid;
-  gap: 4px;
   margin: 0;
 }
 
+/* Each question a block of its own: the question, then the answer, read
+   apart from the next one. */
 .rv-answers dt {
-  margin-top: 10px;
-  font-size: 12px;
+  max-width: 75ch;
+  margin: 0;
+  padding-top: 18px;
+  border-top: 1px solid var(--border-muted);
+  font-size: 14px;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--text-tertiary);
+  line-height: 1.4;
+  color: var(--text-secondary);
 }
 
 .rv-answers dt:first-child {
-  margin-top: 0;
+  padding-top: 4px;
+  border-top: 0;
 }
 
 .rv-answers dd {
-  margin: 0;
+  max-width: 75ch;
+  margin: 8px 0 18px;
+  font-size: 15px;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  line-height: 1.55;
+  line-height: 1.6;
   color: var(--text-primary);
+}
+
+.rv-hint {
+  margin: 0 0 14px;
+}
+
+.rv-answers dd:last-child {
+  margin-bottom: 4px;
 }
 
 .rv-grid-title {
@@ -9602,7 +9616,9 @@ a.hub-todo-card:hover {
 }
 
 .rv-grid-inline {
-  margin: 10px 0 4px;
+  max-width: 75ch;
+  margin: 14px 0 0;
+  white-space: normal;
 }
 
 .rv-grid-inline[hidden] {
