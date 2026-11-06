@@ -997,6 +997,92 @@ async function responseOf(form, responseId) {
   return rows[0];
 }
 
+// ── For the mentee selection (server/crm/review.js) ─────────────────────────
+// The selection reads a form chosen by its admins: they may choose one they
+// can read here, or one feeding the mentee applications on the board. These
+// do not check who asks: review.js does, before calling them.
+
+/** The forms an admin of the selection may pick: [{ id, title, status, responses, board }]. */
+async function forReview(user) {
+  const who = await whoIs(user);
+  const { rows } = await db.query(
+    `select f.*, count(r.id) filter (where r.deleted_at is null)::int as responses
+     from forms f left join form_responses r on r.form_id = f.id
+     group by f.id order by f.updated_at desc`
+  );
+  return rows
+    .filter(
+      (f) => canRead(user, who, f) || (f.settings && f.settings.crm === 'mentees_applications')
+    )
+    .map((f) => ({
+      id: f.id,
+      title: f.title,
+      status: f.status,
+      responses: f.responses,
+      board: Boolean(f.settings && f.settings.crm === 'mentees_applications'),
+    }));
+}
+
+/**
+ * Every question a form ever asked that takes an answer, the current
+ * version's first and in its order: [{ id, label, type }]. null: no such form.
+ */
+async function questionsOf(formId) {
+  if (!UUID.test(String(formId || ''))) return null;
+  const { rows } = await db.query(
+    'select schema from form_versions where form_id = $1 order by version desc',
+    [formId]
+  );
+  if (!rows.length) return null;
+  const out = [];
+  const seen = new Set();
+  rows.forEach(({ schema }) => {
+    schemaLib.answerable(schema).forEach((item) => {
+      // A consent ticked is nothing to review.
+      if (seen.has(item.id) || item.type === 'consent') return;
+      seen.add(item.id);
+      out.push({
+        id: item.id,
+        label: schemaLib.textIn(schema, item.label, schema.languages[0]) || item.id,
+        type: item.type,
+      });
+    });
+  });
+  return out;
+}
+
+/**
+ * The answers to a form as text, newest first: [{ id, submittedAt,
+ * respondentKey, texts: { questionId: text } }]. Unreadable ones are left out.
+ */
+async function answerTexts(formId) {
+  if (!UUID.test(String(formId || ''))) return [];
+  const form = await loadForm(formId).catch(() => null);
+  if (!form) return [];
+  const { rows } = await db.query(
+    `select id, version, submitted_at, answers_encrypted, respondent_key from form_responses
+     where form_id = $1 and deleted_at is null order by submitted_at desc`,
+    [form.id]
+  );
+  const schemas = {};
+  for (const v of new Set(rows.map((r) => r.version))) {
+    schemas[v] = await schemaOf(form.id, v).catch(() => null);
+  }
+  const out = [];
+  rows.forEach((r) => {
+    const answers = openAnswers(form, r);
+    const schema = schemas[r.version];
+    if (answers.unreadable || !schema) return;
+    const texts = {};
+    schemaLib.answerable(schema).forEach((item) => {
+      if (answers[item.id] === undefined || answers[item.id] === null) return;
+      texts[item.id] = schemaLib.answerText(schema, item, answers[item.id]);
+    });
+    out.push({ id: r.id, submittedAt: r.submitted_at, respondentKey: r.respondent_key, texts });
+  });
+  return out;
+}
+
 /** Puts one of the form's tags on an answer. Readers may. */
 async function setResponseStatus(user, id, responseId, status) {
   const { form } = await formFor(user, id, 'read', { fresh: true });
@@ -1150,4 +1236,7 @@ module.exports = {
   responses,
   requireForms,
   meta,
+  forReview,
+  questionsOf,
+  answerTexts,
 };

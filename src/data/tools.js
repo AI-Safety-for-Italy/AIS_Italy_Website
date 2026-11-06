@@ -144,15 +144,10 @@ module.exports = [
     text: 'Score the mentees’ applications, without knowing who they are.',
     icon: '<path d="M9 4h6a1 1 0 0 1 1 1v1H8V5a1 1 0 0 1 1-1z"/><path d="M16 5h2a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h2"/><path d="M9 12l2 2 4-4M9 17h6"/>',
     tabs: [
-      { key: 'cv', label: 'Score CVs', url: '/app/review/#cv' },
-      { key: 'answers', label: 'Score answers', url: '/app/review/#answers' },
+      // The sections to score are the setup's own: the page shows them as tabs.
+      { key: 'score', label: 'Score', url: '/app/review/' },
       { key: 'summary', label: 'Summary', url: '/app/review/summary/', needs: 'review_admin' },
-      {
-        key: 'settings',
-        label: 'Grid & reviewers',
-        url: '/app/review/settings/',
-        needs: 'review_admin',
-      },
+      { key: 'settings', label: 'Setup', url: '/app/review/settings/', needs: 'review_admin' },
     ],
     actions: [],
   },
