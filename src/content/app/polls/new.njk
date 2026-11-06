@@ -6,6 +6,7 @@ excludeFromSitemap: true
 eleventyExcludeFromCollections: true
 seoTitle: 'New poll | AI Safety for Italy'
 tool: polls
+wide: true
 ---
 {% extends "app.njk" %}
 {% block page %}
@@ -62,7 +63,7 @@ tool: polls
           </div>
           <div id="calendarRow" hidden>
             <label class="form-label" for="calendarPick">When a time is chosen, add it to <span class="panel-note">(optional)</span></label>
-            <select class="form-input is-compact" id="calendarPick"><option value="">My calendar (only me and the invited)</option></select>
+            <select class="form-input is-compact" id="calendarPick"><option value="">My calendar (private)</option></select>
             <p class="form-note" style="margin-top:.4rem">The meeting lands there for whoever sees that calendar; in My calendar, only you and the people you email the invite to see it. The invite by email stays yours to send.</p>
           </div>
           <label class="check-row">

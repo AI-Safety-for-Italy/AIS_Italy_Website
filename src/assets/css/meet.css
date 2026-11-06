@@ -498,6 +498,20 @@ textarea.form-input.is-short {
   margin-top: 0;
 }
 
+/* A field never makes its column wider than the panel (a select sizes
+   itself to its longest option otherwise). */
+.create-layout .form-grid > *,
+.create-layout .form-grid select {
+  min-width: 0;
+  max-width: 100%;
+}
+
+@media (min-width: 1400px) {
+  .create-layout {
+    grid-template-columns: 340px minmax(0, 1fr);
+  }
+}
+
 .chip-group {
   display: flex;
   flex-wrap: wrap;
@@ -616,6 +630,9 @@ textarea.form-input.is-short {
 .wk-head {
   display: grid;
   grid-template-columns: var(--wk-gutter) repeat(var(--wk-days), minmax(0, 1fr));
+  /* The same room for a scroll bar as the grid below, so the days line up. */
+  overflow-y: hidden;
+  scrollbar-gutter: stable;
   border-bottom: 1px solid var(--border-default);
   background: var(--card-bg);
 }
@@ -669,8 +686,9 @@ textarea.form-input.is-short {
 }
 
 .wk-scroll {
-  height: min(560px, 62vh);
+  height: min(620px, 66vh);
   overflow-y: auto;
+  scrollbar-gutter: stable;
   overscroll-behavior: contain;
 }
 
@@ -795,23 +813,38 @@ textarea.form-input.is-short {
 /* The events this member already has, under the times picked (poll-new.js) */
 .wk-busy {
   position: absolute;
-  left: 2px;
-  right: 2px;
+  left: 3px;
+  right: 3px;
   z-index: 1;
-  padding: 0.15rem 0.35rem;
+  padding: 0.2rem 0.4rem;
   overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--busy) 35%, transparent);
   border-left: 3px solid var(--busy);
-  border-radius: 4px;
-  background: color-mix(in srgb, var(--busy) 12%, var(--card-bg));
-  color: var(--text-secondary);
-  font-size: 0.68rem;
-  line-height: 1.2;
+  border-radius: 5px;
+  background: repeating-linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--busy) 14%, var(--card-bg)),
+    color-mix(in srgb, var(--busy) 14%, var(--card-bg)) 6px,
+    color-mix(in srgb, var(--busy) 8%, var(--card-bg)) 6px,
+    color-mix(in srgb, var(--busy) 8%, var(--card-bg)) 12px
+  );
+  color: var(--text-primary);
+  font-size: 0.7rem;
+  line-height: 1.25;
   pointer-events: none;
+}
+
+.wk-busy small {
+  display: block;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
 }
 
 .wk-busy span {
   display: block;
   overflow: hidden;
+  font-weight: 600;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
@@ -852,6 +885,11 @@ textarea.form-input.is-short {
   gap: 4px 16px;
   align-items: center;
   justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.wk-hint-row .wk-hint {
+  margin: 0;
 }
 
 .wk-busy-toggle {

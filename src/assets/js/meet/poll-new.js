@@ -354,6 +354,10 @@
         return {
           title: b.title,
           color: b.color,
+          time:
+            M.fmtTime(new Date(b.startMs).toISOString(), state.tz) +
+            '–' +
+            M.fmtTime(new Date(b.endMs).toISOString(), state.tz),
           top: (start - day.from) / 60000,
           length: Math.max(15, (end - start) / 60000),
         };
@@ -373,7 +377,7 @@
       'div',
       {
         class: 'wk-busy',
-        title: b.title,
+        title: b.title + ' · ' + b.time,
         style:
           '--busy:' +
           b.color +
@@ -383,7 +387,8 @@
           (b.length / 1440) * 100 +
           '% - 2px)',
       },
-      h('span', null, b.title)
+      h('span', null, b.title),
+      b.length >= 40 ? h('small', null, b.time) : null
     );
   }
 
@@ -447,7 +452,8 @@
   }
 
   function scrollToHour(hour) {
-    if (scroller) scroller.scrollTop = Math.max(0, hour) * hourPx();
+    // A little above the hour, so its label is not cut.
+    if (scroller) scroller.scrollTop = Math.max(0, hour - 0.3) * hourPx();
   }
 
   function renderSummary() {

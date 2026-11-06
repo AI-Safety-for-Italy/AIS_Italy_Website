@@ -667,7 +667,7 @@
           });
       },
     });
-    pick.appendChild(h('option', { value: '' }, 'In My calendar (only me and the invited)'));
+    pick.appendChild(h('option', { value: '' }, 'In My calendar (private)'));
     // My calendar is the "" choice: the meeting goes there when none is named.
     var named = poll.calendar && !poll.calendar.personal;
     if (named) {
@@ -1064,9 +1064,7 @@
     calendarsList().then(function (list) {
       var select = document.getElementById('finalizeCalendar');
       if (!list.length) return;
-      M.clear(select).appendChild(
-        h('option', { value: '' }, 'My calendar (only me and the invited)')
-      );
+      M.clear(select).appendChild(h('option', { value: '' }, 'My calendar (private)'));
       list.forEach(function (c) {
         if (!c.personal) select.appendChild(h('option', { value: c.id }, c.name));
       });
