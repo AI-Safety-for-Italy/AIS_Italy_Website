@@ -148,3 +148,20 @@ test('the groups of tools exist, and their tools stand together', () => {
     seen.push(tool.group);
   });
 });
+
+test('every tool has an icon colour, light and dark, in meet.css', () => {
+  const css = fs.readFileSync(
+    path.join(__dirname, '..', 'src', 'assets', 'css', 'meet.css'),
+    'utf8'
+  );
+  for (const tool of tools) {
+    assert.ok(
+      css.includes(`.hub-tool-icon--${tool.key} {`),
+      `no .hub-tool-icon--${tool.key} in meet.css`
+    );
+    assert.ok(
+      css.includes(`[data-theme='dark'] .hub-tool-icon--${tool.key} {`),
+      `no dark variant of .hub-tool-icon--${tool.key} in meet.css`
+    );
+  }
+});

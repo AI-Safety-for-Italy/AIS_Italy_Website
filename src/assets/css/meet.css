@@ -8974,6 +8974,31 @@ a.hub-todo-card:hover {
   color: #0e7490;
 }
 
+.hub-tool-icon--calendar {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.hub-tool-icon--review {
+  background: #ffedd5;
+  color: #c2410c;
+}
+
+.hub-tool-icon--community {
+  background: #fce7f3;
+  color: #be185d;
+}
+
+.hub-tool-icon--localgroups {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.hub-tool-icon--organizer {
+  background: #f3f4f6;
+  color: #374151;
+}
+
 [data-theme='dark'] .hub-tool-icon--polls {
   background: #1e3a8a;
   color: #bfdbfe;
@@ -8997,6 +9022,31 @@ a.hub-todo-card:hover {
 [data-theme='dark'] .hub-tool-icon--members {
   background: #164e63;
   color: #a5f3fc;
+}
+
+[data-theme='dark'] .hub-tool-icon--calendar {
+  background: #14532d;
+  color: #bbf7d0;
+}
+
+[data-theme='dark'] .hub-tool-icon--review {
+  background: #7c2d12;
+  color: #fed7aa;
+}
+
+[data-theme='dark'] .hub-tool-icon--community {
+  background: #831843;
+  color: #fbcfe8;
+}
+
+[data-theme='dark'] .hub-tool-icon--localgroups {
+  background: #0c4a6e;
+  color: #bae6fd;
+}
+
+[data-theme='dark'] .hub-tool-icon--organizer {
+  background: #374151;
+  color: #e5e7eb;
 }
 
 .hub-tool-body {
