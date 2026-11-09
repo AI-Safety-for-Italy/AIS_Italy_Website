@@ -9,7 +9,7 @@
 <div class="video-embed" data-youtube="{{ item.youtube }}" data-title="{{ title }}">
     <a class="video-embed__link" href="https://www.youtube.com/watch?v={{ item.youtube }}" target="_blank" rel="noopener noreferrer"
        aria-label="{{ ('Guarda il video: ' if lang == 'it' else 'Play video: ') + title }}">
-        <img src="/assets/img/media/{{ item.youtube }}.jpg" alt="" width="1280" height="720" loading="lazy" decoding="async">
+        <img src="{{ item.thumb or ('/assets/img/media/' + item.youtube + '.jpg') }}" alt="" width="1280" height="720" loading="lazy" decoding="async">
         <span class="video-embed__play" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l11-6.5z"/></svg>
         </span>

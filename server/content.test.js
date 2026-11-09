@@ -658,3 +658,85 @@ test('each part of the content tool shows who can use it, to who can use it', as
     ]
   );
 });
+
+test('a YouTube link on a seminar is kept as its id, and any form of the link works', () => {
+  const ID = 'Rawo52TSIoU';
+  for (const link of [
+    `https://youtu.be/${ID}`,
+    `https://www.youtube.com/watch?v=${ID}&t=5`,
+    `https://youtube.com/embed/${ID}`,
+    ID,
+  ]) {
+    const entry = content.toEntry(seminar({ youtube: link }));
+    assert.equal(entry.youtube, ID);
+    assert.equal(content.toForm(entry).youtube, `https://www.youtube.com/watch?v=${ID}`);
+  }
+  assert.equal(content.toEntry(seminar()).youtube, undefined);
+  for (const bad of [
+    'https://example.org/watch?v=Rawo52TSIoU',
+    'not a link',
+    'https://youtu.be/x',
+  ]) {
+    assert.throws(() => content.toEntry(seminar({ youtube: bad })), Error);
+  }
+});
+
+test('a recording on a published seminar becomes a video of the media page', async () => {
+  const fs = require('fs');
+  const os = require('os');
+  const path = require('path');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'thumbs-'));
+  const asked = [];
+  contentBuild.setFetch(async (url) => {
+    asked.push(url);
+    return url.includes('bad')
+      ? { ok: false, status: 404 }
+      : { ok: true, arrayBuffer: async () => new ArrayBuffer(4) };
+  });
+  try {
+    const yaml = { items: [{ type: 'video', youtube: 'nd3l9CjsWZI', title: 'Old' }] };
+    const live = {
+      live: true,
+      entries: [
+        {
+          anchor: 'seminar-a',
+          day: '2026-10-29',
+          title: 'A',
+          title_it: 'A it',
+          speaker: 'Carlo',
+          youtube: 'Rawo52TSIoU',
+        },
+        {
+          anchor: 'seminar-b',
+          day: '2026-10-15',
+          title: 'B',
+          title_it: 'B it',
+          youtube: 'nd3l9CjsWZI',
+        },
+        {
+          anchor: 'seminar-c',
+          day: '2026-09-01',
+          title: 'C',
+          title_it: 'C it',
+          youtube: 'badbadbadbd',
+        },
+        { anchor: 'seminar-d', day: '2026-08-01', title: 'D', title_it: 'D it' },
+      ],
+    };
+    const out = await contentBuild.media(yaml, live, dir);
+    // The id the YAML has stays as it is, the one with no thumbnail is left off.
+    assert.deepEqual(
+      out.items.map((i) => i.youtube),
+      ['Rawo52TSIoU', 'nd3l9CjsWZI']
+    );
+    assert.equal(out.items[0].date, '29 October 2026');
+    assert.equal(out.items[0].date_it, '29 ottobre 2026');
+    assert.equal(out.items[0].event, 'seminar-a');
+    assert.ok(fs.existsSync(path.join(dir, 'Rawo52TSIoU.jpg')));
+    assert.equal(asked.length, 2);
+    // Not live yet: the YAML alone.
+    assert.equal(await contentBuild.media(yaml, { live: false, entries: [] }, dir), yaml);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
