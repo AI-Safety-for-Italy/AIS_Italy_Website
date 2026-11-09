@@ -120,3 +120,6 @@ src/assets/img/mentors/*-[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f
 
 # Local credentials, never committed
 .secrets/
+
+# Thumbnails of the recordings added from the dashboard (server/content-build.js)
+src/assets/img/media/recordings/
