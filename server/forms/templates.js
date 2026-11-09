@@ -231,6 +231,38 @@ const TEMPLATES = {
     }),
   },
 
+  contact: {
+    label: 'Contact: questions, feedback and mistakes',
+    // The address the site's contact page and the footer's "Report a mistake" open.
+    slug: 'contatti',
+    schema: (title) => ({
+      languages: ['it'],
+      title: { it: title },
+      description: {
+        it: 'Domande, feedback o un errore da segnalare: scrivici qui e ti rispondiamo via email.',
+      },
+      confirmation: { it: 'Grazie! Abbiamo ricevuto il tuo messaggio e ti risponderemo presto.' },
+      items: [
+        q('name', 'short_text', 'Nome', { required: true }),
+        q('email', 'email', 'Email', { required: true }),
+        q('topic', 'single', 'Di cosa si tratta?', {
+          required: true,
+          options: options([
+            ['question', 'Una domanda o un feedback'],
+            ['bug', 'Un errore sul sito'],
+            ['collab', 'Una proposta di collaborazione'],
+            ['other', 'Altro'],
+          ]),
+        }),
+        q('page', 'short_text', 'In quale pagina del sito? (se lo ricordi)', {
+          showIf: { item: 'topic', values: ['bug'] },
+        }),
+        q('message', 'long_text', 'Messaggio', { required: true }),
+        PRIVACY,
+      ],
+    }),
+  },
+
   community_signup: {
     label: 'Community sign-up',
     schema: (title) => ({
