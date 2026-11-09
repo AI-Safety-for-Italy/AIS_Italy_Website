@@ -779,7 +779,7 @@ const round = (n) => (n === null ? null : Math.round(n * 100) / 100);
  * board's status, each section's mean and spread over the complete reviews,
  * and the overall score (the sections' means, weighted). Sorted best first.
  */
-async function summary(user) {
+async function summary(user, { record = true } = {}) {
   const settings = await getSettings();
   const catalog = (await catalogOf(settings.formId)) || [];
   const labels = new Map(catalog.map((q) => [q.id, q.label]));
@@ -860,7 +860,7 @@ async function summary(user) {
     if (y.overall === null) return -1;
     return y.overall - x.overall;
   });
-  await audit.record(user, 'review-summary', null, { people: people.length });
+  if (record) await audit.record(user, 'review-summary', null, { people: people.length });
   const names = new Map(team.map((r) => [r.userId, r.name]));
   return {
     sections: settings.sections.map((s) => ({
