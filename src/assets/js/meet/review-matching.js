@@ -374,7 +374,10 @@
                   type: 'number',
                   min: '0',
                   max: String(data.limits.places),
-                  placeholder: 'board',
+                  placeholder: p.boardPlaces ? String(p.boardPlaces) : '?',
+                  title: p.boardPlaces
+                    ? 'From the board (' + placesSource(p) + '): leave empty to keep it'
+                    : 'Not on the board: set it here',
                   value: entry.places,
                   'aria-label': 'Places for ' + p.label,
                   oninput: function () {
@@ -392,7 +395,16 @@
                     !entry.mentors.length ? h('small', { class: 'rv-flag' }, 'no mentor') : null
                   ),
                   h('td', null, mentorPicker(entry)),
-                  h('td', null, places)
+                  h(
+                    'td',
+                    null,
+                    places,
+                    h(
+                      'small',
+                      { class: 'panel-note mt-places-from' },
+                      entry.places !== '' ? 'set here' : p.boardPlaces ? placesSource(p) : 'unknown'
+                    )
+                  )
                 );
               })
             )
@@ -496,6 +508,17 @@
     );
   }
 
+  // Where a project's number of places comes from, in words.
+  function placesSource(p) {
+    var top = p.mentors.filter(function (m) {
+      return m.capacity === p.boardPlaces;
+    })[0];
+    if (!top) return 'board';
+    return top.capacityFrom === 'site'
+      ? 'site entry of ' + top.name
+      : 'answer of ' + top.name + ': “' + top.capacityText + '”';
+  }
+
   function projectCard(p) {
     var full = p.places !== null && p.taken >= p.places;
     var head = h(
@@ -519,8 +542,18 @@
       ),
       h(
         'span',
-        { class: 'rv-pill' + (full ? '' : ' is-on') },
-        p.places === null ? p.taken + ' paired' : p.taken + ' / ' + p.places + ' places'
+        {
+          class: 'rv-pill' + (full ? '' : ' is-on') + (p.places === null ? ' mt-unknown' : ''),
+          title:
+            p.places === null
+              ? 'How many mentees it takes is not known: set it in the setup'
+              : p.placesFrom === 'setup'
+              ? 'Set in the setup'
+              : 'From the ' + placesSource(p),
+        },
+        p.places === null
+          ? p.taken + ' paired · places unknown'
+          : p.taken + ' / ' + p.places + ' places'
       )
     );
     if (!p.candidates.length) {
@@ -612,6 +645,109 @@
     );
   }
 
+  // How many to select: the places of each project against who chose it.
+  function placesPanel(pl) {
+    var t = pl.projects;
+    var head =
+      t.places +
+      ' places on ' +
+      t.projects.length +
+      ' projects' +
+      (t.unknown ? ' (' + t.unknown + ' without a number)' : '') +
+      ' · ' +
+      t.selected +
+      ' mentees selected on this track · ' +
+      t.paired +
+      ' paired';
+    var verdict =
+      t.unknown || !t.projects.length
+        ? null
+        : t.selected < t.places
+        ? h('span', { class: 'mt-places-verdict' }, t.places - t.selected + ' places still to fill')
+        : t.selected > t.places
+        ? h(
+            'span',
+            { class: 'mt-places-verdict is-over' },
+            t.selected - t.places + ' selected more than the places'
+          )
+        : h('span', { class: 'mt-places-verdict is-even' }, 'As many selected as places');
+    return h(
+      'details',
+      { class: 'panel mt-placesbox' },
+      h('summary', null, h('strong', null, 'Places'), ' · ', head, ' ', verdict),
+      h(
+        'p',
+        { class: 'panel-note' },
+        'Places come from the setup, else the mentor’s site entry, else their answer to “how many mentees”. A project with co-mentors counts once.'
+      ),
+      h(
+        'div',
+        { class: 'fr-table-wrap rv-table-wrap' },
+        h(
+          'table',
+          { class: 'rv-table' },
+          h(
+            'thead',
+            null,
+            h(
+              'tr',
+              null,
+              h('th', null, 'Project'),
+              h('th', { class: 'rv-num' }, 'Places'),
+              h('th', { class: 'rv-num', title: 'Put it first, not rejected' }, '1st choice'),
+              h('th', { class: 'rv-num', title: 'Ranked it at all, not rejected' }, 'Ranked'),
+              h(
+                'th',
+                { class: 'rv-num', title: 'Selected (or paired), put it first' },
+                'Selected, 1st'
+              ),
+              h('th', { class: 'rv-num' }, 'Paired')
+            )
+          ),
+          h(
+            'tbody',
+            null,
+            t.projects.map(function (r) {
+              var short = r.places !== null && r.first < r.places;
+              return h(
+                'tr',
+                null,
+                h('td', null, r.label),
+                h(
+                  'td',
+                  { class: 'rv-num' + (r.places === null ? ' is-empty' : '') },
+                  r.places === null ? '?' : String(r.places)
+                ),
+                h(
+                  'td',
+                  { class: 'rv-num' },
+                  String(r.first),
+                  short
+                    ? h(
+                        'span',
+                        { class: 'rv-flag', title: 'Fewer first choices than places' },
+                        ' few'
+                      )
+                    : null
+                ),
+                h('td', { class: 'rv-num' }, String(r.ranked)),
+                h('td', { class: 'rv-num' }, String(r.selectedFirst)),
+                h('td', { class: 'rv-num' }, String(r.paired))
+              );
+            })
+          )
+        )
+      ),
+      t.unmapped
+        ? h(
+            'p',
+            { class: 'panel-note' },
+            t.unmapped + ' projects have no mentor in the setup and are not counted.'
+          )
+        : null
+    );
+  }
+
   function projectsTab() {
     var data = view.data;
     if (!data.settings.question) {
@@ -628,7 +764,7 @@
     var ready = data.suggestion.filter(function (s) {
       return s.ready && s.status === 'selected';
     });
-    var out = [];
+    var out = [placesPanel(data.places)];
     var notes = [];
     if (mapped < data.projects.length)
       notes.push(
@@ -648,7 +784,12 @@
           h(
             'p',
             null,
-            h('strong', null, data.suggestion.length + ' suggested pairs'),
+            h(
+              'strong',
+              null,
+              data.suggestion.length +
+                (data.suggestion.length === 1 ? ' suggested pair' : ' suggested pairs')
+            ),
             ' (★ below) for ',
             view.pool === 'all' ? 'everyone not rejected' : 'the selected mentees',
             '. Each mentee gets the best project they ranked that keeps them; each project keeps the best adjusted scores within its free places.'
@@ -866,7 +1007,23 @@
 
   function checkPanel(o) {
     var c = o.check;
-    var items = [];
+    var pl = view.data.places.orientation;
+    var items = [
+      h(
+        'li',
+        { class: 'is-info' },
+        pl.places +
+          ' places with ' +
+          pl.mentors +
+          ' mentors' +
+          (pl.unknown ? ' (' + pl.unknown + ' without a number)' : '') +
+          ' · ' +
+          pl.selected +
+          ' mentees selected · ' +
+          pl.paired +
+          ' paired'
+      ),
+    ];
     if (c.unassigned.length)
       items.push(
         h(
@@ -889,7 +1046,7 @@
           'Only ' + c.placesLeft + ' places left for ' + c.unassigned.length + ' mentees'
         )
       );
-    if (!items.length)
+    if (items.length === 1)
       items.push(
         h(
           'li',

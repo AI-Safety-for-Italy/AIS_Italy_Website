@@ -152,6 +152,36 @@ function derivedStatus(person) {
   return 'interested';
 }
 
+// Numbers written out, in the answers to "how many mentees".
+const NUMBER_WORDS = {
+  un: 1,
+  uno: 1,
+  una: 1,
+  due: 2,
+  tre: 3,
+  quattro: 4,
+  cinque: 5,
+  one: 1,
+  two: 2,
+  three: 3,
+  four: 4,
+  five: 5,
+};
+
+/**
+ * How many mentees a free answer says: the most it names, so "1-2", "2 o 3",
+ * "due" read as 2, 3 and 2. null when it names no number.
+ */
+function placesFrom(text) {
+  const t = sources.norm(text);
+  const found = [...t.matchAll(/\d+/g)].map((m) => Number(m[0]));
+  t.split(/[^a-z]+/).forEach((w) => {
+    if (NUMBER_WORDS[w]) found.push(NUMBER_WORDS[w]);
+  });
+  const ok = found.filter((n) => n >= 1 && n <= 20);
+  return ok.length ? Math.max(...ok) : null;
+}
+
 /** The card: what the board shows for a person, without contact details. */
 function card(person, state, extra) {
   const r = person.records;
@@ -174,7 +204,10 @@ function card(person, state, extra) {
       trackOf(first(app.tracks, mentee.tracks, prospect.track, interest.tracks)),
     areas: first(app.areas, mentee.areas, interest.areas, prospect.notes),
     project: app.project_title || '',
-    capacity: Number(app.mentees) > 0 ? Number(app.mentees) : null,
+    capacity: placesFrom(app.mentees),
+    // The answer it is read from, and where the number comes from.
+    capacityText: str(app.mentees),
+    capacityFrom: placesFrom(app.mentees) ? 'application' : null,
     referrer: prospect.referrer || '',
     sources: Object.keys(r),
     status: (state && state.status) || derivedStatus(person),
@@ -312,6 +345,27 @@ async function applicants() {
  * coMentors, menteeKey, track }], profiles }. Read for a page that records
  * its own view.
  */
+/** person key -> the places on their site entry: the board's draft first, then the published one. */
+async function sitePlaces() {
+  const out = new Map();
+  const count = (entry) => {
+    const n = Number(entry && entry.places);
+    return Number.isInteger(n) && n > 0 ? n : null;
+  };
+  const { rows: published } = await db.query(
+    'select person_key, entry from mentor_site_entries where person_key is not null'
+  );
+  published.forEach((r) => {
+    if (count(r.entry)) out.set(r.person_key, count(r.entry));
+  });
+  const { rows: drafts } = await db.query('select person_key from crm_site_profiles');
+  for (const r of drafts) {
+    const { draft } = await readDraft(r.person_key);
+    if (draft.entry && count(draft.entry)) out.set(r.person_key, count(draft.entry));
+  }
+  return out;
+}
+
 // What the matching shows of an application, to pair by fit (no contacts).
 const PROFILE_FIELDS = {
   mentees_applications: [
@@ -331,6 +385,17 @@ async function roster() {
   const { people } = await gather();
   const [state, matches] = await Promise.all([states(), activeMatches()]);
   const cards = [...people.values()].map((p) => card(p, state.get(`${p.kind}:${p.key}`), {}));
+  // The places set on their site entry (the board's draft, what is published,
+  // or data/mentors.yaml) win over the application's answer.
+  const site = await sitePlaces();
+  cards
+    .filter((c) => c.kind === 'mentor')
+    .forEach((c) => {
+      const yamlHit = siteYaml(c.name);
+      const n =
+        site.get(c.key) || (yamlHit && Number(yamlHit.places) > 0 ? Number(yamlHit.places) : null);
+      if (n) Object.assign(c, { capacity: n, capacityFrom: 'site' });
+    });
   // `profiles`: "kind:key" -> the answers of their application worth reading.
   const profiles = new Map();
   for (const p of people.values()) {
@@ -1271,6 +1336,7 @@ async function addProspect(user, body) {
 module.exports = {
   STATUSES,
   PROSPECT_FIELDS,
+  placesFrom,
   addProspect,
   TRACKS,
   trackOf,

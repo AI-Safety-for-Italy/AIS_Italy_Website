@@ -548,6 +548,72 @@ test('career orientation: a shared draft by fit, checked, filled, then paired', 
   );
 });
 
+test('how many mentees a mentor takes: their answer read loosely, their site entry first', async () => {
+  assert.equal(mentorship.placesFrom('2'), 2);
+  assert.equal(mentorship.placesFrom('1-2'), 2);
+  assert.equal(mentorship.placesFrom('2 o 3 mentee'), 3);
+  assert.equal(mentorship.placesFrom('Due'), 2);
+  assert.equal(mentorship.placesFrom('un mentee'), 1);
+  assert.equal(mentorship.placesFrom('dipende'), null);
+  assert.equal(mentorship.placesFrom(''), null);
+
+  const me = await admin();
+  await records.add(
+    'mentors_applications',
+    { name: 'Ada Rossi', email: 'ada@example.org', tracks: 'Progetti', mentees: 'da 1 a 2' },
+    { origin: 'form' }
+  );
+  await mentorship.update(me, key('Ada'), 'mentor', { status: 'selected' });
+  let ada = (await mentorship.roster()).mentors.find((m) => m.name === 'Ada Rossi');
+  assert.equal(ada.capacity, 2);
+  assert.equal(ada.capacityFrom, 'application');
+  assert.equal(ada.capacityText, 'da 1 a 2');
+
+  // The places on their published site entry win.
+  await db.query(
+    `insert into mentor_site_entries (id, person_key, entry) values ('ada-rossi', $1, $2)`,
+    [key('Ada'), { name: 'Ada Rossi', places: 3 }]
+  );
+  ada = (await mentorship.roster()).mentors.find((m) => m.name === 'Ada Rossi');
+  assert.equal(ada.capacity, 3);
+  assert.equal(ada.capacityFrom, 'site');
+});
+
+test('the places against who is selected, to know how many to select', async () => {
+  const { me, form } = await cast();
+  await mentorship.update(me, key('Olga'), 'mentee', { status: 'declined' });
+  await matching.saveSettings(me, {
+    formId: form.id,
+    question: 'progetti',
+    projects: {
+      o_evals: { mentors: [key('Ada')], places: null },
+      o_secur: { mentors: [key('Bruno')], places: null },
+      o_moral: { mentors: [key('Carla'), key('Dario')], places: 3 },
+    },
+  });
+  const { places } = await matching.view(me);
+  // Rossi 2 + Verdi 1 + 3 set by hand for the co-mentored project.
+  assert.equal(places.projects.places, 6);
+  assert.equal(places.projects.unknown, 0);
+  assert.equal(places.projects.selected, 3); // Lia, Marco, Nina (Olga rejected)
+  const row = (id) => places.projects.projects.find((r) => r.id === id);
+  assert.deepEqual(
+    { ...row('o_secur'), label: undefined },
+    {
+      id: 'o_secur',
+      label: undefined,
+      places: 1,
+      placesFrom: 'application',
+      first: 2,
+      ranked: 2,
+      selectedFirst: 2,
+      paired: 0,
+    }
+  );
+  assert.equal(row('o_moral').placesFrom, 'setup');
+  assert.equal(row('o_moral').first, 0); // Olga put it first, but she is rejected
+});
+
 test('the setup refuses what is not the form’s, and only the panel admins get in', async () => {
   const { me, form } = await cast();
   await assert.rejects(

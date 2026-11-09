@@ -15783,3 +15783,59 @@ span.mt-fit.is-no {
 .mt-proposal span.mt-fit {
   margin-left: 0;
 }
+
+.mt-placesbox summary {
+  cursor: pointer;
+  font-size: 13.5px;
+}
+
+.mt-placesbox > .panel-note,
+.mt-placesbox > .fr-table-wrap {
+  margin-top: 10px;
+}
+
+.mt-places-verdict {
+  margin-left: 6px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--warning-light);
+  color: var(--warning);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.mt-places-verdict.is-over {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent-700);
+}
+
+.mt-places-verdict.is-even {
+  background: var(--bg-overlay);
+  color: var(--text-secondary);
+}
+
+.mt-places-from {
+  display: block;
+  margin-top: 2px;
+  font-size: 11.5px;
+  max-width: 180px;
+}
+
+.rv-pill.mt-unknown {
+  background: var(--warning-light);
+  color: var(--warning);
+}
+
+.mt-check li.is-info {
+  color: var(--text-secondary);
+}
+
+.rv-places {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  align-items: baseline;
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
