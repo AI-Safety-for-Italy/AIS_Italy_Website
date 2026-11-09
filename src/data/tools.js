@@ -147,6 +147,7 @@ module.exports = [
       // The sections to score are the setup's own: the page shows them as tabs.
       { key: 'score', label: 'Score', url: '/app/review/' },
       { key: 'summary', label: 'Summary', url: '/app/review/summary/', needs: 'review_admin' },
+      { key: 'matching', label: 'Matching', url: '/app/review/matching/', needs: 'review_admin' },
       { key: 'settings', label: 'Setup', url: '/app/review/settings/', needs: 'review_admin' },
     ],
     actions: [],

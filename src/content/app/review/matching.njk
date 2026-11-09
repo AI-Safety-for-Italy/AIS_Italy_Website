@@ -1,0 +1,22 @@
+---
+title: Matching
+# The mentees paired with the mentors after the selection: by the projects they
+# ranked and their score, for the admins of the selection (`review_admin`).
+permalink: /app/review/matching/
+tool: review
+tab: matching
+pageTitle: Matching
+wide: true
+noindex: true
+excludeFromSitemap: true
+eleventyExcludeFromCollections: true
+seoTitle: 'Matching | Mentee selection | AI Safety for Italy'
+---
+{% extends "app.njk" %}
+{% block page %}
+    <div id="rvMatching"></div>
+
+<script src="/assets/js/meet/common.js?v={{ build }}" defer></script>
+<script src="/assets/js/meet/app-common.js?v={{ build }}" defer></script>
+<script src="/assets/js/meet/review-matching.js?v={{ build }}" defer></script>
+{% endblock %}

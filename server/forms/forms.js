@@ -1210,6 +1210,66 @@ async function answerTexts(formId) {
   return out;
 }
 
+/**
+ * The options of a ranking question across every version of the form, the
+ * current version's first: [{ id, label }]. An option taken out later keeps
+ * its label from the last version that had it, so earlier answers still read.
+ * null: no such form, or no ranking question with this id.
+ */
+async function rankingOptions(formId, itemId) {
+  if (!UUID.test(String(formId || ''))) return null;
+  const { rows } = await db.query(
+    'select schema from form_versions where form_id = $1 order by version desc',
+    [formId]
+  );
+  let found = false;
+  const out = [];
+  const seen = new Set();
+  rows.forEach(({ schema }) => {
+    const item = schema.items.find((i) => i.id === itemId && i.type === 'ranking');
+    if (!item) return;
+    found = true;
+    item.options.forEach((o) => {
+      if (seen.has(o.id)) return;
+      seen.add(o.id);
+      out.push({ id: o.id, label: schemaLib.textIn(schema, o.label, schema.languages[0]) || o.id });
+    });
+  });
+  return found ? out : null;
+}
+
+/**
+ * The answers to a ranking question, as option ids first to last: { options,
+ * answers: [{ respondentKey, ids }] }. As in answerTexts, the newest answer of
+ * each person counts; an answer without an email has no key (null). Answers
+ * that skipped the question or cannot be opened are left out. null: no such
+ * form or question.
+ */
+async function rankingAnswers(formId, itemId) {
+  const options = await rankingOptions(formId, itemId);
+  if (!options) return null;
+  const form = await loadForm(formId);
+  const { rows } = await db.query(
+    `select id, answers_encrypted, respondent_key from form_responses
+     where form_id = $1 and deleted_at is null order by submitted_at desc`,
+    [form.id]
+  );
+  const known = new Set(options.map((o) => o.id));
+  const seen = new Set();
+  const answers = [];
+  rows.forEach((r) => {
+    if (r.respondent_key) {
+      if (seen.has(r.respondent_key)) return;
+      seen.add(r.respondent_key);
+    }
+    const all = openAnswers(form, r);
+    const ids = !all.unreadable && Array.isArray(all[itemId]) ? all[itemId] : [];
+    const kept = ids.filter((id) => known.has(id));
+    if (kept.length) answers.push({ respondentKey: r.respondent_key || null, ids: kept });
+  });
+  return { options, answers };
+}
+
 /** Puts one of the form's tags on an answer. Readers may. */
 async function setResponseStatus(user, id, responseId, status) {
   const { form } = await formFor(user, id, 'read', { fresh: true });
@@ -1366,4 +1426,6 @@ module.exports = {
   forReview,
   questionsOf,
   answerTexts,
+  rankingOptions,
+  rankingAnswers,
 };

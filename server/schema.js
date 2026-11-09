@@ -308,6 +308,9 @@ create unique index if not exists crm_matches_one_per_mentee
   on crm_matches (mentee_key) where status = 'active';
 create unique index if not exists crm_matches_pair
   on crm_matches (mentor_key, mentee_key) where status = 'active';
+-- A project with co-mentors is one pair: the mentee with the project's first
+-- mentor (mentor_key) and the others here, all of them its mentors.
+alter table crm_matches add column if not exists co_mentors text[] not null default '{}';
 
 -- ── Forms (/app/forms/, server/forms/) ──────────────────────────────────────
 

@@ -13,10 +13,18 @@
 //   GET  ?action=questions&form=<id|>     -> a form's questions and a first split        (admin)
 //   PUT  ?action=settings { formId?, nameQuestion?, sections? }                         (admin)
 //   POST ?action=reviewers { add | remove: userId }                                     (admin)
+// The matching after the selection (server/crm/matching.js), admins only:
+//   GET  ?action=matching&pool=selected|all -> projects, suggestion, orientation, setup
+//   GET  ?action=matching-questions&form=<id> -> the form's ranking questions
+//   PUT  ?action=matching-settings { formId?, question?, penalty?, projects? }
+//   PUT  ?action=matching-draft { menteeKey, mentorKey?, note?, affinity? } -> career orientation draft
+//   POST ?action=matching-fill            -> the draft's gaps filled by affinity, then score
+//   POST ?action=match { project | mentorKey, menteeKey, track } -> the board's own match
 const { route, sendJson, readJson, getQuery, HttpError } = require('../../../http');
 const { requireUser } = require('../../../auth');
 const crypto = require('../../../crm/crypto');
 const review = require('../../../crm/review');
+const matching = require('../../../crm/matching');
 
 /** Signed in, CRM set up, admin or reviewer: returns { user, role }. */
 async function door(req, { write = false } = {}) {
@@ -31,13 +39,19 @@ async function door(req, { write = false } = {}) {
 module.exports = route({
   async GET(req, res) {
     const { user, role } = await door(req);
-    const { action, part, code, form } = getQuery(req);
+    const { action, part, code, form, pool } = getQuery(req);
     if (action === 'summary') {
       review.requireAdmin(role);
       sendJson(res, 200, await review.summary(user));
     } else if (action === 'settings') {
       review.requireAdmin(role);
       sendJson(res, 200, await review.settingsPage(user));
+    } else if (action === 'matching') {
+      review.requireAdmin(role);
+      sendJson(res, 200, await matching.view(user, { pool: pool || 'selected' }));
+    } else if (action === 'matching-questions') {
+      review.requireAdmin(role);
+      sendJson(res, 200, { questions: await matching.questions(user, form) });
     } else if (action === 'questions') {
       review.requireAdmin(role);
       sendJson(res, 200, await review.questions(user, form));
@@ -53,9 +67,19 @@ module.exports = route({
   },
 
   async PUT(req, res) {
-    if (getQuery(req).action !== 'settings') throw new HttpError(400, 'Unknown action');
+    const { action } = getQuery(req);
+    if (!['settings', 'matching-settings', 'matching-draft'].includes(action))
+      throw new HttpError(400, 'Unknown action');
     const { user, role } = await door(req, { write: true });
     review.requireAdmin(role);
+    if (action === 'matching-draft') {
+      sendJson(res, 200, { draft: await matching.saveDraft(user, await readJson(req)) });
+      return;
+    }
+    if (action === 'matching-settings') {
+      sendJson(res, 200, { settings: await matching.saveSettings(user, await readJson(req)) });
+      return;
+    }
     await review.saveSettings(user, await readJson(req));
     sendJson(res, 200, await review.settingsPage(user));
   },
@@ -72,6 +96,12 @@ module.exports = route({
     } else if (action === 'status') {
       review.requireAdmin(role);
       sendJson(res, 200, await review.setStatus(user, body.key, body.status));
+    } else if (action === 'matching-fill') {
+      review.requireAdmin(role);
+      sendJson(res, 200, await matching.fillDrafts(user));
+    } else if (action === 'match') {
+      review.requireAdmin(role);
+      sendJson(res, 201, await matching.confirm(user, body));
     } else if (action === 'reviewers') {
       review.requireAdmin(role);
       sendJson(res, 200, {

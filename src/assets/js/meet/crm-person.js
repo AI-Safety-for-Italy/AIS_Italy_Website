@@ -530,6 +530,7 @@
                 null,
                 'Paired with ',
                 h('a', { href: personUrl(m.otherKey, other) }, name || 'the ' + other),
+                m.coMentors && m.coMentors.length ? ' · with ' + m.coMentors.join(' & ') : '',
                 ' · ' + trackLabel(m.track) + ' · since ' + M.fmtDay(m.createdAt, 'Europe/Rome')
               );
             })
