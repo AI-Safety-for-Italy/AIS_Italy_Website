@@ -39,6 +39,7 @@
     'register_link',
     'register_text',
     'register_text_it',
+    'youtube',
   ];
 
   var PRESETS = {

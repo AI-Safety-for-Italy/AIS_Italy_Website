@@ -397,6 +397,8 @@ module.exports = function(eleventyConfig) {
       // Seminars and events published from the dashboard (/app/content/)
       // join the YAML's; see server/content-build.js.
       if (filename === 'events.yaml') return contentBuild.merge(data, await contentBuild.load());
+      // The recordings (a YouTube link on a seminar or event) join media.yaml's.
+      if (filename === 'media.yaml') return contentBuild.media(data, await contentBuild.load());
       // The directory and the working groups, once published from the
       // dashboard (Member applications); see server/community-build.js.
       // The banners, once saved from the dashboard (Site content → Homepage);

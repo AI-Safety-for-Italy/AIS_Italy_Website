@@ -56,6 +56,7 @@ const FORM_FIELDS = [
   'register_text_it',
   'register_link',
   'register_target',
+  'youtube',
 ];
 
 const DEFAULTS = {
@@ -64,6 +65,26 @@ const DEFAULTS = {
   registerText: 'Register for free on Luma',
   registerTextIt: 'Registrazione gratuita su Luma',
 };
+
+/** The 11-character id of a YouTube link (watch, youtu.be, embed, shorts) or of a bare id; '' if it is none. */
+function youtubeId(value) {
+  const v = String(value || '').trim();
+  if (/^[\w-]{11}$/.test(v)) return v;
+  let u;
+  try {
+    u = new URL(v);
+  } catch {
+    return '';
+  }
+  const host = u.hostname.replace(/^(www|m)\./, '');
+  let id = '';
+  if (host === 'youtu.be') id = u.pathname.slice(1);
+  else if (host === 'youtube.com' || host === 'youtube-nocookie.com') {
+    const m = u.pathname.match(/^\/(?:embed|shorts|live)\/([^/]+)/);
+    id = m ? m[1] : u.searchParams.get('v') || '';
+  }
+  return /^[\w-]{11}$/.test(id) ? id : '';
+}
 
 const SAFE_LINK = /^(https:\/\/[^\s"<>]+|\/[^\s"<>]*)$/;
 
@@ -215,6 +236,10 @@ function toEntry(body, previous = {}) {
     throw fail('The registration link must start with https://', 'register_link');
   }
 
+  const recording = text(b.youtube, 200, 'youtube', 'Recording link');
+  const youtube = recording ? youtubeId(recording) : '';
+  if (recording && !youtube) throw fail('Paste the YouTube link of the recording', 'youtube');
+
   const kept = {};
   Object.keys(previous).forEach((k) => {
     if (!FORM_FIELDS.includes(k) && k !== 'id') kept[k] = previous[k];
@@ -269,6 +294,7 @@ function toEntry(body, previous = {}) {
     });
   }
   if (info.length) entry.format_info = info;
+  if (youtube) entry.youtube = youtube;
   if (registerLink) {
     entry.register_link = registerLink;
     entry.register_text =
@@ -321,6 +347,7 @@ function toForm(entry) {
     register_text: e.register_text || '',
     register_text_it: e.register_text_it || '',
     register_link: e.register_link || '',
+    youtube: e.youtube ? `https://www.youtube.com/watch?v=${e.youtube}` : '',
   };
 }
 

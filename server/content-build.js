@@ -129,7 +129,75 @@ function merge(events, content, today = todayInItaly()) {
   };
 }
 
+const YOUTUBE_ID = /^[\w-]{11}$/;
+const THUMB_DIR = path.join(__dirname, '..', 'src', 'assets', 'img', 'media', 'recordings');
+
+/** 'YYYY-MM-DD' as '29 October 2026' / '29 ottobre 2026'. */
+function mediaDate(day) {
+  const d = new Date(`${day}T12:00:00Z`);
+  const fmt = (locale) =>
+    new Intl.DateTimeFormat(locale, {
+      timeZone: 'UTC',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    }).format(d);
+  return { date: fmt('en-GB'), date_it: fmt('it-IT') };
+}
+
+/** Saves the YouTube thumbnail of each id not saved yet; the ids it could not get are left out. */
+async function saveThumbnails(ids, dir = THUMB_DIR) {
+  const ok = new Set();
+  for (const id of ids) {
+    const file = path.join(dir, `${id}.jpg`);
+    try {
+      if (!fs.existsSync(file)) {
+        const res = await fetchImpl(`https://i.ytimg.com/vi/${id}/maxresdefault.jpg`);
+        if (!res.ok) throw new Error(`answered ${res.status}`);
+        fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(file, Buffer.from(await res.arrayBuffer()));
+      }
+      ok.add(id);
+    } catch (err) {
+      console.warn(`No thumbnail for YouTube video ${id} (${err.message}): left off /media/`);
+    }
+  }
+  return ok;
+}
+
+/**
+ * data/media.yaml with a video item for each published seminar or event that has
+ * a `youtube` recording, ahead of the YAML's items (newest first). An id the
+ * YAML already lists stays as the YAML has it.
+ */
+async function media(yaml, content, dir = THUMB_DIR) {
+  if (!content || !content.live) return yaml;
+  const items = yaml.items || [];
+  const known = new Set(items.map((i) => i.youtube).filter(Boolean));
+  const entries = (content.entries || [])
+    .filter((e) => e && YOUTUBE_ID.test(e.youtube || '') && !known.has(e.youtube))
+    .sort((a, b) => (a.day < b.day ? 1 : a.day > b.day ? -1 : 0));
+  const saved = await saveThumbnails(
+    entries.map((e) => e.youtube),
+    dir
+  );
+  const derived = entries
+    .filter((e) => saved.has(e.youtube))
+    .map((e) => ({
+      type: 'video',
+      youtube: e.youtube,
+      thumb: `/assets/img/media/recordings/${e.youtube}.jpg`,
+      title: e.title,
+      title_it: e.title_it,
+      ...(e.speaker ? { speaker: e.speaker } : {}),
+      ...mediaDate(e.day),
+      event: e.anchor,
+    }));
+  return { ...yaml, items: derived.concat(items) };
+}
+
 module.exports = {
+  media,
   SNAPSHOT,
   setFetch,
   load,

@@ -120,3 +120,6 @@ src/assets/img/mentors/*-[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f
 
 # Local credentials (e.g. the Google OAuth client for scripts/meet-google-auth.js)
 .secrets/
+
+# Thumbnails of the recordings added from the dashboard (server/content-build.js)
+src/assets/img/media/recordings/
