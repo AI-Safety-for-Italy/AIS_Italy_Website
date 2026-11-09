@@ -71,6 +71,7 @@ research_areas:
 mentors:
   - id: lorenzo-pacchiardi
     name: 'Lorenzo Pacchiardi'
+    role: 'Assistant Research Professor'
     affiliation: 'University of Cambridge'
     photo: '/assets/img/mentors/lorenzo-pacchiardi.jpg'
     links:
@@ -97,6 +98,7 @@ mentors:
 
   - id: stefano-vergani
     name: 'Stefano Vergani'
+    role: 'Postdoctoral Research Associate'
     affiliation: "King's College London, GovAI"
     photo: '/assets/img/mentors/stefano-vergani.jpg'
     links:
@@ -123,6 +125,7 @@ mentors:
 
   - id: emanuele-marconato
     name: 'Emanuele Marconato'
+    role: 'MSCA Postdoctoral Fellow'
     affiliation: 'University of Copenhagen'
     photo: '/assets/img/mentors/emanuele-marconato.jpg'
     links:
@@ -168,12 +171,13 @@ mentors:
 
   - id: francesco-pinto
     name: 'Francesco Pinto'
+    role: 'Research Scientist'
     affiliation: 'Google DeepMind'
     photo: '/assets/img/mentors/francesco-pinto.jpg'
     links:
       linkedin: 'https://www.linkedin.com/in/francesco-pinto-42a389b1'
     co_mentors: [fabio-pizzati, massimiliano-mancini]
-    tracks: [projects]
+    tracks: [projects, orientation]
     areas: [evaluations, alignment, security, ethics]
     bio: 'Works on hardening Gemini against prompt injection, in post-training and in the agent harness, develops agentic security benchmarks and designs more effective adversarial attacks. He has supervised students from every background, from undergraduates to final-year PhD students, and mentors Italian students starting a STEM career.'
     bio_it: "Lavora a rendere Gemini più robusto alla prompt injection, sia nel post-training sia nell'harness degli agenti, sviluppa benchmark agentici di sicurezza e attacchi avversariali più efficaci. Ha supervisionato studenti di ogni livello, dalla triennale all'ultimo anno di dottorato, e fa da mentore a studenti italiani che avviano una carriera STEM."
@@ -198,6 +202,8 @@ mentors:
       mentee_it: "Solide competenze in Python, familiarità con il prompting degli LLM e le API di inferenza, e conoscenze di base di robotica o embodied AI. Dimestichezza con Git e Linux, con la progettazione di esperimenti controllati e l'analisi rigorosa dei risultati. È fortemente consigliata esperienza con simulatori come CARLA, MuJoCo o Isaac Sim; equità algoritmica, AI safety o valutazione statistica sono un plus."
       deliverable: 'A scientific article, a software package, a dataset and a blog post'
       deliverable_it: 'Un articolo scientifico, un pacchetto software, un dataset e un blogpost'
+    orientation: "Technical AI safety research, academic careers and PhDs, roles at frontier AI labs and companies in the field, EU and international AI policy, structured fellowships (MATS, GovAI, ERA, SPAR…) and entrepreneurship. Support with CVs and cover letters, fellowship applications, interview preparation, choosing a PhD or a research project, what to study, a one-to-three-year career plan, introductions to their network and feedback on research already under way."
+    orientation_it: "Ricerca tecnica in AI safety, percorso accademico e dottorato, ruoli nei laboratori di frontiera e nelle aziende del settore, AI policy e governance nell'UE e a livello internazionale, fellowship e programmi strutturati (MATS, GovAI, ERA, SPAR…) e imprenditorialità. Supporto su CV e lettere motivazionali, candidature a fellowship, preparazione ai colloqui, scelta del dottorato o del progetto di ricerca, cosa studiare, piano di carriera a uno-tre anni, introduzioni al proprio network e feedback su ricerche già avviate."
     language: 'Italian, English'
     language_it: 'Italiano, inglese'
 
@@ -218,6 +224,7 @@ mentors:
 
   - id: lara-mauri
     name: 'Lara Mauri'
+    role: 'Postdoc'
     affiliation: 'Università degli Studi di Milano'
     links:
       linkedin: 'https://www.linkedin.com/in/laramauri'
@@ -241,7 +248,10 @@ mentors:
 
   - id: federico-pierucci
     name: 'Federico Pierucci'
+    role: 'Scientific Director'
     affiliation: 'Icaro Foundation'
+    links:
+      scholar: 'https://scholar.google.com/citations?user=0J0_8jEAAAAJ&hl=en'
     co_mentors: [francesco-giarrusso, matteo-prandi]
     tracks: [projects]
     areas: [evaluations, alignment]
@@ -297,6 +307,7 @@ mentors:
 
   - id: elia-torre
     name: 'Elia Torre'
+    role: 'PhD student'
     affiliation: 'ETH Zurich'
     photo: '/assets/img/mentors/elia-torre.jpg'
     links:
@@ -354,6 +365,7 @@ mentors:
 
   - id: mirko-bronzi
     name: 'Mirko Bronzi'
+    role: 'Senior Research Scientist'
     affiliation: 'LawZero'
     photo: '/assets/img/mentors/mirko-bronzi.jpg'
     links:
@@ -369,6 +381,7 @@ mentors:
 
   - id: damiano-fornasiere
     name: 'Damiano Fornasiere'
+    role: 'Senior AI Safety Research Scientist'
     affiliation: 'LawZero'
     photo: '/assets/img/mentors/damiano-fornasiere.jpg'
     links:
