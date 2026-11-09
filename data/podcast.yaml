@@ -1,0 +1,22 @@
+# Podcast Page Content Data
+# The launch page of the podcast (/podcast/). Each field has an English value
+# and an Italian (_it) counterpart.
+#
+# Once the first episode is out, replace `soon` with the episodes and the links
+# to the platforms (Spotify, Apple Podcasts, YouTube…).
+
+hero:
+  title: 'The podcast'
+  title_it: 'Il podcast'
+  subtitle: 'AI safety told through what actually goes wrong, in the real world.'
+  subtitle_it: "L'AI safety raccontata attraverso quello che va davvero storto, nel mondo reale."
+
+soon:
+  badge: 'Coming soon'
+  badge_it: 'In arrivo'
+  title: 'The first episodes arrive in early December'
+  title_it: 'Le prime puntate arrivano a inizio dicembre'
+  text: 'We will talk about AI safety and about what happens when things go wrong, starting from real cases like the ones around Hugging Face. The episodes will be available on all the major podcast platforms.'
+  text_it: "Parleremo di AI safety e di cosa succede quando le cose vanno male nel mondo reale, partendo da casi concreti come quelli che riguardano Hugging Face. Le puntate saranno disponibili su tutte le principali piattaforme di podcast."
+  stay_tuned: 'Stay tuned.'
+  stay_tuned_it: 'Restate sintonizzati.'

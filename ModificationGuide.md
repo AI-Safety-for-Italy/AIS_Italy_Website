@@ -70,7 +70,7 @@ When an event is over, move its entry from `upcoming_events:` to `past_events:` 
 
 #### Adding a Video or Podcast
 
-Videos and podcasts live in `data/media.yaml` and are shown on the Media page (`/media/`), under Resources in the menu.
+Videos live in `data/media.yaml` and are shown on the Recordings page (`/media/`), under Resources in the menu. The podcast has its own page, `/podcast/`, from `data/podcast.yaml`.
 
 1. Open `data/media.yaml` and copy the template at the top into `items:` (newest first)
 2. For a YouTube video, set `youtube` to the id after `watch?v=` in the link, and save its thumbnail as the preview: `curl -o src/assets/img/media/<id>.jpg https://i.ytimg.com/vi/<id>/maxresdefault.jpg`
