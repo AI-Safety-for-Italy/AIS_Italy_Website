@@ -398,6 +398,129 @@
       });
   });
 
+  // ── Preview ──────────────────────────────────────────────────────────────
+  // The community page's section, drawn with the site's own stylesheet inside
+  // an iframe, from the list as it is now (saved or not). Nothing is sent.
+  // shortcut: the markup mirrors #local-groups of community.njk; change both.
+  var dlg = document.getElementById('lgPreviewDialog');
+  var frame = document.getElementById('lgPreviewFrame');
+  var iframe = document.getElementById('lgPreviewIframe');
+  var SHELL =
+    '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
+    '<link rel="stylesheet" href="/assets/css/style.css"><body>';
+  var DEFS =
+    '<linearGradient id="italyStroke" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="var(--accent)"/>' +
+    '<stop offset="100%" stop-color="var(--accent-400)"/></linearGradient>' +
+    '<filter id="pinGlow" x="-120%" y="-120%" width="340%" height="340%"><feGaussianBlur stdDeviation="2.4" result="b"/>' +
+    '<feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>';
+
+  function drawPreview() {
+    var d = iframe.contentDocument;
+    var t = dlg.dataset;
+    var cities = groups.filter(function (g) {
+      return g.show && g.x !== null && g.y !== null;
+    });
+    function el(tag, cls, kids, ns) {
+      var e = ns ? d.createElementNS(SVG, tag) : d.createElement(tag);
+      if (cls) e.setAttribute('class', cls);
+      (kids || []).forEach(function (k) {
+        e.appendChild(typeof k === 'string' ? d.createTextNode(k) : k);
+      });
+      return e;
+    }
+    // Only web links, as the site's own build keeps.
+    function link(cls, href, kids, ns) {
+      var ok = /^https?:\/\//.test(href || '');
+      var a = el(ok ? 'a' : ns ? 'g' : 'span', cls, kids, ns);
+      if (ok) {
+        a.setAttribute('href', href);
+        a.setAttribute('target', '_blank');
+        a.setAttribute('rel', 'noopener noreferrer');
+      }
+      return a;
+    }
+
+    var s = el('svg', 'italy-map', [], true);
+    s.setAttribute('viewBox', '0 0 420 560');
+    var defs = el('defs', '', [], true);
+    defs.innerHTML = DEFS;
+    s.appendChild(defs);
+    Array.prototype.forEach.call(map.children, function (n) {
+      if (n !== pins) s.appendChild(d.importNode(n, true));
+    });
+    var pinsG = el('g', 'map-pins', [], true);
+    cities.forEach(function (g, i) {
+      var p = el('g', 'map-pin', [], true);
+      p.setAttribute('style', '--pin-index: ' + i + ';');
+      ['map-pin-halo', 'map-pin-dot'].forEach(function (cls) {
+        var c = el('circle', cls, [], true);
+        c.setAttribute('cx', g.x);
+        c.setAttribute('cy', g.y);
+        c.setAttribute('r', 4);
+        p.appendChild(c);
+      });
+      var label = el('text', 'map-pin-label' + (g.link ? ' is-link' : ''), [g.city], true);
+      label.setAttribute('x', g.x + 8);
+      label.setAttribute('y', g.y + 4);
+      p.appendChild(label);
+      pinsG.appendChild(p);
+    });
+    s.appendChild(pinsG);
+
+    var mail = t.mailingList;
+    var list = el(
+      'ul',
+      'group-list',
+      cities.map(function (g) {
+        return g.link && /^https?:\/\//.test(g.link)
+          ? el('li', '', [link('group-chip is-link', g.link, [g.city + ' ↗'])])
+          : el('li', 'group-chip', [g.city]);
+      })
+    );
+    var section = el('section', 'section section-alt', [
+      el('div', 'container', [
+        el('div', 'map-layout', [
+          el('figure', 'map-figure is-visible', [s]),
+          el('div', 'map-copy', [
+            el('h2', '', [t.title]),
+            list,
+            el('p', 'group-join', [link('text-link', mail, [t.join + ' →'])]),
+            el('p', 'group-start', [t.start + ' ', link('text-link', mail, [t.startLink + ' →'])]),
+          ]),
+        ]),
+      ]),
+    ]);
+    d.body.appendChild(section);
+  }
+
+  iframe.addEventListener('load', function () {
+    if (dlg.open) drawPreview();
+  });
+
+  function setDevice(device) {
+    frame.classList.toggle('is-phone', device === 'phone');
+    document.querySelectorAll('#lgDevice button').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.getAttribute('data-device') === device));
+    });
+  }
+  document.querySelectorAll('#lgDevice button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      setDevice(b.getAttribute('data-device'));
+    });
+  });
+  document.getElementById('lgPreview').addEventListener('click', function () {
+    setDevice('wide');
+    dlg.showModal();
+    iframe.srcdoc = SHELL; // a fresh load, so the map draws in again
+  });
+  document.getElementById('lgPreviewClose').addEventListener('click', function () {
+    dlg.close();
+  });
+  document.getElementById('lgPreviewPublish').addEventListener('click', function () {
+    dlg.close();
+    publishBtn.click();
+  });
+
   document.getElementById('lgUnpublish').addEventListener('click', function () {
     if (
       !window.confirm(
