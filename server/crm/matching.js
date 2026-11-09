@@ -415,6 +415,9 @@ async function view(user, { pool = 'selected' } = {}) {
           status: c.status,
           track: c.track,
           capacity: c.capacity,
+          // 'site' (their entry's places) or 'application' (their answer, in capacityText).
+          capacityFrom: c.capacityFrom,
+          capacityText: c.capacityText,
           taken: taken.get(key) || 0,
           ready: MENTOR_READY.includes(c.status),
         }
@@ -460,9 +463,10 @@ async function view(user, { pool = 'selected' } = {}) {
       const team = keys.map(mentorBrief);
       // Co-mentors share the project and its mentees: its places are not the
       // sum of theirs. Without a number set here, the most any of them said.
-      const said = team.map((m) => m.capacity).filter(Boolean);
-      const fromBoard = said.length ? Math.max(...said) : null;
-      const places = setup && setup.places !== null ? setup.places : fromBoard;
+      const said = team.filter((m) => m.capacity);
+      const top = said.length ? said.reduce((a, b) => (b.capacity > a.capacity ? b : a)) : null;
+      const placesSet = Boolean(setup && setup.places !== null);
+      const places = placesSet ? setup.places : top ? top.capacity : null;
       const pairs = roster.matches.filter(
         (m) => m.track === 'projects' && [m.mentorKey, ...m.coMentors].some((k) => keys.includes(k))
       );
@@ -490,7 +494,10 @@ async function view(user, { pool = 'selected' } = {}) {
         // Every mentor of the project selected: the pair can be made.
         ready: team.length > 0 && team.every((m) => m.ready),
         places,
-        placesSet: Boolean(setup && setup.places !== null),
+        placesSet,
+        // Where the number comes from: 'setup' (set here), 'site', 'application', or null.
+        placesFrom: placesSet ? 'setup' : top ? top.capacityFrom : null,
+        boardPlaces: top ? top.capacity : null,
         taken: pairs.length,
         candidates,
       };
@@ -597,6 +604,42 @@ async function view(user, { pool = 'selected' } = {}) {
     })),
   };
 
+  // ── How many to select: the places against who is selected ──
+  const isIn = (c) => ['selected', 'matched'].includes(c.status);
+  const onTrack = (c, t) => c.track === t || c.track === 'both';
+  const sum = (list) => ({
+    places: list.reduce((n, x) => n + (x.places || 0), 0),
+    unknown: list.filter((x) => !x.places).length,
+  });
+  const projectRows = projects
+    .filter((p) => p.mapped)
+    .map((p) => ({
+      id: p.id,
+      label: p.label,
+      places: p.places,
+      placesFrom: p.placesFrom,
+      first: p.candidates.filter((c) => c.position === 1).length,
+      ranked: p.candidates.length,
+      // Selected (or paired) mentees who put it first.
+      selectedFirst: p.candidates.filter((c) => c.position === 1 && isIn(c)).length,
+      paired: p.taken,
+    }));
+  const places = {
+    projects: {
+      ...sum(projectRows),
+      projects: projectRows,
+      unmapped: projects.length - projectRows.length,
+      selected: roster.mentees.filter((c) => onTrack(c, 'projects') && isIn(c)).length,
+      paired: roster.matches.filter((m) => m.track === 'projects').length,
+    },
+    orientation: {
+      ...sum(orientation.mentors.map((m) => ({ places: m.capacity }))),
+      mentors: orientation.mentors.length,
+      selected: roster.mentees.filter((c) => onTrack(c, 'orientation') && isIn(c)).length,
+      paired: roster.matches.filter((m) => m.track === 'orientation').length,
+    },
+  };
+
   await audit.record(user, 'review-matching', null, {
     projects: projects.length,
     suggested: suggestion.length,
@@ -615,6 +658,7 @@ async function view(user, { pool = 'selected' } = {}) {
     projects,
     suggestion,
     orientation,
+    places,
     // Answers with no email: nobody to pair them with.
     noKey,
     limits: {

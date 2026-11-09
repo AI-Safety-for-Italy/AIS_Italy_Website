@@ -40,8 +40,44 @@
     .then(function (r) {
       view.data = r[1];
       render();
+      // The places of the matching, to know how many to select. Not set up: no line.
+      return M.api('GET', API + '?action=matching&pool=selected').then(
+        function (m) {
+          view.places = m.places;
+          render();
+        },
+        function () {}
+      );
     })
     .catch(fail);
+
+  function placesLine() {
+    var pl = view.places;
+    if (!pl) return null;
+    var part = function (label, t, extra) {
+      var known = t.unknown ? t.places + '+' : String(t.places);
+      return h(
+        'span',
+        { class: 'rv-places-part' },
+        h('strong', null, label + ': '),
+        known + ' places' + extra + ', ' + t.selected + ' selected'
+      );
+    };
+    var parts = [];
+    if (pl.projects.projects.length)
+      parts.push(part('Projects', pl.projects, ' on ' + pl.projects.projects.length + ' projects'));
+    if (pl.orientation.mentors)
+      parts.push(
+        part('Career orientation', pl.orientation, ' with ' + pl.orientation.mentors + ' mentors')
+      );
+    if (!parts.length) return null;
+    return h(
+      'p',
+      { class: 'rv-places' },
+      parts,
+      h('a', { href: '/app/review/matching/' }, 'Places by project')
+    );
+  }
 
   function num(n) {
     return n === null || n === undefined ? '–' : n.toFixed(2);
@@ -306,6 +342,9 @@
         )
       )
     );
+
+    var line = placesLine();
+    if (line) root.appendChild(line);
 
     var shown = data.people.filter(function (p) {
       return !view.status || p.status === view.status;
