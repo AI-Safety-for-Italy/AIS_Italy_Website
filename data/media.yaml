@@ -49,6 +49,16 @@ sections:
 
 items:
   - type: 'video'
+    youtube: 'Rawo52TSIoU'
+    title: 'Watermarking AI Text: The Beautiful Math of an Invisible Stamp'
+    title_it: 'Watermarking AI Text: The Beautiful Math of an Invisible Stamp'
+    speaker: 'Carlo Martinucci'
+    date: '29 October 2026'
+    date_it: '29 ottobre 2026'
+    event: 'seminar-watermarking'
+    description: 'How the invisible stamp that AI labs embed in the text their models write works, and the counterintuitive math behind it.'
+    description_it: "Come funziona il timbro invisibile che i laboratori di IA inseriscono nei testi scritti dai loro modelli, e la matematica controintuitiva che c'è dietro."
+  - type: 'video'
     youtube: 'nd3l9CjsWZI'
     title: 'How to Steer the Behavior of a Model: The Refusal Case'
     title_it: 'How to Steer the Behavior of a Model: The Refusal Case'
