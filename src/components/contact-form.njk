@@ -20,51 +20,16 @@
                 </div>
             </div>
 
-            <!-- Right: form -->
-            <form class="contact-form card reveal" onsubmit="return submitContactForm(event)" novalidate>
-                <div class="form-row">
-                    <div>
-                        <label class="form-label" for="cf-name" data-en="Name" data-it="Nome">Name</label>
-                        <input id="cf-name" name="name" type="text" required class="form-input"
-                               placeholder="Your name" data-placeholder-en="Your name" data-placeholder-it="Il tuo nome">
-                    </div>
-                    <div>
-                        <label class="form-label" for="cf-email" data-en="Email" data-it="Email">Email</label>
-                        <input id="cf-email" name="email" type="email" required class="form-input"
-                               placeholder="you@email.com" data-placeholder-en="you@email.com" data-placeholder-it="tu@email.com">
-                    </div>
-                </div>
-                <div>
-                    <label class="form-label" for="cf-message" data-en="Message" data-it="Messaggio">Message</label>
-                    <textarea id="cf-message" name="message" rows="5" required class="form-input"
-                              placeholder="Write your message…" data-placeholder-en="Write your message…" data-placeholder-it="Scrivi il tuo messaggio…"></textarea>
-                </div>
-                <div>
-                    <button type="submit" class="btn btn-primary"
-                            data-en="Send your message" data-it="Invia il messaggio">Send your message</button>
-                </div>
-                <p class="form-note"
-                   data-en="Submitting opens your email client with the message pre-filled."
-                   data-it="L'invio apre il tuo client email con il messaggio precompilato.">Submitting opens your email client with the message pre-filled.</p>
-            </form>
+            <!-- Right: the form of the platform (/app/forms/, slug "contatti") -->
+            <div class="contact-form card reveal">
+                <h3 data-en="Write to us" data-it="Scrivici">Write to us</h3>
+                <p data-en="Questions, feedback or a mistake to report on the site: tell us in a short form and we will reply by email."
+                   data-it="Domande, feedback o un errore da segnalare sul sito: compila un breve form e ti rispondiamo via email.">Questions, feedback or a mistake to report on the site: tell us in a short form and we will reply by email.</p>
+                <p>
+                    <a class="btn btn-primary" href="/form/?f=contatti"
+                       data-en="Send a message" data-it="Invia un messaggio">Send a message</a>
+                </p>
+            </div>
         </div>
     </div>
 </section>
-
-<script>
-    function submitContactForm(e) {
-        e.preventDefault();
-        var el = e.target.elements;
-        var name = (el['name'].value || '').trim();
-        var email = (el['email'].value || '').trim();
-        var message = (el['message'].value || '').trim();
-        if (!name || !email || !message) {
-            (!name ? el['name'] : !email ? el['email'] : el['message']).focus();
-            return false;
-        }
-        var subject = encodeURIComponent('Website contact: ' + name);
-        var body = encodeURIComponent('Name: ' + name + '\nEmail: ' + email + '\n\n' + message);
-        window.location.href = 'mailto:{{ site.site.email }}?subject=' + subject + '&body=' + body;
-        return false;
-    }
-</script>
