@@ -1,5 +1,5 @@
 # Media Page Content Data
-# Recordings of our seminars and events, and later podcasts and other media.
+# Recordings of our seminars and events. The podcast has its own page (data/podcast.yaml).
 # Each field has an English value and an Italian (_it) counterpart.
 #
 # An item with `event` set to the `anchor` of an entry in data/events.yaml also
@@ -28,10 +28,10 @@
 # optionally `link_text` / `link_text_it`) in place of `youtube`.
 
 hero:
-  title: 'Media'
-  title_it: 'Media'
-  subtitle: 'Recordings of our seminars and events, and the other media we produce.'
-  subtitle_it: 'Le registrazioni dei nostri seminari ed eventi, e gli altri contenuti che produciamo.'
+  title: 'Recordings'
+  title_it: 'Registrazioni'
+  subtitle: 'Recordings of our seminars and events.'
+  subtitle_it: 'Le registrazioni dei nostri seminari ed eventi.'
 
 # One section per type, in this order. A section with no items shows its
 # empty_text, or is hidden when empty_text is not set.
@@ -41,11 +41,6 @@ sections:
     title_it: 'Video'
     empty_text: 'The recordings of our seminars will appear here.'
     empty_text_it: 'Qui arriveranno le registrazioni dei nostri seminari.'
-  - type: 'podcast'
-    title: 'Podcasts'
-    title_it: 'Podcast'
-    empty_text: 'Coming soon.'
-    empty_text_it: 'In arrivo.'
 
 items:
   - type: 'video'

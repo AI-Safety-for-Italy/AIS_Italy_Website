@@ -1,0 +1,43 @@
+---
+title: Podcast
+basePath: /podcast/
+pagination:
+  data: locales
+  size: 1
+  alias: locale
+  # Without this only the first locale reaches collections.all,
+  # and the sitemap would list the English pages only.
+  addAllPagesToCollections: true
+permalink: '{{ locale.prefix }}{{ basePath }}'
+# No dedicated social card yet (scripts/og-images.js); reuse the resources one.
+ogImageName: resources
+seoTitle: 'Podcast, coming soon | AI Safety for Italy'
+seoTitle_it: 'Podcast, in arrivo | AI Safety for Italy'
+seoDescription: 'The AI Safety for Italy podcast: AI safety and what goes wrong in the real world. The first episodes arrive in early December, on all the major platforms.'
+seoDescription_it: "Il podcast di AI Safety for Italy: l'AI safety e quello che va storto nel mondo reale. Le prime puntate arrivano a inizio dicembre, su tutte le principali piattaforme."
+---
+{% extends "base.njk" %}
+{% block content %}
+{# Content in data/podcast.yaml. #}
+
+<!-- Page hero -->
+<section class="page-hero">
+    <div class="container">
+        <span class="eyebrow" data-en="{{ translations.en.nav.resources }}" data-it="{{ translations.it.nav.resources }}">{{ translations.en.nav.resources }}</span>
+        <h1 data-en="{{ podcast.hero.title }}" data-it="{{ podcast.hero.title_it }}">{{ podcast.hero.title }}</h1>
+        <p class="lede" data-en="{{ podcast.hero.subtitle }}" data-it="{{ podcast.hero.subtitle_it }}">{{ podcast.hero.subtitle }}</p>
+    </div>
+</section>
+
+<!-- Coming soon -->
+<section class="section">
+    <div class="container">
+        <div class="card reveal">
+            <span class="eyebrow" data-en="{{ podcast.soon.badge }}" data-it="{{ podcast.soon.badge_it }}">{{ podcast.soon.badge }}</span>
+            <h2 data-en="{{ podcast.soon.title }}" data-it="{{ podcast.soon.title_it }}">{{ podcast.soon.title }}</h2>
+            <p data-en="{{ podcast.soon.text }}" data-it="{{ podcast.soon.text_it }}">{{ podcast.soon.text }}</p>
+            <p><strong data-en="{{ podcast.soon.stay_tuned }}" data-it="{{ podcast.soon.stay_tuned_it }}">{{ podcast.soon.stay_tuned }}</strong></p>
+        </div>
+    </div>
+</section>
+{% endblock %}

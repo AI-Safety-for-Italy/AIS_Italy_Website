@@ -374,6 +374,7 @@ module.exports = function(eleventyConfig) {
     'news.yaml',
     'members.yaml',
     'media.yaml',
+    'podcast.yaml',
     'resources.yaml'
   ];
 
