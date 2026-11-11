@@ -390,12 +390,12 @@ The registration form's submissions, reviewed by members whose Discord roles
 hold **Member applications** (`members`, ticked on Settings → Permissions).
 In the sidebar: Members → Applications.
 
-| Where                   | What                                                         |
-| ----------------------- | ------------------------------------------------------------ |
-| `/app/members/`         | The board: to review, invited, on Discord, rejected          |
-| `api/app/members.js`    | The board's API                                              |
-| `api/join.js`, `/join/` | The personal link an approved person gets, and where it ends |
-| `server/members.js`     | Submissions (`createApplication`), decisions, the join       |
+| Where                   | What                                                           |
+| ----------------------- | -------------------------------------------------------------- |
+| `/app/members/`         | The board: to review, contacted, invited, on Discord, rejected |
+| `api/app/members.js`    | The board's API                                                |
+| `api/join.js`, `/join/` | The personal link an approved person gets, and where it ends   |
+| `server/members.js`     | Submissions (`createApplication`), decisions, the join         |
 
 **Flow.** A submission becomes a pending application (`createApplication()`,
 called by whatever serves the registration form). Approving picks a role,
@@ -405,6 +405,15 @@ personal link valid 30 days. Following it signs in with Discord (scope
 or gives it to them if they are already in, and the board shows their Discord
 account. The link works once; "Send the link again" makes a new one. Rejecting
 sends nothing.
+
+**Before deciding.** The internal note is saved on its own, at any stage
+(deciding saves it too). A pending application can be asked for more details:
+"Ask for more details by email" writes to the applicant from the mailbox, in
+the writer's name, with replies to and a Bcc copy in the team's inbox
+(`MEMBERS_CONTACT_EMAIL`, default `info@ais4i.it`); the email is not stored,
+only who sent one and when. Sending it, or the "Contacted" switch (for
+contact made elsewhere), moves the application to **Contacted**: still to be
+decided, but waiting on the applicant, so not counted on the home page.
 
 **Personal data.** Name, email and answers are stored encrypted with the
 CRM keys (`CRM_ENCRYPTION_KEY`, `CRM_KEY_SECRET`), bound to their row; the

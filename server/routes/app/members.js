@@ -3,6 +3,11 @@
 //   POST ?action=decide&id=… { decision: 'approve'|'reject', role, note }
 //                                         -> { application, invite }
 //   POST ?action=resend&id=…              -> a fresh join link by email
+//   POST ?action=note&id=… { note }       -> the internal note, saved alone
+//   POST ?action=contacted&id=… { on }    -> marked as contacted, or not
+//   POST ?action=contact&id=… { subject, text }
+//                                         -> an email to the applicant asking
+//                                            for more details; marks contacted
 //   POST ?action=follow { on }            -> told about new applications, or not
 //   GET  ?upgrade=1                       -> { can, pending, schema }: a participant
 //                                            asking to become an organizer
@@ -37,6 +42,12 @@ module.exports = route({
       sendJson(res, 200, await members.setFollowing(user, Boolean(body.on)));
     } else if (query.action === 'resend') {
       sendJson(res, 200, await members.resendInvite(user, query.id, ctx));
+    } else if (query.action === 'note') {
+      sendJson(res, 200, await members.saveNote(user, query.id, body));
+    } else if (query.action === 'contacted') {
+      sendJson(res, 200, await members.setContacted(user, query.id, body));
+    } else if (query.action === 'contact') {
+      sendJson(res, 200, await members.contact(user, query.id, body));
     } else {
       throw new HttpError(400, 'Unknown action');
     }

@@ -120,7 +120,9 @@ const FATAL = new Set(['EAUTH', 'ECONNECTION', 'ETIMEDOUT', 'ESOCKET', 'EDNS']);
 
 function logFake(message) {
   const from = message.senderName ? `${message.senderName} · ` : '';
-  const reply = message.replyTo ? ` (reply to ${message.replyTo})` : '';
+  const reply =
+    (message.replyTo ? ` (reply to ${message.replyTo})` : '') +
+    (message.bcc ? ` (bcc ${message.bcc})` : '');
   const ical = message.icalEvent ? ` [calendar ${message.icalEvent.method} attached]` : '';
   console.log(
     `[fake mail] from ${from}mailbox to ${message.to}${reply}${ical}: ${message.subject}\n${message.text}\n`
@@ -129,8 +131,8 @@ function logFake(message) {
 
 /**
  * Sends a batch of messages over a single SMTP connection, one after the
- * other with a short pause. Each message is { to, subject, text, html,
- * replyTo, senderName, icalEvent }; `senderName` (the person behind it) is
+ * other with a short pause. Each message is { to, bcc, subject, text, html,
+ * replyTo, senderName, icalEvent, personal }; `senderName` (the person behind it) is
  * shown before the mailbox's own name, e.g. "Anna Rossi · AI Safety for
  * Italy", while the address stays the mailbox's.
  *
@@ -179,10 +181,12 @@ async function sendBatch(messages, { pauseMs = BATCH_PAUSE_MS } = {}) {
             address: s.fromEmail,
           },
           to: message.to,
+          bcc: message.bcc,
           replyTo: message.replyTo,
-          // Every message here is sent by the app, not typed by a person:
-          // tells auto-responders not to answer (RFC 3834).
-          headers: { 'Auto-Submitted': 'auto-generated' },
+          // Sent by the app, not typed by a person: tells auto-responders not
+          // to answer (RFC 3834). A message a person wrote (`personal`) is
+          // left without it: an out-of-office reply to it is welcome.
+          headers: message.personal ? undefined : { 'Auto-Submitted': 'auto-generated' },
           // A calendar invitation, shown by mail apps as an event to add.
           icalEvent: message.icalEvent,
           subject: message.subject,
