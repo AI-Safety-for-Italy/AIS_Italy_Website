@@ -44,6 +44,13 @@ const ROLES = [
   },
 ];
 const JOIN_DAYS = 30;
+// Where the replies to the board's emails go (and a copy of each email), so
+// the conversation with the applicant lives in the team's inbox.
+function contactAddress() {
+  return String(process.env.MEMBERS_CONTACT_EMAIL || 'info@ais4i.it').trim();
+}
+// An email the board writes to an applicant: a subject line and plain text.
+const CONTACT_LIMITS = { subject: 200, text: 8000 };
 // What a submission may hold: at least as much as a form lets through
 // (server/forms/schema.js: 300-character short answers, so a name and a
 // surname; 254-character emails; 150 questions; 8000-character texts, and
@@ -227,6 +234,10 @@ function summary(r) {
     joinError: r.join_error,
     // false: joined with a Discord account whose email is not the application's.
     joinEmailMatch: r.join_email_match,
+    // Asked for more details, waiting on their answer (pending only).
+    contactedAt: r.contacted_at,
+    contactedBy: r.contacted_by_name || null,
+    contactEmails: Number(r.contact_emails || 0),
     createdAt: r.created_at,
     // Same email on another application, e.g. someone who registered twice.
     duplicates: Number(r.duplicates || 0),
@@ -236,14 +247,15 @@ function summary(r) {
 }
 
 const SELECT = `
-  select a.*, u.name as decided_by_name,
+  select a.*, u.name as decided_by_name, cu.name as contacted_by_name,
     (select count(*) from member_applications b
       where b.email_key = a.email_key and b.id <> a.id) as duplicates,
     (select c.id from community_members c
       where c.person_key = a.email_key or (a.discord_id is not null and c.discord_id = a.discord_id)
       limit 1) as member_id
   from member_applications a
-  left join app_users u on u.id = a.decided_by`;
+  left join app_users u on u.id = a.decided_by
+  left join app_users cu on cu.id = a.contacted_by`;
 
 async function listApplications(user) {
   await access.authorize(user, 'members');
@@ -253,6 +265,8 @@ async function listApplications(user) {
     applications: rows.map(summary),
     roles: boardRoles(),
     mailReady: await mail.isConfigured(),
+    // Where the replies to an email from the board go.
+    contactAddress: contactAddress(),
     // The working groups, for the tags under the role (server/community.js).
     groups: (await community.listGroups()).map((g) => ({ id: g.id, title: g.titleEn })),
     following: user.kind === 'discord' ? await follows.isFollowing(user.id, 'members') : null,
@@ -440,8 +454,9 @@ function tokenHash(token) {
 async function decide(user, id, body, { siteOrigin }) {
   await access.authorize(user, 'members', { fresh: true });
   const b = body || {};
-  const note = text(b.note, 'Note', 2000, false);
   const row = await loadRow(id);
+  // No note sent: the one saved already stays (saveNote).
+  const note = b.note === undefined ? row.note || '' : text(b.note, 'Note', 2000, false);
   // The working groups chosen (the form's, unless changed): known ones only,
   // all as taking part. Who coordinates is set on Working groups.
   const tags = community
@@ -709,6 +724,88 @@ async function resendInvite(user, id, { siteOrigin }) {
   return { application: summary(await loadRow(id)), invite };
 }
 
+// ── Before deciding: the note, being in touch ───────────────────────────────
+
+/** Saves the internal note alone, at any stage: no decision, no email. */
+async function saveNote(user, id, body) {
+  await access.authorize(user, 'members');
+  const note = text((body || {}).note, 'Note', 2000, false);
+  await loadRow(id);
+  await db.query('update member_applications set note = $2 where id = $1', [id, note]);
+  // That it changed, never what it says.
+  await audit.record(user, 'member-note', id);
+  return { application: summary(await loadRow(id)) };
+}
+
+/**
+ * Marks a pending application as contacted (asked for more details some way
+ * other than the board's email), or back to be reviewed.
+ */
+async function setContacted(user, id, body) {
+  await access.authorize(user, 'members');
+  const on = Boolean((body || {}).on);
+  await loadRow(id);
+  const { rows } = on
+    ? await db.query(
+        `update member_applications set contacted_at = coalesce(contacted_at, now()),
+           contacted_by = coalesce(contacted_by, $2)
+         where id = $1 and status = 'pending' returning id`,
+        [id, user.id]
+      )
+    : await db.query(
+        `update member_applications set contacted_at = null, contacted_by = null
+         where id = $1 and status = 'pending' returning id`,
+        [id]
+      );
+  if (!rows.length) throw new HttpError(409, 'Only applications still to be decided');
+  await audit.record(user, 'member-contacted', id, { on });
+  return { application: summary(await loadRow(id)) };
+}
+
+/**
+ * Emails a pending applicant from the board, to ask for more details: from
+ * the mailbox in the name of who writes, replies to (and a copy in) the
+ * team's inbox. Marks the application as contacted. What it says is not
+ * kept, here or on the audit trail. Returns { application }.
+ */
+async function contact(user, id, body) {
+  await access.authorize(user, 'members', { fresh: true });
+  const b = body || {};
+  const subject = text(b.subject, 'Subject', CONTACT_LIMITS.subject, true);
+  const message = text(b.text, 'Message', CONTACT_LIMITS.text, true);
+  const row = await loadRow(id);
+  if (row.status !== 'pending') throw new HttpError(409, 'Only applications still to be decided');
+  const who = details(row);
+  if (!who) throw new HttpError(409, 'The application cannot be opened with the current key');
+  // An upgrade whose Discord account gave no email has a placeholder.
+  if (!isEmail(who.email) || /\.invalid$/i.test(who.email))
+    throw new HttpError(409, 'This application has no email to write to');
+  const { rows: me } = await db.query('select name from app_users where id = $1', [user.id]);
+  const reply = contactAddress();
+  try {
+    await mail.send({
+      to: who.email,
+      bcc: reply,
+      replyTo: reply,
+      senderName: (me[0] && me[0].name) || undefined,
+      personal: true,
+      subject,
+      text: message.endsWith('\n') ? message : `${message}\n`,
+    });
+  } catch (err) {
+    if (err.status) throw err;
+    throw new HttpError(502, `The email was not sent: ${err.message}`);
+  }
+  await db.query(
+    `update member_applications set contacted_at = now(), contacted_by = $2,
+       contact_emails = contact_emails + 1
+     where id = $1`,
+    [id, user.id]
+  );
+  await audit.record(user, 'member-contact', id);
+  return { application: summary(await loadRow(id)) };
+}
+
 class JoinError extends Error {
   /** `code` is shown on /join/: invalid, expired, used, failed. */
   constructor(code, detail) {
@@ -855,6 +952,9 @@ module.exports = {
   notifyFollowers,
   decide,
   resendInvite,
+  saveNote,
+  setContacted,
+  contact,
   checkJoinToken,
   completeJoin,
   completeJoinDev,

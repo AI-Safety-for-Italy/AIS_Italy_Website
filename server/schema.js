@@ -516,6 +516,15 @@ alter table member_applications add column if not exists kind text not null defa
 -- as the answer's tag (Approved, Rejected).
 alter table member_applications add column if not exists response_id uuid;
 
+-- Contacted: someone on the board asked the person for more details (by an
+-- email sent from the board, or marked by hand when it went some other way)
+-- before deciding. Still pending, but waiting on them rather than on us.
+-- contact_emails counts the board's emails; what they said is not kept.
+alter table member_applications add column if not exists contacted_at timestamptz;
+alter table member_applications add column if not exists contacted_by uuid
+  references app_users(id) on delete set null;
+alter table member_applications add column if not exists contact_emails integer not null default 0;
+
 -- ── The mentee selection (/app/review/, server/crm/review.js) ──────────────
 
 -- Who may score the mentees: people picked by the panel's admins (holders of

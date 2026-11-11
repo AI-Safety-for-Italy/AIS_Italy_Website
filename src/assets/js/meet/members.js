@@ -1,6 +1,8 @@
 /* /app/members/: the registration form's submissions. Each row opens to the
- * answers; pending ones are approved with a role (which emails the join link)
- * or rejected. The API enforces who may do this. */
+ * answers and the internal note, saved on its own. Pending ones can be asked
+ * for more details (an email from here, or marked as contacted), then are
+ * approved with a role (which emails the join link) or rejected. The API
+ * enforces who may do this. */
 (function () {
   'use strict';
   var M = window.Meet;
@@ -9,11 +11,16 @@
   var list = document.getElementById('memberList');
   var filters = document.getElementById('filters');
   var data = null;
+  var me = null;
   var filter = 'pending';
   var open = null;
+  // The emails being written, by application: { subject, text, touched }.
+  // Kept across renders, so saving a note or a switch loses no draft.
+  var drafts = {};
 
   var FILTERS = [
     { key: 'pending', label: 'To review' },
+    { key: 'contacted', label: 'Contacted' },
     { key: 'invited', label: 'Invited' },
     { key: 'joined', label: 'On Discord' },
     { key: 'rejected', label: 'Rejected' },
@@ -22,6 +29,8 @@
 
   function stage(a) {
     if (a.status === 'approved') return a.joinedAt ? 'joined' : 'invited';
+    // Asked for more details: waiting on them, not on us.
+    if (a.status === 'pending' && a.contactedAt) return 'contacted';
     return a.status;
   }
 
@@ -47,6 +56,7 @@
     Promise.all([M.me, M.api('GET', '/api/app/members')])
       .then(function (r) {
         var d = r[1];
+        me = r[0];
         data = d;
         var missing = [];
         if (!d.mailReady) missing.push('email sending (admin → Settings → Mail settings)');
@@ -115,12 +125,14 @@
     var s = stage(a);
     var cls = {
       pending: 'badge-open',
+      contacted: 'badge-contacted',
       invited: 'badge-scheduled',
       joined: 'badge-scheduled',
       rejected: 'badge-closed',
     }[s];
     var label = {
       pending: 'To review',
+      contacted: 'Contacted',
       invited: 'Invited',
       joined: 'On Discord',
       rejected: 'Rejected',
@@ -190,10 +202,253 @@
       a.answers.length ? dl : h('p', { class: 'panel-note' }, 'The form sent no other answers.')
     );
 
-    if (a.status !== 'pending') box.appendChild(outcome(a));
+    if (a.status === 'pending') box.appendChild(contactBlock(a));
+    else box.appendChild(outcome(a));
+    var note = noteEditor(a);
+    box.appendChild(note.node);
     // A rejection can be undone by approving.
-    if (a.status !== 'approved') box.appendChild(decideForm(a));
+    if (a.status !== 'approved') box.appendChild(decideForm(a, note.field));
     return box;
+  }
+
+  function firstName(name) {
+    return String(name || '').split(/\s+/)[0];
+  }
+
+  // The internal note, saved on its own (no decision, no email); deciding
+  // saves it too.
+  function noteEditor(a) {
+    var note = h('textarea', {
+      class: 'form-input',
+      rows: 2,
+      maxlength: 2000,
+      'aria-label': 'Internal note',
+      placeholder: 'Internal note (optional; not encrypted, so no personal data)',
+    });
+    note.value = a.note || '';
+    var save = h('button', { type: 'button', class: 'btn btn-outline btn-sm' }, 'Save note');
+    function dirty() {
+      return note.isConnected && note.value.trim() !== (a.note || '').trim();
+    }
+    // Nothing to save: says so, rather than a grey button that looks broken.
+    function sync() {
+      var changed = dirty();
+      save.disabled = !changed;
+      save.textContent = changed || !a.note ? 'Save note' : 'Saved';
+    }
+    note.addEventListener('input', sync);
+    sync();
+    M.unsaved(dirty, {
+      buttons: function () {
+        return [save];
+      },
+    });
+    save.addEventListener('click', function () {
+      save.disabled = true;
+      M.api('POST', '/api/app/members?action=note&id=' + encodeURIComponent(a.id), {
+        note: note.value,
+      })
+        .then(function (r) {
+          replace(r.application);
+          M.toast('Internal note saved.');
+        })
+        .catch(function (err) {
+          sync();
+          M.appError(err);
+        });
+    });
+    return {
+      field: note,
+      node: h(
+        'div',
+        { style: 'margin:.9rem 0 .75rem' },
+        h('p', { class: 'form-label' }, 'Internal note'),
+        note,
+        h('div', { class: 'wk-nav', style: 'margin-top:.5rem' }, save)
+      ),
+    };
+  }
+
+  // Before deciding: whether they were asked for more details, the switch
+  // for when it happened elsewhere, and an email to write from here.
+  function contactBlock(a) {
+    var box = h('div', { class: 'member-contact' });
+    if (a.contactedAt) {
+      var emails = a.contactEmails
+        ? ' · ' + a.contactEmails + (a.contactEmails === 1 ? ' email' : ' emails') + ' from here'
+        : '';
+      box.appendChild(
+        h(
+          'p',
+          { class: 'panel-note', style: 'margin:.25rem 0' },
+          'Contacted' +
+            (a.contactedBy ? ' by ' + a.contactedBy : '') +
+            ', ' +
+            when(a.contactedAt) +
+            emails +
+            '. Waiting for their answer.'
+        )
+      );
+    }
+
+    var input = h('input', { type: 'checkbox', role: 'switch', class: 'fe-switch-input' });
+    input.checked = Boolean(a.contactedAt);
+    input.addEventListener('change', function () {
+      input.disabled = true;
+      M.api('POST', '/api/app/members?action=contacted&id=' + encodeURIComponent(a.id), {
+        on: input.checked,
+      })
+        .then(function (r) {
+          replace(r.application);
+          M.toast(r.application.contactedAt ? 'Marked as contacted.' : 'Back to review.');
+        })
+        .catch(function (err) {
+          input.checked = !input.checked;
+          input.disabled = false;
+          M.appError(err);
+        });
+    });
+    var toggle = h(
+      'label',
+      {
+        class: 'fl-notify',
+        title: 'They were asked for more details: waiting for their answer',
+      },
+      h('span', null, 'Contacted'),
+      input
+    );
+
+    // An upgrade whose Discord account gave no email has a placeholder.
+    var canWrite = a.email && !/\.invalid$/i.test(a.email);
+    var write = canWrite
+      ? h(
+          'button',
+          { type: 'button', class: 'btn btn-outline btn-sm' },
+          drafts[a.id] ? 'Close the email' : 'Ask for more details by email'
+        )
+      : null;
+    if (write) {
+      write.addEventListener('click', function () {
+        if (drafts[a.id]) {
+          if (drafts[a.id].touched && !window.confirm('Discard the email you are writing?')) return;
+          delete drafts[a.id];
+        } else {
+          drafts[a.id] = defaultDraft(a);
+        }
+        render();
+      });
+    }
+    box.appendChild(h('div', { class: 'wk-nav', style: 'margin:.5rem 0' }, write, toggle));
+    // Say why there is no email button, rather than leave it missing.
+    if (!canWrite) {
+      box.appendChild(
+        h(
+          'p',
+          { class: 'panel-note', style: 'margin:.25rem 0' },
+          a.email
+            ? 'No email to write to: Discord did not give one. Ask them on Discord, then mark as contacted.'
+            : 'No email to write to: the application cannot be opened with the current key.'
+        )
+      );
+    }
+    if (drafts[a.id]) box.appendChild(composer(a));
+    return box;
+  }
+
+  function defaultDraft(a) {
+    var signed = me && me.name ? firstName(me.name) + '\n' : '';
+    return {
+      subject: 'La tua richiesta di entrare in AI Safety for Italy',
+      text:
+        'Ciao ' +
+        firstName(a.name) +
+        ',\n\n' +
+        'grazie per la tua richiesta di entrare nella community di AI Safety for Italy. ' +
+        "Prima di risponderti vorremmo conoscerti un po' meglio:\n\n" +
+        '- \n\n' +
+        'Puoi rispondere direttamente a questa email.\n\n' +
+        'A presto,\n' +
+        signed +
+        'AI Safety for Italy\n',
+      touched: false,
+    };
+  }
+
+  function composer(a) {
+    var draft = drafts[a.id];
+    var subject = h('input', {
+      type: 'text',
+      class: 'form-input',
+      maxlength: 200,
+      'aria-label': 'Subject',
+    });
+    subject.value = draft.subject;
+    var body = h('textarea', {
+      class: 'form-input',
+      rows: 10,
+      maxlength: 8000,
+      'aria-label': 'Message',
+    });
+    body.value = draft.text;
+    function keep() {
+      draft.subject = subject.value;
+      draft.text = body.value;
+      draft.touched = true;
+    }
+    subject.addEventListener('input', keep);
+    body.addEventListener('input', keep);
+    var send = h('button', { type: 'button', class: 'btn btn-primary btn-sm' }, 'Send the email');
+    send.disabled = !data.mailReady;
+    M.unsaved(
+      function () {
+        // Kept while the row is closed too: leaving the page would lose it.
+        return drafts[a.id] === draft && draft.touched;
+      },
+      {
+        buttons: function () {
+          return [send];
+        },
+      }
+    );
+    send.addEventListener('click', function () {
+      if (!subject.value.trim() || !body.value.trim()) {
+        M.toast('Write a subject and a message.', true);
+        return;
+      }
+      send.disabled = true;
+      M.api('POST', '/api/app/members?action=contact&id=' + encodeURIComponent(a.id), {
+        subject: subject.value,
+        text: body.value,
+      })
+        .then(function (r) {
+          delete drafts[a.id];
+          replace(r.application);
+          M.toast('Email sent to ' + a.email + '. Replies go to ' + data.contactAddress + '.');
+        })
+        .catch(function (err) {
+          send.disabled = false;
+          M.appError(err);
+        });
+    });
+    return h(
+      'div',
+      { class: 'panel member-compose', style: 'margin:.5rem 0 1rem' },
+      h('p', { class: 'panel-note', style: 'margin:0 0 .5rem' }, 'To ' + a.email),
+      h('p', { class: 'form-label' }, 'Subject'),
+      subject,
+      h('p', { class: 'form-label', style: 'margin-top:.75rem' }, 'Message'),
+      body,
+      h(
+        'p',
+        { class: 'panel-note', style: 'margin:.5rem 0' },
+        data.mailReady
+          ? 'Sent from the association’s mailbox, signed with your name. Replies go to ' +
+              data.contactAddress +
+              ', which gets a copy. Sending marks the application as contacted.'
+          : 'Email sending is not set up yet (admin → Settings → Mail settings).'
+      ),
+      h('div', { class: 'wk-nav' }, send)
+    );
   }
 
   // The working groups as tags, under the role: each click puts the person
@@ -239,7 +494,7 @@
     };
   }
 
-  function decideForm(a) {
+  function decideForm(a, note) {
     var tags = tagPicker(a.tags);
     var upgrade = a.kind === 'upgrade';
     var group = h('div', {
@@ -252,29 +507,12 @@
       input.checked = r.key === (a.requestedRole || 'participant');
       group.appendChild(h('label', { class: 'choice' }, input, h('span', null, r.label)));
     });
-    var note = h('textarea', {
-      class: 'form-input',
-      rows: 2,
-      maxlength: 2000,
-      placeholder: 'Internal note (optional; not encrypted, so no personal data)',
-    });
     var approve = h(
       'button',
       { type: 'button', class: 'btn btn-primary btn-sm' },
       upgrade ? 'Approve: make them an organizer' : 'Approve and send the Discord link'
     );
     var reject = h('button', { type: 'button', class: 'btn btn-outline btn-sm' }, 'Reject');
-    // A note typed and the application not decided yet.
-    M.unsaved(
-      function () {
-        return note.isConnected && Boolean(note.value.trim());
-      },
-      {
-        buttons: function () {
-          return [approve, reject];
-        },
-      }
-    );
 
     function send(decision) {
       var picked = group.querySelector('input:checked');
@@ -326,8 +564,12 @@
         h('span', { class: 'panel-note' }, ' · tags on Discord, not permissions here')
       ),
       tags.node,
-      h('div', { style: 'margin:.75rem 0' }, note),
-      h('div', { class: 'wk-nav' }, approve, a.status === 'pending' ? reject : null)
+      h(
+        'div',
+        { class: 'wk-nav', style: 'margin-top:.9rem' },
+        approve,
+        a.status === 'pending' ? reject : null
+      )
     );
   }
 
@@ -339,7 +581,6 @@
         (a.decidedAt ? ', ' + when(a.decidedAt) : '') +
         '.'
     );
-    if (a.note) lines.push('Note: ' + a.note);
     if (a.status === 'approved') {
       if (a.joinedAt)
         lines.push('Joined Discord as ' + a.discordName + ', ' + when(a.joinedAt) + '.');

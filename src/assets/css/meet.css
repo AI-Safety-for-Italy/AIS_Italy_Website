@@ -1607,6 +1607,12 @@ dialog.meet-dialog::backdrop {
   color: var(--accent-700);
 }
 
+/* An application asked for more details: waiting on the applicant */
+.badge-contacted {
+  background: var(--warning-soft);
+  color: var(--warning-ink);
+}
+
 /* The login page's stand-ins: one button per Discord role */
 .dev-personas {
   display: grid;
