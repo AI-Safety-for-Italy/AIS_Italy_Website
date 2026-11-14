@@ -181,6 +181,15 @@
       h(
         'td',
         { colspan: String(colspan) },
+        p.exclusions.length
+          ? h(
+              'ul',
+              { class: 'rv-excl-list' },
+              p.exclusions.map(function (x) {
+                return h('li', null, x.reason + ' — ' + x.reviewer + ' (' + x.section + ')');
+              })
+            )
+          : null,
         h(
           'div',
           { class: 'rv-detail-parts' },
@@ -226,7 +235,18 @@
                               'td',
                               null,
                               r.reviewer,
-                              r.stillReviewer ? null : h('small', null, ' (no longer a reviewer)')
+                              r.stillReviewer ? null : h('small', null, ' (no longer a reviewer)'),
+                              r.flags && r.flags.length
+                                ? h(
+                                    'span',
+                                    { class: 'rv-excl-badge', title: 'Reason to exclude' },
+                                    r.flags
+                                      .map(function (f) {
+                                        return f.label;
+                                      })
+                                      .join(' · ')
+                                  )
+                                : null
                             ),
                             r.conflict
                               ? h(
@@ -247,7 +267,18 @@
                                     'td',
                                     { class: 'rv-num' },
                                     h('strong', null, num(r.total)),
-                                    r.complete ? null : h('small', null, ' not complete')
+                                    r.complete
+                                      ? r.missing
+                                        ? h(
+                                            'small',
+                                            {
+                                              title:
+                                                'Done before a criterion was added: counts on the criteria it has',
+                                            },
+                                            ' ' + r.missing + ' new missing'
+                                          )
+                                        : null
+                                      : h('small', null, ' not complete')
                                   ),
                                 ]
                           ),
@@ -377,7 +408,8 @@
         h(
           'tr',
           {
-            class: 'rv-row' + (open ? ' is-open' : ''),
+            class:
+              'rv-row' + (open ? ' is-open' : '') + (p.exclusions.length ? ' is-excluded' : ''),
             tabindex: '0',
             'aria-expanded': open ? 'true' : 'false',
             onclick: function () {
@@ -392,12 +424,37 @@
               }
             },
           },
-          h('td', { class: 'rv-rank' }, p.overall === null ? '' : String(i + 1)),
+          h(
+            'td',
+            { class: 'rv-rank' },
+            p.overall === null || p.exclusions.length ? '' : String(i + 1)
+          ),
           h(
             'td',
             { class: 'rv-who' },
             h('strong', null, who(p)),
-            !view.blind && p.org ? h('small', null, p.org) : null
+            !view.blind && p.org ? h('small', null, p.org) : null,
+            p.exclusions.length
+              ? h(
+                  'span',
+                  {
+                    class: 'rv-excl-badge',
+                    title: p.exclusions
+                      .map(function (x) {
+                        return x.reason + ' (' + x.reviewer + ')';
+                      })
+                      .join('\n'),
+                  },
+                  p.exclusions
+                    .map(function (x) {
+                      return x.reason;
+                    })
+                    .filter(function (r, k, all) {
+                      return all.indexOf(r) === k;
+                    })
+                    .join(' · ')
+                )
+              : null
           ),
           data.sections.map(function (s) {
             return partCell(p.parts[s.key]);
@@ -451,7 +508,7 @@
       h(
         'p',
         { class: 'panel-note rv-foot' },
-        'Each section shows the mean of the complete reviews and how many there are; ±n: the reviewers differ by that much. Rejected applicants are no longer shown to the reviewers. Selected and later are set on the mentorship board.'
+        'Each section shows the mean of the complete reviews and how many there are; ±n: the reviewers differ by that much. Someone a reviewer flagged with a reason to exclude goes to the bottom, marked. Rejected applicants are no longer shown to the reviewers. Selected and later are set on the mentorship board.'
       )
     );
   }

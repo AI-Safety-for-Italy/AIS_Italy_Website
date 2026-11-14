@@ -318,7 +318,8 @@ test('scores are checked, saved half done, and each reviewer sees only their own
     (await post(ann, { part: 'answers', code, scores: { motivation: 6 } })).statusCode,
     400
   );
-  assert.equal((await post(ann, { part: 'answers', code, scores: { nope: 3 } })).statusCode, 400);
+  // A criterion not in the grid: the page is behind the setup (409, it reloads).
+  assert.equal((await post(ann, { part: 'answers', code, scores: { nope: 3 } })).statusCode, 409);
   assert.equal((await post(ann, { part: 'answers', code: 'A-XXXXX', scores: {} })).statusCode, 404);
 
   const half = await post(ann, { part: 'answers', code, scores: { motivation: 4 } });
@@ -525,7 +526,7 @@ test('sections of their own: chosen questions, a grid per question, given to som
   );
   await assert.rejects(
     review.score(ann, { part: 'motivazione', code, scores: { sincera: 4 } }),
-    (e) => e.status === 400
+    (e) => e.status === 409
   );
   const r = await review.score(ann, {
     part: 'motivazione',
@@ -753,4 +754,265 @@ test('the faces of a tool: who opens it, only for who can open it', async () => 
   ]);
   // The forms and polls show theirs on each card.
   assert.equal((await get(boss, 'forms')).statusCode, 404);
+});
+
+// ── Robust while people work: the setup, the grids and the form change ──────
+
+test('two admins saving the setup at once: the second is told, not overwriting', async () => {
+  const { boss } = await panel();
+  const page = await review.settingsPage(boss);
+  const mine = JSON.parse(JSON.stringify(page.sections));
+  const theirs = JSON.parse(JSON.stringify(page.sections));
+  mine[0].note = 'Prima nota';
+  theirs[0].note = 'Seconda nota';
+  await review.saveSettings(boss, { sections: mine, version: page.version });
+  await assert.rejects(
+    review.saveSettings(boss, { sections: theirs, version: page.version }),
+    (e) => e.status === 409
+  );
+  const now = await review.getSettings();
+  assert.equal(now.sections[0].note, 'Prima nota');
+  // With the version just saved, the next change goes through.
+  theirs[0].note = 'Terza nota';
+  await review.saveSettings(boss, { sections: theirs, version: now.version });
+  assert.equal((await review.getSettings()).sections[0].note, 'Terza nota');
+});
+
+test('a criterion added halfway: reviews already done keep counting', async () => {
+  const { boss, ann, ben } = await panel();
+  const code = review.codeOf(LIA_KEY(), 'answers');
+  await review.score(ann, { part: 'answers', code, scores: scoreAll('answers', 4) });
+  await new Promise((r) => setTimeout(r, 20));
+
+  const sections = (await review.getSettings()).sections;
+  sections[1].criteria.push({ label: 'Chiarezza', help: '', weight: 1 });
+  await review.saveSettings(boss, { sections });
+
+  // Ann's review counts (on the criteria it has); she is told to add the new one.
+  let lia = (await review.summary(boss)).people.find((p) => p.name === 'Lia Candidata');
+  assert.equal(lia.parts.answers.count, 1);
+  assert.equal(lia.parts.answers.mean, 4);
+  assert.equal(lia.parts.answers.reviews[0].missing, 1);
+  const list = (await call({ url: '/api/app/crm/review?part=answers', user: ann })).body;
+  assert.equal(list.items.find((i) => i.code === code).state, 'update');
+
+  // A review begun after the criterion was added is not complete without it.
+  await review.score(ben, { part: 'answers', code, scores: scoreAll('answers', 2) });
+  lia = (await review.summary(boss)).people.find((p) => p.name === 'Lia Candidata');
+  assert.equal(lia.parts.answers.count, 1);
+
+  await review.score(ann, {
+    part: 'answers',
+    code,
+    scores: { ...scoreAll('answers', 4), chiarezza: 1 },
+  });
+  lia = (await review.summary(boss)).people.find((p) => p.name === 'Lia Candidata');
+  // (4 × 4 + 1) / 5
+  assert.equal(lia.parts.answers.mean, 3.4);
+});
+
+test('a criterion taken out keeps its scores, and finds them when put back', async () => {
+  const { boss, ann } = await panel();
+  const code = review.codeOf(LIA_KEY(), 'answers');
+  await review.score(ann, { part: 'answers', code, scores: scoreAll('answers', 5) });
+  const sections = (await review.getSettings()).sections;
+  const goals = sections[1].criteria.find((c) => c.key === 'goals');
+  sections[1].criteria = sections[1].criteria.filter((c) => c.key !== 'goals');
+  await review.saveSettings(boss, { sections });
+  // Ann changes her review while "goals" is out of the grid.
+  const fewer = scoreAll('answers', 3);
+  delete fewer.goals;
+  assert.deepEqual(await review.score(ann, { part: 'answers', code, scores: fewer }), {
+    state: 'done',
+  });
+  sections[1].criteria.push(goals);
+  await review.saveSettings(boss, { sections });
+  const mine = (await review.application(ann, 'answers', code)).mine;
+  assert.equal(mine.scores.goals, 5);
+  assert.equal(mine.scores.motivation, 3);
+});
+
+test('reasons to exclude: set per section, flagged by reviewers, shown to the admins', async () => {
+  const { boss, ann, ben } = await panel();
+  const sections = (await review.getSettings()).sections;
+  sections.forEach((s) => {
+    s.exclusions = [
+      { label: 'Escluso per non avere rapporti con l’Italia' },
+      { label: 'Escluso per uso di LLM nelle risposte' },
+    ];
+  });
+  await review.saveSettings(boss, { sections });
+  const saved = (await review.getSettings()).sections[0].exclusions;
+  assert.equal(saved.length, 2);
+  const [italy, llm] = saved.map((r) => r.key);
+
+  const code = review.codeOf(LIA_KEY(), 'cv');
+  const app = await review.application(ann, 'cv', code);
+  assert.deepEqual(
+    app.section.exclusions.map((r) => r.key),
+    [italy, llm]
+  );
+  await assert.rejects(
+    review.score(ann, { part: 'cv', code, scores: {}, flags: ['nope'] }),
+    (e) => e.status === 409
+  );
+  // A flag without scores is a finished review.
+  assert.deepEqual(await review.score(ann, { part: 'cv', code, scores: {}, flags: [italy] }), {
+    state: 'excluded',
+  });
+  const over = (await call({ user: ann })).body;
+  assert.equal(over.sections.find((s) => s.key === 'cv').done, 1);
+  assert.deepEqual((await review.application(ann, 'cv', code)).mine.flags, [italy]);
+
+  // Marco has the better score but Lia is flagged: she goes after him.
+  await review.score(ben, {
+    part: 'answers',
+    code: review.codeOf(LIA_KEY(), 'answers'),
+    scores: scoreAll('answers', 5),
+  });
+  await review.score(ben, {
+    part: 'answers',
+    code: review.codeOf(MARCO_KEY(), 'answers'),
+    scores: scoreAll('answers', 3),
+  });
+  const sum = await review.summary(boss);
+  assert.deepEqual(
+    sum.people.map((p) => p.name),
+    ['Marco Secondo', 'Lia Candidata']
+  );
+  const lia = sum.people[1];
+  assert.deepEqual(lia.exclusions, [
+    {
+      part: 'cv',
+      section: 'CV',
+      reason: 'Escluso per non avere rapporti con l’Italia',
+      reviewer: 'Ann',
+    },
+  ]);
+  // A reason taken out of the setup no longer counts.
+  const again = (await review.getSettings()).sections;
+  again[0].exclusions = again[0].exclusions.filter((r) => r.key !== italy);
+  await review.saveSettings(boss, { sections: again });
+  assert.equal(
+    (await review.summary(boss)).people.find((p) => p.name === 'Lia Candidata').exclusions.length,
+    0
+  );
+});
+
+test('many reviewers at once: every score is kept, the same one twice is harmless', async () => {
+  const { ann, ben } = await panel();
+  const lia = review.codeOf(LIA_KEY(), 'answers');
+  const marco = review.codeOf(MARCO_KEY(), 'answers');
+  await Promise.all([
+    review.score(ann, { part: 'answers', code: lia, scores: scoreAll('answers', 4) }),
+    review.score(ben, { part: 'answers', code: lia, scores: scoreAll('answers', 2) }),
+    review.score(ann, { part: 'answers', code: marco, scores: scoreAll('answers', 3) }),
+    review.score(ben, { part: 'answers', code: marco, scores: { motivation: 5 } }),
+    review.score(ben, { part: 'answers', code: marco, scores: { motivation: 5 } }),
+  ]);
+  const { rows } = await db.query('select count(*)::int as n from review_scores');
+  assert.equal(rows[0].n, 4);
+});
+
+test('the codes are never the same for two people, and stay put', async () => {
+  const keys = Array.from({ length: 300 }, (_, i) => `person-${i}`);
+  const codes = review.codesOf(keys, 'answers');
+  assert.equal(new Set(codes.values()).size, keys.length);
+  // Someone joining or leaving changes no one else's code.
+  const fewer = review.codesOf(keys.slice(0, 100), 'answers');
+  keys.slice(0, 100).forEach((k) => assert.equal(fewer.get(k), codes.get(k)));
+  // Two people whose five letters clash get ten letters each, still unique.
+  const real = crm.pseudonym;
+  crm.pseudonym = (text, length = 5) => (length === 5 ? 'AAAAA' : real(text, length));
+  try {
+    const clash = review.codesOf(['a', 'b', 'c'], 'answers');
+    assert.equal(new Set(clash.values()).size, 3);
+    clash.forEach((c) => assert.match(c, /^A-[A-Z0-9]{10}$/));
+  } finally {
+    crm.pseudonym = real;
+  }
+});
+
+test('the form gets new questions: the setup and the scores stay, the questions add up', async () => {
+  const forms = require('./forms/forms');
+  const guard = require('./forms/guard');
+  let clock = Date.now();
+  guard.setClock(() => clock);
+  const { ann } = await panel();
+  const root = await admin();
+  const items = [
+    { id: 'nome', type: 'short_text', label: { it: 'Nome' }, required: true },
+    { id: 'email', type: 'email', label: { it: 'Email' }, required: true },
+    { id: 'perche', type: 'long_text', label: { it: 'Perché?' } },
+    { id: 'progetti', type: 'long_text', label: { it: 'Quali progetti?' } },
+  ];
+  const schema = { languages: ['it'], title: { it: 'Candidature' }, items };
+  const { id, slug } = await forms.create(root, { title: 'Candidature', schema });
+  await forms.updateSettings(root, id, { status: 'open' });
+  const send = async (answers) => {
+    const view = await forms.publicView(slug);
+    clock += 5000;
+    return forms.submit(slug, { version: view.version, token: view.token, answers }, '203.0.113.9');
+  };
+  await send({ nome: 'Lia Candidata', email: 'lia@example.org', perche: 'Per capire.' });
+  await send({
+    nome: 'Marco Secondo',
+    email: 'marco@example.org',
+    perche: 'Per lavorarci.',
+    progetti: 'Interpretability.',
+  });
+  const q = await review.questions(root, id);
+  const sections = [
+    { ...q.sections[0], key: 'answers', label: 'Generale', questions: ['perche'] },
+    { ...q.sections[0], key: 'progetti', label: 'Progetti', prefix: 'P', questions: ['progetti'] },
+  ];
+  await review.saveSettings(root, { formId: id, nameQuestion: 'nome', sections });
+
+  // Only those who answered about the projects are scored there.
+  const projects = (await call({ url: '/api/app/crm/review?part=progetti', user: ann })).body;
+  assert.equal(projects.items.length, 1);
+  const lia = review.codeOf(LIA_KEY(), (await review.getSettings()).sections[0]);
+  await review.score(ann, { part: 'answers', code: lia, scores: scoreAll('answers', 4) });
+
+  // The form changes: a new question, one taken out. A new version of it.
+  await forms.saveSchema(root, id, {
+    ...schema,
+    items: [
+      items[0],
+      items[1],
+      items[2],
+      { id: 'paese', type: 'short_text', label: { it: 'Paese' } },
+    ],
+  });
+  await send({
+    nome: 'Nuova Persona',
+    email: 'nuova@example.org',
+    perche: 'Curiosità.',
+    paese: 'IT',
+  });
+
+  // The setup is as it was; every question, old and new, can be placed.
+  const page = await review.settingsPage(root);
+  assert.deepEqual(
+    page.sections.map((s) => [s.key, s.questions]),
+    [
+      ['answers', ['perche']],
+      ['progetti', ['progetti']],
+    ]
+  );
+  assert.deepEqual(page.catalog.map((x) => x.id).sort(), [
+    'email',
+    'nome',
+    'paese',
+    'perche',
+    'progetti',
+  ]);
+  // The new question goes in a section: saved without touching the rest.
+  page.sections[0].questions.push('paese');
+  await review.saveSettings(root, { sections: page.sections, version: page.version });
+  const list = (await call({ url: '/api/app/crm/review?part=answers', user: ann })).body;
+  assert.equal(list.items.length, 3);
+  assert.equal(list.items.find((i) => i.code === lia).state, 'done');
+  const mine = (await review.application(ann, 'answers', lia)).mine;
+  assert.deepEqual(mine.scores, scoreAll('answers', 4));
 });

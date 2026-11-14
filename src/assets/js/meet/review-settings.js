@@ -77,6 +77,8 @@
       formId: d.formId || null,
       nameQuestion: d.nameQuestion || null,
       sections: copy(d.sections),
+      // Which save the page started from: another admin's save since is refused.
+      version: d.version || null,
     };
     // As the editor holds them, so drawing it changes nothing: every list
     // there, and only the reviewers still on the team.
@@ -87,6 +89,7 @@
       s.criteria = s.criteria || [];
       s.questionGrids = s.questionGrids || {};
       s.note = s.note || '';
+      s.exclusions = s.exclusions || [];
       s.reviewers = (s.reviewers || []).filter(function (id) {
         return team.indexOf(id) !== -1;
       });
@@ -190,6 +193,7 @@
       questions: questions || [],
       criteria: copy(data.defaults.criteria.answers),
       questionGrids: {},
+      exclusions: [],
     };
   }
 
@@ -342,6 +346,53 @@
             render();
           },
           { ghost: true, disabled: list.length >= data.limits.criteria }
+        )
+      )
+    );
+  }
+
+  /** The reasons to exclude a section offers its reviewers, each a line of text. */
+  function exclusionsEditor(s) {
+    return h(
+      'div',
+      { class: 'rv-criteria' },
+      s.exclusions.length
+        ? s.exclusions.map(function (r) {
+            var text = h('input', {
+              class: 'form-input is-compact',
+              value: r.label,
+              maxlength: '80',
+              'aria-label': 'Reason to exclude',
+              placeholder: 'Say: Excluded for having no ties with Italy',
+              oninput: function () {
+                r.label = text.value;
+              },
+            });
+            return h(
+              'div',
+              { class: 'rv-excl-row' },
+              text,
+              smallButton(
+                '×',
+                function () {
+                  s.exclusions.splice(s.exclusions.indexOf(r), 1);
+                  render();
+                },
+                { icon: true, ghost: true, aria: 'Remove the reason ' + (r.label || '') }
+              )
+            );
+          })
+        : h('p', { class: 'rv-muted' }, 'None: the reviewers only score.'),
+      h(
+        'div',
+        null,
+        smallButton(
+          '+ Reason',
+          function () {
+            s.exclusions.push({ label: '' });
+            render();
+          },
+          { ghost: true, disabled: s.exclusions.length >= (data.limits.exclusions || 6) }
         )
       )
     );
@@ -862,7 +913,14 @@
             : [
                 h('h4', { class: 'rv-sub' }, 'Criteria, for the whole section'),
                 criteriaEditor(s.criteria, false),
-              ]
+              ],
+          h('h4', { class: 'rv-sub' }, 'Reasons to exclude (optional)'),
+          h(
+            'p',
+            { class: 'rv-muted' },
+            'A reviewer can tick one instead of, or as well as, scoring: the person is marked in the summary and goes to the bottom.'
+          ),
+          exclusionsEditor(s)
         ),
         h(
           'aside',
