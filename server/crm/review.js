@@ -20,6 +20,14 @@
 //                 is made anonymous, and the reviewers it is given to (none
 //                 listed: every reviewer). A question in no section is not
 //                 shown to anyone (an email, a phone number, practical info).
+//                 Each section may also offer reasons to exclude someone
+//                 (say "no ties with Italy"), which a reviewer ticks instead
+//                 of, or as well as, scoring; the summary marks the person.
+// Built to change while people work: the form gaining questions (they come
+// in, the sections stay), criteria added (the reviews done before keep
+// counting), criteria removed (their scores are kept), two admins saving the
+// setup at once (the second is told), reviewers scoring at once (each review
+// is its own row).
 // A mentee's code differs between sections (crypto.pseudonym), so a reviewer
 // scoring two cannot tell which CV goes with which answers. Nothing a
 // reviewer receives carries the person key, which is the same in all.
@@ -42,6 +50,7 @@ const MAX_COMMENT = 2000;
 const MAX_CRITERIA = 12;
 const MAX_SECTIONS = 8;
 const MAX_NOTE = 400;
+const MAX_EXCLUSIONS = 6;
 const SETTINGS_KEY = 'review_settings';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const KEY = /^[a-z0-9_]{1,30}$/;
@@ -131,6 +140,7 @@ const DEFAULT_SECTIONS = [
     questions: ['cv', 'profile'],
     criteria: DEFAULT_GRID.cv,
     questionGrids: {},
+    exclusions: [],
   },
   {
     key: 'answers',
@@ -153,6 +163,7 @@ const DEFAULT_SECTIONS = [
     ],
     criteria: DEFAULT_GRID.answers,
     questionGrids: {},
+    exclusions: [],
   },
 ];
 
@@ -202,13 +213,20 @@ function requireReviewer(role) {
  * sections with its grid and weights, so its scores keep counting.
  */
 async function getSettings() {
-  const { rows } = await db.query('select value from app_settings where key = $1', [SETTINGS_KEY]);
+  const { rows } = await db.query(
+    'select value, updated_at::text as version from app_settings where key = $1',
+    [SETTINGS_KEY]
+  );
   const saved = (rows[0] && rows[0].value) || {};
+  // Which save this is: the page sends it back, so two admins editing the
+  // setup at once cannot undo each other's changes without knowing.
+  const version = (rows[0] && rows[0].version) || null;
   if (Array.isArray(saved.sections) && saved.sections.length) {
     return {
       formId: saved.formId || null,
       nameQuestion: saved.nameQuestion || null,
-      sections: saved.sections,
+      sections: saved.sections.map((s) => ({ ...s, exclusions: s.exclusions || [] })),
+      version,
     };
   }
   const sections = copy(DEFAULT_SECTIONS);
@@ -218,7 +236,7 @@ async function getSettings() {
     const w = saved.weights && Number(saved.weights[s.key]);
     if (Number.isFinite(w) && w >= 0) s.weight = w;
   });
-  return { formId: null, nameQuestion: 'name', sections };
+  return { formId: null, nameQuestion: 'name', sections, version };
 }
 
 function slug(text, fallback = 'criterion') {
@@ -233,8 +251,13 @@ function slug(text, fallback = 'criterion') {
   );
 }
 
-/** A list of criteria as the page sends them, checked. Keys stay as they were. */
-function cleanCriteria(where, list, { allowEmpty = false } = {}) {
+/**
+ * A list of criteria as the page sends them, checked. Keys stay as they were.
+ * `before` holds the criteria saved until now (by key): one already there
+ * keeps when it was added, a new one is added now. A review finished before a
+ * criterion was added still counts in the summary (server: counted()).
+ */
+function cleanCriteria(where, list, { allowEmpty = false, before = new Map() } = {}) {
   if (!Array.isArray(list) || (!list.length && !allowEmpty))
     throw new HttpError(400, `${where}: the grid needs at least one criterion`);
   if (list.length > MAX_CRITERIA)
@@ -253,7 +276,34 @@ function cleanCriteria(where, list, { allowEmpty = false } = {}) {
     let key = c && typeof c.key === 'string' && KEY.test(c.key) ? c.key : slug(label);
     while (seen.has(key)) key = `${key.slice(0, 27)}_${seen.size}`;
     seen.add(key);
-    return { key, label, help, weight };
+    const old = before.get(key);
+    const addedAt = old ? old.addedAt || null : new Date().toISOString();
+    return addedAt ? { key, label, help, weight, addedAt } : { key, label, help, weight };
+  });
+}
+
+/**
+ * The reasons to exclude someone a section offers (say "No ties with Italy"):
+ * [{ key, label }]. Keys stay as they were, so a reason renamed keeps its
+ * flags.
+ */
+function cleanExclusions(where, list) {
+  if (list === undefined || list === null) return [];
+  if (!Array.isArray(list)) throw new HttpError(400, `${where}: the reasons to exclude are a list`);
+  if (list.length > MAX_EXCLUSIONS)
+    throw new HttpError(400, `${where}: at most ${MAX_EXCLUSIONS} reasons to exclude`);
+  const seen = new Set();
+  return list.map((r) => {
+    const label = String((r && r.label) || '').trim();
+    if (!label || label.length > 80)
+      throw new HttpError(
+        400,
+        `${where}: each reason to exclude needs a text (80 characters at most)`
+      );
+    let key = r && typeof r.key === 'string' && KEY.test(r.key) ? r.key : slug(label, 'reason');
+    while (seen.has(key)) key = `${key.slice(0, 27)}_${seen.size}`;
+    seen.add(key);
+    return { key, label };
   });
 }
 
@@ -276,7 +326,7 @@ function prefixOf(label) {
  * source (`catalog`) and the reviewers. A section keeps its key when renamed,
  * so its scores and codes stay with it.
  */
-function cleanSections(list, catalog, reviewerIds) {
+function cleanSections(list, catalog, reviewerIds, previous = []) {
   if (!Array.isArray(list) || !list.length)
     throw new HttpError(400, 'The selection needs at least one section');
   if (list.length > MAX_SECTIONS) throw new HttpError(400, `At most ${MAX_SECTIONS} sections`);
@@ -290,6 +340,8 @@ function cleanSections(list, catalog, reviewerIds) {
     let key = typeof s.key === 'string' && KEY.test(s.key) ? s.key : slug(label, 'section');
     while (keys.has(key)) key = `${key.slice(0, 27)}_${keys.size}`;
     keys.add(key);
+    const was = previous.find((p) => p.key === key) || {};
+    const byKey = (grid) => new Map((Array.isArray(grid) ? grid : []).map((c) => [c.key, c]));
     const prefix = /^[A-Z]{1,4}$/.test(String(s.prefix || '').toUpperCase())
       ? String(s.prefix).toUpperCase()
       : prefixOf(label);
@@ -313,11 +365,15 @@ function cleanSections(list, catalog, reviewerIds) {
     let criteria = [];
     const questionGrids = {};
     if (gridMode === 'section') {
-      criteria = cleanCriteria(label, s.criteria);
+      criteria = cleanCriteria(label, s.criteria, { before: byKey(was.criteria) });
     } else {
       const given = s.questionGrids && typeof s.questionGrids === 'object' ? s.questionGrids : {};
+      const wasGrids = was.questionGrids || {};
       questions.forEach((id) => {
-        const grid = cleanCriteria(`${label}, ${id}`, given[id] || [], { allowEmpty: true });
+        const grid = cleanCriteria(`${label}, ${id}`, given[id] || [], {
+          allowEmpty: true,
+          before: byKey(wasGrids[id]),
+        });
         if (grid.length) questionGrids[id] = grid;
       });
       if (!Object.keys(questionGrids).length)
@@ -338,6 +394,7 @@ function cleanSections(list, catalog, reviewerIds) {
       questions,
       criteria,
       questionGrids,
+      exclusions: cleanExclusions(label, s.exclusions),
     };
   });
 }
@@ -350,6 +407,13 @@ function cleanSections(list, catalog, reviewerIds) {
 async function saveSettings(user, body) {
   const b = body || {};
   const current = await getSettings();
+  // Saved by someone else since this page loaded: refuse, rather than
+  // silently putting back what they changed.
+  if (b.version !== undefined && (b.version || null) !== current.version)
+    throw new HttpError(
+      409,
+      'Someone else saved the setup in the meantime: reload the page to see their changes, then make yours again'
+    );
   let formId = b.formId === undefined ? current.formId : b.formId || null;
   if (formId !== null && !UUID.test(String(formId))) throw new HttpError(400, 'Unknown form');
   if (formId && formId !== current.formId) {
@@ -363,7 +427,7 @@ async function saveSettings(user, body) {
   const sections =
     b.sections === undefined && formId === current.formId
       ? current.sections
-      : cleanSections(b.sections, catalog, reviewerIds);
+      : cleanSections(b.sections, catalog, reviewerIds, current.sections);
   let nameQuestion = b.nameQuestion === undefined ? current.nameQuestion : b.nameQuestion || null;
   if (nameQuestion && !catalog.some((q) => q.id === nameQuestion))
     throw new HttpError(400, 'The question with the name is not in the form');
@@ -490,11 +554,27 @@ function nameOf(applicant, settings) {
 
 // ── The applications under a code ────────────────────────────────────────────
 
-function codeOf(key, section) {
+function codeOf(key, section, length = 5) {
   const s = typeof section === 'string' ? DEFAULT_SECTIONS.find((x) => x.key === section) : section;
   const prefix = s ? s.prefix : 'S';
   const sectionKey = s ? s.key : section;
-  return `${prefix}-${crm.pseudonym(`review:${sectionKey}:${key}`)}`;
+  return `${prefix}-${crm.pseudonym(`review:${sectionKey}:${key}`, length)}`;
+}
+
+/**
+ * Each person's code in a section, never the same for two: the five letters
+ * of codeOf(), or ten for the rare people whose five letters would clash
+ * (31^5 codes: a clash is unlikely, not impossible). A code depends on the
+ * person and the section only, so it stays the same as people come and go;
+ * the scores are kept under the person, never under the code.
+ */
+function codesOf(keys, section) {
+  const short = new Map(keys.map((k) => [k, codeOf(k, section)]));
+  const count = new Map();
+  short.forEach((c) => count.set(c, (count.get(c) || 0) + 1));
+  const out = new Map();
+  short.forEach((c, k) => out.set(k, count.get(c) > 1 ? codeOf(k, section, 10) : c));
+  return out;
 }
 
 function escapeRe(text) {
@@ -583,17 +663,35 @@ function shown(applicant, section, catalog, settings) {
     .filter((item) => item.url || item.text.trim() || scored.has(item.id));
 }
 
+/** Whether someone answered at least one of the section's questions. */
+function answeredIn(applicant, section) {
+  return section.questions.some((id) => {
+    const v = applicant.answers[id];
+    return v !== undefined && v !== null && String(v).trim() !== '';
+  });
+}
+
 /**
- * The applications reviewers score: those not declined on the board, each
- * with its code in the section, ordered by code (which is as good as
- * shuffled, and the same for everyone).
+ * The applications reviewers score in a section: those not declined on the
+ * board who answered something there (someone who did not apply to the
+ * projects has nothing to score under them), each with its code, ordered by
+ * code (which is as good as shuffled, and the same for everyone).
  */
-async function pool(settings, section) {
-  const all = await applicants(settings);
-  return all
-    .filter((a) => !a.card || a.card.status !== 'declined')
-    .map((a) => ({ ...a, code: codeOf(a.key, section) }))
+function poolOf(all, section) {
+  const list = all.filter(
+    (a) => (!a.card || a.card.status !== 'declined') && answeredIn(a, section)
+  );
+  const codes = codesOf(
+    list.map((a) => a.key),
+    section
+  );
+  return list
+    .map((a) => ({ ...a, code: codes.get(a.key) }))
     .sort((a, b) => a.code.localeCompare(b.code));
+}
+
+async function pool(settings, section) {
+  return poolOf(await applicants(settings), section);
 }
 
 async function findByCode(settings, section, code) {
@@ -611,6 +709,7 @@ function ownReview(row, key, part) {
   return {
     scores: row.scores || {},
     conflict: row.conflict,
+    flags: Array.isArray(row.flags) ? row.flags : [],
     comment: row.comment_encrypted
       ? crm.decrypt(row.comment_encrypted, commentContext(key, part, row.reviewer_id)) ?? ''
       : '',
@@ -622,6 +721,47 @@ function ownReview(row, key, part) {
 function complete(scores, criteria) {
   return criteria.every((c) => Number.isInteger(scores && scores[c.key]));
 }
+
+/**
+ * Whether a review counts in the summary: not stepped aside, and every
+ * criterion scored, or missing only criteria added after it was last saved
+ * (a criterion added halfway leaves the reviews already done counting, on
+ * the criteria they have, until their reviewer adds the new one).
+ */
+function counted(row, criteria) {
+  if (!row || row.conflict) return false;
+  const saved = new Date(row.updated_at).getTime();
+  const scored = criteria.filter((c) => Number.isInteger(row.scores && row.scores[c.key]));
+  if (!scored.length) return false;
+  return criteria.every(
+    (c) =>
+      Number.isInteger(row.scores && row.scores[c.key]) ||
+      (c.addedAt && new Date(c.addedAt).getTime() > saved)
+  );
+}
+
+/** The flags of a row that the section still offers. */
+function flagsOf(row, section) {
+  const offered = new Set((section.exclusions || []).map((r) => r.key));
+  return (Array.isArray(row && row.flags) ? row.flags : []).filter((k) => offered.has(k));
+}
+
+/**
+ * Where a reviewer is with one application: todo, partial, done, conflict
+ * (stepped aside), excluded (flagged with a reason to exclude), or update (it
+ * was done, and a criterion has been added since).
+ */
+function stateOf(row, section) {
+  if (!row) return 'todo';
+  if (row.conflict) return 'conflict';
+  if (flagsOf(row, section).length) return 'excluded';
+  const grid = slots(section);
+  if (complete(row.scores, grid)) return 'done';
+  if (counted(row, grid)) return 'update';
+  return 'partial';
+}
+
+const FINISHED = ['done', 'conflict', 'excluded'];
 
 /** The grid's weighted mean of these scores (1 to 5), or null. */
 function weighted(scores, criteria) {
@@ -638,7 +778,13 @@ function weighted(scores, criteria) {
 
 /** What a reviewer is told about a section. */
 function sectionHead(s) {
-  return { key: s.key, label: s.label, note: s.note || '', anonymous: s.anonymous };
+  return {
+    key: s.key,
+    label: s.label,
+    note: s.note || '',
+    anonymous: s.anonymous,
+    exclusions: s.exclusions || [],
+  };
 }
 
 // ── What a reviewer sees ──────────────────────────────────────────────────────
@@ -650,16 +796,13 @@ async function overview(user, role) {
   const mine = role.reviewer ? settings.sections.filter((s) => assigned(s, user.id)) : [];
   const all = mine.length ? await applicants(settings) : [];
   for (const s of mine) {
-    const list = all.filter((a) => !a.card || a.card.status !== 'declined');
+    const list = poolOf(all, s);
     const { rows } = await db.query(
-      'select person_key, scores, conflict from review_scores where reviewer_id = $1 and part = $2',
+      'select person_key, scores, conflict, flags, updated_at from review_scores where reviewer_id = $1 and part = $2',
       [user.id, s.key]
     );
     const given = new Map(rows.map((r) => [r.person_key, r]));
-    const done = list.filter((a) => {
-      const r = given.get(a.key);
-      return r && (r.conflict || complete(r.scores, slots(s)));
-    }).length;
+    const done = list.filter((a) => FINISHED.includes(stateOf(given.get(a.key), s))).length;
     sections.push({ ...sectionHead(s), total: list.length, done });
   }
   return { admin: role.admin, reviewer: role.reviewer, sections, scale: SCALE };
@@ -672,7 +815,7 @@ async function list(user, part) {
   requireAssigned(section, user);
   const apps = await pool(settings, section);
   const { rows } = await db.query(
-    'select person_key, scores, conflict from review_scores where reviewer_id = $1 and part = $2',
+    'select person_key, scores, conflict, flags, updated_at from review_scores where reviewer_id = $1 and part = $2',
     [user.id, part]
   );
   const mine = new Map(rows.map((r) => [r.person_key, r]));
@@ -683,14 +826,7 @@ async function list(user, part) {
     section: sectionHead(section),
     grid,
     scale: SCALE,
-    items: apps.map((a) => {
-      const r = mine.get(a.key);
-      let state = 'todo';
-      if (r && r.conflict) state = 'conflict';
-      else if (r && complete(r.scores, grid)) state = 'done';
-      else if (r) state = 'partial';
-      return { code: a.code, state };
-    }),
+    items: apps.map((a) => ({ code: a.code, state: stateOf(mine.get(a.key), section) })),
   };
 }
 
@@ -714,14 +850,18 @@ async function application(user, part, code) {
     scale: SCALE,
     items: shown(found, section, catalog, settings),
     mine: ownReview(rows[0], found.key, part),
+    state: stateOf(rows[0], section),
   };
 }
 
 /**
  * Saves my review of one application: { part, code, scores: { criterion: 1..5 },
- * conflict?, comment? }. A review may be saved half done; it counts in the
- * summary once every criterion has a score. Stepping aside (`conflict`)
- * drops the scores.
+ * conflict?, comment?, flags? }. A review may be saved half done; it counts
+ * in the summary once every criterion has a score. Stepping aside
+ * (`conflict`) drops the scores. `flags`: the section's reasons to exclude
+ * the person that apply. Scores of criteria taken out of the grid since are
+ * kept as they were, so a criterion put back finds them again. Saving the
+ * same review twice (two tabs, a retry) is harmless: the last one stands.
  */
 async function score(user, body) {
   const b = body || {};
@@ -732,11 +872,25 @@ async function score(user, body) {
   const criteria = slots(section);
   const conflict = b.conflict === true;
   const scores = {};
+  const { rows: before } = await db.query(
+    'select scores from review_scores where person_key = $1 and part = $2 and reviewer_id = $3',
+    [found.key, b.part, user.id]
+  );
+  if (!conflict && before[0]) {
+    // What was scored on criteria no longer in the grid stays.
+    Object.entries(before[0].scores || {}).forEach(([k, v]) => {
+      if (!criteria.some((c) => c.key === k)) scores[k] = v;
+    });
+  }
   if (!conflict) {
     const given = b.scores && typeof b.scores === 'object' ? b.scores : {};
     for (const [k, v] of Object.entries(given)) {
       if (v === null || v === undefined || v === '') continue;
-      if (!criteria.some((c) => c.key === k)) throw new HttpError(400, 'Unknown criterion');
+      if (!criteria.some((c) => c.key === k))
+        throw new HttpError(
+          409,
+          'The grid of this section has changed since the page was opened: it shows the new one now'
+        );
       const n = Number(v);
       if (!Number.isInteger(n) || n < SCALE.min || n > SCALE.max)
         throw new HttpError(400, `Scores go from ${SCALE.min} to ${SCALE.max}`);
@@ -746,12 +900,22 @@ async function score(user, body) {
   const comment = String(b.comment || '').trim();
   if (comment.length > MAX_COMMENT)
     throw new HttpError(400, `A comment can be at most ${MAX_COMMENT} characters`);
+  const offered = (section.exclusions || []).map((r) => r.key);
+  const flags = [];
+  (Array.isArray(b.flags) ? b.flags : []).forEach((k) => {
+    if (!offered.includes(k))
+      throw new HttpError(
+        409,
+        'The reasons to exclude of this section have changed since the page was opened: it shows the new ones now'
+      );
+    if (!flags.includes(k)) flags.push(k);
+  });
   await db.query(
-    `insert into review_scores (person_key, part, reviewer_id, reviewer_name, scores, conflict, comment_encrypted, updated_at)
-     values ($1, $2, $3, $4, $5, $6, $7, now())
+    `insert into review_scores (person_key, part, reviewer_id, reviewer_name, scores, conflict, comment_encrypted, flags, updated_at)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, now())
      on conflict (person_key, part, reviewer_id) do update set reviewer_name = excluded.reviewer_name,
        scores = excluded.scores, conflict = excluded.conflict,
-       comment_encrypted = excluded.comment_encrypted, updated_at = now()`,
+       comment_encrypted = excluded.comment_encrypted, flags = excluded.flags, updated_at = now()`,
     [
       found.key,
       b.part,
@@ -760,14 +924,18 @@ async function score(user, body) {
       scores,
       conflict,
       comment ? crm.encrypt(comment, commentContext(found.key, b.part, user.id)) : null,
+      JSON.stringify(flags),
     ]
   );
+  const row = { scores, conflict, flags, updated_at: new Date() };
+  const state = stateOf(row, section);
   await audit.record(user, 'review-score', found.key, {
     part: b.part,
-    complete: !conflict && complete(scores, criteria),
+    complete: state === 'done',
     conflict,
+    flags: flags.length,
   });
-  return { state: conflict ? 'conflict' : complete(scores, criteria) ? 'done' : 'partial' };
+  return { state };
 }
 
 // ── What the admins see ──────────────────────────────────────────────────────
@@ -792,24 +960,49 @@ async function summary(user, { record = true } = {}) {
   });
   const team = await reviewers();
   const current = new Set(team.map((r) => r.userId));
+  // The codes as the reviewers see them, clashes resolved (codesOf).
+  const codes = new Map(
+    settings.sections.map((section) => [
+      section.key,
+      codesOf(
+        all.map((a) => a.key),
+        section
+      ),
+    ])
+  );
 
   const people = all.map((a) => {
     const parts = {};
+    const exclusions = [];
     settings.sections.forEach((section) => {
       const part = section.key;
       const criteria = slots(section);
+      const reasons = new Map((section.exclusions || []).map((r) => [r.key, r.label]));
       const reviews = (byPerson.get(a.key) || [])
         .filter((r) => r.part === part)
         .map((r) => {
-          const done = !r.conflict && complete(r.scores, criteria);
+          const flags = flagsOf(r, section).map((k) => ({ key: k, label: reasons.get(k) }));
+          flags.forEach((f) =>
+            exclusions.push({
+              part,
+              section: section.label,
+              reason: f.label,
+              reviewer: r.reviewer_name,
+            })
+          );
           return {
             reviewer: r.reviewer_name,
             reviewerId: r.reviewer_id,
             stillReviewer: current.has(r.reviewer_id),
             scores: r.scores,
             total: r.conflict ? null : round(weighted(r.scores, criteria)),
-            complete: done,
+            // Counts in the mean: complete, or done before a criterion was added.
+            complete: counted(r, criteria),
+            missing: r.conflict
+              ? 0
+              : criteria.filter((c) => !Number.isInteger(r.scores[c.key])).length,
             conflict: r.conflict,
+            flags,
             comment: ownReview(r, a.key, part).comment,
             updatedAt: r.updated_at,
           };
@@ -819,11 +1012,13 @@ async function summary(user, { record = true } = {}) {
       // The mean of each criterion over the complete reviews, for the table.
       const byCriterion = {};
       criteria.forEach((c) => {
-        const vs = reviews.filter((r) => r.complete).map((r) => r.scores[c.key]);
+        const vs = reviews
+          .filter((r) => r.complete && Number.isInteger(r.scores[c.key]))
+          .map((r) => r.scores[c.key]);
         byCriterion[c.key] = vs.length ? round(vs.reduce((s, v) => s + v, 0) / vs.length) : null;
       });
       parts[part] = {
-        code: codeOf(a.key, section),
+        code: codes.get(part).get(a.key),
         mean: totals.length ? round(totals.reduce((s, v) => s + v, 0) / totals.length) : null,
         spread: totals.length > 1 ? round(Math.max(...totals) - Math.min(...totals)) : null,
         count: totals.length,
@@ -851,10 +1046,15 @@ async function summary(user, { record = true } = {}) {
       overall: weights ? round(sum / weights) : null,
       // The overall stands on some sections only while the others have no score.
       partial: scored.length > 0 && scored.length < settings.sections.length,
+      // Reasons to exclude given by some reviewer: [{ part, section, reason, reviewer }].
+      exclusions,
       parts,
     };
   });
   people.sort((x, y) => {
+    // Those flagged for exclusion after the others, to be looked at apart.
+    const ex = Number(x.exclusions.length > 0) - Number(y.exclusions.length > 0);
+    if (ex) return ex;
     if (x.overall === null && y.overall === null) return x.name.localeCompare(y.name, 'it');
     if (x.overall === null) return 1;
     if (y.overall === null) return -1;
@@ -869,6 +1069,7 @@ async function summary(user, { record = true } = {}) {
       weight: s.weight,
       anonymous: s.anonymous,
       reviewers: s.reviewers.map((id) => names.get(id)).filter(Boolean),
+      exclusions: s.exclusions || [],
       grid: slots(s).map((c) => ({
         key: c.key,
         label: c.label,
@@ -978,7 +1179,12 @@ async function settingsPage(user) {
     forms: choices,
     defaults: { criteria: DEFAULT_GRID },
     scale: SCALE,
-    limits: { sections: MAX_SECTIONS, criteria: MAX_CRITERIA, note: MAX_NOTE },
+    limits: {
+      sections: MAX_SECTIONS,
+      criteria: MAX_CRITERIA,
+      note: MAX_NOTE,
+      exclusions: MAX_EXCLUSIONS,
+    },
     reviewers: list,
     candidates: people.filter((p) => !taken.has(p.userId)),
   };
@@ -999,6 +1205,7 @@ module.exports = {
   reviewers,
   setReviewer,
   codeOf,
+  codesOf,
   scrub,
   slots,
   overview,

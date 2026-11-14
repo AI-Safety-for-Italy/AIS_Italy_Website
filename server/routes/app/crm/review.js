@@ -6,12 +6,12 @@
 //   GET                                   -> { admin, reviewer, sections: [{ key, total, done }] }
 //   GET  ?part=<section>                  -> my list: { grid, items: [{ code, state }] }   (reviewer)
 //   GET  ?part=…&code=…                   -> one application, anonymous, and my review  (reviewer)
-//   POST ?action=score { part, code, scores, conflict?, comment? }                      (reviewer)
+//   POST ?action=score { part, code, scores, conflict?, comment?, flags? }              (reviewer)
 //   GET  ?action=summary                  -> everyone, with names and every score       (admin)
 //   POST ?action=status { key, status }   -> the board's status of a mentee             (admin)
 //   GET  ?action=settings                 -> { formId, sections, catalog, forms, reviewers… } (admin)
 //   GET  ?action=questions&form=<id|>     -> a form's questions and a first split        (admin)
-//   PUT  ?action=settings { formId?, nameQuestion?, sections? }                         (admin)
+//   PUT  ?action=settings { formId?, nameQuestion?, sections?, version? } (admin; 409 if stale)
 //   POST ?action=reviewers { add | remove: userId }                                     (admin)
 // The matching after the selection (server/crm/matching.js), admins only:
 //   GET  ?action=matching&pool=selected|all -> projects, suggestion, orientation, setup
