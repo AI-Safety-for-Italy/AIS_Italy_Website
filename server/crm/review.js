@@ -727,13 +727,53 @@ function safeLink(value) {
   }
 }
 
+/**
+ * The links in an answer: [{ text, url }], one per piece, `url` null when a
+ * piece is no http(s) link (a typo, "javascript:…"): its text stays for the
+ * reviewer to copy. Several links in one answer ("my site, my LinkedIn") are
+ * split on commas, semicolons and spaces; "www.x.it" or "x.com/me" without
+ * https:// are taken as https. `only`: the answer is nothing but links.
+ */
+function trimPiece(piece) {
+  let t = piece.replace(/^[(<[]+/, '');
+  // Punctuation after a link is the sentence's; a ")" is the link's when it
+  // closes a "(" of its own.
+  for (;;) {
+    const last = t.slice(-1);
+    const unbalanced = (t.match(/\(/g) || []).length < (t.match(/\)/g) || []).length;
+    if ('.:>]'.includes(last) || (last === ')' && unbalanced)) t = t.slice(0, -1);
+    else return t;
+    if (!t) return t;
+  }
+}
+
+function linksIn(raw) {
+  const pieces = String(raw || '')
+    .split(/[\s,;]+/)
+    .map(trimPiece)
+    .filter(Boolean);
+  const looks = (t) =>
+    /^[a-z][a-z0-9+.-]*:/i.test(t) ||
+    /^www\./i.test(t) ||
+    /^[\w-]+(\.[\w-]+)*\.[a-z]{2,}(\/\S*)?$/i.test(t);
+  const links = pieces.map((text) => ({
+    text,
+    url: looks(text)
+      ? safeLink(/^[a-z][a-z0-9+.-]*:/i.test(text) ? text : `https://${text}`)
+      : null,
+  }));
+  return { links, only: links.length > 0 && links.every((l) => looks(l.text)) };
+}
+
 // What may say who someone is when it turns up in their other answers.
 const IDENTIFYING = ['short_text', 'email', 'url'];
 
 /**
  * What a reviewer reads of one application in one section: [{ id, label,
- * text, url }]. In an anonymous section, the text is scrubbed and links are
- * not offered; elsewhere a link answer is offered as a link, if http(s).
+ * text, url, links }]. In an anonymous section, the text is scrubbed and
+ * links are not offered. Elsewhere the answer comes as written, with its
+ * links (linksIn): an answer of links only (`onlyLinks`) is shown link by
+ * link, each with its text; `url` is its first http(s) link.
  */
 function shown(applicant, section, catalog, settings) {
   const byId = new Map(catalog.map((q) => [q.id, q]));
@@ -751,13 +791,23 @@ function shown(applicant, section, catalog, settings) {
     .map((id) => {
       const q = byId.get(id) || { id, label: id, type: 'short_text' };
       const raw = String(a[id] == null ? '' : a[id]);
-      const linkish = q.type === 'url' || /^https?:\/\/\S+$/i.test(raw.trim());
-      if (linkish && !section.anonymous) {
-        return { id, label: q.label, text: '', url: safeLink(raw) };
+      if (section.anonymous) {
+        return { id, label: q.label, text: scrub(raw, who), url: null, links: [] };
       }
-      return { id, label: q.label, text: section.anonymous ? scrub(raw, who) : raw, url: null };
+      const found = linksIn(raw);
+      const onlyLinks = found.only;
+      const links = onlyLinks ? found.links : found.links.filter((l) => l.url);
+      const first = links.find((l) => l.url);
+      return {
+        id,
+        label: q.label,
+        text: raw,
+        url: first ? first.url : null,
+        links,
+        onlyLinks,
+      };
     })
-    .filter((item) => item.url || item.text.trim() || scored.has(item.id));
+    .filter((item) => item.text.trim() || scored.has(item.id));
 }
 
 /** Whether someone answered at least one of the section's questions. */

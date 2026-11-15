@@ -9636,6 +9636,37 @@ a.hub-todo-card:hover {
 }
 
 /* A link shown over the page (review-score.js) */
+.rv-links {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rv-answer-text + .rv-links {
+  margin-top: 8px;
+}
+
+.rv-link-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.rv-link-text {
+  min-width: 0;
+  font-size: 12.5px;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
+.rv-link-row.is-broken .rv-link-text {
+  color: var(--error);
+}
+
 .rv-link-actions {
   display: inline-flex;
   flex-wrap: wrap;

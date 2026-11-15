@@ -295,15 +295,68 @@ test('the answers come without who wrote them; the CV part only with safe links'
 
   const liaCv = await codeOf(ann, 'cv', LIA_KEY());
   const cv = (await call({ url: `/api/app/crm/review?part=cv&code=${liaCv}`, user: ann })).body;
-  assert.deepEqual(cv.items, [
-    { id: 'cv', label: 'CV', text: '', url: 'https://drive.example.org/lia-cv.pdf' },
-    { id: 'profile', label: 'Profile', text: '', url: 'https://example.org/lia' },
-  ]);
-  // A link that is not http(s) is never handed to the page.
+  assert.deepEqual(
+    cv.items.map((i) => [i.id, i.url, i.links]),
+    [
+      [
+        'cv',
+        'https://drive.example.org/lia-cv.pdf',
+        [
+          {
+            text: 'https://drive.example.org/lia-cv.pdf',
+            url: 'https://drive.example.org/lia-cv.pdf',
+          },
+        ],
+      ],
+      [
+        'profile',
+        'https://example.org/lia',
+        [{ text: 'https://example.org/lia', url: 'https://example.org/lia' }],
+      ],
+    ]
+  );
+  // A link that is not http(s) is never handed to the page as one: its text
+  // is, to be read.
   const marcoCv = await codeOf(ann, 'cv', MARCO_KEY());
   const marco = (await call({ url: `/api/app/crm/review?part=cv&code=${marcoCv}`, user: ann }))
     .body;
-  assert.deepEqual(marco.items, []);
+  assert.deepEqual(
+    marco.items.map((i) => [i.url, i.links]),
+    [[null, [{ text: 'javascript:alert(1)', url: null }]]]
+  );
+});
+
+test('several links in one answer come apart, each with its text', async () => {
+  const { ann } = await panel();
+  await records.add(
+    'mentees_applications',
+    {
+      name: 'Nina Link',
+      email: 'nina@example.org',
+      profile: 'https://linkedin.com/in/nina, www.nina.it; github.com/nina (ex-https:/broken',
+      cv: 'Il mio CV: https://example.org/nina.pdf.',
+    },
+    { origin: 'form' }
+  );
+  const code = await codeOf(ann, 'cv', crm.personKey('nina@example.org'));
+  const app = await review.application(ann, 'cv', code);
+  const profile = app.items.find((i) => i.id === 'profile');
+  assert.equal(
+    profile.text,
+    'https://linkedin.com/in/nina, www.nina.it; github.com/nina (ex-https:/broken'
+  );
+  assert.deepEqual(profile.links, [
+    { text: 'https://linkedin.com/in/nina', url: 'https://linkedin.com/in/nina' },
+    { text: 'www.nina.it', url: 'https://www.nina.it/' },
+    { text: 'github.com/nina', url: 'https://github.com/nina' },
+    { text: 'ex-https:/broken', url: null },
+  ]);
+  // A sentence with a link in it: the text as written, and its link.
+  const cv = app.items.find((i) => i.id === 'cv');
+  assert.equal(cv.text, 'Il mio CV: https://example.org/nina.pdf.');
+  assert.deepEqual(cv.links, [
+    { text: 'https://example.org/nina.pdf', url: 'https://example.org/nina.pdf' },
+  ]);
 });
 
 // ── Scores ───────────────────────────────────────────────────────────────────
