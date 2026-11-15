@@ -14,6 +14,10 @@
  * on the right, my scores, which stay in view while I read and save as I go:
  * the criteria (grouped by question when each question has its own grid),
  * the reasons to exclude the section offers, a comment, stepping aside.
+ * A link (a CV, a profile) opens in a viewer over the page, with buttons to
+ * open it in a window of its own or a new tab; a site known to refuse being
+ * shown inside another (LinkedIn, GitHub…) opens straight in a window, which
+ * is the browser's own, signed in where I am.
  * Everything comes from /api/app/crm/review, which never sends a name or a
  * person key to a reviewer. What the applicants wrote goes on the page as
  * text (h() makes text nodes), never as HTML. */
@@ -529,6 +533,8 @@
   });
 
   document.addEventListener('keydown', function (e) {
+    // The viewer closes on Esc by itself; while open, the arrows are its own.
+    if (viewerOpen()) return;
     if (e.key === 'Escape') return closePicker();
     // ← and → move between applications, unless typing.
     var t = e.target;
@@ -675,21 +681,243 @@
     );
   }
 
+  // ── Links: a viewer over the page, or a window of their own ──────────────
+
+  // Sites that refuse to be shown inside another (X-Frame-Options or CSP
+  // frame-ancestors): they open straight in a window.
+  var NO_FRAME = [
+    'linkedin.com',
+    'github.com',
+    'gitlab.com',
+    'scholar.google.com',
+    'x.com',
+    'twitter.com',
+    'facebook.com',
+    'instagram.com',
+    'researchgate.net',
+    'academia.edu',
+    'orcid.org',
+    'notion.so',
+    'notion.site',
+  ];
+
+  function hostOf(url) {
+    try {
+      return new URL(url).hostname.replace(/^www\./, '');
+    } catch (e) {
+      return '';
+    }
+  }
+
+  function framable(url) {
+    var host = hostOf(url);
+    if (!host) return false;
+    // A page over plain http inside this https one is blocked by the browser.
+    if (/^http:/i.test(url) && window.location.protocol === 'https:') return false;
+    if (/^scholar\.google\./.test(host)) return false;
+    return !NO_FRAME.some(function (d) {
+      return host === d || host.slice(-(d.length + 1)) === '.' + d;
+    });
+  }
+
+  /**
+   * The address to show in the viewer: Google Drive and Docs, and Dropbox,
+   * have a preview made to be shown inside another page.
+   */
+  function embedUrl(url) {
+    var m = url.match(/^https:\/\/drive\.google\.com\/file\/d\/([\w-]+)/);
+    if (m) return 'https://drive.google.com/file/d/' + m[1] + '/preview';
+    m = url.match(/^https:\/\/drive\.google\.com\/(?:open|uc)\?(?:.*&)?id=([\w-]+)/);
+    if (m) return 'https://drive.google.com/file/d/' + m[1] + '/preview';
+    m = url.match(
+      /^https:\/\/docs\.google\.com\/(document|presentation|spreadsheets)\/d\/([\w-]+)/
+    );
+    if (m) return 'https://docs.google.com/' + m[1] + '/d/' + m[2] + '/preview';
+    if (/^https:\/\/(www\.)?dropbox\.com\//.test(url)) {
+      var u = new URL(url);
+      u.searchParams.delete('dl');
+      u.searchParams.set('raw', '1');
+      return u.href;
+    }
+    return url;
+  }
+
+  function isPdf(url) {
+    try {
+      return /\.pdf$/i.test(new URL(url).pathname);
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /** Opens a link in a window of its own, beside the page: the browser's, signed in. */
+  function openWindow(url) {
+    var w = Math.min(1100, Math.round(window.screen.availWidth * 0.7));
+    var ht = Math.min(900, Math.round(window.screen.availHeight * 0.85));
+    var left = Math.round((window.screen.availWidth - w) / 2);
+    var top = Math.round((window.screen.availHeight - ht) / 2);
+    var win = window.open(
+      url,
+      'rvLink',
+      'popup,width=' + w + ',height=' + ht + ',left=' + left + ',top=' + top
+    );
+    if (win) {
+      // The page opened never reaches back into this one.
+      try {
+        win.opener = null;
+      } catch (e) {
+        /* already cut */
+      }
+      win.focus();
+    } else {
+      // Popups blocked: a new tab, then.
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
+  }
+
+  var viewer = null;
+
+  function closeViewer() {
+    if (viewer && viewer.open) viewer.close();
+  }
+
+  function viewerOpen() {
+    return Boolean(viewer && viewer.open);
+  }
+
+  /** Shows a link in the viewer over the page, or in a window when it cannot be shown there. */
+  function openLink(url, label) {
+    if (!framable(url)) return openWindow(url);
+    if (!viewer) {
+      viewer = h('dialog', { class: 'rv-viewer', 'aria-label': 'Link' });
+      viewer.addEventListener('click', function (e) {
+        // A click on the backdrop closes it.
+        if (e.target === viewer) closeViewer();
+      });
+      viewer.addEventListener('close', function () {
+        // Nothing keeps loading once it is closed.
+        var frame = viewer.querySelector('iframe');
+        if (frame) frame.src = 'about:blank';
+      });
+      document.body.appendChild(viewer);
+    }
+    M.clear(viewer);
+    var src = embedUrl(url);
+    var frame = h('iframe', {
+      class: 'rv-viewer-frame',
+      src: src,
+      title: label,
+      referrerpolicy: 'no-referrer',
+      // Kept from steering this page; a PDF is left out of the sandbox,
+      // where Chrome, Brave and Edge refuse to show it.
+      sandbox: isPdf(src)
+        ? null
+        : 'allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads',
+      allow: 'fullscreen',
+    });
+    viewer.append(
+      h(
+        'div',
+        { class: 'rv-viewer-bar' },
+        h('strong', null, label),
+        h('span', { class: 'rv-viewer-host' }, hostOf(url)),
+        h(
+          'span',
+          { class: 'rv-viewer-actions' },
+          h(
+            'button',
+            {
+              type: 'button',
+              class: 'btn btn-outline btn-sm',
+              title: 'Not showing? Some sites refuse to be shown inside another page',
+              onclick: function () {
+                closeViewer();
+                openWindow(url);
+              },
+            },
+            'Open in a window'
+          ),
+          h(
+            'a',
+            {
+              class: 'btn btn-outline btn-sm',
+              href: url,
+              target: '_blank',
+              rel: 'noopener noreferrer',
+              onclick: closeViewer,
+            },
+            'New tab ↗'
+          ),
+          h(
+            'button',
+            {
+              type: 'button',
+              class: 'btn btn-sm rv-ghost rv-viewer-close',
+              'aria-label': 'Close (Esc)',
+              title: 'Close (Esc)',
+              onclick: closeViewer,
+            },
+            '×'
+          )
+        )
+      ),
+      h(
+        'p',
+        { class: 'rv-viewer-hint' },
+        'Blank, refused, or asking you to sign in? The site does not allow being shown here, or your browser does not share your sign-in with pages shown inside others (Brave, Safari, Firefox): ',
+        h(
+          'button',
+          {
+            type: 'button',
+            class: 'rv-link-btn',
+            onclick: function () {
+              closeViewer();
+              openWindow(url);
+            },
+          },
+          'open it in a window'
+        ),
+        '.'
+      ),
+      frame
+    );
+    viewer.showModal();
+    frame.focus();
+  }
+
   // One answer: a link to open, or the text as written (scrubbed when the
   // section is anonymous). With one grid per question, a mark of how many of
   // its criteria I scored, which takes me to them.
   function renderItem(item, criteria) {
     var body;
     if (item.url) {
+      var inside = framable(item.url);
       body = h(
-        'a',
-        {
-          class: 'btn btn-outline btn-sm',
-          href: item.url,
-          target: '_blank',
-          rel: 'noopener noreferrer',
-        },
-        'Open ↗'
+        'span',
+        { class: 'rv-link-actions' },
+        h(
+          'button',
+          {
+            type: 'button',
+            class: 'btn btn-primary btn-sm',
+            title: inside ? 'Open here, over the page' : 'Open in a window beside the page',
+            onclick: function () {
+              openLink(item.url, item.label);
+            },
+          },
+          inside ? 'View' : 'View in a window'
+        ),
+        h(
+          'a',
+          {
+            class: 'btn btn-outline btn-sm',
+            href: item.url,
+            target: '_blank',
+            rel: 'noopener noreferrer',
+          },
+          'New tab ↗'
+        ),
+        h('span', { class: 'rv-link-host' }, hostOf(item.url))
       );
     } else if (item.text.trim()) {
       body = item.text;

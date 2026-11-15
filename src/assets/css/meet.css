@@ -9635,6 +9635,82 @@ a.hub-todo-card:hover {
   margin-right: 5px;
 }
 
+/* A link shown over the page (review-score.js) */
+.rv-link-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.rv-link-host {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.rv-viewer {
+  width: min(1100px, 94vw);
+  height: 90vh;
+  max-width: none;
+  max-height: none;
+  padding: 0;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--card-bg);
+  color: var(--text-primary);
+  overflow: hidden;
+}
+
+.rv-viewer[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.rv-viewer::backdrop {
+  background: rgb(10 20 14 / 55%);
+}
+
+.rv-viewer-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: center;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-muted);
+}
+
+.rv-viewer-host {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.rv-viewer-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-left: auto;
+}
+
+.rv-viewer-close {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.rv-viewer-hint {
+  margin: 0;
+  padding: 4px 12px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  background: var(--bg-secondary);
+}
+
+.rv-viewer-frame {
+  flex: 1;
+  width: 100%;
+  border: 0;
+  background: #fff;
+}
+
 /* The pre-screening's decision */
 .rv-btn-pass {
   width: 100%;
