@@ -550,6 +550,43 @@ alter table review_scores drop constraint if exists review_scores_part_check;
 -- "no ties with Italy"): their keys, kept apart from the scores.
 alter table review_scores add column if not exists flags jsonb not null default '[]';
 
+-- The pre-screening, before the sections: one decision per applicant, taken
+-- by any reviewer it is given to (say "no ties with Italy"). Someone excluded
+-- here is shown in no section; the admins can bring them back.
+create table if not exists review_prescreen (
+  person_key text primary key,
+  decision text not null check (decision in ('pass', 'exclude')),
+  reasons jsonb not null default '[]',
+  reviewer_id uuid references app_users(id) on delete set null,
+  reviewer_name text not null,
+  decided_at timestamptz not null default now()
+);
+
+-- When the selection first saw each application (a form's answer: when it was
+-- sent), to tell the reviewers what came in since their last visit while the
+-- applications are still open.
+create table if not exists review_arrivals (
+  person_key text primary key,
+  arrived_at timestamptz not null default now()
+);
+
+-- Each reviewer's visits: since is where "new since your last visit" counts
+-- from, moved to the last visit once they have been away a while.
+create table if not exists review_visits (
+  reviewer_id uuid primary key references app_users(id) on delete cascade,
+  last_at timestamptz not null default now(),
+  since timestamptz not null default now()
+);
+
+-- The reminders to the reviewers before the deadline, each sent once.
+create table if not exists review_reminders_sent (
+  deadline timestamptz not null,
+  lead_minutes int not null,
+  reviewer_id uuid not null references app_users(id) on delete cascade,
+  sent_at timestamptz not null default now(),
+  primary key (deadline, lead_minutes, reviewer_id)
+);
+
 -- The community's members and working groups got a permission of their own
 -- (community), apart from the applications (members). Once, on each
 -- database: whoever held members then keeps both. Later changes are the

@@ -23,6 +23,16 @@
 //                 Each section may also offer reasons to exclude someone
 //                 (say "no ties with Italy"), which a reviewer ticks instead
 //                 of, or as well as, scoring; the summary marks the person.
+//   the pre-screening  optional, before the sections: a few questions (the
+//                 country, the affiliation) and reasons to exclude. Any
+//                 reviewer it is given to decides for everyone, pass or
+//                 exclude; someone excluded there is shown in no section,
+//                 so nobody spends time scoring them, and only those who
+//                 passed are. The admins can bring someone back.
+// The applications may still be coming in while the reviewers work: each
+// list puts what is left to do first, and a reviewer is told how many came
+// in since their last visit (review_arrivals, review_visits). The reminders
+// before a deadline are server/crm/review-reminders.js's.
 // Built to change while people work: the form gaining questions (they come
 // in, the sections stay), criteria added (the reviews done before keep
 // counting), criteria removed (their scores are kept), two admins saving the
@@ -55,6 +65,10 @@ const SETTINGS_KEY = 'review_settings';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const KEY = /^[a-z0-9_]{1,30}$/;
 const QUESTION = /^[a-z][a-z0-9_]{1,39}$/;
+// The pre-screening's part, beside the sections' keys (which never take it).
+const PRESCREEN = 'prescreen';
+// Away this long, a reviewer's next visit counts what is new from the last one.
+const VISIT_GAP_MS = 60 * 60 * 1000;
 
 // The grid the two first sections start with: the admins change it.
 const DEFAULT_GRID = {
@@ -167,6 +181,18 @@ const DEFAULT_SECTIONS = [
   },
 ];
 
+// The pre-screening before the admins set it: off, on the board's questions
+// that say where someone is from and works.
+const DEFAULT_PRESCREEN = {
+  enabled: false,
+  label: 'Pre-screening',
+  note: 'Exclude only who clearly falls outside the program (say, no ties with Italy). Anyone else passes: the sections judge the rest.',
+  anonymous: false,
+  questions: ['country', 'affiliation', 'role', 'background'],
+  reasons: [{ key: 'no_italy', label: 'No ties with Italy' }],
+  reviewers: [],
+};
+
 const copy = (value) => JSON.parse(JSON.stringify(value));
 
 // ── Who may do what ──────────────────────────────────────────────────────────
@@ -226,6 +252,7 @@ async function getSettings() {
       formId: saved.formId || null,
       nameQuestion: saved.nameQuestion || null,
       sections: saved.sections.map((s) => ({ ...s, exclusions: s.exclusions || [] })),
+      prescreen: prescreenOf(saved.prescreen, saved.formId || null),
       version,
     };
   }
@@ -236,7 +263,31 @@ async function getSettings() {
     const w = saved.weights && Number(saved.weights[s.key]);
     if (Number.isFinite(w) && w >= 0) s.weight = w;
   });
-  return { formId: null, nameQuestion: 'name', sections, version };
+  return {
+    formId: null,
+    nameQuestion: 'name',
+    sections,
+    prescreen: prescreenOf(saved.prescreen, null),
+    version,
+  };
+}
+
+/**
+ * The pre-screening as saved, every field there: the default one (off)
+ * when never set. With a form, the default starts with no question.
+ */
+function prescreenOf(saved, formId) {
+  const base = copy(DEFAULT_PRESCREEN);
+  if (formId) base.questions = [];
+  if (!saved || typeof saved !== 'object') return base;
+  return {
+    ...base,
+    ...saved,
+    enabled: saved.enabled === true,
+    questions: Array.isArray(saved.questions) ? saved.questions : base.questions,
+    reasons: Array.isArray(saved.reasons) ? saved.reasons : base.reasons,
+    reviewers: Array.isArray(saved.reviewers) ? saved.reviewers : [],
+  };
 }
 
 function slug(text, fallback = 'criterion') {
@@ -338,6 +389,7 @@ function cleanSections(list, catalog, reviewerIds, previous = []) {
     if (!label || label.length > 40)
       throw new HttpError(400, 'Each section needs a name (40 characters at most)');
     let key = typeof s.key === 'string' && KEY.test(s.key) ? s.key : slug(label, 'section');
+    if (key === PRESCREEN) key = `${PRESCREEN}_1`;
     while (keys.has(key)) key = `${key.slice(0, 27)}_${keys.size}`;
     keys.add(key);
     const was = previous.find((p) => p.key === key) || {};
@@ -400,7 +452,47 @@ function cleanSections(list, catalog, reviewerIds, previous = []) {
 }
 
 /**
- * Saves the setup: { formId?, nameQuestion?, sections }. A form may be
+ * The pre-screening as the page sends it, checked: { enabled, note,
+ * anonymous, questions, reasons, reviewers }. Switched on, it needs a
+ * question to show and a reason to exclude. A question gone from the form
+ * (`lenient`, when the form changed and the page sent no pre-screening) is
+ * left out rather than refused.
+ */
+function cleanPrescreen(raw, catalog, reviewerIds, { lenient = false } = {}) {
+  const p = raw && typeof raw === 'object' ? raw : {};
+  const known = new Set(catalog.map((q) => q.id));
+  const note = String(p.note || '').trim();
+  if (note.length > MAX_NOTE)
+    throw new HttpError(400, `Pre-screening: the note is ${MAX_NOTE} characters at most`);
+  const questions = [];
+  (Array.isArray(p.questions) ? p.questions : []).forEach((id) => {
+    if (!QUESTION.test(String(id)) || !known.has(id)) {
+      if (lenient) return;
+      throw new HttpError(400, 'Pre-screening: a question is no longer in the form');
+    }
+    if (!questions.includes(id)) questions.push(id);
+  });
+  const reasons = cleanExclusions('Pre-screening', p.reasons);
+  const enabled = p.enabled === true && !(lenient && !questions.length);
+  if (enabled && !questions.length)
+    throw new HttpError(400, 'Pre-screening: pick at least one question to show');
+  if (enabled && !reasons.length)
+    throw new HttpError(400, 'Pre-screening: give at least one reason to exclude');
+  return {
+    enabled,
+    label: DEFAULT_PRESCREEN.label,
+    note,
+    anonymous: p.anonymous === true,
+    questions,
+    reasons,
+    reviewers: [...new Set((Array.isArray(p.reviewers) ? p.reviewers : []).map(String))].filter(
+      (id) => reviewerIds.has(id)
+    ),
+  };
+}
+
+/**
+ * Saves the setup: { formId?, nameQuestion?, sections, prescreen? }. A form may be
  * chosen only if this admin may read its answers, or if it feeds the mentee
  * applications on the board.
  */
@@ -431,7 +523,11 @@ async function saveSettings(user, body) {
   let nameQuestion = b.nameQuestion === undefined ? current.nameQuestion : b.nameQuestion || null;
   if (nameQuestion && !catalog.some((q) => q.id === nameQuestion))
     throw new HttpError(400, 'The question with the name is not in the form');
-  const next = { formId, nameQuestion, sections };
+  const prescreen =
+    b.prescreen === undefined
+      ? cleanPrescreen(current.prescreen, catalog, reviewerIds, { lenient: true })
+      : cleanPrescreen(b.prescreen, catalog, reviewerIds);
+  const next = { formId, nameQuestion, sections, prescreen };
   await db.query(
     `insert into app_settings (key, value, updated_at) values ($1, $2, now())
      on conflict (key) do update set value = excluded.value, updated_at = now()`,
@@ -440,6 +536,7 @@ async function saveSettings(user, body) {
   await audit.record(user, 'review-settings', null, {
     form: Boolean(formId),
     sections: sections.length,
+    prescreen: prescreen.enabled,
   });
   return getSettings();
 }
@@ -539,7 +636,7 @@ async function applicants(settings) {
     const key = r.respondentKey || `response-${r.id}`;
     if (seen.has(key)) return;
     seen.add(key);
-    out.push({ key, answers: r.texts, card: cards.get(key) || null });
+    out.push({ key, answers: r.texts, card: cards.get(key) || null, sentAt: r.submittedAt });
   });
   return out;
 }
@@ -671,16 +768,10 @@ function answeredIn(applicant, section) {
   });
 }
 
-/**
- * The applications reviewers score in a section: those not declined on the
- * board who answered something there (someone who did not apply to the
- * projects has nothing to score under them), each with its code, ordered by
- * code (which is as good as shuffled, and the same for everyone).
- */
-function poolOf(all, section) {
-  const list = all.filter(
-    (a) => (!a.card || a.card.status !== 'declined') && answeredIn(a, section)
-  );
+const notDeclined = (a) => !a.card || a.card.status !== 'declined';
+
+/** Each applicant under a code of this section, ordered by code. */
+function coded(list, section) {
   const codes = codesOf(
     list.map((a) => a.key),
     section
@@ -690,14 +781,296 @@ function poolOf(all, section) {
     .sort((a, b) => a.code.localeCompare(b.code));
 }
 
+/**
+ * The applications reviewers score in a section: those not declined on the
+ * board who answered something there (someone who did not apply to the
+ * projects has nothing to score under them) and, with a pre-screening
+ * (`screen`: person key -> its decision), passed it. Each with its code,
+ * ordered by code (which is as good as shuffled, and the same for everyone).
+ */
+function poolOf(all, section, screen = null) {
+  return coded(
+    all.filter(
+      (a) =>
+        notDeclined(a) &&
+        answeredIn(a, section) &&
+        (!screen || (screen.get(a.key) && screen.get(a.key).decision === 'pass'))
+    ),
+    section
+  );
+}
+
+/** The pre-screening's decisions: person key -> { decision, reasons, reviewer_name… }. */
+async function decisions() {
+  const { rows } = await db.query('select * from review_prescreen');
+  return new Map(rows.map((r) => [r.person_key, r]));
+}
+
+/** The decisions that filter the sections, or null when there is no pre-screening. */
+async function screenOf(settings) {
+  return settings.prescreen && settings.prescreen.enabled ? decisions() : null;
+}
+
 async function pool(settings, section) {
-  return poolOf(await applicants(settings), section);
+  return poolOf(await applicants(settings), section, await screenOf(settings));
 }
 
 async function findByCode(settings, section, code) {
   const found = (await pool(settings, section)).find((a) => a.code === String(code || ''));
   if (!found) throw new HttpError(404, 'No such application (any more)');
   return found;
+}
+
+// ── The pre-screening ────────────────────────────────────────────────────────
+
+/** The pre-screening as a section: what shown() and the codes need. */
+function prescreenSection(p) {
+  return {
+    key: PRESCREEN,
+    label: p.label,
+    prefix: 'P',
+    note: p.note,
+    anonymous: p.anonymous,
+    gridMode: 'section',
+    questions: p.questions,
+    criteria: [],
+    questionGrids: {},
+  };
+}
+
+/** Everyone to pre-screen: whoever is not declined on the board, under a P- code. */
+function prescreenPoolOf(all, settings) {
+  return coded(all.filter(notDeclined), prescreenSection(settings.prescreen));
+}
+
+function requirePrescreen(settings, user) {
+  if (!settings.prescreen.enabled) throw new HttpError(400, 'There is no pre-screening');
+  if (!assigned(settings.prescreen, user.id))
+    throw new HttpError(403, 'The pre-screening is given to other reviewers');
+}
+
+/** Where an application is in the pre-screening: todo, passed, excluded. */
+function screenState(row) {
+  if (!row) return 'todo';
+  return row.decision === 'pass' ? 'passed' : 'excluded';
+}
+
+function prescreenHead(p) {
+  return {
+    key: PRESCREEN,
+    kind: PRESCREEN,
+    label: p.label,
+    note: p.note || '',
+    anonymous: p.anonymous,
+    exclusions: p.reasons,
+  };
+}
+
+/** What a reviewer is told of a decision: who took it, when, for what. */
+function decisionOf(row, p) {
+  if (!row) return null;
+  const labels = new Map(p.reasons.map((r) => [r.key, r.label]));
+  return {
+    decision: row.decision,
+    reasons: (row.reasons || []).filter((k) => labels.has(k)),
+    reasonLabels: (row.reasons || []).map((k) => labels.get(k) || k),
+    by: row.reviewer_name,
+    at: row.decided_at,
+  };
+}
+
+/** The pre-screening's list: [{ code, state, by }], what is left to decide first. */
+async function prescreenList(user) {
+  const settings = await getSettings();
+  requirePrescreen(settings, user);
+  const all = await applicants(settings);
+  const decided = await decisions();
+  const apps = prescreenPoolOf(all, settings);
+  const fresh = await freshness(user, all);
+  await audit.record(user, 'review-list', null, { part: PRESCREEN, count: apps.length });
+  return {
+    part: PRESCREEN,
+    section: prescreenHead(settings.prescreen),
+    grid: [],
+    scale: SCALE,
+    items: firstToDo(
+      apps.map((a) => {
+        const row = decided.get(a.key);
+        return {
+          code: a.code,
+          state: screenState(row),
+          by: row ? row.reviewer_name : null,
+          fresh: fresh(a.key),
+        };
+      })
+    ),
+  };
+}
+
+/** One application in the pre-screening, and its decision if taken. */
+async function prescreenApplication(user, code) {
+  const settings = await getSettings();
+  requirePrescreen(settings, user);
+  const found = prescreenPoolOf(await applicants(settings), settings).find(
+    (a) => a.code === String(code || '')
+  );
+  if (!found) throw new HttpError(404, 'No such application (any more)');
+  const catalog = (await catalogOf(settings.formId)) || [];
+  const { rows } = await db.query('select * from review_prescreen where person_key = $1', [
+    found.key,
+  ]);
+  await audit.record(user, 'review-list', found.key, { part: PRESCREEN, open: true });
+  return {
+    part: PRESCREEN,
+    section: prescreenHead(settings.prescreen),
+    code: found.code,
+    grid: [],
+    scale: SCALE,
+    items: shown(found, prescreenSection(settings.prescreen), catalog, settings),
+    decision: decisionOf(rows[0], settings.prescreen),
+    state: screenState(rows[0]),
+  };
+}
+
+/**
+ * Decides on one application, for every reviewer: { code, decision: 'pass' |
+ * 'exclude' | null, reasons? }. Excluding needs a reason among those offered;
+ * null takes the decision back. The last decision stands, whoever took it.
+ */
+async function prescreen(user, body) {
+  const b = body || {};
+  const settings = await getSettings();
+  requirePrescreen(settings, user);
+  const found = prescreenPoolOf(await applicants(settings), settings).find(
+    (a) => a.code === String(b.code || '')
+  );
+  if (!found) throw new HttpError(404, 'No such application (any more)');
+  const decision = b.decision === undefined ? null : b.decision;
+  if (decision !== null && !['pass', 'exclude'].includes(decision))
+    throw new HttpError(400, 'A decision is pass or exclude');
+  let reasons = [];
+  if (decision === 'exclude') {
+    const offered = settings.prescreen.reasons.map((r) => r.key);
+    (Array.isArray(b.reasons) ? b.reasons : []).forEach((k) => {
+      if (!offered.includes(k))
+        throw new HttpError(
+          409,
+          'The reasons to exclude have changed since the page was opened: it shows the new ones now'
+        );
+      if (!reasons.includes(k)) reasons.push(k);
+    });
+    if (!reasons.length) throw new HttpError(400, 'Say why: tick a reason to exclude');
+  }
+  if (decision === null) {
+    await db.query('delete from review_prescreen where person_key = $1', [found.key]);
+  } else {
+    await db.query(
+      `insert into review_prescreen (person_key, decision, reasons, reviewer_id, reviewer_name, decided_at)
+       values ($1, $2, $3, $4, $5, now())
+       on conflict (person_key) do update set decision = excluded.decision, reasons = excluded.reasons,
+         reviewer_id = excluded.reviewer_id, reviewer_name = excluded.reviewer_name, decided_at = now()`,
+      [found.key, decision, JSON.stringify(reasons), user.id, user.name]
+    );
+  }
+  await audit.record(user, 'review-prescreen', found.key, {
+    decision: decision || 'undo',
+    reasons: reasons.length,
+  });
+  const { rows } = await db.query('select * from review_prescreen where person_key = $1', [
+    found.key,
+  ]);
+  return {
+    state: screenState(rows[0]),
+    decision: decisionOf(rows[0], settings.prescreen),
+  };
+}
+
+/**
+ * The admins' word on the pre-screening, from the summary: { key, decision:
+ * 'pass' | null }. 'pass' brings someone excluded back into the sections;
+ * null leaves them to be pre-screened again.
+ */
+async function readmit(user, key, decision) {
+  const k = String(key || '');
+  const all = await applicants(await getSettings());
+  if (!all.some((a) => a.key === k)) throw new HttpError(404, 'No such applicant');
+  if (decision === 'pass') {
+    await db.query(
+      `insert into review_prescreen (person_key, decision, reasons, reviewer_id, reviewer_name, decided_at)
+       values ($1, 'pass', '[]', $2, $3, now())
+       on conflict (person_key) do update set decision = 'pass', reasons = '[]',
+         reviewer_id = excluded.reviewer_id, reviewer_name = excluded.reviewer_name, decided_at = now()`,
+      [k, user.id, user.name]
+    );
+  } else if (decision === null || decision === undefined) {
+    await db.query('delete from review_prescreen where person_key = $1', [k]);
+  } else {
+    throw new HttpError(400, 'An admin brings someone back (pass) or undoes the decision');
+  }
+  await audit.record(user, 'review-prescreen', k, { decision: decision || 'undo', admin: true });
+  return { ok: true };
+}
+
+// ── What came in since the last visit ────────────────────────────────────────
+
+/**
+ * When each applicant came in: person key -> time. The first time the
+ * selection sees someone is written down (a form's answer: when it was sent).
+ */
+async function arrivals(all) {
+  if (!all.length) return new Map();
+  const keys = all.map((a) => a.key);
+  await db.query(
+    `insert into review_arrivals (person_key, arrived_at)
+     select k, coalesce(t, now()) from unnest($1::text[], $2::timestamptz[]) as x(k, t)
+     on conflict (person_key) do nothing`,
+    [keys, all.map((a) => a.sentAt || null)]
+  );
+  const { rows } = await db.query(
+    'select person_key, arrived_at from review_arrivals where person_key = any($1::text[])',
+    [keys]
+  );
+  return new Map(rows.map((r) => [r.person_key, new Date(r.arrived_at).getTime()]));
+}
+
+/**
+ * A reviewer's visit (the landing page): returns since when "new" counts.
+ * The first visit counts nothing as new; one after VISIT_GAP_MS away counts
+ * from the visit before, and stays so while they keep working.
+ */
+async function visit(user) {
+  const { rows } = await db.query(
+    `insert into review_visits (reviewer_id) values ($1)
+     on conflict (reviewer_id) do update set
+       since = case when review_visits.last_at < now() - make_interval(secs => $2)
+                    then review_visits.last_at else review_visits.since end,
+       last_at = now()
+     returning since`,
+    [user.id, VISIT_GAP_MS / 1000]
+  );
+  return new Date(rows[0].since).getTime();
+}
+
+/** A test of whether a person key came in since my last visit (read only). */
+async function freshness(user, all) {
+  const { rows } = await db.query('select since from review_visits where reviewer_id = $1', [
+    user.id,
+  ]);
+  if (!rows[0]) return () => false;
+  const since = new Date(rows[0].since).getTime();
+  const at = await arrivals(all);
+  return (key) => (at.get(key) || 0) > since;
+}
+
+const TO_DO = ['todo', 'partial', 'update'];
+
+/** A list with what is left to do first, then what is done; by code within each. */
+function firstToDo(items) {
+  const rank = (it) => (TO_DO.includes(it.state) ? 0 : 1);
+  return items
+    .map((it, i) => [it, i])
+    .sort((x, y) => rank(x[0]) - rank(y[0]) || x[1] - y[1])
+    .map(([it]) => it);
 }
 
 function commentContext(key, part, reviewerId) {
@@ -789,31 +1162,98 @@ function sectionHead(s) {
 
 // ── What a reviewer sees ──────────────────────────────────────────────────────
 
-/** The landing page: who I am here and how far I am in each of my sections. */
-async function overview(user, role) {
+/** What is read once to tell several reviewers how far they are. */
+async function context() {
   const settings = await getSettings();
-  const sections = [];
-  const mine = role.reviewer ? settings.sections.filter((s) => assigned(s, user.id)) : [];
-  const all = mine.length ? await applicants(settings) : [];
-  for (const s of mine) {
-    const list = poolOf(all, s);
-    const { rows } = await db.query(
-      'select person_key, scores, conflict, flags, updated_at from review_scores where reviewer_id = $1 and part = $2',
-      [user.id, s.key]
-    );
-    const given = new Map(rows.map((r) => [r.person_key, r]));
-    const done = list.filter((a) => FINISHED.includes(stateOf(given.get(a.key), s))).length;
-    sections.push({ ...sectionHead(s), total: list.length, done });
-  }
-  return { admin: role.admin, reviewer: role.reviewer, sections, scale: SCALE };
+  const all = await applicants(settings);
+  const decided = await decisions();
+  const screen = settings.prescreen.enabled ? decided : null;
+  return { settings, all, decided, screen };
 }
 
-/** One section's list for a reviewer: [{ code, state: 'todo'|'partial'|'done'|'conflict' }]. */
+/**
+ * How far a reviewer is in the pre-screening (if given to them) and each of
+ * their sections: [{ ...head, kind, total, done, waiting, keys }], `keys`
+ * the people of each list (for what is new), `waiting` those of a section
+ * still to be pre-screened.
+ */
+async function progress(userId, ctx) {
+  const { settings, all, decided, screen } = ctx;
+  const out = [];
+  if (settings.prescreen.enabled && assigned(settings.prescreen, userId)) {
+    const list = prescreenPoolOf(all, settings);
+    out.push({
+      ...prescreenHead(settings.prescreen),
+      total: list.length,
+      done: list.filter((a) => decided.has(a.key)).length,
+      waiting: 0,
+      keys: list.map((a) => a.key),
+    });
+  }
+  const mine = settings.sections.filter((s) => assigned(s, userId));
+  if (!mine.length) return out;
+  const { rows } = await db.query(
+    'select person_key, part, scores, conflict, flags, updated_at from review_scores where reviewer_id = $1',
+    [userId]
+  );
+  mine.forEach((s) => {
+    const given = new Map(rows.filter((r) => r.part === s.key).map((r) => [r.person_key, r]));
+    const list = poolOf(all, s, screen);
+    out.push({
+      ...sectionHead(s),
+      kind: 'section',
+      total: list.length,
+      done: list.filter((a) => FINISHED.includes(stateOf(given.get(a.key), s))).length,
+      waiting: screen
+        ? all.filter((a) => notDeclined(a) && answeredIn(a, s) && !screen.has(a.key)).length
+        : 0,
+      keys: list.map((a) => a.key),
+    });
+  });
+  return out;
+}
+
+/**
+ * The landing page: who I am here, how far I am in the pre-screening and
+ * each of my sections, and what came in since my last visit: { news: {
+ * count, since } }, `fresh` on each list.
+ */
+async function overview(user, role) {
+  if (!role.reviewer)
+    return { admin: role.admin, reviewer: false, sections: [], scale: SCALE, news: null };
+  const ctx = await context();
+  const lists = await progress(user.id, ctx);
+  // Who is here now is written down before the visit: never new to it.
+  const at = await arrivals(ctx.all);
+  const since = await visit(user);
+  const isNew = (key) => (at.get(key) || 0) > since;
+  const news = new Set();
+  const sections = lists.map(({ keys, ...s }) => {
+    const fresh = keys.filter(isNew);
+    fresh.forEach((k) => news.add(k));
+    return { ...s, fresh: fresh.length };
+  });
+  return {
+    admin: role.admin,
+    reviewer: role.reviewer,
+    sections,
+    scale: SCALE,
+    news: { count: news.size, since: new Date(since).toISOString() },
+  };
+}
+
+/**
+ * One section's list for a reviewer: [{ code, state: 'todo'|'partial'|…,
+ * fresh }], what is left to do first. The pre-screening's is prescreenList().
+ */
 async function list(user, part) {
+  if (part === PRESCREEN) return prescreenList(user);
   const settings = await getSettings();
   const section = sectionOf(settings, part);
   requireAssigned(section, user);
-  const apps = await pool(settings, section);
+  const all = await applicants(settings);
+  const apps = poolOf(all, section, await screenOf(settings));
+  const fresh = await freshness(user, all);
   const { rows } = await db.query(
     'select person_key, scores, conflict, flags, updated_at from review_scores where reviewer_id = $1 and part = $2',
     [user.id, part]
@@ -826,12 +1266,19 @@ async function list(user, part) {
     section: sectionHead(section),
     grid,
     scale: SCALE,
-    items: apps.map((a) => ({ code: a.code, state: stateOf(mine.get(a.key), section) })),
+    items: firstToDo(
+      apps.map((a) => ({
+        code: a.code,
+        state: stateOf(mine.get(a.key), section),
+        fresh: fresh(a.key),
+      }))
+    ),
   };
 }
 
 /** One application in one section, anonymous if the section is, with my own review of it. */
 async function application(user, part, code) {
+  if (part === PRESCREEN) return prescreenApplication(user, code);
   const settings = await getSettings();
   const section = sectionOf(settings, part);
   requireAssigned(section, user);
@@ -952,6 +1399,7 @@ async function summary(user, { record = true } = {}) {
   const catalog = (await catalogOf(settings.formId)) || [];
   const labels = new Map(catalog.map((q) => [q.id, q.label]));
   const all = await applicants(settings);
+  const screen = await screenOf(settings);
   const { rows } = await db.query('select * from review_scores');
   const byPerson = new Map();
   rows.forEach((r) => {
@@ -1048,10 +1496,16 @@ async function summary(user, { record = true } = {}) {
       partial: scored.length > 0 && scored.length < settings.sections.length,
       // Reasons to exclude given by some reviewer: [{ part, section, reason, reviewer }].
       exclusions,
+      // The pre-screening's decision, when there is one: { decision, reasonLabels, by, at }.
+      prescreen: screen ? decisionOf(screen.get(a.key), settings.prescreen) : null,
       parts,
     };
   });
   people.sort((x, y) => {
+    // Those excluded at the pre-screening last of all: nobody scored them.
+    const out = (p) => Number(Boolean(p.prescreen && p.prescreen.decision === 'exclude'));
+    const pre = out(x) - out(y);
+    if (pre) return pre;
     // Those flagged for exclusion after the others, to be looked at apart.
     const ex = Number(x.exclusions.length > 0) - Number(y.exclusions.length > 0);
     if (ex) return ex;
@@ -1080,6 +1534,7 @@ async function summary(user, { record = true } = {}) {
     })),
     scale: SCALE,
     source: settings.formId ? 'form' : 'board',
+    prescreen: { enabled: settings.prescreen.enabled, reasons: settings.prescreen.reasons },
     // Every status, for the labels; `editable` the ones the selection sets.
     statuses: mentorship.STATUSES.mentee,
     editable: SELECTION_STATUSES,
@@ -1185,6 +1640,7 @@ async function settingsPage(user) {
       note: MAX_NOTE,
       exclusions: MAX_EXCLUSIONS,
     },
+    defaultPrescreen: prescreenOf(null, settings.formId),
     reviewers: list,
     candidates: people.filter((p) => !taken.has(p.userId)),
   };
@@ -1212,6 +1668,11 @@ module.exports = {
   list,
   application,
   score,
+  prescreen,
+  readmit,
   summary,
   setStatus,
+  context,
+  progress,
+  PRESCREEN,
 };

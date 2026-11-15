@@ -3,10 +3,16 @@
 // sign-in; what each may do is checked below, and everything read or changed
 // is on the audit trail. Reviewers never receive a name nor a person key.
 // `part` is a section of the setup (its key).
-//   GET                                   -> { admin, reviewer, sections: [{ key, total, done }] }
-//   GET  ?part=<section>                  -> my list: { grid, items: [{ code, state }] }   (reviewer)
+//   GET                                   -> { admin, reviewer, sections: [{ key, kind, total, done, fresh }], news }
+//   GET  ?part=<section>                  -> my list: { grid, items: [{ code, state, fresh }] } (reviewer)
 //   GET  ?part=…&code=…                   -> one application, anonymous, and my review  (reviewer)
 //   POST ?action=score { part, code, scores, conflict?, comment?, flags? }              (reviewer)
+//   (part=prescreen: the pre-screening's list and applications, decided with)
+//   POST ?action=prescreen { code, decision: pass|exclude|null, reasons? }              (reviewer)
+//   POST ?action=readmit { key, decision: pass|null } -> the pre-screening overruled    (admin)
+//   GET  ?action=reminders                -> { deadline, leads, auto, options, team }   (admin)
+//   PUT  ?action=reminders { deadline, leads, auto }                                    (admin)
+//   POST ?action=remind { note? }         -> reminds now whoever has reviews left      (admin)
 //   GET  ?action=summary                  -> everyone, with names and every score       (admin)
 //   POST ?action=status { key, status }   -> the board's status of a mentee             (admin)
 //   GET  ?action=settings                 -> { formId, sections, catalog, forms, reviewers… } (admin)
@@ -20,11 +26,12 @@
 //   PUT  ?action=matching-draft { menteeKey, mentorKey?, note?, affinity? } -> career orientation draft
 //   POST ?action=matching-fill            -> the draft's gaps filled by affinity, then score
 //   POST ?action=match { project | mentorKey, menteeKey, track } -> the board's own match
-const { route, sendJson, readJson, getQuery, HttpError } = require('../../../http');
+const { route, sendJson, readJson, getQuery, siteUrl, HttpError } = require('../../../http');
 const { requireUser } = require('../../../auth');
 const crypto = require('../../../crm/crypto');
 const review = require('../../../crm/review');
 const matching = require('../../../crm/matching');
+const reminders = require('../../../crm/review-reminders');
 
 /** Signed in, CRM set up, admin or reviewer: returns { user, role }. */
 async function door(req, { write = false } = {}) {
@@ -52,6 +59,9 @@ module.exports = route({
     } else if (action === 'matching-questions') {
       review.requireAdmin(role);
       sendJson(res, 200, { questions: await matching.questions(user, form) });
+    } else if (action === 'reminders') {
+      review.requireAdmin(role);
+      sendJson(res, 200, await reminders.reminderPage());
     } else if (action === 'questions') {
       review.requireAdmin(role);
       sendJson(res, 200, await review.questions(user, form));
@@ -68,10 +78,14 @@ module.exports = route({
 
   async PUT(req, res) {
     const { action } = getQuery(req);
-    if (!['settings', 'matching-settings', 'matching-draft'].includes(action))
+    if (!['settings', 'matching-settings', 'matching-draft', 'reminders'].includes(action))
       throw new HttpError(400, 'Unknown action');
     const { user, role } = await door(req, { write: true });
     review.requireAdmin(role);
+    if (action === 'reminders') {
+      sendJson(res, 200, await reminders.saveReminders(user, await readJson(req)));
+      return;
+    }
     if (action === 'matching-draft') {
       sendJson(res, 200, { draft: await matching.saveDraft(user, await readJson(req)) });
       return;
@@ -88,11 +102,22 @@ module.exports = route({
     const { action } = getQuery(req);
     // A score trusts roles checked in the last five minutes, as reads do, so
     // going through the list stays quick; the admins' changes ask Discord again.
-    const { user, role } = await door(req, { write: action !== 'score' });
+    const { user, role } = await door(req, {
+      write: action !== 'score' && action !== 'prescreen',
+    });
     const body = (await readJson(req)) || {};
     if (action === 'score') {
       review.requireReviewer(role);
       sendJson(res, 200, await review.score(user, body));
+    } else if (action === 'prescreen') {
+      review.requireReviewer(role);
+      sendJson(res, 200, await review.prescreen(user, body));
+    } else if (action === 'readmit') {
+      review.requireAdmin(role);
+      sendJson(res, 200, await review.readmit(user, body.key, body.decision));
+    } else if (action === 'remind') {
+      review.requireAdmin(role);
+      sendJson(res, 200, await reminders.sendNow(user, body, { origin: siteUrl(req) }));
     } else if (action === 'status') {
       review.requireAdmin(role);
       sendJson(res, 200, await review.setStatus(user, body.key, body.status));

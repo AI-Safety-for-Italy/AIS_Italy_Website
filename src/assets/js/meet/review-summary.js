@@ -1,9 +1,12 @@
 /* /app/review/summary/: every applicant with every score, for the admins of
- * the mentee selection. One column per section of the setup, best overall
+ * the mentee selection. With a pre-screening, those it excluded are in a
+ * table of their own below the ranking. One column per section of the setup, best overall
  * score first; a row opens on each reviewer's scores and comment, criterion
  * by criterion (grouped by question when a section has one grid per question). The status is the board's own: changing it
  * here moves the mentee on the mentorship board too. "Hide names" shows the
- * codes only, for discussing the scores before the names. */
+ * codes only, for discussing the scores before the names. With a
+ * pre-screening, who was excluded there is last, with why and by whom, and
+ * can be brought back into the sections. */
 (function () {
   'use strict';
   var M = window.Meet;
@@ -172,6 +175,31 @@
       select.appendChild(o);
     });
     return select;
+  }
+
+  function screenedOut(p) {
+    return Boolean(p.prescreen && p.prescreen.decision === 'exclude');
+  }
+
+  // Brings someone excluded at the pre-screening back into the sections.
+  function readmit(p, button) {
+    if (!window.confirm('Bring ' + who(p) + ' back? They go into the sections, to be scored.'))
+      return;
+    button.disabled = true;
+    M.api('POST', API + '?action=readmit', { key: p.key, decision: 'pass' })
+      .then(function () {
+        return M.api('GET', API + '?action=summary');
+      })
+      .then(function (d) {
+        view.data = d;
+        M.toast('Back in the sections');
+        render();
+      })
+      .catch(function (err) {
+        if (err.status === 401) return M.appError(err);
+        M.toast(err.message, true);
+        button.disabled = false;
+      });
   }
 
   function detailRow(p, colspan) {
@@ -377,10 +405,16 @@
     var line = placesLine();
     if (line) root.appendChild(line);
 
-    var shown = data.people.filter(function (p) {
+    var all = data.people.filter(function (p) {
       return !view.status || p.status === view.status;
     });
-    if (!shown.length) {
+    var shown = all.filter(function (p) {
+      return !screenedOut(p);
+    });
+    var rejected = all.filter(screenedOut);
+    var screen = screeningLine();
+    if (screen) root.appendChild(screen);
+    if (!all.length) {
       root.appendChild(
         h(
           'div',
@@ -509,6 +543,97 @@
         'p',
         { class: 'panel-note rv-foot' },
         'Each section shows the mean of the complete reviews and how many there are; ±n: the reviewers differ by that much. Someone a reviewer flagged with a reason to exclude goes to the bottom, marked. Rejected applicants are no longer shown to the reviewers. Selected and later are set on the mentorship board.'
+      )
+    );
+    if (rejected.length) root.appendChild(rejectedTable(rejected));
+  }
+
+  // Where the pre-screening is: passed, excluded, left to do.
+  function screeningLine() {
+    var data = view.data;
+    if (!data.prescreen || !data.prescreen.enabled) return null;
+    var passed = 0;
+    var out = 0;
+    var todo = 0;
+    data.people.forEach(function (p) {
+      if (p.status === 'declined') return;
+      if (!p.prescreen) todo++;
+      else if (p.prescreen.decision === 'pass') passed++;
+      else out++;
+    });
+    return h(
+      'p',
+      { class: 'rv-places' },
+      h('strong', null, 'Pre-screening: '),
+      passed + ' passed, ' + out + ' excluded, ' + todo + ' left to do'
+    );
+  }
+
+  // Those the pre-screening excluded, apart: why, by whom, when.
+  function rejectedTable(list) {
+    var body = h(
+      'tbody',
+      null,
+      list.map(function (p) {
+        var back = h(
+          'button',
+          {
+            type: 'button',
+            class: 'btn btn-outline btn-sm',
+            onclick: function () {
+              readmit(p, back);
+            },
+          },
+          'Bring back'
+        );
+        return h(
+          'tr',
+          null,
+          h(
+            'td',
+            { class: 'rv-who' },
+            h('strong', null, who(p)),
+            !view.blind && p.org ? h('small', null, p.org) : null
+          ),
+          h('td', null, p.prescreen.reasonLabels.join(', ') || '—'),
+          h('td', null, p.prescreen.by),
+          h('td', { class: 'rv-nowrap' }, M.fmtDateTime(p.prescreen.at)),
+          h('td', null, statusSelect(p)),
+          h('td', { class: 'rv-num' }, back)
+        );
+      })
+    );
+    return h(
+      'section',
+      { class: 'rv-rejected' },
+      h('h2', null, 'Excluded at the pre-screening ', h('small', null, String(list.length))),
+      h(
+        'p',
+        { class: 'panel-note' },
+        'Shown in no section, so nobody scored them. Bring someone back to have them scored.'
+      ),
+      h(
+        'div',
+        { class: 'fr-table-wrap rv-table-wrap' },
+        h(
+          'table',
+          { class: 'rv-table' },
+          h(
+            'thead',
+            null,
+            h(
+              'tr',
+              null,
+              h('th', null, view.blind ? 'Code' : 'Applicant'),
+              h('th', null, 'Why'),
+              h('th', null, 'By'),
+              h('th', null, 'When'),
+              h('th', null, 'Status (board)'),
+              h('th', null, '')
+            )
+          ),
+          body
+        )
       )
     );
   }

@@ -1,6 +1,13 @@
 /* /app/review/: the mentee selection, for a reviewer.
+ *   #prescreen   the pre-screening, when the admins set one: a few answers
+ *                (where someone lives, works) and one decision, pass or
+ *                exclude with a reason, taken for every reviewer. Who is
+ *                excluded there never reaches the sections.
  *   #<section>   the sections of the setup given to me (say the CV and the
  *                answers), each scored apart under its own code
+ * The applications may still be coming in: every list puts what is left to
+ * do first, those that came in since my last visit are marked New, and a
+ * banner on top says how many there are.
  * The sections as tabs on top, then a bar to move between the applications
  * (previous, next, and every code in a panel that opens on demand, so the
  * list takes no room while reading). Below, the application on the left and,
@@ -18,7 +25,21 @@
   var API = '/api/app/crm/review';
   var root = document.getElementById('rvPage');
 
-  var view = { part: null, overview: null, list: null, open: null, app: null, filter: 'all' };
+  var view = {
+    part: null,
+    overview: null,
+    list: null,
+    open: null,
+    app: null,
+    filter: 'all',
+    newsSeen: false, // the banner closed, for this page
+  };
+
+  var PRESCREEN = 'prescreen';
+
+  function screening() {
+    return view.part === PRESCREEN;
+  }
 
   function sections() {
     return (view.overview && view.overview.sections) || [];
@@ -213,6 +234,11 @@
 
   var TODO = ['todo', 'partial', 'update'];
 
+  // The next step's word, in the pre-screening or a section.
+  function verb() {
+    return screening() ? 'screen' : 'score';
+  }
+
   function firstTodo(after) {
     var items = view.list.items;
     var from = 0;
@@ -266,7 +292,7 @@
     var pill = root.querySelector('.rv-panel-head .rv-pill');
     if (pill) {
       pill.className = 'rv-pill rv-tone is-' + state;
-      pill.textContent = STATE[state];
+      pill.textContent = stateLabel(state);
     }
   }
 
@@ -277,7 +303,12 @@
     done: 'Scored',
     conflict: 'Stepped aside',
     excluded: 'Excluded',
+    passed: 'Passed',
   };
+
+  function stateLabel(state) {
+    return screening() && state === 'todo' ? 'To screen' : STATE[state];
+  }
 
   // The sections given to me, with how far I am in each.
   function sectionTabs() {
@@ -293,7 +324,14 @@
             'aria-current': current ? 'page' : null,
           },
           s.label,
-          h('small', null, ' ' + (current ? counts().done : s.done) + '/' + s.total)
+          h('small', null, ' ' + (current ? counts().done : s.done) + '/' + s.total),
+          s.fresh
+            ? h(
+                'span',
+                { class: 'rv-new-count', title: s.fresh + ' new since your last visit' },
+                '+' + s.fresh
+              )
+            : null
         );
       })
     );
@@ -348,6 +386,7 @@
             },
           },
           h('span', { class: 'rv-code' }, current ? current.code : '—'),
+          current && current.fresh ? h('span', { class: 'rv-new-tag' }, 'New') : null,
           h('small', null, items.length ? at + 1 + ' of ' + items.length : ''),
           h('span', { class: 'rv-caret', 'aria-hidden': 'true' }, '▾')
         ),
@@ -424,9 +463,14 @@
         h(
           'span',
           { class: 'rv-legend' },
-          ['todo', 'partial', 'done', 'excluded', 'conflict'].map(function (s) {
-            return h('span', { class: 'rv-legend-item rv-tone is-' + s }, STATE[s]);
-          })
+          (screening()
+            ? ['todo', 'passed', 'excluded']
+            : ['todo', 'partial', 'done', 'excluded', 'conflict']
+          )
+            .map(function (s) {
+              return h('span', { class: 'rv-legend-item rv-tone is-' + s }, stateLabel(s));
+            })
+            .concat(h('span', { class: 'rv-legend-item rv-legend-new' }, 'New'))
         )
       )
     );
@@ -444,8 +488,12 @@
                   class:
                     'rv-tile-code rv-tone is-' +
                     it.state +
+                    (it.fresh ? ' is-fresh' : '') +
                     (it.code === view.open ? ' is-selected' : ''),
-                  title: STATE[it.state],
+                  title:
+                    stateLabel(it.state) +
+                    (it.by ? ' by ' + it.by : '') +
+                    (it.fresh ? ' · new since your last visit' : ''),
                   'aria-current': it.code === view.open ? 'true' : null,
                   onclick: function () {
                     closePicker();
@@ -499,12 +547,54 @@
       go(view.list.items[at + 1].code);
   });
 
+  // What came in since my last visit, while the applications are open.
+  function newsBanner() {
+    var news = view.overview.news;
+    if (!news || !news.count || view.newsSeen) return null;
+    var el = h(
+      'div',
+      { class: 'rv-news', role: 'status' },
+      h('span', { class: 'rv-news-dot', 'aria-hidden': 'true' }),
+      h(
+        'p',
+        null,
+        h(
+          'strong',
+          null,
+          news.count === 1 ? '1 new application' : news.count + ' new applications'
+        ),
+        ' since your last visit (' + M.fmtDateTime(news.since) + '), marked ',
+        h('span', { class: 'rv-new-tag' }, 'New'),
+        ' in the lists.'
+      ),
+      h(
+        'button',
+        {
+          type: 'button',
+          class: 'rv-news-close',
+          'aria-label': 'Close',
+          onclick: function () {
+            view.newsSeen = true;
+            el.remove();
+          },
+        },
+        '×'
+      )
+    );
+    return el;
+  }
+
   function render() {
     M.clear(root);
+    var banner = newsBanner();
+    if (banner) root.appendChild(banner);
     navEl = h('div', { class: 'rv-nav' });
     pickerEl = h('div', { class: 'rv-picker', id: 'rvPicker', hidden: true });
     mainEl = h('div', { class: 'rv-main' });
-    panelEl = h('aside', { class: 'rv-panel', 'aria-label': 'Your scores' });
+    panelEl = h('aside', {
+      class: 'rv-panel',
+      'aria-label': screening() ? 'Your decision' : 'Your scores',
+    });
     if (sections().length > 1) root.appendChild(sectionTabs());
     root.appendChild(h('div', { class: 'rv-navwrap' }, navEl, pickerEl));
     root.appendChild(h('div', { class: 'rv-layout' }, mainEl, panelEl));
@@ -745,7 +835,160 @@
     });
   }
 
+  // ── The pre-screening's decision ─────────────────────────────────────────
+
+  function decide(app, decision, reasons, button) {
+    if (button) button.disabled = true;
+    return M.api('POST', API + '?action=prescreen', {
+      code: app.code,
+      decision: decision,
+      reasons: reasons || [],
+    })
+      .then(function (r) {
+        if (view.app !== app) return;
+        app.decision = r.decision;
+        app.state = r.state;
+        setState(app.code, r.state);
+        view.list.items.forEach(function (it) {
+          if (it.code === app.code) it.by = r.decision ? r.decision.by : null;
+        });
+        if (decision === null) {
+          renderDetail();
+          return;
+        }
+        // Decided: on to the next one left.
+        var to = firstTodo(app.code);
+        if (to) openItem(to.code);
+        else {
+          M.toast('Nothing left to pre-screen');
+          renderDetail();
+        }
+      })
+      .catch(function (err) {
+        if (err.status === 401) return M.appError(err);
+        M.toast(err.message, true);
+        if (err.status === 409) return openItem(app.code);
+        if (button) button.disabled = false;
+      });
+  }
+
+  function renderScreenPanel(app) {
+    var d = app.decision;
+    var ticked = d && d.decision === 'exclude' ? d.reasons.slice() : [];
+    var exclude = h(
+      'button',
+      {
+        type: 'button',
+        class: 'btn btn-sm rv-btn-exclude',
+        disabled: ticked.length ? null : true,
+        onclick: function () {
+          decide(app, 'exclude', ticked, exclude);
+        },
+      },
+      'Exclude'
+    );
+    var reasons = h(
+      'div',
+      { class: 'rv-exclude' },
+      h('span', { class: 'rv-sub-title' }, 'Exclude, because…'),
+      (app.section.exclusions || []).map(function (r) {
+        var box = h('input', {
+          type: 'checkbox',
+          onchange: function () {
+            if (box.checked) {
+              if (ticked.indexOf(r.key) === -1) ticked.push(r.key);
+            } else {
+              ticked = ticked.filter(function (k) {
+                return k !== r.key;
+              });
+            }
+            row.classList.toggle('is-on', box.checked);
+            exclude.disabled = !ticked.length;
+          },
+        });
+        box.checked = ticked.indexOf(r.key) !== -1;
+        var row = h(
+          'label',
+          { class: 'check-row rv-flag-row' + (box.checked ? ' is-on' : '') },
+          box,
+          h('span', null, r.label)
+        );
+        return row;
+      }),
+      h('div', null, exclude)
+    );
+    var pass = h(
+      'button',
+      {
+        type: 'button',
+        class: 'btn btn-primary rv-btn-pass',
+        onclick: function () {
+          decide(app, 'pass', [], pass);
+        },
+      },
+      '✓ Passes'
+    );
+    var status = d
+      ? h(
+          'p',
+          { class: 'rv-decided rv-tone is-' + app.state },
+          h('strong', null, d.decision === 'pass' ? 'Passed' : 'Excluded'),
+          ' by ' + d.by + ', ' + M.fmtDateTime(d.at),
+          d.decision === 'exclude' && d.reasonLabels.length
+            ? ': ' + d.reasonLabels.join(', ')
+            : null,
+          ' · ',
+          h(
+            'button',
+            {
+              type: 'button',
+              class: 'rv-link-btn',
+              onclick: function () {
+                decide(app, null);
+              },
+            },
+            'Undo'
+          )
+        )
+      : null;
+    var next = h(
+      'button',
+      {
+        type: 'button',
+        class: 'btn btn-outline btn-sm',
+        onclick: function () {
+          var to = firstTodo(app.code);
+          if (to) openItem(to.code);
+          else M.toast('Nothing left to pre-screen');
+        },
+      },
+      'Skip to the next →'
+    );
+    return [
+      h(
+        'div',
+        { class: 'rv-panel-head' },
+        h('strong', { class: 'rv-code' }, app.code),
+        h('span', { class: 'rv-pill rv-tone is-' + app.state }, stateLabel(app.state))
+      ),
+      h(
+        'div',
+        { class: 'rv-panel-body' },
+        h(
+          'p',
+          { class: 'rv-scale-note' },
+          'One decision for every reviewer: who is excluded here is shown in no section.'
+        ),
+        status,
+        pass,
+        reasons
+      ),
+      h('div', { class: 'rv-panel-foot' }, next),
+    ];
+  }
+
   function renderPanel(app) {
+    if (app.part === PRESCREEN) return renderScreenPanel(app);
     var labels = {};
     app.items.forEach(function (it) {
       labels[it.id] = it.label;
@@ -864,7 +1107,7 @@
           flush().then(function (ok) {
             if (!ok) return;
             if (to) openItem(to.code);
-            else M.toast('Nothing left to score in this section');
+            else M.toast('Nothing left to ' + verb() + ' in this section');
           });
         },
       },
@@ -880,7 +1123,7 @@
         'div',
         { class: 'rv-panel-head' },
         h('strong', { class: 'rv-code' }, app.code),
-        h('span', { class: 'rv-pill rv-tone is-' + app.state }, STATE[app.state]),
+        h('span', { class: 'rv-pill rv-tone is-' + app.state }, stateLabel(app.state)),
         h('span', { class: 'rv-save-state', role: 'status', 'aria-live': 'polite' })
       ),
       h(
@@ -919,6 +1162,17 @@
     ];
   }
 
+  function emptyText() {
+    var s = sectionOf(view.part);
+    if (screening()) return 'No applications to pre-screen yet.';
+    if (s && s.waiting)
+      return (
+        (s.waiting === 1 ? '1 application is' : s.waiting + ' applications are') +
+        ' waiting for the pre-screening: they come here once they pass it.'
+      );
+    return 'No applications to score in this section yet.';
+  }
+
   function renderDetail() {
     if (!mainEl) return;
     M.clear(mainEl);
@@ -931,7 +1185,7 @@
             'div',
             { class: 'empty-state' },
             h('h3', null, 'Nothing yet'),
-            h('p', null, 'No applications to score in this section yet.')
+            h('p', null, emptyText())
           )
         );
       }

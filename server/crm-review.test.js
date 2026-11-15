@@ -1016,3 +1016,227 @@ test('the form gets new questions: the setup and the scores stay, the questions 
   const mine = (await review.application(ann, 'answers', lia)).mine;
   assert.deepEqual(mine.scores, scoreAll('answers', 4));
 });
+
+// ── The pre-screening, applications still coming in, the reminders ─────────
+
+/** Switches the pre-screening on, on the board's questions. */
+async function prescreenOn(boss, extra = {}) {
+  await review.saveSettings(boss, {
+    prescreen: {
+      enabled: true,
+      questions: ['country', 'affiliation'],
+      reasons: [{ label: 'No ties with Italy' }],
+      ...extra,
+    },
+  });
+  return (await review.getSettings()).prescreen;
+}
+
+test('the pre-screening: any reviewer decides, and who is excluded is in no section', async () => {
+  const { boss, ann, ben } = await panel();
+  // Off by default: the sections show everyone.
+  assert.equal((await review.getSettings()).prescreen.enabled, false);
+  await assert.rejects(review.list(ann, 'prescreen'), (e) => e.status === 400);
+  // Switched on, it needs a question and a reason.
+  await assert.rejects(
+    review.saveSettings(boss, { prescreen: { enabled: true, questions: [], reasons: [] } }),
+    (e) => e.status === 400
+  );
+  const p = await prescreenOn(boss);
+  const reason = p.reasons[0].key;
+
+  const over = (await call({ user: ann })).body;
+  assert.equal(over.sections[0].key, 'prescreen');
+  assert.equal(over.sections[0].total, 2);
+  // Nobody has passed yet: the sections are empty, both waiting.
+  const cv = over.sections.find((s) => s.key === 'cv');
+  assert.deepEqual([cv.total, cv.waiting], [0, 2]);
+
+  const list = (await call({ url: '/api/app/crm/review?part=prescreen', user: ann })).body;
+  assert.ok(list.items.every((i) => /^P-/.test(i.code) && i.state === 'todo'));
+  const liaCode = review.codeOf(LIA_KEY(), { key: 'prescreen', prefix: 'P' });
+  const marcoCode = review.codeOf(MARCO_KEY(), { key: 'prescreen', prefix: 'P' });
+  const app = (await call({ url: `/api/app/crm/review?part=prescreen&code=${liaCode}`, user: ann }))
+    .body;
+  assert.deepEqual(
+    app.items.map((i) => i.id),
+    ['affiliation']
+  );
+  assert.equal(app.decision, null);
+
+  // Excluding needs a reason among those offered.
+  const decide = (user, body) =>
+    call({ method: 'POST', url: '/api/app/crm/review?action=prescreen', user, body });
+  assert.equal((await decide(ann, { code: liaCode, decision: 'exclude' })).statusCode, 400);
+  assert.equal(
+    (await decide(ann, { code: liaCode, decision: 'exclude', reasons: ['nope'] })).statusCode,
+    409
+  );
+  const out = await decide(ann, { code: liaCode, decision: 'exclude', reasons: [reason] });
+  assert.equal(out.body.state, 'excluded');
+  assert.equal(out.body.decision.by, 'Ann');
+  // Ben passes Marco: one decision for everyone.
+  assert.equal((await decide(ben, { code: marcoCode, decision: 'pass' })).body.state, 'passed');
+  const benList = await review.list(ben, 'prescreen');
+  assert.deepEqual(benList.items.map((i) => i.state).sort(), ['excluded', 'passed']);
+
+  // Only Marco is in the sections; Lia cannot be scored there.
+  const cvList = await review.list(ann, 'cv');
+  assert.deepEqual(
+    cvList.items.map((i) => i.code),
+    [review.codeOf(MARCO_KEY(), 'cv')]
+  );
+  await assert.rejects(
+    review.score(ann, { part: 'cv', code: review.codeOf(LIA_KEY(), 'cv'), scores: {} }),
+    (e) => e.status === 404
+  );
+
+  // The admins see why, Lia last; only they can bring her back.
+  const sum = await review.summary(boss);
+  const lia = sum.people[sum.people.length - 1];
+  assert.equal(lia.name, 'Lia Candidata');
+  assert.deepEqual(lia.prescreen.reasonLabels, ['No ties with Italy']);
+  const readmit = (user) =>
+    call({
+      method: 'POST',
+      url: '/api/app/crm/review?action=readmit',
+      user,
+      body: { key: LIA_KEY(), decision: 'pass' },
+    });
+  assert.equal((await readmit(ann)).statusCode, 403);
+  assert.equal((await readmit(boss)).statusCode, 200);
+  assert.equal((await review.list(ann, 'cv')).items.length, 2);
+
+  // Given to some reviewers only, the others do not see it.
+  await prescreenOn(boss, { reviewers: [ben.id] });
+  await assert.rejects(review.list(ann, 'prescreen'), (e) => e.status === 403);
+  assert.ok(
+    (await review.overview(ann, { reviewer: true })).sections.every((s) => s.key !== 'prescreen')
+  );
+  // Switched off, everyone is back in the sections.
+  await review.saveSettings(boss, { prescreen: { ...p, enabled: false } });
+  assert.equal((await review.list(ann, 'cv')).items.length, 2);
+});
+
+test('a reviewer never receives a person key in the pre-screening', async () => {
+  const { boss, ann } = await panel();
+  await prescreenOn(boss);
+  const list = await call({ url: '/api/app/crm/review?part=prescreen', user: ann });
+  const code = list.body.items[0].code;
+  const one = await call({ url: `/api/app/crm/review?part=prescreen&code=${code}`, user: ann });
+  const text = JSON.stringify([list.body, one.body]);
+  assert.ok(!text.includes(LIA_KEY()) && !text.includes(MARCO_KEY()));
+});
+
+test('the lists put what is left to do first', async () => {
+  const { ann } = await panel();
+  const before = (await review.list(ann, 'cv')).items.map((i) => i.code);
+  await review.score(ann, { part: 'cv', code: before[0], scores: scoreAll('cv', 4) });
+  const after = (await review.list(ann, 'cv')).items;
+  assert.deepEqual(
+    after.map((i) => [i.code, i.state]),
+    [
+      [before[1], 'todo'],
+      [before[0], 'done'],
+    ]
+  );
+});
+
+test('what came in since the last visit is counted and marked', async () => {
+  const { ann } = await panel();
+  // The first visit: nothing is new.
+  let over = await review.overview(ann, { reviewer: true });
+  assert.equal(over.news.count, 0);
+  // A new application while the reviewer is away for a while.
+  await db.query(`update review_visits set last_at = now() - interval '2 hours'`);
+  await db.query(`update review_arrivals set arrived_at = now() - interval '3 hours'`);
+  await records.add(
+    'mentees_applications',
+    { name: 'Nina Nuova', email: 'nina@example.org', motivation: 'Ci provo.' },
+    { origin: 'form' }
+  );
+  over = await review.overview(ann, { reviewer: true });
+  assert.equal(over.news.count, 1);
+  assert.equal(over.sections.find((s) => s.key === 'answers').fresh, 1);
+  const items = (await review.list(ann, 'answers')).items;
+  assert.deepEqual(
+    items.filter((i) => i.fresh).map((i) => i.code),
+    [review.codeOf(crm.personKey('nina@example.org'), 'answers')]
+  );
+  // Still new on the next page load, while the reviewer keeps working.
+  assert.equal((await review.overview(ann, { reviewer: true })).news.count, 1);
+});
+
+test('reminders: now, and before the deadline, to whoever has reviews left', async () => {
+  process.env.MEET_FAKE_MAIL = '1';
+  const reminders = require('./crm/review-reminders');
+  const { boss, ann, ben } = await panel();
+  await db.query(`update app_users set email = lower(name) || '@example.org' where id = any($1)`, [
+    [ann.id, ben.id],
+  ]);
+  // Ben has finished: only Ann is reminded.
+  await review.saveSettings(boss, {
+    sections: (
+      await review.getSettings()
+    ).sections.map((s) => ({
+      ...s,
+      reviewers: s.key === 'cv' ? [ann.id] : [ben.id],
+    })),
+  });
+  for (const key of [LIA_KEY(), MARCO_KEY()]) {
+    await review.score(ben, {
+      part: 'answers',
+      code: review.codeOf(key, 'answers'),
+      scores: scoreAll('answers', 3),
+    });
+  }
+  const page = (await call({ url: '/api/app/crm/review?action=reminders', user: boss })).body;
+  assert.deepEqual(
+    page.team.map((r) => [r.name, r.left]),
+    [
+      ['Ann', 2],
+      ['Ben', 0],
+    ]
+  );
+  const now = await call({
+    method: 'POST',
+    url: '/api/app/crm/review?action=remind',
+    user: boss,
+    body: { note: 'Grazie!' },
+  });
+  assert.deepEqual(now.body, { sent: 1, reviewers: 1 });
+  // Not twice in a few minutes, and never by a reviewer.
+  assert.equal(
+    (await call({ method: 'POST', url: '/api/app/crm/review?action=remind', user: boss, body: {} }))
+      .statusCode,
+    429
+  );
+  assert.equal(
+    (await call({ method: 'POST', url: '/api/app/crm/review?action=remind', user: ann, body: {} }))
+      .statusCode,
+    403
+  );
+
+  // Automatic: three days and twelve hours before.
+  const deadline = new Date(Date.now() + 5 * 24 * 3600e3);
+  const put = (body) =>
+    call({ method: 'PUT', url: '/api/app/crm/review?action=reminders', user: boss, body });
+  assert.equal((await put({ auto: true, leads: [4320] })).statusCode, 400);
+  assert.equal((await put({ auto: true, deadline, leads: [999] })).statusCode, 400);
+  assert.equal((await put({ auto: true, deadline, leads: [4320, 720] })).statusCode, 200);
+  const at = (minutesBefore) => new Date(deadline.getTime() - minutesBefore * 60000);
+  assert.deepEqual(await reminders.run({ now: at(4400) }), { sent: 0 });
+  assert.deepEqual(await reminders.run({ now: at(4310) }), { sent: 1 });
+  assert.deepEqual(await reminders.run({ now: at(4300) }), { sent: 0 });
+  assert.deepEqual(await reminders.run({ now: at(700) }), { sent: 1 });
+  // Long after its time, a reminder is not sent any more.
+  await db.query('delete from review_reminders_sent');
+  assert.deepEqual(await reminders.run({ now: at(500) }), { sent: 0 });
+
+  const msg = reminders.message(
+    { total: 20, parts: [{ label: 'CV', left: 20 }] },
+    { deadline: deadline.toISOString(), minutesLeft: 10080, note: null, origin: 'https://x' }
+  );
+  assert.equal(msg.subject, 'Mentee selection: 1 week left, 20 applications to review');
+  delete process.env.MEET_FAKE_MAIL;
+});
