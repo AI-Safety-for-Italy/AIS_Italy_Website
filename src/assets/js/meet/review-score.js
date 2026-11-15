@@ -888,11 +888,24 @@
   // One answer: a link to open, or the text as written (scrubbed when the
   // section is anonymous). With one grid per question, a mark of how many of
   // its criteria I scored, which takes me to them.
-  function renderItem(item, criteria) {
-    var body;
-    if (item.url) {
-      var inside = framable(item.url);
-      body = h(
+  // One link of an answer: its text as written, to read or copy, and the
+  // buttons to open it; a piece that is no link says so.
+  function linkRow(link, label) {
+    var text = h('code', { class: 'rv-link-text' }, link.text);
+    if (!link.url) {
+      return h(
+        'li',
+        { class: 'rv-link-row is-broken' },
+        text,
+        h('span', { class: 'rv-link-host' }, 'not a link: copy it to check')
+      );
+    }
+    var inside = framable(link.url);
+    return h(
+      'li',
+      { class: 'rv-link-row' },
+      text,
+      h(
         'span',
         { class: 'rv-link-actions' },
         h(
@@ -902,7 +915,7 @@
             class: 'btn btn-primary btn-sm',
             title: inside ? 'Open here, over the page' : 'Open in a window beside the page',
             onclick: function () {
-              openLink(item.url, item.label);
+              openLink(link.url, label);
             },
           },
           inside ? 'View' : 'View in a window'
@@ -911,16 +924,32 @@
           'a',
           {
             class: 'btn btn-outline btn-sm',
-            href: item.url,
+            href: link.url,
             target: '_blank',
             rel: 'noopener noreferrer',
           },
           'New tab ↗'
-        ),
-        h('span', { class: 'rv-link-host' }, hostOf(item.url))
-      );
+        )
+      )
+    );
+  }
+
+  function renderItem(item, criteria) {
+    var body;
+    var links = item.links || [];
+    var rows = links.length
+      ? h(
+          'ul',
+          { class: 'rv-links' },
+          links.map(function (l) {
+            return linkRow(l, item.label);
+          })
+        )
+      : null;
+    if (item.onlyLinks) {
+      body = rows;
     } else if (item.text.trim()) {
-      body = item.text;
+      body = [h('span', { class: 'rv-answer-text' }, item.text), rows];
     } else {
       body = h('span', { class: 'panel-note' }, 'No answer');
     }
