@@ -9544,6 +9544,132 @@ a.hub-todo-card:hover {
   --rv-tone: var(--text-tertiary);
 }
 
+.rv-tone.is-passed {
+  --rv-tone: var(--accent);
+}
+
+/* What came in since my last visit (review-score.js) */
+.rv-news {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border-muted));
+  border-radius: var(--radius-sm);
+  background: var(--accent-100);
+}
+
+.rv-news p {
+  flex: 1;
+  margin: 0;
+  font-size: 13.5px;
+}
+
+.rv-news-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.rv-news-close {
+  border: 0;
+  background: none;
+  color: var(--text-tertiary);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.rv-news-close:hover {
+  color: var(--text-primary);
+}
+
+.rv-new-tag {
+  display: inline-block;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-family: var(--font-sans, inherit);
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 1.6;
+  letter-spacing: 0.02em;
+  vertical-align: middle;
+}
+
+.rv-new-count {
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--accent-100);
+  color: var(--accent-700);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.rv-tile-code.is-fresh {
+  position: relative;
+}
+
+.rv-tile-code.is-fresh::after,
+.rv-legend-new::before {
+  content: '';
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.rv-tile-code.is-fresh::after {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+}
+
+.rv-legend-new::before {
+  margin-right: 5px;
+}
+
+/* The pre-screening's decision */
+.rv-btn-pass {
+  width: 100%;
+  justify-content: center;
+}
+
+.rv-btn-exclude {
+  border: 1px solid var(--error);
+  background: none;
+  color: var(--error);
+}
+
+.rv-btn-exclude:not(:disabled):hover {
+  background: color-mix(in srgb, var(--error) 10%, transparent);
+}
+
+.rv-decided {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  box-shadow: inset 3px 0 0 var(--rv-tone);
+  background: var(--bg-secondary, var(--card-bg));
+  font-size: 12.5px;
+}
+
+.rv-link-btn {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent-700);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 .rv-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
@@ -10811,6 +10937,53 @@ a.hub-todo-card:hover {
 .rv-reviewers h3 {
   margin: 0;
   font-size: 16px;
+}
+
+/* Excluded at the pre-screening, in the summary (review-summary.js) */
+.rv-rejected {
+  margin-top: 28px;
+}
+
+.rv-rejected h2 {
+  margin: 0 0 4px;
+  font-size: 18px;
+}
+
+.rv-rejected h2 small {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+}
+
+.rv-rejected .panel-note {
+  margin: 0 0 10px;
+}
+
+.rv-nowrap {
+  white-space: nowrap;
+}
+
+/* The pre-screening and the reminders, in the setup (review-settings.js) */
+.rv-prescreen-card {
+  --rv-c: var(--warning);
+  margin-top: 4px;
+}
+
+.rv-remind-card {
+  display: grid;
+  gap: 10px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border-muted);
+}
+
+.rv-remind-card h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.rv-remind-card .rv-field {
+  padding-top: 0;
+  border-top: 0;
 }
 
 .rv-add {

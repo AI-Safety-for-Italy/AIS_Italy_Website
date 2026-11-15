@@ -62,6 +62,8 @@ const ACTIONS = new Set([
   'review-summary',
   'review-settings',
   'review-reviewers',
+  'review-prescreen',
+  'review-remind',
   'review-matching',
   'review-matching-settings',
   'review-matching-draft',

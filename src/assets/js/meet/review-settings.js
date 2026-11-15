@@ -1,16 +1,20 @@
 /* /app/review/settings/: the setup of the mentee selection, for its admins,
- * in three steps:
+ * in five steps:
  *   1 The form       the form whose answers are reviewed (or the mentee
  *                    applications on the board), its questions imported, and
  *                    which of them holds the name.
- *   2 The sections   a grid of the questions against the sections: a tick
+ *   2 Pre-screening  optional: the few questions shown first and the reasons
+ *                    to exclude; who is excluded there reaches no section.
+ *   3 The sections   a grid of the questions against the sections: a tick
  *                    shows the question in that section, a question with no
  *                    tick is shown to no one. Sections are added (empty, or
  *                    from the questions left), renamed and removed there.
- *   3 Grids and      each section's order of questions, grid (one for the
+ *   4 Grids and      each section's order of questions, grid (one for the
  *     reviewers      section, or one per question), weight, anonymity, note
  *                    and reviewers (none ticked: every reviewer); and who
  *                    reviews at all: anyone who signed in with Discord.
+ *   5 Reminders      to the reviewers with applications left: now, or
+ *                    before a deadline (saved on their own, at once).
  * Nothing is saved until "Save the setup". A renamed section or criterion
  * keeps its scores; a reviewer removed keeps the scores already given. */
 (function () {
@@ -27,6 +31,7 @@
   var step = 1;
   var choice = null; // the form picked in step 1, before its questions are imported
   var bar = null; // the bar at the bottom, kept to tell when something changed
+  var remind = null; // the reminders' page, read when its step is opened
 
   var TYPES = {
     short_text: 'Short text',
@@ -77,6 +82,7 @@
       formId: d.formId || null,
       nameQuestion: d.nameQuestion || null,
       sections: copy(d.sections),
+      prescreen: copy(d.prescreen || d.defaultPrescreen),
       // Which save the page started from: another admin's save since is refused.
       version: d.version || null,
     };
@@ -85,6 +91,10 @@
     var team = d.reviewers.map(function (r) {
       return r.userId;
     });
+    draft.prescreen.reviewers = (draft.prescreen.reviewers || []).filter(function (id) {
+      return team.indexOf(id) !== -1;
+    });
+    draft.prescreen.note = draft.prescreen.note || '';
     draft.sections.forEach(function (s) {
       s.criteria = s.criteria || [];
       s.questionGrids = s.questionGrids || {};
@@ -352,12 +362,13 @@
   }
 
   /** The reasons to exclude a section offers its reviewers, each a line of text. */
-  function exclusionsEditor(s) {
+  function exclusionsEditor(s, field) {
+    var list = s[field || 'exclusions'];
     return h(
       'div',
       { class: 'rv-criteria' },
-      s.exclusions.length
-        ? s.exclusions.map(function (r) {
+      list.length
+        ? list.map(function (r) {
             var text = h('input', {
               class: 'form-input is-compact',
               value: r.label,
@@ -375,24 +386,28 @@
               smallButton(
                 '×',
                 function () {
-                  s.exclusions.splice(s.exclusions.indexOf(r), 1);
+                  list.splice(list.indexOf(r), 1);
                   render();
                 },
                 { icon: true, ghost: true, aria: 'Remove the reason ' + (r.label || '') }
               )
             );
           })
-        : h('p', { class: 'rv-muted' }, 'None: the reviewers only score.'),
+        : h(
+            'p',
+            { class: 'rv-muted' },
+            field ? 'None yet: add at least one.' : 'None: the reviewers only score.'
+          ),
       h(
         'div',
         null,
         smallButton(
           '+ Reason',
           function () {
-            s.exclusions.push({ label: '' });
+            list.push({ label: '' });
             render();
           },
-          { ghost: true, disabled: s.exclusions.length >= (data.limits.exclusions || 6) }
+          { ghost: true, disabled: list.length >= (data.limits.exclusions || 6) }
         )
       )
     );
@@ -411,7 +426,7 @@
           var added = catalog.length - before;
           M.toast(
             added > 0
-              ? plural(added, 'new question', 'new questions') + ': place them in step 2'
+              ? plural(added, 'new question', 'new questions') + ': place them in step 3'
               : 'The questions are up to date'
           );
           return;
@@ -427,7 +442,15 @@
         draft.formId = q.formId;
         draft.nameQuestion = q.nameQuestion;
         draft.sections = q.sections;
-        step = 2;
+        // The pre-screening keeps only the questions the new form has.
+        var ids = catalog.map(function (x) {
+          return x.id;
+        });
+        draft.prescreen.questions = draft.prescreen.questions.filter(function (id) {
+          return ids.indexOf(id) !== -1;
+        });
+        if (!draft.prescreen.questions.length) draft.prescreen.enabled = false;
+        step = 3;
         render();
         M.toast('Questions imported and split into a first set of sections');
       }
@@ -539,7 +562,443 @@
     );
   }
 
-  // ── Step 2: which question goes where ───────────────────────────────────
+  // Who is given something: none ticked, every reviewer.
+  function whoChips(list) {
+    return data.reviewers.length
+      ? h(
+          'div',
+          { class: 'chip-group rv-who-chips' },
+          data.reviewers.map(function (r) {
+            var on = list.indexOf(r.userId) !== -1;
+            return h(
+              'button',
+              {
+                type: 'button',
+                class: 'chip',
+                'aria-pressed': on ? 'true' : 'false',
+                onclick: function () {
+                  if (on) list.splice(list.indexOf(r.userId), 1);
+                  else list.push(r.userId);
+                  render();
+                },
+              },
+              r.name
+            );
+          })
+        )
+      : h('span', { class: 'rv-muted' }, 'Add reviewers in step 4 first.');
+  }
+
+  // ── Step 2: the pre-screening ────────────────────────────────────────────
+
+  function stepPrescreen() {
+    var p = draft.prescreen;
+    var on = h('input', {
+      type: 'checkbox',
+      class: 'rv-switch',
+      role: 'switch',
+      onchange: function () {
+        p.enabled = on.checked;
+        render();
+      },
+    });
+    on.checked = Boolean(p.enabled);
+    var anon = h('input', {
+      type: 'checkbox',
+      class: 'rv-switch',
+      role: 'switch',
+      onchange: function () {
+        p.anonymous = anon.checked;
+        bar.update();
+      },
+    });
+    anon.checked = Boolean(p.anonymous);
+    var note = h('textarea', {
+      class: 'form-input',
+      rows: '3',
+      maxlength: String(data.limits.note),
+      'aria-label': 'Note for the reviewers',
+      placeholder: 'What to look at to decide (optional)',
+      oninput: function () {
+        p.note = note.value;
+      },
+    });
+    note.value = p.note || '';
+    var questions = catalog.length
+      ? h(
+          'div',
+          { class: 'chip-group' },
+          catalog.map(function (q) {
+            var picked = p.questions.indexOf(q.id) !== -1;
+            return h(
+              'button',
+              {
+                type: 'button',
+                class: 'chip',
+                'aria-pressed': picked ? 'true' : 'false',
+                title: TYPES[q.type] || q.type,
+                onclick: function () {
+                  if (picked) p.questions.splice(p.questions.indexOf(q.id), 1);
+                  else {
+                    // In the form's order.
+                    p.questions.push(q.id);
+                    p.questions.sort(function (a, b) {
+                      return indexIn(a) - indexIn(b);
+                    });
+                  }
+                  render();
+                },
+              },
+              q.label
+            );
+          })
+        )
+      : h('p', { class: 'rv-muted' }, 'No questions yet: pick a form in step 1.');
+    return h(
+      'div',
+      { class: 'rv-step-body' },
+      stepHead(
+        'Pre-screen the applications first?',
+        'A quick first pass on a few answers, before anyone scores: any reviewer it is given to decides, pass or exclude with a reason, for everyone. Who is excluded is shown in no section, so nobody spends time on them; the sections show only who passed. In the summary you see why, and can bring someone back.'
+      ),
+      h(
+        'label',
+        { class: 'rv-switch-row' },
+        on,
+        h(
+          'span',
+          null,
+          h('strong', null, 'Pre-screening'),
+          h(
+            'small',
+            null,
+            p.enabled
+              ? 'On: the sections show only who passed it'
+              : 'Off: every application goes straight to the sections'
+          )
+        )
+      ),
+      p.enabled
+        ? h(
+            'div',
+            { class: 'rv-card-sec rv-prescreen-card' },
+            h(
+              'div',
+              { class: 'rv-card-sec-body' },
+              h(
+                'div',
+                { class: 'rv-card-main' },
+                h('h4', { class: 'rv-sub' }, 'The questions shown'),
+                h(
+                  'p',
+                  { class: 'rv-muted' },
+                  'Only what is needed to decide: where they live, study or work.'
+                ),
+                questions,
+                h('h4', { class: 'rv-sub' }, 'Reasons to exclude'),
+                exclusionsEditor(p, 'reasons')
+              ),
+              h(
+                'aside',
+                { class: 'rv-card-side' },
+                h(
+                  'label',
+                  { class: 'rv-switch-row' },
+                  anon,
+                  h(
+                    'span',
+                    null,
+                    h('strong', null, 'Anonymous'),
+                    h('small', null, 'Names, emails, links and phone numbers taken out')
+                  )
+                ),
+                h(
+                  'div',
+                  { class: 'rv-side-field' },
+                  h('span', null, 'Note for the reviewers'),
+                  note
+                ),
+                h(
+                  'div',
+                  { class: 'rv-side-field' },
+                  h(
+                    'span',
+                    null,
+                    'Done by',
+                    h(
+                      'small',
+                      null,
+                      p.reviewers.length ? ' · only those ticked' : ' · every reviewer'
+                    )
+                  ),
+                  whoChips(p.reviewers)
+                )
+              )
+            )
+          )
+        : null
+    );
+  }
+
+  // ── Step 5: the reminders ────────────────────────────────────────────────
+
+  var LEAD_LABELS = {
+    20160: '2 weeks',
+    10080: '1 week',
+    7200: '5 days',
+    4320: '3 days',
+    2880: '2 days',
+    1440: '1 day',
+    720: '12 hours',
+    360: '6 hours',
+    120: '2 hours',
+  };
+
+  function loadReminders() {
+    return M.api('GET', API + '?action=reminders')
+      .then(function (r) {
+        // What is being edited stays: only the counts are read again.
+        var editing = remind && remind.draft;
+        remind = r;
+        remind.draft = editing || { deadline: r.deadline, leads: r.leads.slice(), auto: r.auto };
+        if (step === 5) render();
+      })
+      .catch(function (err) {
+        if (err.status === 401) return M.appError(err);
+        M.toast(err.message, true);
+      });
+  }
+
+  // An ISO time as a datetime-local input holds it (local time), and back.
+  function toLocalInput(iso) {
+    if (!iso) return '';
+    var d = new Date(iso);
+    var pad = function (n) {
+      return (n < 10 ? '0' : '') + n;
+    };
+    return (
+      d.getFullYear() +
+      '-' +
+      pad(d.getMonth() + 1) +
+      '-' +
+      pad(d.getDate()) +
+      'T' +
+      pad(d.getHours()) +
+      ':' +
+      pad(d.getMinutes())
+    );
+  }
+
+  function stepReminders() {
+    var head = stepHead(
+      'Remind the reviewers',
+      'Each reviewer with applications left is told how many, in the pre-screening and in each of their sections, and how long is left: by email or Discord, as they chose in their settings. Those with nothing left get nothing.'
+    );
+    if (!remind) {
+      loadReminders();
+      return h('div', { class: 'rv-step-body' }, head, M.loading());
+    }
+    var d = remind.draft;
+    var waiting = remind.team.filter(function (r) {
+      return r.left > 0;
+    });
+
+    // Now.
+    var note = h('textarea', {
+      class: 'form-input',
+      rows: '2',
+      maxlength: '500',
+      'aria-label': 'A line of your own (optional)',
+      placeholder: 'A line of your own (optional)',
+    });
+    var now = h(
+      'button',
+      {
+        type: 'button',
+        class: 'btn btn-primary btn-sm',
+        disabled: waiting.length ? null : true,
+        onclick: function () {
+          if (
+            !window.confirm('Remind ' + plural(waiting.length, 'reviewer', 'reviewers') + ' now?')
+          )
+            return;
+          now.disabled = true;
+          M.api('POST', API + '?action=remind', { note: note.value })
+            .then(function (r) {
+              M.toast(
+                r.sent === r.reviewers
+                  ? 'Reminder sent to ' + plural(r.sent, 'reviewer', 'reviewers')
+                  : 'Reminder sent to ' +
+                      r.sent +
+                      ' of ' +
+                      r.reviewers +
+                      ' (the others turned notifications off, or have no address)'
+              );
+              return loadReminders();
+            })
+            .catch(function (err) {
+              if (err.status === 401) return M.appError(err);
+              M.toast(err.message, true);
+              now.disabled = false;
+            });
+        },
+      },
+      waiting.length
+        ? 'Remind ' + plural(waiting.length, 'reviewer', 'reviewers') + ' now'
+        : 'Nobody has reviews left'
+    );
+
+    // Automatic.
+    var deadline = h('input', {
+      type: 'datetime-local',
+      class: 'form-input is-compact',
+      id: 'rvDeadline',
+      value: toLocalInput(d.deadline),
+      onchange: function () {
+        d.deadline = deadline.value ? new Date(deadline.value).toISOString() : null;
+      },
+    });
+    var auto = h('input', {
+      type: 'checkbox',
+      class: 'rv-switch',
+      role: 'switch',
+      onchange: function () {
+        d.auto = auto.checked;
+      },
+    });
+    auto.checked = Boolean(d.auto);
+    var leads = h(
+      'div',
+      { class: 'chip-group' },
+      remind.options.map(function (m) {
+        var on = d.leads.indexOf(m) !== -1;
+        return h(
+          'button',
+          {
+            type: 'button',
+            class: 'chip',
+            'aria-pressed': on ? 'true' : 'false',
+            onclick: function () {
+              if (on) d.leads.splice(d.leads.indexOf(m), 1);
+              else d.leads.push(m);
+              render();
+            },
+          },
+          LEAD_LABELS[m] || m + ' min'
+        );
+      })
+    );
+    var error = h('p', { class: 'form-error', role: 'alert', hidden: true });
+    var save = h(
+      'button',
+      {
+        type: 'button',
+        class: 'btn btn-primary btn-sm',
+        onclick: function () {
+          error.hidden = true;
+          save.disabled = true;
+          M.api('PUT', API + '?action=reminders', d)
+            .then(function (r) {
+              remind = r;
+              remind.draft = { deadline: r.deadline, leads: r.leads.slice(), auto: r.auto };
+              M.toast(r.auto ? 'Automatic reminders on' : 'Reminders saved');
+              render();
+            })
+            .catch(function (err) {
+              if (err.status === 401) return M.appError(err);
+              error.textContent = err.message;
+              error.hidden = false;
+              save.disabled = false;
+            });
+        },
+      },
+      'Save the reminders'
+    );
+
+    return h(
+      'div',
+      { class: 'rv-step-body' },
+      head,
+      h(
+        'section',
+        { class: 'rv-remind-card' },
+        h('h3', null, 'Who has what left'),
+        remind.team.length
+          ? h(
+              'ul',
+              { class: 'rv-people' },
+              remind.team.map(function (r) {
+                return h(
+                  'li',
+                  null,
+                  h(
+                    'span',
+                    null,
+                    h('strong', null, r.name),
+                    h(
+                      'small',
+                      null,
+                      r.left ? plural(r.left, 'application', 'applications') + ' left' : 'All done'
+                    )
+                  )
+                );
+              })
+            )
+          : h('p', { class: 'rv-muted' }, 'No reviewers yet.')
+      ),
+      h(
+        'section',
+        { class: 'rv-remind-card' },
+        h('h3', null, 'Send a reminder now'),
+        remind.lastSentNow
+          ? h(
+              'p',
+              { class: 'rv-muted' },
+              'Last one sent ' + M.fmtDateTime(remind.lastSentNow) + '.'
+            )
+          : null,
+        note,
+        h('div', { class: 'rv-row-end' }, now)
+      ),
+      h(
+        'section',
+        { class: 'rv-remind-card' },
+        h('h3', null, 'Automatic reminders before a deadline'),
+        h(
+          'div',
+          { class: 'rv-field' },
+          h('label', { class: 'form-label', for: 'rvDeadline' }, 'The reviews close on'),
+          deadline
+        ),
+        h(
+          'div',
+          { class: 'rv-field' },
+          h('span', { class: 'form-label' }, 'Remind them this long before'),
+          leads,
+          h(
+            'small',
+            { class: 'rv-muted' },
+            'Say 1 week: “1 week left, and you still have 20 applications to review”.'
+          )
+        ),
+        h(
+          'label',
+          { class: 'rv-switch-row' },
+          auto,
+          h(
+            'span',
+            null,
+            h('strong', null, 'Send them automatically'),
+            h('small', null, 'Checked every 10 minutes; each reminder goes once')
+          )
+        ),
+        error,
+        h('div', { class: 'rv-row-end' }, save)
+      )
+    );
+  }
+
+  // ── Step 3: which question goes where ───────────────────────────────────
 
   function stepSections() {
     var taken = used();
@@ -676,7 +1135,7 @@
     );
   }
 
-  // ── Step 3: each section, and the reviewers ─────────────────────────────
+  // ── Step 4: each section, and the reviewers ─────────────────────────────
 
   function sectionCard(s, index) {
     var label = h('input', {
@@ -825,33 +1284,11 @@
       : h(
           'p',
           { class: 'form-error', style: 'margin:0' },
-          'No question in this section: tick some in step 2.'
+          'No question in this section: tick some in step 3.'
         );
 
     // Who scores it: none ticked, everyone.
-    var who = data.reviewers.length
-      ? h(
-          'div',
-          { class: 'chip-group rv-who-chips' },
-          data.reviewers.map(function (r) {
-            var on = s.reviewers.indexOf(r.userId) !== -1;
-            return h(
-              'button',
-              {
-                type: 'button',
-                class: 'chip',
-                'aria-pressed': on ? 'true' : 'false',
-                onclick: function () {
-                  if (on) s.reviewers.splice(s.reviewers.indexOf(r.userId), 1);
-                  else s.reviewers.push(r.userId);
-                  render();
-                },
-              },
-              r.name
-            );
-          })
-        )
-      : h('span', { class: 'rv-muted' }, 'Add reviewers below first.');
+    var who = whoChips(s.reviewers);
 
     return h(
       'section',
@@ -1069,12 +1506,18 @@
     var shown = Object.keys(used()).length;
     var steps = [
       [1, 'Form', formTitle()],
+      [2, 'Pre-screening', draft.prescreen.enabled ? 'On' : 'Off'],
       [
-        2,
+        3,
         'Sections',
         plural(draft.sections.length, 'section', 'sections') + ' · ' + shown + ' shown',
       ],
-      [3, 'Grids & reviewers', plural(data.reviewers.length, 'reviewer', 'reviewers')],
+      [4, 'Grids & reviewers', plural(data.reviewers.length, 'reviewer', 'reviewers')],
+      [
+        5,
+        'Reminders',
+        remind && remind.auto ? 'Automatic' : remind ? 'Manual' : 'Now or by a deadline',
+      ],
     ];
     return h(
       'ol',
@@ -1101,6 +1544,13 @@
       })
     );
   }
+
+  var NEXT = {
+    1: 'pre-screening',
+    2: 'sections',
+    3: 'grids & reviewers',
+    4: 'reminders',
+  };
 
   function saveBar() {
     var error = h('p', { class: 'form-error', role: 'alert', hidden: true });
@@ -1147,13 +1597,8 @@
           'span',
           { class: 'rv-savebar-end' },
           state,
-          step < 3
-            ? smallButton(
-                step === 1 ? 'Next: sections →' : 'Next: grids & reviewers →',
-                go(step + 1)
-              )
-            : null,
-          save
+          step < 5 ? smallButton('Next: ' + NEXT[step] + ' →', go(step + 1)) : null,
+          step < 5 ? save : null
         )
       )
     );
@@ -1174,7 +1619,16 @@
     // Keep the page where it was: the whole setup is drawn again on each change.
     var y = window.scrollY;
     M.clear(root);
-    var body = step === 1 ? stepForm() : step === 2 ? stepSections() : stepGrids();
+    var body =
+      step === 1
+        ? stepForm()
+        : step === 2
+        ? stepPrescreen()
+        : step === 3
+        ? stepSections()
+        : step === 4
+        ? stepGrids()
+        : stepReminders();
     root.appendChild(
       h(
         'div',
