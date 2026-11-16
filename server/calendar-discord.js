@@ -99,7 +99,12 @@ async function channels() {
   if (!permissions.botConfigured()) {
     return permissions.devLogin() ? DEV_CHANNELS : { text: [], voice: [] };
   }
-  if (cache && Date.now() - cache.at < CACHE_MS) return cache.value;
+  return (await load()).value;
+}
+
+/** What Discord said, kept CACHE_MS: { at, sorted, roles, guild, value }. */
+async function load() {
+  if (cache && Date.now() - cache.at < CACHE_MS) return cache;
   const guild = process.env.DISCORD_GUILD_ID;
   let list;
   let roles;
@@ -126,8 +131,29 @@ async function channels() {
       .map((c) => ({ ...out(c), canPost: can(c.channel, VIEW_CHANNEL | SEND_MESSAGES) })),
     voice: sorted.filter((c) => VOICE.includes(c.type)).map(out),
   };
-  cache = { at: Date.now(), value };
-  return value;
+  cache = { at: Date.now(), sorted, roles: roles.body, guild, value };
+  return cache;
+}
+
+/**
+ * The text channels of the server that `who` (calendars.whoIs) does not see
+ * on Discord, by their roles and the channels' overwrites: a Set of ids,
+ * empty for a calendar admin or a machine without the bot.
+ */
+async function hiddenIds(who) {
+  if (!permissions.botConfigured() || (who.perms || []).includes('calendar_admin'))
+    return new Set();
+  const { sorted, roles, guild } = await load();
+  const sees = (c) =>
+    allowed(c.channel, who.roles || [], who.discordId, roles, guild) & VIEW_CHANNEL;
+  return new Set(sorted.filter((c) => TEXT.includes(c.type) && !sees(c)).map((c) => c.id));
+}
+
+/** channels(), its text channels cut to those `who` sees: where they may announce. */
+async function channelsFor(who) {
+  const all = await channels();
+  const hidden = await hiddenIds(who);
+  return { ...all, text: all.text.filter((c) => !hidden.has(c.id)) };
 }
 
 /** The link that opens a channel of the server in Discord. */
@@ -162,4 +188,14 @@ async function post(channelId, content, { components } = {}) {
   }
 }
 
-module.exports = { channels, channelLink, post, allowed, inOrder, reset, DEV_CHANNELS };
+module.exports = {
+  channels,
+  channelsFor,
+  hiddenIds,
+  channelLink,
+  post,
+  allowed,
+  inOrder,
+  reset,
+  DEV_CHANNELS,
+};

@@ -30,6 +30,9 @@ beforeEach(async () => {
     // Reading someone's roles: Discord is down, so the stored ones stand.
     if (/\/guilds\/\d+\/members\//.test(String(url)))
       return { ok: false, status: 503, json: async () => ({}) };
+    // The server's channels and roles: none, so no channel is hidden from anyone.
+    if (/\/guilds\/\d+\/(channels|roles)$/.test(String(url)))
+      return { ok: true, status: 200, json: async () => [] };
     sent.push({ url: String(url), body: opts.body ? JSON.parse(opts.body) : null });
     return {
       ok: true,
@@ -39,6 +42,7 @@ beforeEach(async () => {
   };
   notify.setFetch(fake);
   permissions.setFetch(fake);
+  require('./calendar-discord').reset();
 });
 
 // The roles' table is saved whole: each person's role joins those before.
@@ -289,6 +293,81 @@ test('every text channel is listed, private ones the bot is not in greyed out', 
   assert.deepEqual(
     voice.map((c) => c.name),
     ['Voice']
+  );
+  discord.reset();
+});
+
+test('who writes events sees, and announces in, only the channels they see on Discord', async () => {
+  const discord = require('./calendar-discord');
+  const G = '111111111';
+  const VIEW = String(1 << 10);
+  const maker = await person('Maker', ['calendar_create']);
+  const board = await person('Board');
+  const admin = await person('Admin', ['calendar_admin']);
+  const answers = {
+    [`/guilds/${G}/channels`]: [
+      { id: '201000001', type: 0, name: 'general', position: 0 },
+      {
+        id: '202000002',
+        type: 0,
+        name: 'board',
+        position: 1,
+        permission_overwrites: [
+          { id: G, type: 0, deny: VIEW, allow: '0' },
+          { id: 'r-board', type: 0, deny: '0', allow: VIEW },
+        ],
+      },
+    ],
+    [`/guilds/${G}/roles`]: [{ id: G, permissions: String((1 << 10) | (1 << 11)) }],
+    '/users/@me': { id: 'bot-1' },
+  };
+  permissions.setFetch(async (url, opts = {}) => {
+    const path = String(url).replace('https://discord.com/api/v10', '');
+    if (opts.method === 'POST') return { ok: true, status: 200, json: async () => ({}) };
+    // Someone's roles: Discord is down, so the stored ones stand.
+    if (path.includes('/members/')) return { ok: false, status: 503, json: async () => ({}) };
+    return {
+      ok: path in answers,
+      status: path in answers ? 200 : 404,
+      json: async () => answers[path],
+    };
+  });
+  discord.reset();
+  const names = async (u) =>
+    (await discord.channelsFor(await calendars.whoIs(u))).text.map((c) => c.name);
+  assert.deepEqual(await names(maker), ['general']);
+  assert.deepEqual(await names(board), ['general', 'board']);
+  assert.deepEqual(await names(admin), ['general', 'board']);
+
+  const boardChannel = [{ channelId: '202000002', name: 'board', minutes: [60] }];
+  await assert.rejects(
+    calendars.createCalendar(maker, { name: 'Team', announce: boardChannel }),
+    /channel you see/
+  );
+  // Board members' calendar, which the maker may edit: they keep its channel.
+  const cal = await calendars.createCalendar(admin, {
+    name: 'Board',
+    announce: boardChannel,
+    access: { view: { all: true }, edit: { all: true } },
+  });
+  const start = new Date(Date.now() + 86400000);
+  start.setUTCSeconds(0, 0);
+  const body = (announce) => ({
+    calendarId: cal.id,
+    title: 'Meeting',
+    start: iso(start),
+    end: iso(start.getTime() + 3600000),
+    announce,
+  });
+  const general = { channelId: '201000001', name: 'general', minutes: [0] };
+  const { id } = await calendars.createEvent(maker, body(boardChannel));
+  await calendars.updateEvent(maker, id, body([...boardChannel, general]));
+
+  // A calendar of their own, with no channel yet: #board is not theirs to add.
+  const own = await calendars.createCalendar(maker, { name: 'Mine', announce: [general] });
+  await assert.rejects(
+    calendars.createEvent(maker, { ...body(boardChannel), calendarId: own.id }),
+    /channel you see/
   );
   discord.reset();
 });
