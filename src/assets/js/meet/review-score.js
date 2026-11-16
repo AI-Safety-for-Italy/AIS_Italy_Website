@@ -67,7 +67,7 @@
   function noteOf(section) {
     if (section.note) return section.note;
     return section.anonymous
-      ? 'Names, affiliations, emails, links and phone numbers are taken out. If you recognise the person anyway, step aside.'
+      ? 'Names, emails, links and phone numbers are taken out. If you recognise the person anyway, step aside.'
       : 'This section is not anonymous. Score on the merits, and step aside if you know the person.';
   }
 

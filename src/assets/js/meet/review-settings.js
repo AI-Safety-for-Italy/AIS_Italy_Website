@@ -1370,7 +1370,7 @@
               'span',
               null,
               h('strong', null, 'Anonymous'),
-              h('small', null, 'Names, emails, links, phone numbers and short answers taken out')
+              h('small', null, 'Names, emails, links and phone numbers taken out')
             )
           ),
           h(
