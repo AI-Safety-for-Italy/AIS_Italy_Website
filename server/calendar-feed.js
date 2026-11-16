@@ -52,13 +52,22 @@ function where(event) {
   return '';
 }
 
+// A poll's meeting has the UID of its emailed invite (ics.js: the poll's id),
+// so whoever has both sees one meeting, not two; an occurrence of it changed
+// on its own, its series'.
+function uidOf(event, master) {
+  const head = master || event;
+  if (head.source === 'poll' && head.source_id) return head.source_id;
+  return event.series_id || event.id;
+}
+
 function vevent(event, calendarName, masters) {
   const master = event.series_id ? masters.get(event.series_id) : null;
   // An occurrence changed on its own is written in its series' terms.
   const zoneOf = master || event;
   const lines = [
     'BEGIN:VEVENT',
-    `UID:${event.series_id || event.id}@ais4i.it`,
+    `UID:${uidOf(event, master)}@ais4i.it`,
     `SEQUENCE:${event.sequence || 0}`,
     `DTSTAMP:${ics.stamp(event.updated_at || new Date())}`,
   ];

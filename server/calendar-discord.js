@@ -135,8 +135,8 @@ function channelLink(channelId) {
   return `https://discord.com/channels/${process.env.DISCORD_GUILD_ID || 'dev'}/${channelId}`;
 }
 
-/** Posts `content` in a channel. Returns { sent, detail }. */
-async function post(channelId, content) {
+/** Posts `content` in a channel, with `components` (buttons) if given. Returns { sent, detail }. */
+async function post(channelId, content, { components } = {}) {
   if (!permissions.botConfigured() || String(channelId).startsWith('dev-')) {
     if (permissions.devLogin()) {
       console.log(`\n[Discord #${channelId}]\n${content}\n`);
@@ -147,7 +147,11 @@ async function post(channelId, content) {
   try {
     const res = await permissions.bot(`/channels/${channelId}/messages`, {
       method: 'POST',
-      json: { content: content.slice(0, 1900), allowed_mentions: { parse: [] } },
+      json: {
+        content: content.slice(0, 1900),
+        allowed_mentions: { parse: [] },
+        ...(components ? { components } : {}),
+      },
     });
     if (res.ok) return { sent: true };
     console.error('Calendar announcement failed', res.status);

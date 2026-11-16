@@ -287,7 +287,12 @@ test('an account unused for 24 months goes, unless it still owns something', asy
       )
     ).rows[0].id;
   await user('recent', '23 months');
-  await user('gone', '25 months');
+  const gone = await user('gone', '25 months');
+  // Their own "My calendar" goes with them; a calendar they run for others keeps them.
+  await db.query(
+    `insert into calendars (slug, name, personal_of, owner_id) values ('mine', 'Mine', $1, $1)`,
+    [gone]
+  );
   const owner = await user('owner', '3 years');
   await db.query(`insert into forms (slug, title, owner_id) values ('owned', 'Owned', $1)`, [
     owner,

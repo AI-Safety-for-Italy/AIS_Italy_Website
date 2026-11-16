@@ -439,6 +439,34 @@ async function getPollAdmin(id, ownerId) {
     })),
     invites: poll.invite_only ? await listInvites(poll.id) : [],
     invitedToMeeting: poll.invited_to_meeting || [],
+    calendar: await meetingCalendar(poll),
+  };
+}
+
+/**
+ * Where the meeting lands, for its owner: { id, name, color, eventId } (the
+ * event once a time is chosen), or null without a calendar.
+ */
+async function meetingCalendar(poll) {
+  // The calendar asked for, else the owner's own (My calendar).
+  const id = await require('./calendars').meetingCalendarId(poll);
+  if (!id) return null;
+  const { rows } = await db.query(
+    `select c.id, c.name, c.color, c.personal_of is not null as personal,
+       (select e.id from calendar_events e where e.source = 'poll' and e.source_id = $2) as event_id
+     from calendars c where c.id = $1`,
+    [id, String(poll.id)]
+  );
+  if (!rows.length) return null;
+  const r = rows[0];
+  return {
+    id: r.id,
+    name: r.name,
+    color: r.color,
+    // My calendar: chosen by default, not by name (calendar_id stays null).
+    personal: r.personal,
+    chosen: Boolean(poll.calendar_id),
+    eventId: r.event_id,
   };
 }
 
@@ -540,7 +568,7 @@ async function getPollPublic(token, editToken, inviteToken) {
 
 // ── Writing ─────────────────────────────────────────────────────────────────
 
-async function createPoll(body, ownerId) {
+async function createPoll(body, ownerId, { calendarId = null } = {}) {
   const input = validatePollInput(body);
   uuid(ownerId, 'owner');
   if (input.inviteOnly && !(await mail.isConfigured())) {
@@ -550,8 +578,9 @@ async function createPoll(body, ownerId) {
   return db.transaction(async (tx) => {
     const { rows } = await tx.query(
       `insert into polls (token, title, description, location, duration_minutes, timezone,
-                          deadline, hide_responses, owner_id, notify, invite_only, recurrence)
-       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) returning id`,
+                          deadline, hide_responses, owner_id, notify, invite_only, recurrence,
+                          calendar_id)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) returning id`,
       [
         token,
         input.title,
@@ -565,6 +594,8 @@ async function createPoll(body, ownerId) {
         input.notify,
         input.inviteOnly,
         input.recurrence && JSON.stringify(input.recurrence),
+        // The calendar the meeting will land in (checked by the caller), or none.
+        calendarId,
       ]
     );
     const id = rows[0].id;
@@ -617,10 +648,19 @@ async function updatePoll(id, body, ownerId) {
     }
     next.status = body.status;
   }
-  await db.query(
+  // What the invite says changed: a newer version of the meeting, which
+  // calendars put in place of the one they have.
+  const meetingChanged =
+    poll.status === 'scheduled' &&
+    (next.title !== poll.title ||
+      next.description !== poll.description ||
+      next.location !== poll.location ||
+      JSON.stringify(next.recurrence || null) !== JSON.stringify(poll.recurrence || null));
+  const { rows } = await db.query(
     `update polls set title = $2, description = $3, location = $4, deadline = $5,
-       hide_responses = $6, status = $7, notify = $8, recurrence = $9, updated_at = now()
-     where id = $1`,
+       hide_responses = $6, status = $7, notify = $8, recurrence = $9,
+       meeting_sequence = meeting_sequence + $10, updated_at = now()
+     where id = $1 returning *`,
     [
       poll.id,
       next.title,
@@ -631,9 +671,11 @@ async function updatePoll(id, body, ownerId) {
       next.status,
       next.notify,
       next.recurrence ? JSON.stringify(next.recurrence) : null,
+      meetingChanged ? 1 : 0,
     ]
   );
-  return getPollAdmin(poll.id, ownerId);
+  // `update` only when the meeting changed: then the people invited can be told.
+  return meetingChanged ? withUpdate(rows[0], ownerId) : getPollAdmin(poll.id, ownerId);
 }
 
 async function deletePoll(id, ownerId) {
@@ -884,20 +926,64 @@ async function checkAvailability(token, query) {
  * shows it; sending the invite is up to the owner (the panel offers a
  * calendar file and every participant's email).
  */
-async function finalizePoll(id, body, ownerId) {
+async function finalizePoll(id, body, ownerId, { calendarId } = {}) {
   const poll = await loadOwnPoll(id, ownerId);
   if (poll.status === 'scheduled') throw new HttpError(409, 'A time has already been chosen');
-  const slotId = uuid(body.slotId, 'slot');
+  const slotId = await ownSlot(poll, body.slotId);
+  // The calendar (already checked by the caller) is set with the time, in
+  // the same write: never a time chosen with its calendar lost on the way.
+  // `undefined` keeps the one chosen before.
+  await db.query(
+    `update polls set status = 'scheduled', final_slot_id = $2,
+       calendar_id = case when $3::boolean then $4::uuid else calendar_id end,
+       updated_at = now()
+     where id = $1`,
+    [poll.id, slotId, calendarId !== undefined, calendarId || null]
+  );
+  return getPollAdmin(poll.id, ownerId);
+}
+
+/** A slot of this poll, by id, or a 400. */
+async function ownSlot(poll, value) {
+  const slotId = uuid(value, 'slot');
   const { rows } = await db.query('select 1 from poll_slots where id = $1 and poll_id = $2', [
     slotId,
     poll.id,
   ]);
   if (!rows.length) throw new HttpError(400, 'That slot is not part of this poll');
-  await db.query(
-    `update polls set status = 'scheduled', final_slot_id = $2, updated_at = now() where id = $1`,
+  return slotId;
+}
+
+/**
+ * Moves the meeting to another of the poll's times: the same meeting (its
+ * calendar event keeps who said they come), a newer version of it. Returns
+ * the poll, plus `update` ({ emails, slot, sequence }) for the people who
+ * already got the invite, so they can be sent the new time.
+ */
+async function reschedulePoll(id, body, ownerId) {
+  const poll = await loadOwnPoll(id, ownerId);
+  if (poll.status !== 'scheduled') throw new HttpError(409, 'No time has been chosen');
+  const slotId = await ownSlot(poll, body.slotId);
+  if (slotId === poll.final_slot_id)
+    throw new HttpError(409, 'The meeting is already at that time');
+  const { rows } = await db.query(
+    `update polls set final_slot_id = $2, meeting_sequence = meeting_sequence + 1,
+       updated_at = now()
+     where id = $1 returning *`,
     [poll.id, slotId]
   );
-  return getPollAdmin(poll.id, ownerId);
+  return withUpdate(rows[0], ownerId);
+}
+
+/** The poll for its owner, with `update` when people already have the invite. */
+async function withUpdate(row, ownerId) {
+  const result = await getPollAdmin(row.id, ownerId);
+  const emails = row.invited_to_meeting || [];
+  if (!emails.length || row.status !== 'scheduled') return result;
+  return {
+    ...result,
+    update: { emails, slot: await chosenSlot(row), sequence: row.meeting_sequence },
+  };
 }
 
 /**
@@ -931,6 +1017,13 @@ async function chosenSlot(poll) {
   return rows.length
     ? { start: rows[0].starts_at, end: slotEnd(rows[0].starts_at, poll.duration_minutes) }
     : null;
+}
+
+/** A poll's row, for building its invite (the caller checked who asks). */
+async function meetingRow(id) {
+  const { rows } = await db.query('select * from polls where id = $1', [uuid(id)]);
+  if (!rows.length) throw new HttpError(404, 'Poll not found');
+  return rows[0];
 }
 
 /** The owner's poll with its chosen time, for building calendar files. */
@@ -1005,7 +1098,9 @@ module.exports = {
   removeInvite,
   markAllAnswered,
   finalizePoll,
+  reschedulePoll,
   unschedulePoll,
   getMeeting,
+  meetingRow,
   prepareMeetingInvite,
 };

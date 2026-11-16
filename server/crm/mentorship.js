@@ -55,6 +55,7 @@ const TRACKS = [
 const TRACK_KEYS = TRACKS.map((t) => t.key);
 const KEY = /^[A-Za-z0-9_-]{32}$/;
 const MAX_NOTE = 4000;
+const MAX_CO_MENTORS = 5;
 const MAX_CONSENT_NOTE = 300;
 
 // What a sheet's free-text answers mean.
@@ -151,6 +152,36 @@ function derivedStatus(person) {
   return 'interested';
 }
 
+// Numbers written out, in the answers to "how many mentees".
+const NUMBER_WORDS = {
+  un: 1,
+  uno: 1,
+  una: 1,
+  due: 2,
+  tre: 3,
+  quattro: 4,
+  cinque: 5,
+  one: 1,
+  two: 2,
+  three: 3,
+  four: 4,
+  five: 5,
+};
+
+/**
+ * How many mentees a free answer says: the most it names, so "1-2", "2 o 3",
+ * "due" read as 2, 3 and 2. null when it names no number.
+ */
+function placesFrom(text) {
+  const t = sources.norm(text);
+  const found = [...t.matchAll(/\d+/g)].map((m) => Number(m[0]));
+  t.split(/[^a-z]+/).forEach((w) => {
+    if (NUMBER_WORDS[w]) found.push(NUMBER_WORDS[w]);
+  });
+  const ok = found.filter((n) => n >= 1 && n <= 20);
+  return ok.length ? Math.max(...ok) : null;
+}
+
 /** The card: what the board shows for a person, without contact details. */
 function card(person, state, extra) {
   const r = person.records;
@@ -173,7 +204,10 @@ function card(person, state, extra) {
       trackOf(first(app.tracks, mentee.tracks, prospect.track, interest.tracks)),
     areas: first(app.areas, mentee.areas, interest.areas, prospect.notes),
     project: app.project_title || '',
-    capacity: Number(app.mentees) > 0 ? Number(app.mentees) : null,
+    capacity: placesFrom(app.mentees),
+    // The answer it is read from, and where the number comes from.
+    capacityText: str(app.mentees),
+    capacityFrom: placesFrom(app.mentees) ? 'application' : null,
     referrer: prospect.referrer || '',
     sources: Object.keys(r),
     status: (state && state.status) || derivedStatus(person),
@@ -213,7 +247,7 @@ async function noteCounts() {
 
 async function activeMatches() {
   const { rows } = await db.query(
-    `select id, mentor_key, mentee_key, track, created_at from crm_matches
+    `select id, mentor_key, mentee_key, co_mentors, track, created_at from crm_matches
      where status = 'active' order by created_at`
   );
   return rows;
@@ -236,7 +270,10 @@ async function board(user) {
   ]);
   const matchCount = new Map();
   matches.forEach((m) => {
-    matchCount.set(`mentor:${m.mentor_key}`, (matchCount.get(`mentor:${m.mentor_key}`) || 0) + 1);
+    // Each mentor of a project counts its mentees, co-mentors too.
+    [m.mentor_key, ...(m.co_mentors || [])].forEach((k) => {
+      matchCount.set(`mentor:${k}`, (matchCount.get(`mentor:${k}`) || 0) + 1);
+    });
     matchCount.set(`mentee:${m.mentee_key}`, 1);
   });
   const cards = [...people.entries()].map(([id, person]) =>
@@ -266,6 +303,10 @@ async function board(user) {
         key: m.mentor_key,
         name: names.get(`mentor:${m.mentor_key}`) || '(no longer on the board)',
       },
+      coMentors: (m.co_mentors || []).map((k) => ({
+        key: k,
+        name: names.get(`mentor:${k}`) || '(no longer on the board)',
+      })),
       mentee: {
         key: m.mentee_key,
         name: names.get(`mentee:${m.mentee_key}`) || '(no longer on the board)',
@@ -298,6 +339,89 @@ async function applicants() {
   return out;
 }
 
+/**
+ * Every mentor's and mentee's card and the active pairs, for the matching
+ * (server/crm/matching.js): { mentors, mentees, matches: [{ mentorKey,
+ * coMentors, menteeKey, track }], profiles }. Read for a page that records
+ * its own view.
+ */
+/** person key -> the places on their site entry: the board's draft first, then the published one. */
+async function sitePlaces() {
+  const out = new Map();
+  const count = (entry) => {
+    const n = Number(entry && entry.places);
+    return Number.isInteger(n) && n > 0 ? n : null;
+  };
+  const { rows: published } = await db.query(
+    'select person_key, entry from mentor_site_entries where person_key is not null'
+  );
+  published.forEach((r) => {
+    if (count(r.entry)) out.set(r.person_key, count(r.entry));
+  });
+  const { rows: drafts } = await db.query('select person_key from crm_site_profiles');
+  for (const r of drafts) {
+    const { draft } = await readDraft(r.person_key);
+    if (draft.entry && count(draft.entry)) out.set(r.person_key, count(draft.entry));
+  }
+  return out;
+}
+
+// What the matching shows of an application, to pair by fit (no contacts).
+const PROFILE_FIELDS = {
+  mentees_applications: [
+    'role',
+    'affiliation',
+    'background',
+    'areas',
+    'motivation',
+    'goals',
+    'hours',
+    'language',
+  ],
+  mentors_applications: ['role', 'background', 'areas', 'language', 'mode'],
+};
+
+async function roster() {
+  const { people } = await gather();
+  const [state, matches] = await Promise.all([states(), activeMatches()]);
+  const cards = [...people.values()].map((p) => card(p, state.get(`${p.kind}:${p.key}`), {}));
+  // The places set on their site entry (the board's draft, what is published,
+  // or data/mentors.yaml) win over the application's answer.
+  const site = await sitePlaces();
+  cards
+    .filter((c) => c.kind === 'mentor')
+    .forEach((c) => {
+      const yamlHit = siteYaml(c.name);
+      const n =
+        site.get(c.key) || (yamlHit && Number(yamlHit.places) > 0 ? Number(yamlHit.places) : null);
+      if (n) Object.assign(c, { capacity: n, capacityFrom: 'site' });
+    });
+  // `profiles`: "kind:key" -> the answers of their application worth reading.
+  const profiles = new Map();
+  for (const p of people.values()) {
+    const source = p.kind === 'mentor' ? 'mentors_applications' : 'mentees_applications';
+    const record = p.records[source];
+    if (!record) continue;
+    const out = {};
+    PROFILE_FIELDS[source].forEach((f) => {
+      const v = String(record[f] == null ? '' : record[f]).trim();
+      if (v) out[f] = v;
+    });
+    profiles.set(`${p.kind}:${p.key}`, out);
+  }
+  return {
+    profiles,
+    mentors: cards.filter((c) => c.kind === 'mentor'),
+    mentees: cards.filter((c) => c.kind === 'mentee'),
+    matches: matches.map((m) => ({
+      mentorKey: m.mentor_key,
+      coMentors: m.co_mentors || [],
+      menteeKey: m.mentee_key,
+      track: m.track,
+    })),
+  };
+}
+
 // ── One person ───────────────────────────────────────────────────────────────
 
 function checkKey(key, kind) {
@@ -318,11 +442,24 @@ async function person(user, perms, key, kind) {
   const found = await find(key, kind);
   const state = await stateOf(key, kind);
   const card_ = card(found, state, {});
+  // The answers the form records came from: their form, to open them there.
+  const responseIds = Object.values(found.records)
+    .map((r) => r.responseId)
+    .filter(Boolean);
+  const { rows: answerRows } = responseIds.length
+    ? await db.query(
+        `select r.id, r.form_id, r.submitted_at, f.title from form_responses r
+         join forms f on f.id = r.form_id where r.id = any($1)`,
+        [responseIds]
+      )
+    : { rows: [] };
+  const answerOf = new Map(answerRows.map((a) => [a.id, a]));
   const sheetsView = Object.entries(found.records).map(([sourceId, record]) => {
     // The key and the record's id are dropped on purpose: lookup ids, not
     // fields to show.
     // eslint-disable-next-line no-unused-vars
-    const { key: _key, recordId, origin, row, ...fields } = record;
+    const { key: _key, recordId, origin, row, responseId, ...fields } = record;
+    const answer = responseId && answerOf.get(responseId);
     const shown = access.redact(fields, perms);
     // Only what has an answer.
     Object.keys(shown).forEach((f) => !shown[f] && delete shown[f]);
@@ -333,6 +470,15 @@ async function person(user, perms, key, kind) {
       origin,
       // Only those added by hand can be removed from the board.
       recordId: origin === 'board' ? recordId : undefined,
+      // The form answer it came from: whoever may read that form opens it there.
+      answer: answer
+        ? {
+            formId: answer.form_id,
+            responseId: answer.id,
+            form: answer.title,
+            submittedAt: answer.submitted_at,
+          }
+        : null,
       fields: shown,
     };
   });
@@ -347,10 +493,11 @@ async function person(user, perms, key, kind) {
     body: crm.decrypt(n.body_encrypted, key) ?? '(this note cannot be opened with the current key)',
   }));
   // Only the pairs of this role: someone can be a mentor and a mentee.
-  const side = kind === 'mentor' ? 'mentor_key' : 'mentee_key';
+  // A mentor's pairs include those where they co-mentor the project.
+  const where = kind === 'mentor' ? 'mentor_key = $1 or $1 = any(co_mentors)' : 'mentee_key = $1';
   const { rows: matchRows } = await db.query(
-    `select id, mentor_key, mentee_key, track, status, created_at, ended_at from crm_matches
-     where ${side} = $1 order by created_at desc`,
+    `select id, mentor_key, mentee_key, co_mentors, track, status, created_at, ended_at
+     from crm_matches where ${where} order by created_at desc`,
     [key]
   );
   const otherKind = kind === 'mentor' ? 'mentee' : 'mentor';
@@ -358,9 +505,22 @@ async function person(user, perms, key, kind) {
     const other = (await gather(otherKey)).people.get(`${otherKind}:${otherKey}`);
     return other ? card(other, null, {}).name : null;
   };
+  const mentorName = async (mentorKey) => {
+    const other = (await gather(mentorKey)).people.get(`mentor:${mentorKey}`);
+    return other ? card(other, null, {}).name : null;
+  };
   const matches = [];
   for (const m of matchRows) {
     const otherKey = kind === 'mentor' ? m.mentee_key : m.mentor_key;
+    // A mentee's co-mentors are named with the first mentor; a mentor sees the others.
+    const team = [m.mentor_key, ...(m.co_mentors || [])].filter((k) => k !== key);
+    const coNames = [];
+    if (kind === 'mentor') {
+      for (const k of team) coNames.push((await mentorName(k)) || '(no longer on the board)');
+    } else {
+      for (const k of m.co_mentors || [])
+        coNames.push((await otherName(k)) || '(no longer on the board)');
+    }
     matches.push({
       id: m.id,
       track: m.track,
@@ -368,7 +528,11 @@ async function person(user, perms, key, kind) {
       createdAt: m.created_at,
       endedAt: m.ended_at,
       otherKey,
-      otherName: await otherName(otherKey),
+      otherName:
+        [await otherName(otherKey), ...(kind === 'mentee' ? coNames : [])]
+          .filter(Boolean)
+          .join(' & ') || null,
+      coMentors: kind === 'mentor' ? coNames : [],
     });
   }
   await audit.record(user, 'view-person', key, { kind });
@@ -965,7 +1129,8 @@ async function update(user, key, kind, changes) {
       throw new HttpError(400, 'Matched is set by pairing a mentor and a mentee');
     if (before.status === 'matched' && c.status !== 'matched') {
       const { rows } = await db.query(
-        `select 1 from crm_matches where status = 'active' and (mentor_key = $1 or mentee_key = $1)`,
+        `select 1 from crm_matches where status = 'active'
+         and (mentor_key = $1 or mentee_key = $1 or $1 = any(co_mentors))`,
         [key]
       );
       if (rows.length) throw new HttpError(409, 'End the pairing first');
@@ -1013,42 +1178,54 @@ async function addNote(user, key, kind, body) {
   await audit.record(user, 'add-note', key, { kind });
 }
 
-/** Pairs a selected mentor with a selected mentee on a track. */
-async function createMatch(user, mentorKey, menteeKey, trackKey) {
+/**
+ * Pairs a selected mentor with a selected mentee on a track. `coMentors`: the
+ * other mentors of the same project, paired with the mentee at once.
+ */
+async function createMatch(user, mentorKey, menteeKey, trackKey, coMentors = []) {
   if (!['projects', 'orientation'].includes(trackKey)) throw new HttpError(400, 'Choose the track');
   checkKey(mentorKey, 'mentor');
   checkKey(menteeKey, 'mentee');
+  // A project's co-mentors: the mentee is paired with all of them at once.
+  const co = [...new Set(Array.isArray(coMentors) ? coMentors.map(String) : [])].filter(
+    (k) => k !== mentorKey
+  );
+  if (co.length > MAX_CO_MENTORS) throw new HttpError(400, 'Too many co-mentors');
+  co.forEach((k) => checkKey(k, 'mentor'));
   const { people } = await gather();
   const all = await states();
-  const mentor = people.get(`mentor:${mentorKey}`);
   const mentee = people.get(`mentee:${menteeKey}`);
-  if (!mentor || !mentee) throw new HttpError(404, 'Not on the board (any more)');
-  const m = card(mentor, all.get(`mentor:${mentorKey}`), {});
+  const mentorsFound = [mentorKey, ...co].map((k) => people.get(`mentor:${k}`));
+  if (!mentee || mentorsFound.some((x) => !x))
+    throw new HttpError(404, 'Not on the board (any more)');
+  const team = [mentorKey, ...co].map((k, i) => card(mentorsFound[i], all.get(`mentor:${k}`), {}));
   const e = card(mentee, all.get(`mentee:${menteeKey}`), {});
-  if (!['selected', 'matched'].includes(m.status))
-    throw new HttpError(409, `${m.name} is not selected as a mentor yet`);
+  const fits = (t) => !t || t === 'both' || t === trackKey;
+  for (const m of team) {
+    if (!['selected', 'matched'].includes(m.status))
+      throw new HttpError(409, `${m.name} is not selected as a mentor yet`);
+    if (!fits(m.track)) throw new HttpError(409, `${m.name} is not on this track`);
+  }
   if (e.status !== 'selected')
     throw new HttpError(409, `${e.name} is not selected as a mentee yet`);
-  const fits = (t) => !t || t === 'both' || t === trackKey;
-  if (!fits(m.track)) throw new HttpError(409, `${m.name} is not on this track`);
   if (!fits(e.track)) throw new HttpError(409, `${e.name} is not on this track`);
 
+  const m = team[0];
   const { rows: active } = await db.query(
-    `select count(*)::int as n from crm_matches where status = 'active' and mentor_key = $1`,
+    `select count(*)::int as n from crm_matches
+     where status = 'active' and (mentor_key = $1 or $1 = any(co_mentors))`,
     [mentorKey]
   );
   let id;
   try {
     id = await db.transaction(async (tx) => {
       const { rows } = await tx.query(
-        `insert into crm_matches (mentor_key, mentee_key, track, created_by)
-         values ($1, $2, $3, $4) returning id`,
-        [mentorKey, menteeKey, trackKey, user.kind === 'admin' ? null : user.id]
+        `insert into crm_matches (mentor_key, mentee_key, co_mentors, track, created_by)
+         values ($1, $2, $3, $4, $5) returning id`,
+        [mentorKey, menteeKey, co, trackKey, user.kind === 'admin' ? null : user.id]
       );
-      for (const [key, kind, track] of [
-        [mentorKey, 'mentor', m.track],
-        [menteeKey, 'mentee', e.track],
-      ]) {
+      const who = [...team.map((t) => [t.key, 'mentor', t.track]), [menteeKey, 'mentee', e.track]];
+      for (const [key, kind, track] of who) {
         await tx.query(
           `insert into crm_people_state (person_key, kind, status, track, updated_at)
            values ($1, $2, 'matched', $3, now())
@@ -1064,11 +1241,13 @@ async function createMatch(user, mentorKey, menteeKey, trackKey) {
     }
     throw err;
   }
-  await audit.record(user, 'set-match', mentorKey, {
-    action: 'create',
-    role: 'mentor',
-    track: trackKey,
-  });
+  for (const t of team) {
+    await audit.record(user, 'set-match', t.key, {
+      action: 'create',
+      role: t.key === mentorKey ? 'mentor' : 'co-mentor',
+      track: trackKey,
+    });
+  }
   await audit.record(user, 'set-match', menteeKey, {
     action: 'create',
     role: 'mentee',
@@ -1077,7 +1256,10 @@ async function createMatch(user, mentorKey, menteeKey, trackKey) {
   return { id, overCapacity: Boolean(m.capacity) && active[0].n + 1 > m.capacity };
 }
 
-/** Ends a pairing: both go back to Selected (the mentor only if no other pair). */
+/**
+ * Ends a pairing: the mentee goes back to Selected, and each of its mentors
+ * (co-mentors too) when no other pair is left to them.
+ */
 async function endMatch(user, matchId) {
   if (!/^[0-9a-f-]{36}$/i.test(String(matchId || ''))) throw new HttpError(400, 'Invalid pairing');
   const { rows } = await db.query(`select * from crm_matches where id = $1 and status = 'active'`, [
@@ -1085,6 +1267,7 @@ async function endMatch(user, matchId) {
   ]);
   if (!rows.length) throw new HttpError(404, 'No such active pairing');
   const match = rows[0];
+  const team = [match.mentor_key, ...(match.co_mentors || [])];
   await db.transaction(async (tx) => {
     await tx.query(`update crm_matches set status = 'ended', ended_at = now() where id = $1`, [
       matchId,
@@ -1093,22 +1276,26 @@ async function endMatch(user, matchId) {
       `update crm_people_state set status = 'selected', updated_at = now() where person_key = $1 and kind = 'mentee'`,
       [match.mentee_key]
     );
-    const { rows: left } = await tx.query(
-      `select 1 from crm_matches where status = 'active' and mentor_key = $1`,
-      [match.mentor_key]
-    );
-    if (!left.length) {
-      await tx.query(
-        `update crm_people_state set status = 'selected', updated_at = now() where person_key = $1 and kind = 'mentor'`,
-        [match.mentor_key]
+    for (const key of team) {
+      const { rows: left } = await tx.query(
+        `select 1 from crm_matches where status = 'active' and (mentor_key = $1 or $1 = any(co_mentors))`,
+        [key]
       );
+      if (!left.length) {
+        await tx.query(
+          `update crm_people_state set status = 'selected', updated_at = now() where person_key = $1 and kind = 'mentor'`,
+          [key]
+        );
+      }
     }
   });
-  await audit.record(user, 'set-match', match.mentor_key, {
-    action: 'end',
-    role: 'mentor',
-    track: match.track,
-  });
+  for (const key of team) {
+    await audit.record(user, 'set-match', key, {
+      action: 'end',
+      role: key === match.mentor_key ? 'mentor' : 'co-mentor',
+      track: match.track,
+    });
+  }
   await audit.record(user, 'set-match', match.mentee_key, {
     action: 'end',
     role: 'mentee',
@@ -1149,6 +1336,7 @@ async function addProspect(user, body) {
 module.exports = {
   STATUSES,
   PROSPECT_FIELDS,
+  placesFrom,
   addProspect,
   TRACKS,
   trackOf,
@@ -1156,6 +1344,7 @@ module.exports = {
   yes,
   board,
   applicants,
+  roster,
   person,
   update,
   addNote,

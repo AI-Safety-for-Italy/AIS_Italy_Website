@@ -323,7 +323,7 @@
         'p',
         { class: 'form-label', style: 'margin-top:.9rem' },
         'Working groups',
-        h('span', { class: 'panel-note' }, ' · tags on Discord, not permissions here')
+        h('span', { class: 'panel-note' }, ' · tags on Discord')
       ),
       tags.node,
       h('div', { style: 'margin:.75rem 0' }, note),
