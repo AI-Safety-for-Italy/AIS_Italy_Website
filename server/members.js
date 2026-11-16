@@ -699,7 +699,7 @@ async function resendInvite(user, id, { siteOrigin }) {
   const token = newToken();
   const { rows } = await db.query(
     `update member_applications set join_token = $2,
-       join_expires_at = now() + make_interval(days => $3), join_error = null
+       join_expires_at = now() + make_interval(days => $3), join_error = null, join_started_at = null
      where id = $1 and status = 'approved' and joined_at is null returning *`,
     [id, tokenHash(token), JOIN_DAYS]
   );
@@ -730,34 +730,48 @@ async function checkJoinToken(token) {
   return row;
 }
 
+/** How long a click on the join link holds it: longer than a function runs. */
+const JOIN_LEASE_SECONDS = 120;
+
 /**
  * Takes the link for this join, in one statement: of two clicks at the same
- * moment, one wins and the other is told the link was used. Released again
- * if joining then fails, so the person can retry.
+ * moment, one wins and the other is asked to retry. Only a lease
+ * (join_started_at): released if joining fails, and if the join is cut short
+ * without a word (Discord silent, the function stopped) it runs out by
+ * itself, so the link never stays taken by someone who is not in.
  */
 async function claim(row) {
   const { rows } = await db.query(
-    `update member_applications set joined_at = now(), join_error = null
+    `update member_applications set join_started_at = now(), join_error = null
      where id = $1 and status = 'approved' and joined_at is null and join_expires_at > now()
+       and (join_started_at is null
+            or join_started_at < now() - make_interval(secs => $2))
      returning *`,
-    [row.id]
+    [row.id, JOIN_LEASE_SECONDS]
   );
-  if (!rows.length) throw new JoinError('used');
+  if (!rows.length) {
+    const { rows: now } = await db.query(
+      'select joined_at from member_applications where id = $1',
+      [row.id]
+    );
+    if (now[0] && now[0].joined_at) throw new JoinError('used');
+    throw new JoinError('failed', 'Another click on this link is being handled');
+  }
   return rows[0];
 }
 
 async function release(row, error) {
-  await db.query('update member_applications set joined_at = null, join_error = $2 where id = $1', [
-    row.id,
-    String(error).slice(0, 300),
-  ]);
+  await db.query(
+    'update member_applications set join_started_at = null, join_error = $2 where id = $1',
+    [row.id, String(error).slice(0, 300)]
+  );
 }
 
 async function markJoined(row, discordId, discordName, emailMatch) {
   await db.query(
     // The token stays, so opening the link again says "already used".
     `update member_applications set discord_id = $2, discord_name = $3, join_email_match = $4,
-       join_error = null
+       joined_at = now(), join_started_at = null, join_error = null
      where id = $1`,
     [row.id, discordId, discordName, emailMatch]
   );

@@ -641,7 +641,10 @@ applications never approved, and the mentorship board's own copies of people
 with the notes and status the team wrote about them. Approved applications
 stay, as the record of who is a member, but after 12 months only name and email
 remain (the answers are dropped). The board's copies of people selected for the
-program (selected or paired) stay 24 months (`server/retention.js`). A GitHub
+program (selected or paired) stay 24 months (`server/retention.js`). The
+accounts of `/app/` (Discord name, id, avatar, email) go 24 months after their
+last sign-in, unless they still own a poll, a form or a calendar, hold
+permissions given by name, or scored mentees: those wait to be handed over. A GitHub
 Action runs it once a day
 on the live site (`.github/workflows/retention.yml`), calling
 `/api/cron/cleanup` with a shared secret; each run leaves one line with the
@@ -649,8 +652,9 @@ counts on the audit trail.
 
 Setting up, once: a random `CRON_SECRET` of at least 32 characters
 (`openssl rand -base64 48`), saved both as a Vercel environment variable
-(Production) and as a GitHub repository secret. Without it the job does
-nothing. The privacy notice (`src/content/privacy.njk`) says the same periods:
+(Production) and as a GitHub repository secret. Without it the job fails
+(red on GitHub) instead of passing having done nothing; the calendar reminders
+and the Discord check do the same. The privacy notice (`src/content/privacy.njk`) says the same periods:
 when one changes here, change it there and tell the people already on file.
 
 # Calendar (`/app/calendar/`)

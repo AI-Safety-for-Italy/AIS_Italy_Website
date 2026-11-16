@@ -428,6 +428,12 @@ create index if not exists member_applications_email_key on member_applications 
 -- Discord did not say).
 alter table member_applications add column if not exists join_email_match boolean;
 
+-- join_started_at: a click on the join link is being handled, until then. It
+-- is a short lease, not the joined mark: a join cut short (Discord silent, the
+-- function stopped) frees the link again once it runs out. joined_at is set
+-- only once they are in, with discord_id.
+alter table member_applications add column if not exists join_started_at timestamptz;
+
 -- The people on the mentorship board (server/crm/records.js): one row per
 -- answer, in the shape server/crm/sources.js gives a sheet's row, encrypted
 -- and bound to the row's id. origin: 'import' (copied once from a Google
@@ -511,6 +517,10 @@ create table if not exists member_groups (
 -- whether it asks to join or, from a participant, to become an organizer.
 alter table member_applications add column if not exists tags jsonb not null default '[]';
 alter table member_applications add column if not exists kind text not null default 'join';
+-- A join link taken before join_started_at existed, by someone who never got
+-- in: free again (see join_started_at above).
+update member_applications set joined_at = null
+  where kind = 'join' and joined_at is not null and discord_id is null;
 
 -- The form answer an application came from, so the board's decision shows
 -- as the answer's tag (Approved, Rejected).
