@@ -16,6 +16,7 @@ const VIEW_CHANNEL = 1n << 10n;
 const SEND_MESSAGES = 1n << 11n;
 const ADMINISTRATOR = 1n << 3n;
 const CONNECT = 1n << 20n;
+const SUPPRESS_EMBEDS = 1 << 2; // message flag: no link preview cards
 
 const TEXT = [0, 5]; // text, announcement
 const VOICE = [2, 13]; // voice, stage
@@ -150,6 +151,8 @@ async function post(channelId, content, { components } = {}) {
       json: {
         content: content.slice(0, 1900),
         allowed_mentions: { parse: [] },
+        // The calendar link is enough: no preview card under the announcement.
+        flags: SUPPRESS_EMBEDS,
         ...(components ? { components } : {}),
       },
     });
