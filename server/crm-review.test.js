@@ -258,8 +258,6 @@ test('a reviewer never receives a name, an email or a person key', async () => {
     'Marco',
     'Secondo',
     'lia@example.org',
-    'Università di Prova',
-    'Dottoranda',
     '333 123',
     'lia.example.org',
     LIA_KEY(),
@@ -267,6 +265,8 @@ test('a reviewer never receives a name, an email or a person key', async () => {
   ]) {
     assert.ok(!text.includes(secret), `leaks ${secret}`);
   }
+  // A role or an affiliation stays in the answers, as written.
+  assert.ok(text.includes('Dottoranda') && text.includes('Università di Prova'));
   // Gino only expressed interest: nothing to score.
   assert.equal(seen[0].items.length, 2);
 });
@@ -288,7 +288,7 @@ test('the answers come without who wrote them; the CV part only with safe links'
   const background = app.items.find((a) => a.label === 'Background').text;
   assert.equal(
     background,
-    'Mi chiamo [name] [name], faccio la [role] alla [affiliation]. Scrivimi a [email] o su [link], tel. [phone].'
+    'Mi chiamo [name] [name], faccio la Dottoranda alla Università di Prova. Scrivimi a [email] o su [link], tel. [phone].'
   );
   assert.equal(app.items[0].label, 'Track');
   assert.ok(app.items.every((a) => a.url === null));
@@ -677,7 +677,7 @@ test('the applications can come from a form chosen by the admins', async () => {
   assert.equal(list.items.length, 2);
   const liaCode = review.codeOf(LIA_KEY(), q.sections[1]);
   const app = await review.application(ann, 'answers', liaCode);
-  assert.equal(app.items[0].text, 'Sono [name], studio al [uni].');
+  assert.equal(app.items[0].text, 'Sono [name], studio al Politecnico di Prova.');
 
   // In the summary: Lia is on the board (her status shows), the other is not.
   await records.add('mentees_applications', LIA, { origin: 'form' });

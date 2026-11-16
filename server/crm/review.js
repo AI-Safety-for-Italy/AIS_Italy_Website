@@ -160,7 +160,7 @@ const DEFAULT_SECTIONS = [
     key: 'answers',
     label: 'Answers',
     prefix: 'A',
-    note: 'Names, affiliations, emails, links and phone numbers are taken out of the answers. If you recognise the person anyway, step aside.',
+    note: 'Names, emails, links and phone numbers are taken out of the answers. If you recognise the person anyway, step aside.',
     anonymous: true,
     weight: 1,
     reviewers: [],
@@ -680,8 +680,9 @@ function escapeRe(text) {
 
 /**
  * Text without what would say who wrote it: emails, links, handles, phone
- * numbers, the person's own name, and the short answers they gave elsewhere
- * in the form (their role, their affiliation…), each marked by its question:
+ * numbers, the person's own name, and the email or link they gave elsewhere
+ * in the form (identifying()), marked by its question; where they study or
+ * work, their role, their country stay as written:
  * `who` is { name, phrases: [[text, mark]] }. It cannot catch everything (a
  * thesis title, a small town): it takes out what is mechanical, and the
  * reviewers are asked to step aside when they recognise someone anyway.
@@ -765,8 +766,10 @@ function linksIn(raw) {
   return { links, only: links.length > 0 && links.every((l) => looks(l.text)) };
 }
 
-// What may say who someone is when it turns up in their other answers.
-const IDENTIFYING = ['short_text', 'email', 'url'];
+/** A question whose answer, found in other answers, is taken out of them. */
+function identifying(q) {
+  return q.type === 'email' || q.type === 'url';
+}
 
 /**
  * What a reviewer reads of one application in one section: [{ id, label,
@@ -783,7 +786,7 @@ function shown(applicant, section, catalog, settings) {
   const who = {
     name: nameQ && !inSection.has(nameQ) ? a[nameQ] || (applicant.card && applicant.card.name) : '',
     phrases: catalog
-      .filter((q) => IDENTIFYING.includes(q.type) && q.id !== nameQ && !inSection.has(q.id))
+      .filter((q) => identifying(q) && q.id !== nameQ && !inSection.has(q.id))
       .map((q) => [a[q.id], `[${q.id}]`]),
   };
   const scored = new Set(slots(section).map((s) => s.question));
