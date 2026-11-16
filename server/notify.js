@@ -105,6 +105,8 @@ async function discordDm(discordId, content, { components } = {}) {
     body: JSON.stringify({
       content,
       allowed_mentions: { parse: [] },
+      // SUPPRESS_EMBEDS: the links stay, without a preview card under them.
+      flags: 1 << 2,
       ...(components ? { components } : {}),
     }),
   });
