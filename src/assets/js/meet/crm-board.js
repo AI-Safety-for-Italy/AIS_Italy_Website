@@ -1010,13 +1010,21 @@
               'ul',
               { class: 'crm-pairs' },
               d.matches.map(function (m) {
+                // A project with co-mentors: all its mentors, one pair.
+                var mentors = [m.mentor.name]
+                  .concat(
+                    (m.coMentors || []).map(function (c) {
+                      return c.name;
+                    })
+                  )
+                  .join(' & ');
                 return h(
                   'li',
                   null,
                   h(
                     'span',
                     null,
-                    h('strong', null, m.mentor.name),
+                    h('strong', null, mentors),
                     ' → ',
                     h('strong', null, m.mentee.name)
                   ),
@@ -1030,7 +1038,7 @@
                         if (
                           !window.confirm(
                             'End the pair ' +
-                              m.mentor.name +
+                              mentors +
                               ' → ' +
                               m.mentee.name +
                               '? Both go back to Selected.'

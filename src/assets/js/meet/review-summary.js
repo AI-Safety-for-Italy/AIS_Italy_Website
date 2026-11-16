@@ -1,8 +1,12 @@
 /* /app/review/summary/: every applicant with every score, for the admins of
- * the mentee selection. Best overall score first; a row opens on each
- * reviewer's scores and comment. The status is the board's own: changing it
+ * the mentee selection. With a pre-screening, those it excluded are in a
+ * table of their own below the ranking. One column per section of the setup, best overall
+ * score first; a row opens on each reviewer's scores and comment, criterion
+ * by criterion (grouped by question when a section has one grid per question). The status is the board's own: changing it
  * here moves the mentee on the mentorship board too. "Hide names" shows the
- * codes only, for discussing the scores before the names. */
+ * codes only, for discussing the scores before the names. With a
+ * pre-screening, who was excluded there is last, with why and by whom, and
+ * can be brought back into the sections. */
 (function () {
   'use strict';
   var M = window.Meet;
@@ -39,8 +43,44 @@
     .then(function (r) {
       view.data = r[1];
       render();
+      // The places of the matching, to know how many to select. Not set up: no line.
+      return M.api('GET', API + '?action=matching&pool=selected').then(
+        function (m) {
+          view.places = m.places;
+          render();
+        },
+        function () {}
+      );
     })
     .catch(fail);
+
+  function placesLine() {
+    var pl = view.places;
+    if (!pl) return null;
+    var part = function (label, t, extra) {
+      var known = t.unknown ? t.places + '+' : String(t.places);
+      return h(
+        'span',
+        { class: 'rv-places-part' },
+        h('strong', null, label + ': '),
+        known + ' places' + extra + ', ' + t.selected + ' selected'
+      );
+    };
+    var parts = [];
+    if (pl.projects.projects.length)
+      parts.push(part('Projects', pl.projects, ' on ' + pl.projects.projects.length + ' projects'));
+    if (pl.orientation.mentors)
+      parts.push(
+        part('Career orientation', pl.orientation, ' with ' + pl.orientation.mentors + ' mentors')
+      );
+    if (!parts.length) return null;
+    return h(
+      'p',
+      { class: 'rv-places' },
+      parts,
+      h('a', { href: '/app/review/matching/' }, 'Places by project')
+    );
+  }
 
   function num(n) {
     return n === null || n === undefined ? '–' : n.toFixed(2);
@@ -53,8 +93,11 @@
     return s ? s.label : key;
   }
 
+  // Blind, someone is the code of the last section (usually the anonymous one).
   function who(p) {
-    return view.blind ? p.parts.answers.code : p.name;
+    if (!view.blind) return p.name;
+    var s = view.data.sections;
+    return p.parts[s[s.length - 1].key].code;
   }
 
   // Reviewers far apart on someone: worth a word before deciding.
@@ -85,6 +128,14 @@
   }
 
   function statusSelect(p) {
+    // Not on the mentorship board (answered a form only): no status to move.
+    if (p.status === null) {
+      return h(
+        'span',
+        { class: 'rv-status panel-note', title: 'Not on the mentorship board' },
+        'Not on the board'
+      );
+    }
     // Past the selection (Selected, Matched…): shown, changed on the board.
     if (view.data.editable.indexOf(p.status) === -1) {
       return h(
@@ -126,20 +177,53 @@
     return select;
   }
 
+  function screenedOut(p) {
+    return Boolean(p.prescreen && p.prescreen.decision === 'exclude');
+  }
+
+  // Brings someone excluded at the pre-screening back into the sections.
+  function readmit(p, button) {
+    if (!window.confirm('Bring ' + who(p) + ' back? They go into the sections, to be scored.'))
+      return;
+    button.disabled = true;
+    M.api('POST', API + '?action=readmit', { key: p.key, decision: 'pass' })
+      .then(function () {
+        return M.api('GET', API + '?action=summary');
+      })
+      .then(function (d) {
+        view.data = d;
+        M.toast('Back in the sections');
+        render();
+      })
+      .catch(function (err) {
+        if (err.status === 401) return M.appError(err);
+        M.toast(err.message, true);
+        button.disabled = false;
+      });
+  }
+
   function detailRow(p, colspan) {
-    var grid = view.data.grid;
     return h(
       'tr',
       { class: 'rv-detail-row' },
       h(
         'td',
         { colspan: String(colspan) },
+        p.exclusions.length
+          ? h(
+              'ul',
+              { class: 'rv-excl-list' },
+              p.exclusions.map(function (x) {
+                return h('li', null, x.reason + ' — ' + x.reviewer + ' (' + x.section + ')');
+              })
+            )
+          : null,
         h(
           'div',
           { class: 'rv-detail-parts' },
-          view.data.parts.map(function (part) {
+          view.data.sections.map(function (part) {
             var d = p.parts[part.key];
-            var criteria = grid[part.key];
+            var criteria = part.grid;
             return h(
               'section',
               null,
@@ -156,7 +240,13 @@
                         null,
                         h('th', null, 'Reviewer'),
                         criteria.map(function (c) {
-                          return h('th', { title: c.label }, c.label);
+                          var full = c.questionLabel ? c.questionLabel + ': ' + c.label : c.label;
+                          return h(
+                            'th',
+                            { title: full },
+                            c.questionLabel ? h('small', null, c.questionLabel) : null,
+                            c.label
+                          );
                         }),
                         h('th', null, 'Total')
                       )
@@ -173,7 +263,18 @@
                               'td',
                               null,
                               r.reviewer,
-                              r.stillReviewer ? null : h('small', null, ' (no longer a reviewer)')
+                              r.stillReviewer ? null : h('small', null, ' (no longer a reviewer)'),
+                              r.flags && r.flags.length
+                                ? h(
+                                    'span',
+                                    { class: 'rv-excl-badge', title: 'Reason to exclude' },
+                                    r.flags
+                                      .map(function (f) {
+                                        return f.label;
+                                      })
+                                      .join(' · ')
+                                  )
+                                : null
                             ),
                             r.conflict
                               ? h(
@@ -194,7 +295,18 @@
                                     'td',
                                     { class: 'rv-num' },
                                     h('strong', null, num(r.total)),
-                                    r.complete ? null : h('small', null, ' not complete')
+                                    r.complete
+                                      ? r.missing
+                                        ? h(
+                                            'small',
+                                            {
+                                              title:
+                                                'Done before a criterion was added: counts on the criteria it has',
+                                            },
+                                            ' ' + r.missing + ' new missing'
+                                          )
+                                        : null
+                                      : h('small', null, ' not complete')
                                   ),
                                 ]
                           ),
@@ -267,9 +379,9 @@
     });
     blind.checked = view.blind;
 
-    var weights = data.parts
+    var weights = data.sections
       .map(function (p) {
-        return p.label + ' ×' + data.weights[p.key];
+        return p.label + ' ×' + p.weight;
       })
       .join(', ');
     root.appendChild(
@@ -283,17 +395,26 @@
           { class: 'panel-note' },
           data.reviewers.length +
             (data.reviewers.length === 1 ? ' reviewer' : ' reviewers') +
-            ' · overall = mean of the parts (' +
+            ' · overall = mean of the sections (' +
             weights +
             ')'
         )
       )
     );
 
-    var shown = data.people.filter(function (p) {
+    var line = placesLine();
+    if (line) root.appendChild(line);
+
+    var all = data.people.filter(function (p) {
       return !view.status || p.status === view.status;
     });
-    if (!shown.length) {
+    var shown = all.filter(function (p) {
+      return !screenedOut(p);
+    });
+    var rejected = all.filter(screenedOut);
+    var screen = screeningLine();
+    if (screen) root.appendChild(screen);
+    if (!all.length) {
       root.appendChild(
         h(
           'div',
@@ -304,6 +425,8 @@
             null,
             data.people.length
               ? 'No applicant has this status.'
+              : data.source === 'form'
+              ? 'Nobody has answered the form chosen in the setup yet.'
               : 'No mentee has applied yet: applications come from the mentee application form.'
           )
         )
@@ -311,7 +434,7 @@
       return;
     }
 
-    var cols = 6;
+    var cols = 4 + data.sections.length;
     var body = h('tbody');
     shown.forEach(function (p, i) {
       var open = view.open.has(p.key);
@@ -319,7 +442,8 @@
         h(
           'tr',
           {
-            class: 'rv-row' + (open ? ' is-open' : ''),
+            class:
+              'rv-row' + (open ? ' is-open' : '') + (p.exclusions.length ? ' is-excluded' : ''),
             tabindex: '0',
             'aria-expanded': open ? 'true' : 'false',
             onclick: function () {
@@ -334,20 +458,46 @@
               }
             },
           },
-          h('td', { class: 'rv-rank' }, p.overall === null ? '' : String(i + 1)),
+          h(
+            'td',
+            { class: 'rv-rank' },
+            p.overall === null || p.exclusions.length ? '' : String(i + 1)
+          ),
           h(
             'td',
             { class: 'rv-who' },
             h('strong', null, who(p)),
-            !view.blind && p.org ? h('small', null, p.org) : null
+            !view.blind && p.org ? h('small', null, p.org) : null,
+            p.exclusions.length
+              ? h(
+                  'span',
+                  {
+                    class: 'rv-excl-badge',
+                    title: p.exclusions
+                      .map(function (x) {
+                        return x.reason + ' (' + x.reviewer + ')';
+                      })
+                      .join('\n'),
+                  },
+                  p.exclusions
+                    .map(function (x) {
+                      return x.reason;
+                    })
+                    .filter(function (r, k, all) {
+                      return all.indexOf(r) === k;
+                    })
+                    .join(' · ')
+                )
+              : null
           ),
-          partCell(p.parts.cv),
-          partCell(p.parts.answers),
+          data.sections.map(function (s) {
+            return partCell(p.parts[s.key]);
+          }),
           h(
             'td',
             { class: 'rv-num rv-overall' },
             h('strong', null, num(p.overall)),
-            p.partial ? h('small', { title: 'One part has no score yet' }, ' one part') : null
+            p.partial ? h('small', { title: 'Some sections have no score yet' }, ' partial') : null
           ),
           h('td', null, statusSelect(p))
         )
@@ -370,8 +520,16 @@
               null,
               h('th', null, '#'),
               h('th', null, view.blind ? 'Code' : 'Applicant'),
-              h('th', { class: 'rv-num' }, 'CV'),
-              h('th', { class: 'rv-num' }, 'Answers'),
+              data.sections.map(function (s) {
+                return h(
+                  'th',
+                  {
+                    class: 'rv-num',
+                    title: s.reviewers.length ? 'Scored by ' + s.reviewers.join(', ') : null,
+                  },
+                  s.label
+                );
+              }),
               h('th', { class: 'rv-num' }, 'Overall'),
               h('th', null, 'Status (board)')
             )
@@ -384,7 +542,98 @@
       h(
         'p',
         { class: 'panel-note rv-foot' },
-        'Each part shows the mean of the complete reviews and how many there are; ±n: the reviewers differ by that much. Rejected applicants are no longer shown to the reviewers. Selected and later are set on the mentorship board.'
+        'Each section shows the mean of the complete reviews and how many there are; ±n: the reviewers differ by that much. Someone a reviewer flagged with a reason to exclude goes to the bottom, marked. Rejected applicants are no longer shown to the reviewers. Selected and later are set on the mentorship board.'
+      )
+    );
+    if (rejected.length) root.appendChild(rejectedTable(rejected));
+  }
+
+  // Where the pre-screening is: passed, excluded, left to do.
+  function screeningLine() {
+    var data = view.data;
+    if (!data.prescreen || !data.prescreen.enabled) return null;
+    var passed = 0;
+    var out = 0;
+    var todo = 0;
+    data.people.forEach(function (p) {
+      if (p.status === 'declined') return;
+      if (!p.prescreen) todo++;
+      else if (p.prescreen.decision === 'pass') passed++;
+      else out++;
+    });
+    return h(
+      'p',
+      { class: 'rv-places' },
+      h('strong', null, 'Pre-screening: '),
+      passed + ' passed, ' + out + ' excluded, ' + todo + ' left to do'
+    );
+  }
+
+  // Those the pre-screening excluded, apart: why, by whom, when.
+  function rejectedTable(list) {
+    var body = h(
+      'tbody',
+      null,
+      list.map(function (p) {
+        var back = h(
+          'button',
+          {
+            type: 'button',
+            class: 'btn btn-outline btn-sm',
+            onclick: function () {
+              readmit(p, back);
+            },
+          },
+          'Bring back'
+        );
+        return h(
+          'tr',
+          null,
+          h(
+            'td',
+            { class: 'rv-who' },
+            h('strong', null, who(p)),
+            !view.blind && p.org ? h('small', null, p.org) : null
+          ),
+          h('td', null, p.prescreen.reasonLabels.join(', ') || '—'),
+          h('td', null, p.prescreen.by),
+          h('td', { class: 'rv-nowrap' }, M.fmtDateTime(p.prescreen.at)),
+          h('td', null, statusSelect(p)),
+          h('td', { class: 'rv-num' }, back)
+        );
+      })
+    );
+    return h(
+      'section',
+      { class: 'rv-rejected' },
+      h('h2', null, 'Excluded at the pre-screening ', h('small', null, String(list.length))),
+      h(
+        'p',
+        { class: 'panel-note' },
+        'Shown in no section, so nobody scored them. Bring someone back to have them scored.'
+      ),
+      h(
+        'div',
+        { class: 'fr-table-wrap rv-table-wrap' },
+        h(
+          'table',
+          { class: 'rv-table' },
+          h(
+            'thead',
+            null,
+            h(
+              'tr',
+              null,
+              h('th', null, view.blind ? 'Code' : 'Applicant'),
+              h('th', null, 'Why'),
+              h('th', null, 'By'),
+              h('th', null, 'When'),
+              h('th', null, 'Status (board)'),
+              h('th', null, '')
+            )
+          ),
+          body
+        )
       )
     );
   }

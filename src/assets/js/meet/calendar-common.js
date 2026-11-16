@@ -563,6 +563,142 @@
       .join('; ');
   }
 
+  // ── Reminders: the event's and one's own ──────────────────────────────
+
+  var VIA = [
+    ['', 'As each event says'],
+    ['email', 'By email'],
+    ['discord', 'On Discord'],
+    ['both', 'Email and Discord'],
+  ];
+
+  function channelText(channels) {
+    return channels.indexOf('email') !== -1 && channels.indexOf('discord') !== -1
+      ? 'email and Discord'
+      : channels.indexOf('email') !== -1
+      ? 'email'
+      : 'Discord';
+  }
+
+  /** "1 day before by email, 15 minutes before on Discord". */
+  function remindersText(list) {
+    return (list || [])
+      .map(function (r) {
+        return leadLabel(r.minutes).toLowerCase() + ' · ' + channelText(r.channels);
+      })
+      .join(', ');
+  }
+
+  /**
+   * An editor of one's own reminders: rows of "when" and "how", and an
+   * "Add" button. opts: { value: [{ minutes, channels }], onChange(list) }.
+   * Returns { el, get() }.
+   */
+  function ownReminders(opts) {
+    var list = (opts.value || []).map(function (r) {
+      return { minutes: r.minutes, channels: r.channels.slice() };
+    });
+    var el = M.h('div', { class: 'cal-own' });
+    function changed() {
+      if (opts.onChange) opts.onChange(get());
+    }
+    function get() {
+      return list.map(function (r) {
+        return { minutes: r.minutes, channels: r.channels.slice() };
+      });
+    }
+    function draw() {
+      M.clear(el);
+      list.forEach(function (r, i) {
+        var when = M.h(
+          'select',
+          {
+            class: 'form-input is-compact',
+            'aria-label': 'When',
+            onchange: function () {
+              r.minutes = Number(when.value);
+              changed();
+            },
+          },
+          LEAD_TIMES.map(function (m) {
+            var o = M.h('option', { value: String(m) }, leadLabel(m));
+            o.selected = m === r.minutes;
+            return o;
+          })
+        );
+        var how = M.h(
+          'select',
+          {
+            class: 'form-input is-compact',
+            'aria-label': 'How',
+            onchange: function () {
+              r.channels = how.value === 'both' ? ['email', 'discord'] : [how.value];
+              changed();
+            },
+          },
+          [
+            ['email', 'By email'],
+            ['discord', 'On Discord'],
+            ['both', 'Both'],
+          ].map(function (c) {
+            var value =
+              r.channels.length > 1 ? 'both' : r.channels[0] === 'discord' ? 'discord' : 'email';
+            var o = M.h('option', { value: c[0] }, c[1]);
+            o.selected = c[0] === value;
+            return o;
+          })
+        );
+        el.appendChild(
+          M.h(
+            'div',
+            { class: 'cal-own-row' },
+            when,
+            how,
+            M.h(
+              'button',
+              {
+                type: 'button',
+                class: 'cal-own-x',
+                'aria-label': 'Remove this reminder',
+                onclick: function () {
+                  list.splice(i, 1);
+                  draw();
+                  changed();
+                },
+              },
+              '×'
+            )
+          )
+        );
+      });
+      if (list.length < 4) {
+        el.appendChild(
+          M.h(
+            'button',
+            {
+              type: 'button',
+              class: 'cal-own-add',
+              onclick: function () {
+                var used = list.map(function (r) {
+                  return r.minutes;
+                });
+                var next = [60, 15, 1440, 30, 0, 120].filter(function (m) {
+                  return used.indexOf(m) === -1;
+                })[0];
+                list.push({ minutes: next === undefined ? 5 : next, channels: ['email'] });
+                draw();
+                changed();
+              },
+            },
+            '+ Add a reminder of my own'
+          )
+        );
+      }
+    }
+    draw();
+    return { el: el, get: get };
+  }
+
   window.Cal = {
     API: API,
     LEVELS: LEVELS,
@@ -570,6 +706,10 @@
     svg: svg,
     levelBadge: levelBadge,
     leadLabel: leadLabel,
+    VIA: VIA,
+    channelText: channelText,
+    remindersText: remindersText,
+    ownReminders: ownReminders,
     leadShort: leadShort,
     channels: channels,
     platform: platform,

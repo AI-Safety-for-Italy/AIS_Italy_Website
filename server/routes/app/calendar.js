@@ -19,11 +19,18 @@
 //   POST ?action=save-prefs { advanced, notify, selection }
 //   POST ?action=show&id=… { on }         -> one calendar on the dashboard, or not
 //   POST ?action=regenerate-feed          -> a new personal .ics link
+//   GET  ?invitable=<name>                -> members who can be invited by name (who adds events)
+//   POST ?action=invites&id=… { members, emails }  -> who is invited to an event (edit)
+//   POST ?action=send-invites&id=… { again? }      -> emails / DMs the invite (edit)
+//   POST ?action=my-reminders&id=… { eventReminders, own, occurrence }
+//                                         -> this member's reminders for one event
 const { route, sendJson, readJson, getQuery, HttpError } = require('../../http');
 const { requireUser } = require('../../auth');
 const calendars = require('../../calendars');
 const permissions = require('../../permissions');
 const discord = require('../../calendar-discord');
+const invites = require('../../calendar-invites');
+const { siteUrl } = require('../../http');
 
 const SCOPES = ['this', 'following', 'all'];
 
@@ -48,6 +55,11 @@ module.exports = route({
       if (!(await calendars.writable(user)).length)
         throw new HttpError(403, 'Only who adds events sees the channels');
       return sendJson(res, 200, await discord.channels());
+    }
+    if (q.invitable !== undefined) {
+      if (!(await calendars.writable(user)).length)
+        throw new HttpError(403, 'Only who adds events invites people');
+      return sendJson(res, 200, { people: await invites.searchMembers(q.invitable) });
     }
     if (q.roles || q.people !== undefined) {
       if (!(await calendars.sharesCalendars(user)))
@@ -83,6 +95,19 @@ module.exports = route({
         return sendJson(res, 200, await calendars.savePrefs(user, body));
       case 'show':
         return sendJson(res, 200, await calendars.setShown(user, q.id, body.on));
+      case 'invites':
+        return sendJson(res, 200, await invites.setInvites(user, q.id, body));
+      case 'send-invites':
+        return sendJson(
+          res,
+          200,
+          await invites.sendInvites(user, q.id, {
+            again: Boolean(body && body.again),
+            site: siteUrl(req),
+          })
+        );
+      case 'my-reminders':
+        return sendJson(res, 200, await calendars.setEventPrefs(user, q.id, body));
       case 'regenerate-feed':
         return sendJson(res, 200, await calendars.regenerateFeed(user));
       default:

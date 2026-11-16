@@ -100,7 +100,7 @@
       sentTitle: 'Sent',
       sent: 'Your answers have been sent.',
       previewSent: 'Preview: nothing was sent.',
-      previewNote: 'Preview: nothing is sent',
+      previewNote: 'Preview: nothing is sent, and no answer is needed to go on',
       again: 'Fill in again',
       requiredMark: 'Required',
       draftKept: 'Draft kept in this browser',
@@ -188,7 +188,7 @@
       sentTitle: 'Inviato',
       sent: 'Le tue risposte sono state inviate.',
       previewSent: 'Anteprima: non è stato inviato nulla.',
-      previewNote: 'Anteprima: non si invia nulla',
+      previewNote: 'Anteprima: non si invia nulla, e si va avanti senza rispondere',
       again: 'Compila di nuovo',
       requiredMark: 'Obbligatoria',
       draftKept: 'Bozza salvata in questo browser',
@@ -1118,7 +1118,9 @@
     form.addEventListener('submit', function (e) {
       e.preventDefault();
       formError.hidden = true;
-      var bad = checkPage(page);
+      // The editor's preview moves through the pages without the required
+      // answers, to see the whole form; the public page always checks.
+      var bad = opts.preview ? null : checkPage(page);
       if (bad) {
         focusQuestion(bad);
         return;
@@ -1129,7 +1131,7 @@
         return;
       }
       // The last page: check everything, then send.
-      for (var i = 0; i < pages.length; i++) {
+      for (var i = 0; i < pages.length && !opts.preview; i++) {
         if (!pageShown(i)) continue;
         var wrong = checkPage(i);
         if (wrong) {

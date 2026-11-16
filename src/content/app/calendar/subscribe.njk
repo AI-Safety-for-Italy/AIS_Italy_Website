@@ -43,6 +43,16 @@ seoTitle: 'Subscribe to the calendar | AI Safety for Italy'
     <p class="cal-saved" id="subSaved" aria-live="polite"></p>
   </section>
 
+  <section class="panel cal-sub-rem" aria-labelledby="subRemTitle">
+    <h2 id="subRemTitle">Reminders</h2>
+    <div class="cal-rem-kinds">
+      <p><strong>The event’s reminders</strong> are chosen by whoever organises it, the same for everyone. Here you choose, per calendar, whether you get them and how.</p>
+      <p><strong>Your own reminders</strong> are yours alone: when and how you want, for every event of a calendar. On one event’s card you can change both for that event only.</p>
+    </div>
+    <p class="panel-note">Events you said you go to, or are invited to, send you their reminders even from a calendar set to “Off”: switch them off on the event itself. Your usual channel is in <a href="/app/settings/">Settings → Notifications</a>.</p>
+    <div id="subRemBody">{# filled by calendar-subscribe.js #}</div>
+  </section>
+
   <section class="panel cal-sub-public" id="subPublic" hidden aria-labelledby="subPublicTitle">
     <h2 id="subPublicTitle">Public calendars</h2>
     <p class="panel-note">These have a link of their own, the same for everyone: share it with anyone, also outside the community. The site shows them at <a href="/calendar/">/calendar/</a>.</p>

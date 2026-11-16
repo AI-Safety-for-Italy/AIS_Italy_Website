@@ -916,6 +916,250 @@ test('choosing a time can email the invite, and changing it sends the cancellati
   assert.equal(none.statusCode, 409);
 });
 
+test('a meeting in a calendar is one meeting: moved, edited and emailed as such', async () => {
+  const sent = await fakeMail();
+  const me = await owner();
+  const user = { id: me, kind: 'discord', name: 'Owner' };
+  const calendars = require('./calendars');
+  const feed = require('./calendar-feed');
+  const { rows: cal } = await db.query(
+    `insert into calendars (slug, name, view_all, edit_all) values ('team', 'Team', true, true)
+     returning id`
+  );
+  const { id, token } = await polls.createPoll(basePoll(), me);
+  const slots = (await polls.getPollAdmin(id, me)).slots;
+  await polls.submitResponse(token, { name: 'Giulia', email: 'g@example.org' });
+  const handler = require('./routes/app/poll');
+  const cookie = `${auth.COOKIE}=${auth.makeSession(me)}`;
+  const call = async (method, query, body) => {
+    const res = fakeResponse();
+    await handler(
+      fakeRequest({ method, url: `/api/app/poll?id=${id}${query}`, cookie, body }),
+      res
+    );
+    return res;
+  };
+  const copy = async () =>
+    (await db.query(`select * from calendar_events where source = 'poll' and source_id = $1`, [id]))
+      .rows[0];
+
+  // Chosen with a calendar and the invite: one event, the invite's version.
+  const chosen = await call('POST', '&action=finalize', {
+    slotId: slots[0].id,
+    calendarId: cal[0].id,
+    sendInvite: true,
+    emails: ['g@example.org'],
+  });
+  assert.equal(chosen.statusCode, 200);
+  assert.equal(chosen.body.calendarId, cal[0].id);
+  const first = await copy();
+  const { rows: p1 } = await db.query('select meeting_sequence from polls where id = $1', [id]);
+  assert.equal(first.sequence, p1[0].meeting_sequence);
+  assert.match(sent[0].icalEvent.content, new RegExp(`UID:${id}@ais4i.it`));
+  // The calendar feed writes it with the same UID: one meeting, not two.
+  const ics = feed.build({ events: [first], calendars: [{ id: cal[0].id, name: 'Team' }] });
+  assert.match(ics, new RegExp(`UID:${id}@ais4i.it`));
+
+  // Someone says they come, in the calendar.
+  await calendars.rsvp(user, first.id, new Date(first.starts_at).toISOString(), 'yes');
+
+  // Moved: the same event, at the new time, still with who comes; the update emailed.
+  const moved = await call('POST', '&action=move', { slotId: slots[1].id, notifyInvitees: true });
+  assert.equal(moved.statusCode, 200);
+  assert.equal(moved.body.finalSlotId, slots[1].id);
+  assert.deepEqual(moved.body.outcome, { sent: 1, failed: 0 });
+  const after = await copy();
+  assert.equal(after.id, first.id);
+  assert.equal(new Date(after.starts_at).toISOString(), slots[1].start);
+  const { rows: going } = await db.query('select * from calendar_rsvps where event_id = $1', [
+    first.id,
+  ]);
+  assert.equal(new Date(going[0].occurrence_start).toISOString(), slots[1].start);
+  assert.equal(sent[1].icalEvent.method, 'REQUEST');
+  assert.match(sent[1].subject, /^Aggiornata: /);
+  assert.match(sent[1].icalEvent.content, new RegExp(`SEQUENCE:${after.sequence}\r\n`));
+  assert.ok(after.sequence > first.sequence);
+  assert.equal((await call('POST', '&action=move', { slotId: slots[1].id })).statusCode, 409);
+
+  // Edited: told only when asked, and only when what the invite says changed.
+  await call('PATCH', '', { deadline: null, notifyInvitees: true });
+  assert.equal(sent.length, 2);
+  const edited = await call('PATCH', '', { title: 'Board meeting (v2)', notifyInvitees: true });
+  assert.deepEqual(edited.body.outcome, { sent: 1, failed: 0 });
+  assert.match(sent[2].icalEvent.content, /SUMMARY:Board meeting \(v2\)/);
+  assert.equal((await copy()).title, 'Board meeting (v2)');
+  await call('PATCH', '', { location: 'Sala riunioni' });
+  assert.equal(sent.length, 3);
+
+  // Cancelled and chosen again without the calendar offered: it stays in Team.
+  await call('POST', '&action=unschedule', {});
+  assert.equal(await copy(), undefined);
+  const again = await call('POST', '&action=finalize', { slotId: slots[0].id });
+  assert.equal(again.body.calendarId, cal[0].id);
+  assert.ok(await copy());
+});
+
+test('the calendar keeps its own on a poll meeting, and those who voted come', async () => {
+  await fakeMail();
+  const calendars = require('./calendars');
+  const me = await owner();
+  const user = { id: me, kind: 'discord', name: 'Owner' };
+  // Giulia is a member (her Discord email); Marco is not.
+  const giulia = await auth.upsertDiscordUser({
+    discordId: 'test-giulia',
+    name: 'Giulia',
+    email: 'G@example.org',
+  });
+  const { rows: cal } = await db.query(
+    `insert into calendars (slug, name, view_all, edit_all) values ('team', 'Team', true, true)
+     returning id`
+  );
+  // The calendar chosen when the poll is made.
+  const pollsApi = require('./routes/app/polls');
+  const cookie = `${auth.COOKIE}=${auth.makeSession(me)}`;
+  const made = fakeResponse();
+  await pollsApi(
+    fakeRequest({
+      method: 'POST',
+      url: '/api/app/polls',
+      cookie,
+      body: {
+        ...basePoll({ recurrence: { freq: 'weekly', interval: 1, count: 3 } }),
+        calendarId: cal[0].id,
+      },
+    }),
+    made
+  );
+  const id = made.body.id;
+  const admin = await polls.getPollAdmin(id, me);
+  assert.equal(admin.calendar.name, 'Team');
+  assert.equal(admin.calendar.eventId, null);
+  await polls.submitResponse(admin.token, {
+    name: 'Giulia',
+    email: 'g@example.org',
+    votes: { [admin.slots[0].id]: 2 },
+  });
+  await polls.submitResponse(admin.token, {
+    name: 'Marco',
+    email: 'm@example.org',
+    votes: { [admin.slots[0].id]: 2 },
+  });
+
+  const handler = require('./routes/app/poll');
+  const call = async (method, query, body) => {
+    const res = fakeResponse();
+    await handler(
+      fakeRequest({ method, url: `/api/app/poll?id=${id}${query}`, cookie, body }),
+      res
+    );
+    return res;
+  };
+  const chosen = await call('POST', '&action=finalize', { slotId: admin.slots[0].id });
+  const eventId = chosen.body.calendar.eventId;
+  assert.ok(eventId);
+  // Giulia voted "available": she comes; Marco is no member.
+  const { rows: rsvps } = await db.query('select user_id, answer from calendar_rsvps');
+  assert.deepEqual(rsvps, [{ user_id: giulia.id, answer: 'yes' }]);
+
+  // The calendar sets reminders and a Discord channel; its time stays the poll's.
+  const at = admin.slots[0].start;
+  await calendars.updateEvent(
+    user,
+    eventId,
+    {
+      title: 'Changed here?',
+      reminders: [{ minutes: 60, channels: ['email'] }],
+      video: { kind: 'discord', channelId: '123456789012345678', name: 'Riunioni' },
+    },
+    { scope: 'all', occurrence: at }
+  );
+  let ev = (await db.query('select * from calendar_events where id = $1', [eventId])).rows[0];
+  assert.equal(ev.title, 'Board meeting');
+  assert.deepEqual(ev.reminders, [{ minutes: 60, channels: ['email'] }]);
+  assert.equal(ev.discord_channel_id, '123456789012345678');
+  // An edit of the poll keeps them.
+  await call('PATCH', '', { title: 'Board meeting (renamed)' });
+  ev = (await db.query('select * from calendar_events where id = $1', [eventId])).rows[0];
+  assert.equal(ev.title, 'Board meeting (renamed)');
+  assert.deepEqual(ev.reminders, [{ minutes: 60, channels: ['email'] }]);
+  assert.equal(ev.video_kind, 'discord');
+
+  // One occurrence can be skipped here; the meeting itself is cancelled from the poll.
+  const second = new Date(new Date(at).getTime() + 7 * 86400000).toISOString();
+  await calendars.deleteEvent(user, eventId, { scope: 'this', occurrence: second });
+  ev = (await db.query('select * from calendar_events where id = $1', [eventId])).rows[0];
+  assert.deepEqual(ev.exdates, [second]);
+  await rejects(calendars.deleteEvent(user, eventId, { scope: 'all', occurrence: at }), 409);
+  await call('PATCH', '', { description: 'Agenda' });
+  ev = (await db.query('select * from calendar_events where id = $1', [eventId])).rows[0];
+  assert.deepEqual(ev.exdates, [second]);
+
+  // Another calendar, then none: the meeting follows.
+  const { rows: other } = await db.query(
+    `insert into calendars (slug, name, view_all, edit_all) values ('board', 'Board', true, true)
+     returning id`
+  );
+  const moved = await call('POST', '&action=calendar', { calendarId: other[0].id });
+  assert.equal(moved.body.calendar.name, 'Board');
+  assert.equal(moved.body.calendar.eventId, eventId);
+  // No calendar named: the meeting goes to its owner's own, the same event.
+  const none = await call('POST', '&action=calendar', { calendarId: null });
+  assert.equal(none.body.calendar.name, 'My calendar');
+  assert.equal(none.body.calendar.personal, true);
+  assert.equal(none.body.calendar.eventId, eventId);
+  // The people the invite went to are invited to the event.
+  const { rows: inv } = await db.query('select email from calendar_invites where event_id = $1', [
+    eventId,
+  ]);
+  assert.deepEqual(inv, []);
+});
+
+test('a new poll sees the events of the calendars its maker shows', async () => {
+  const me = await owner();
+  const { rows: cal } = await db.query(
+    `insert into calendars (slug, name, view_all, edit_all) values ('team', 'Team', true, true)
+     returning id`
+  );
+  const calendars = require('./calendars');
+  const user = { id: me, kind: 'discord', name: 'Owner' };
+  await calendars.createEvent(user, {
+    calendarId: cal[0].id,
+    title: 'Reading group',
+    start: `${DAY}09:30:00Z`,
+    end: `${DAY}10:30:00Z`,
+    timezone: 'Europe/Rome',
+  });
+  const pollsApi = require('./routes/app/polls');
+  const res = fakeResponse();
+  await pollsApi(
+    fakeRequest({
+      method: 'GET',
+      url: `/api/app/polls?busy=1&from=${DAY}00:00:00Z&to=2026-11-04T00:00:00Z`,
+      cookie: `${auth.COOKIE}=${auth.makeSession(me)}`,
+    }),
+    res
+  );
+  assert.deepEqual(
+    res.body.busy.map((b) => [b.title, b.start]),
+    [['Reading group', `${DAY}09:30:00.000Z`]]
+  );
+  // A calendar it cannot add to is refused at creation.
+  const { rows: ro } = await db.query(
+    `insert into calendars (slug, name, view_all) values ('ro', 'Read only', true) returning id`
+  );
+  const refused = fakeResponse();
+  await pollsApi(
+    fakeRequest({
+      method: 'POST',
+      url: '/api/app/polls',
+      cookie: `${auth.COOKIE}=${auth.makeSession(me)}`,
+      body: { ...basePoll(), calendarId: ro[0].id },
+    }),
+    refused
+  );
+  assert.equal(refused.statusCode, 403);
+});
+
 test('a batch of emails goes over one connection, and stops when the login is refused', async () => {
   await fakeMail();
   let connections = 0;

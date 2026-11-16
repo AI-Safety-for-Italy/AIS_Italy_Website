@@ -62,6 +62,11 @@ const ACTIONS = new Set([
   'review-summary',
   'review-settings',
   'review-reviewers',
+  'review-prescreen',
+  'review-remind',
+  'review-matching',
+  'review-matching-settings',
+  'review-matching-draft',
   // Who may do what (server/permissions.js): detail lists the keys changed.
   'permissions-change',
 ]);

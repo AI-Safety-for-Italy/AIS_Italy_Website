@@ -91,13 +91,31 @@ async function cleanup() {
          returning p.person_key`
       )
     : { rows: [] };
-  // The mentee selection's scores go with the application they score.
+  // The mentee selection's scores go with the application they score: on the
+  // board, or an answer to a form (the selection may read one directly; an
+  // answer without an email is scored under its own id).
   const reviewScores = await db.query(
     `delete from review_scores s
      where not exists (select 1 from crm_records r
                        where r.person_key = s.person_key and r.source = 'mentees_applications')
+       and not exists (select 1 from form_responses f
+                       where f.deleted_at is null
+                         and (f.respondent_key = s.person_key or 'response-' || f.id::text = s.person_key))
      returning s.person_key`
   );
+  // The pre-screening and when an application came in, likewise.
+  const gone = (table) =>
+    db.query(
+      `delete from ${table} s
+       where not exists (select 1 from crm_records r
+                         where r.person_key = s.person_key and r.source = 'mentees_applications')
+         and not exists (select 1 from form_responses f
+                         where f.deleted_at is null
+                           and (f.respondent_key = s.person_key or 'response-' || f.id::text = s.person_key))
+       returning s.person_key`
+    );
+  const prescreen = await gone('review_prescreen');
+  await gone('review_arrivals');
   const counts = {
     answers: answers.rows.length,
     applications: applications.rows.length,
@@ -107,6 +125,7 @@ async function cleanup() {
     boardNotes: forgotten,
     siteDrafts: siteDrafts.rows.length,
     reviewScores: reviewScores.rows.length,
+    reviewPrescreen: prescreen.rows.length,
   };
   await audit.record({ id: null, name: 'retention job' }, 'retention-cleanup', null, {
     months: MONTHS,
