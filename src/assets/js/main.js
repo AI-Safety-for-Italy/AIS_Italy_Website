@@ -633,7 +633,13 @@
         card: card,
         tracks: (card.getAttribute('data-tracks') || '').split(' '),
         areas: (card.getAttribute('data-areas') || '').split(' '),
+        // The mentor, then the text of each track: the search looks at the
+        // side the filter shows.
         text: fold(card.getAttribute('data-search')),
+        trackText: {
+          projects: fold(card.getAttribute('data-search-projects')),
+          orientation: fold(card.getAttribute('data-search-orientation')),
+        },
         sort: {
           name: card.getAttribute('data-sort-name'),
           project: card.getAttribute(it ? 'data-sort-project-it' : 'data-sort-project'),
@@ -674,17 +680,25 @@
         return false;
       }
       var words = fold(state.query).split(/\s+/).filter(Boolean);
+      var text = item.text + ' ' + item.trackText[leadTrack()];
       return words.every(function (w) {
-        return item.text.indexOf(w) !== -1;
+        return text.indexOf(w) !== -1;
       });
+    }
+
+    // Career orientation has no projects to sort by.
+    var byProject = sort.querySelector('option[value="project"]');
+    function sortKey() {
+      return state.sort === 'project' && leadTrack() !== 'projects' ? '' : state.sort;
     }
 
     // Those with nothing to sort by go last, in the page's order.
     function sorted() {
-      if (!state.sort) return items;
+      var key = sortKey();
+      if (!key) return items;
       return items.slice().sort(function (a, b) {
-        var x = a.sort[state.sort];
-        var y = b.sort[state.sort];
+        var x = a.sort[key];
+        var y = b.sort[key];
         if (!x || !y) return x ? -1 : y ? 1 : 0;
         return x.localeCompare(y, root.lang);
       });
@@ -712,6 +726,9 @@
       shown.forEach(function (item, i) {
         item.card.hidden = i >= limit;
       });
+
+      if (byProject) byProject.hidden = byProject.disabled = leadTrack() !== 'projects';
+      sort.value = sortKey();
 
       segments.forEach(function (b) {
         b.setAttribute(
@@ -743,7 +760,7 @@
 
       var next = new URLSearchParams();
       if (state.track !== firstTrack) next.set('track', state.track);
-      if (state.sort) next.set('sort', state.sort);
+      if (sortKey()) next.set('sort', sortKey());
       if (state.areas.length) next.set('area', state.areas.join(','));
       if (state.query.trim()) next.set('q', state.query.trim());
       var qs = next.toString();
@@ -801,16 +818,36 @@
       // From a co-mentor's profile to the other one: one dialog at a time.
       var current = document.querySelector('.mentor-dialog[open]');
       if (current) current.close();
-      var project = dialog.querySelector('[data-mentor-block="projects"]');
-      var guide = dialog.querySelector('[data-mentor-block="orientation"]');
-      if (project && guide) {
-        var lead = leadTrack() === 'orientation' ? guide : project;
-        lead.parentNode.insertBefore(lead, lead === guide ? project : guide);
-      }
+      showBlock(dialog, leadTrack());
       dialog.showModal();
       history.replaceState(null, '', urlWithout() + '#' + id);
       return true;
     }
+
+    // A mentor on both tracks: the profile shows the side of the track
+    // filter, with a link to the other one (switchTo).
+    function showBlock(dialog, track) {
+      var blocks = dialog.querySelectorAll('[data-mentor-block]');
+      if (blocks.length < 2) return;
+      blocks.forEach(function (b) {
+        b.hidden = b.getAttribute('data-mentor-block') !== track;
+      });
+      dialog.querySelectorAll('[data-mentor-switch-wrap]').forEach(function (w) {
+        w.hidden = false;
+      });
+    }
+
+    // From the profile, to the other track: the grid follows, so closing
+    // the profile leaves the mentor's card on the same side.
+    document.querySelectorAll('[data-mentor-switch]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var dialog = b.closest('.mentor-dialog');
+        state.track = b.getAttribute('data-mentor-switch');
+        render();
+        showBlock(dialog, state.track);
+        dialog.scrollTop = 0;
+      });
+    });
 
     // Cards, and the co-mentor links inside the profiles.
     box.closest('section').addEventListener('click', function (e) {
