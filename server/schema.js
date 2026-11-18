@@ -428,6 +428,12 @@ create index if not exists member_applications_email_key on member_applications 
 -- Discord did not say).
 alter table member_applications add column if not exists join_email_match boolean;
 
+-- join_started_at: a click on the join link is being handled, until then. It
+-- is a short lease, not the joined mark: a join cut short (Discord silent, the
+-- function stopped) frees the link again once it runs out. joined_at is set
+-- only once they are in, with discord_id.
+alter table member_applications add column if not exists join_started_at timestamptz;
+
 -- The people on the mentorship board (server/crm/records.js): one row per
 -- answer, in the shape server/crm/sources.js gives a sheet's row, encrypted
 -- and bound to the row's id. origin: 'import' (copied once from a Google
@@ -511,10 +517,23 @@ create table if not exists member_groups (
 -- whether it asks to join or, from a participant, to become an organizer.
 alter table member_applications add column if not exists tags jsonb not null default '[]';
 alter table member_applications add column if not exists kind text not null default 'join';
+-- A join link taken before join_started_at existed, by someone who never got
+-- in: free again (see join_started_at above).
+update member_applications set joined_at = null
+  where kind = 'join' and joined_at is not null and discord_id is null;
 
 -- The form answer an application came from, so the board's decision shows
 -- as the answer's tag (Approved, Rejected).
 alter table member_applications add column if not exists response_id uuid;
+
+-- Contacted: someone on the board asked the person for more details (by an
+-- email sent from the board, or marked by hand when it went some other way)
+-- before deciding. Still pending, but waiting on them rather than on us.
+-- contact_emails counts the board's emails; what they said is not kept.
+alter table member_applications add column if not exists contacted_at timestamptz;
+alter table member_applications add column if not exists contacted_by uuid
+  references app_users(id) on delete set null;
+alter table member_applications add column if not exists contact_emails integer not null default 0;
 
 -- ── The mentee selection (/app/review/, server/crm/review.js) ──────────────
 
@@ -871,6 +890,28 @@ create table if not exists calendar_reminders_sent (
 
 create unique index if not exists calendar_reminders_once on calendar_reminders_sent
   (event_id, occurrence_start, minutes, coalesce(user_id::text, ''), coalesce(channel_id, ''));
+
+-- One-off announcements of an occurrence in a Discord channel, apart from
+-- the lead times (server/calendar-announce.js): "Announce now", or at a day
+-- and time chosen. event_id is the series (or the single event);
+-- outcome is null until the job (or the button) handles it.
+create table if not exists calendar_announcements (
+  id uuid primary key default gen_random_uuid(),
+  event_id uuid not null references calendar_events(id) on delete cascade,
+  occurrence_start timestamptz not null,
+  channel_id text not null,
+  channel_name text not null,
+  send_at timestamptz not null,
+  outcome text check (outcome in ('sent', 'failed', 'skipped')),
+  handled_at timestamptz,
+  created_by uuid references app_users(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists calendar_announcements_due on calendar_announcements (send_at)
+  where outcome is null;
+create index if not exists calendar_announcements_event on calendar_announcements
+  (event_id, occurrence_start);
 
 -- Which calendar a seminar or event of the site lands in: null for the
 -- default one of its type, 'none' for none, else a calendar's id.

@@ -1171,6 +1171,12 @@
         );
       case 'member-resend':
         return 'Join link sent again';
+      case 'member-note':
+        return 'Application note changed';
+      case 'member-contacted':
+        return d.on ? 'Application marked as contacted' : 'Application back to review';
+      case 'member-contact':
+        return 'Emailed to ask for more details';
       default:
         return e.action;
     }

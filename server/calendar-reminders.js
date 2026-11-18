@@ -39,7 +39,10 @@ function leadText(minutes) {
   if (minutes === 0) return 'now';
   if (minutes % 1440 === 0) return minutes === 1440 ? 'in 1 day' : `in ${minutes / 1440} days`;
   if (minutes % 60 === 0) return minutes === 60 ? 'in 1 hour' : `in ${minutes / 60} hours`;
-  return `in ${minutes} minutes`;
+  // Any other time (an announcement made now, or at a time chosen): rounded.
+  if (minutes >= 2880) return `in ${Math.round(minutes / 1440)} days`;
+  if (minutes >= 120) return `in ${Math.round(minutes / 60)} hours`;
+  return minutes === 1 ? 'in 1 minute' : `in ${minutes} minutes`;
 }
 
 /** When, in Italian time: "Tuesday 27 October, 18:30–20:00 (Rome time)". */
@@ -280,6 +283,8 @@ async function run({ now = new Date(), origin } = {}) {
     }
     announcements += await announce(occ, cal, startMs, due, site);
   }
+  // The announcements planned for a day and time of their own.
+  announcements += await require('./calendar-announce').sendDue({ now: nowMs, site });
   return { reminders, announcements };
 }
 
@@ -365,4 +370,4 @@ async function concerned(occ, cal, followers, eventPrefs, whoOf) {
   };
 }
 
-module.exports = { run, message, leadText };
+module.exports = { run, message, leadText, buttonsFor };

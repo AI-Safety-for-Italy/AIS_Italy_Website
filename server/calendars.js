@@ -852,6 +852,11 @@ async function getEvent(user, id, occurrence) {
     myReminders: user && user.kind === 'discord' ? await myReminders(user, cal, head) : null,
     announce: atLeast(level, 'edit') ? event.announce : undefined,
     calendarAnnounce: atLeast(level, 'edit') ? cal.announce || [] : undefined,
+    // "Announce now" and the announcements planned for a time chosen.
+    oneOff:
+      atLeast(level, 'edit') && !cal.archived_at && (!event.source || event.source === 'poll')
+        ? await require('./calendar-announce').listFor(event, cal, occ.occurrenceStart)
+        : undefined,
   };
 }
 

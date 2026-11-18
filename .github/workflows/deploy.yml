@@ -88,8 +88,12 @@ jobs:
           node-version: "20"
           cache: "npm"
 
+      # Pinned: @latest changed under every run. Raise it by hand, after reading
+      # the CLI's changelog. VERCEL_TOKEN has an expiry date set on Vercel: when
+      # it lapses this job fails at the first vercel command; make a new one
+      # (Account Settings → Tokens) and update the repository secret.
       - name: Install Vercel CLI
-        run: npm install --global vercel@latest
+        run: npm install --global vercel@65.9.0
 
       # Only `main` publishes to the production alias, which is the alias a
       # custom domain follows. Every other branch lands on a preview URL that

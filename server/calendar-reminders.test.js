@@ -371,3 +371,229 @@ test('who writes events sees, and announces in, only the channels they see on Di
   );
   discord.reset();
 });
+
+// ── One-off announcements: now, and at a day and time chosen ───────────────
+
+// The server's text channels, as the bot sees them, and any `extra` ones;
+// every post is recorded.
+function fakeGuild(extra = []) {
+  const discord = require('./calendar-discord');
+  discord.reset();
+  const G = '111111111';
+  const VIEW = String(1 << 10);
+  const answers = {
+    [`/guilds/${G}/channels`]: [
+      { id: '201', type: 0, name: 'general', position: 0 },
+      {
+        id: '202',
+        type: 0,
+        name: 'board',
+        position: 1,
+        permission_overwrites: [{ id: G, type: 0, deny: VIEW, allow: '0' }],
+      },
+      ...extra,
+    ],
+    [`/guilds/${G}/roles`]: [{ id: G, permissions: String((1 << 10) | (1 << 11)) }],
+    '/users/@me': { id: 'bot-1' },
+    [`/guilds/${G}/members/bot-1`]: { roles: [] },
+  };
+  permissions.setFetch(async (url, opts = {}) => {
+    const path = String(url).replace('https://discord.com/api/v10', '');
+    if (path in answers) return { ok: true, status: 200, json: async () => answers[path] };
+    // Reading someone's roles: Discord is down, so the stored ones stand.
+    if (/\/guilds\/\d+\/members\//.test(path))
+      return { ok: false, status: 503, json: async () => ({}) };
+    sent.push({ url: String(url), body: opts.body ? JSON.parse(opts.body) : null });
+    return { ok: true, status: 200, json: async () => ({ id: 'm1' }) };
+  });
+}
+const posts = (channel) => sent.filter((s) => s.url.includes(`/channels/${channel}/messages`));
+
+test('"Announce now" posts in the channel chosen, once a while, for whoever edits', async () => {
+  fakeGuild();
+  const announce = require('./calendar-announce');
+  const maker = await person('Maker', ['calendar_create']);
+  const reader = await person('Reader');
+  const cal = await calendars.createCalendar(maker, { name: 'Team', view_all: true });
+  const start = new Date(Date.now() + 5 * 3600000);
+  start.setUTCSeconds(0, 0);
+  const { id } = await calendars.createEvent(maker, {
+    calendarId: cal.id,
+    title: 'General Meeting',
+    start: iso(start),
+    end: iso(start.getTime() + 3600000),
+    video: { kind: 'discord', channelId: '333333333', name: 'generale' },
+  });
+  const card = await announce.announceNow(
+    maker,
+    id,
+    { occurrence: iso(start), channelId: '201' },
+    { site: 'https://x.test' }
+  );
+  const [post] = posts('201');
+  assert.match(post.body.content, /\*\*General Meeting\*\* starts in 5 hours/);
+  assert.match(post.body.content, /<#333333333>/);
+  assert.deepEqual(
+    card.oneOff.list.map((a) => [a.name, a.status]),
+    [['general', 'sent']]
+  );
+  await assert.rejects(
+    announce.announceNow(maker, id, { occurrence: iso(start), channelId: '201' }),
+    { status: 429 }
+  );
+  // A channel the bot cannot write in, and someone who cannot edit the event.
+  await assert.rejects(
+    announce.announceNow(maker, id, { occurrence: iso(start), channelId: '202' }),
+    { status: 400 }
+  );
+  await assert.rejects(
+    announce.announceNow(reader, id, { occurrence: iso(start), channelId: '201' }),
+    (err) => err.status === 403 || err.status === 404
+  );
+  assert.equal(posts('201').length, 1);
+  require('./calendar-discord').reset();
+});
+
+test('an announcement planned for a time goes then, once; a skipped occurrence is left out', async () => {
+  fakeGuild();
+  const announce = require('./calendar-announce');
+  const maker = await person('Maker', ['calendar_create']);
+  const cal = await calendars.createCalendar(maker, { name: 'Team' });
+  const start = new Date(Date.now() + 3 * 86400000);
+  start.setUTCMinutes(0, 0, 0);
+  const { id } = await calendars.createEvent(maker, {
+    calendarId: cal.id,
+    title: 'Weekly',
+    start: iso(start),
+    end: iso(start.getTime() + 3600000),
+    recurrence: { freq: 'weekly', interval: 1, count: 3 },
+  });
+  const second = new Date(start.getTime() + 7 * 86400000);
+  const at = new Date(start.getTime() - 26 * 3600000);
+  await announce.plan(maker, id, { occurrence: iso(start), channelId: '201', sendAt: iso(at) });
+  const card = await announce.plan(maker, id, {
+    occurrence: iso(second),
+    channelId: '201',
+    sendAt: iso(second.getTime() - 3600000),
+  });
+  assert.deepEqual(
+    card.oneOff.list.map((a) => a.status),
+    ['planned']
+  );
+  // Not a time past, nor one after the event.
+  await assert.rejects(
+    announce.plan(maker, id, {
+      occurrence: iso(start),
+      channelId: '201',
+      sendAt: iso(Date.now() - 3600000),
+    }),
+    { status: 400 }
+  );
+  await assert.rejects(
+    announce.plan(maker, id, {
+      occurrence: iso(start),
+      channelId: '201',
+      sendAt: iso(start.getTime() + 2 * 3600000),
+    }),
+    { status: 400 }
+  );
+
+  let result = await reminders.run({ now: new Date(at.getTime() - 60000) });
+  assert.equal(result.announcements, 0);
+  result = await reminders.run({ now: new Date(at.getTime() + 60000) });
+  assert.equal(result.announcements, 1);
+  assert.match(posts('201')[0].body.content, /\*\*Weekly\*\* starts in 26 hours/);
+  result = await reminders.run({ now: new Date(at.getTime() + 11 * 60000) });
+  assert.equal(result.announcements, 0);
+
+  // The second occurrence is skipped: its planned announcement does not go.
+  await calendars.deleteEvent(maker, id, { scope: 'this', occurrence: iso(second) });
+  result = await reminders.run({ now: new Date(second.getTime() - 3600000 + 60000) });
+  assert.equal(result.announcements, 0);
+  assert.equal(posts('201').length, 1);
+  const { rows } = await db.query('select outcome from calendar_announcements order by send_at');
+  assert.deepEqual(
+    rows.map((r) => r.outcome),
+    ['sent', 'skipped']
+  );
+  require('./calendar-discord').reset();
+});
+
+test('a planned announcement can be taken back before it goes, by whoever edits', async () => {
+  fakeGuild();
+  const announce = require('./calendar-announce');
+  const maker = await person('Maker', ['calendar_create']);
+  const cal = await calendars.createCalendar(maker, { name: 'Team' });
+  const start = new Date(Date.now() + 86400000);
+  start.setUTCSeconds(0, 0);
+  const { id } = await calendars.createEvent(maker, {
+    calendarId: cal.id,
+    title: 'Once',
+    start: iso(start),
+    end: iso(start.getTime() + 3600000),
+  });
+  const card = await announce.plan(maker, id, {
+    occurrence: iso(start),
+    channelId: '201',
+    sendAt: iso(start.getTime() - 3600000),
+  });
+  const after = await announce.cancel(maker, card.oneOff.list[0].id);
+  assert.deepEqual(after.oneOff.list, []);
+  await assert.rejects(announce.cancel(maker, card.oneOff.list[0].id), { status: 404 });
+  require('./calendar-discord').reset();
+});
+
+test('one-off announcements go only in a channel the member sees, or one the event already uses', async () => {
+  const G = '111111111';
+  const VIEW = String(1 << 10);
+  // #committee: hidden from everyone but the Committee role and the bot.
+  fakeGuild([
+    {
+      id: '203000003',
+      type: 0,
+      name: 'committee',
+      position: 2,
+      permission_overwrites: [
+        { id: G, type: 0, deny: VIEW, allow: '0' },
+        { id: 'r-committee', type: 0, deny: '0', allow: VIEW },
+        { id: 'bot-1', type: 1, deny: '0', allow: String((1 << 10) | (1 << 11)) },
+      ],
+    },
+  ]);
+  const announce = require('./calendar-announce');
+  const maker = await person('Maker', ['calendar_create']);
+  const committee = await person('Committee', ['calendar_create']);
+  const cal = await calendars.createCalendar(maker, {
+    name: 'Shared',
+    access: { view: { all: true }, edit: { all: true } },
+  });
+  const start = new Date(Date.now() + 2 * 86400000);
+  start.setUTCMinutes(0, 0, 0);
+  const event = (announceIn) => ({
+    calendarId: cal.id,
+    title: 'Meeting',
+    start: iso(start),
+    end: iso(start.getTime() + 3600000),
+    announce: announceIn,
+  });
+  const { id } = await calendars.createEvent(maker, event([]));
+  const occurrence = iso(start);
+  const sendAt = iso(start.getTime() - 3600000);
+
+  await assert.rejects(
+    announce.announceNow(maker, id, { occurrence, channelId: '203000003' }),
+    /channel you see/
+  );
+  await assert.rejects(
+    announce.plan(maker, id, { occurrence, channelId: '203000003', sendAt }),
+    /channel you see/
+  );
+  await announce.plan(committee, id, { occurrence, channelId: '203000003', sendAt });
+
+  // Once the event announces in #committee, whoever edits it may use it too.
+  const committeeChannel = [{ channelId: '203000003', name: 'committee', minutes: [60] }];
+  const { id: other } = await calendars.createEvent(committee, event(committeeChannel));
+  await announce.announceNow(maker, other, { occurrence, channelId: '203000003' });
+  assert.equal(posts('203000003').length, 1);
+  require('./calendar-discord').reset();
+});

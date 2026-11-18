@@ -2301,6 +2301,39 @@ html:has(.mentor-dialog[open]) {
   line-height: 1.3;
 }
 
+/* A mentor on both tracks: on the card, a line saying they do the other
+   one too; in the profile, a link to it. */
+.mentor-also {
+  margin: 0.6rem 0 0;
+  font-size: 0.85rem;
+  color: var(--text-tertiary);
+}
+
+.mentor-also::before {
+  content: '+ ';
+}
+
+.mentor-switch {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.mentor-switch:hover {
+  text-decoration: underline;
+}
+
+.mentor-switch-wrap[hidden],
+[data-mentor-block][hidden],
+[data-mentor-view][hidden] {
+  display: none;
+}
+
 .mentor-dialog-part > p:not(.mono-label) {
   margin: 0.4rem 0 0;
   line-height: 1.7;

@@ -267,7 +267,7 @@ test('the database keeps only a hash of the join link, never the link itself', a
   await assert.rejects(members.checkJoinToken(rows[0].join_token), (err) => err.code === 'invalid');
 });
 
-test('two clicks at once on the link: one joins, the other is told it was used', async () => {
+test('two clicks at once on the link: one joins, the other is turned away', async () => {
   const { board } = await setUp();
   const { id } = await members.createApplication(application());
   await members.decide(board, id, { decision: 'approve', role: 'participant' }, ORIGIN);
@@ -278,7 +278,8 @@ test('two clicks at once on the link: one joins, the other is told it was used',
   ]);
   assert.equal(results.filter((r) => r.status === 'fulfilled').length, 1);
   const refused = results.find((r) => r.status === 'rejected');
-  assert.equal(refused.reason.code, 'used');
+  // 'failed' (try again) while the first is still running, 'used' once it is in.
+  assert.ok(['used', 'failed'].includes(refused.reason.code), refused.reason.code);
   const adds = botCalls.filter((c) => c.method === 'PUT' && c.url.endsWith('/members/u-new'));
   assert.equal(adds.length, 1);
 });
@@ -295,6 +296,34 @@ test('a failed join frees the link again, so the person can retry', async () => 
   await assert.rejects(members.checkJoinToken(token), (err) => err.code === 'used');
 });
 
+test('a join cut short without a word frees the link once its lease runs out', async () => {
+  const { board } = await setUp();
+  const { id } = await members.createApplication(application());
+  await members.decide(board, id, { decision: 'approve', role: 'participant' }, ORIGIN);
+  const token = sent[0].text.match(/t=([\w-]+)/)[1];
+  // A click whose function was stopped before it could release the link.
+  await db.query('update member_applications set join_started_at = now() where id = $1', [id]);
+  assert.equal((await members.checkJoinToken(token)).id, id);
+  await assert.rejects(
+    members.completeJoin(token, { code: 'c', redirectUri: 'r' }, oauthAs('giulia@example.com')),
+    (err) => err.code === 'failed'
+  );
+  assert.ok(!botCalls.some((c) => c.method === 'PUT' && c.url.endsWith('/members/u-new')));
+  let [a] = (await members.listApplications(board)).applications;
+  assert.equal(a.joinedAt, null);
+  assert.equal((await members.invited()).length, 1);
+
+  await db.query(
+    `update member_applications set join_started_at = now() - interval '5 minutes' where id = $1`,
+    [id]
+  );
+  await members.completeJoin(token, { code: 'c', redirectUri: 'r' }, oauthAs('giulia@example.com'));
+  [a] = (await members.listApplications(board)).applications;
+  assert.ok(a.joinedAt);
+  assert.equal(a.discordName, 'Giulia');
+  await assert.rejects(members.checkJoinToken(token), (err) => err.code === 'used');
+});
+
 test('the board flags a link used by a Discord account with another email', async () => {
   const { board } = await setUp();
   const first = await members.createApplication(application());
@@ -307,4 +336,127 @@ test('the board flags a link used by a Discord account with another email', asyn
   const list = (await members.listApplications(board)).applications;
   assert.equal(list.find((a) => a.id === first.id).joinEmailMatch, true);
   assert.equal(list.find((a) => a.id === second.id).joinEmailMatch, false);
+});
+
+// ── Before deciding: the note, being in touch ───────────────────────────────
+
+test('the note is saved alone, at any stage, and deciding without one keeps it', async () => {
+  const { board, other } = await setUp();
+  const { id } = await members.createApplication(application());
+  await rejects(members.saveNote(other, id, { note: 'x' }), 403);
+  await rejects(members.saveNote(board, id, { note: 'x'.repeat(2001) }), 400);
+  let r = await members.saveNote(board, id, { note: '  Talked on the phone  ' });
+  assert.equal(r.application.note, 'Talked on the phone');
+  assert.equal(r.application.status, 'pending');
+  assert.equal(sent.length, 0);
+  // Deciding without a note (an older page) does not wipe it.
+  r = await members.decide(board, id, { decision: 'approve', role: 'participant' }, ORIGIN);
+  assert.equal(r.application.note, 'Talked on the phone');
+  // Once approved too, without sending the link again.
+  r = await members.saveNote(board, id, { note: 'Joined the Milan group' });
+  assert.equal(r.application.note, 'Joined the Milan group');
+  assert.equal(sent.length, 1);
+  const { rows } = await db.query(`select detail from crm_audit where action = 'member-note'`);
+  assert.equal(rows.length, 2);
+  assert.ok(!JSON.stringify(rows).includes('phone'));
+});
+
+test('contacted: a pending application waits on the applicant, off the home count', async () => {
+  const { board, other } = await setUp();
+  const { id } = await members.createApplication(application());
+  await members.createApplication(application({ email: 'sara@example.org' }));
+  const { overview } = require('./overview');
+  await require('./follows').setFollowing(board.id, 'members', true);
+  assert.equal((await overview(board)).tools.members.count, 2);
+
+  await rejects(members.setContacted(other, id, { on: true }), 403);
+  let r = await members.setContacted(board, id, { on: true });
+  assert.ok(r.application.contactedAt);
+  assert.equal(r.application.contactedBy, 'Elisabetta');
+  assert.equal(r.application.contactEmails, 0);
+  assert.equal(r.application.status, 'pending');
+  assert.equal((await overview(board)).tools.members.count, 1);
+
+  r = await members.setContacted(board, id, { on: false });
+  assert.equal(r.application.contactedAt, null);
+  assert.equal((await overview(board)).tools.members.count, 2);
+
+  // Contacted, then decided as usual; a decided one cannot be marked.
+  await members.setContacted(board, id, { on: true });
+  await members.decide(board, id, { decision: 'reject' }, ORIGIN);
+  await rejects(members.setContacted(board, id, { on: false }), 409);
+});
+
+test('an email from the board asks for details: replies and a copy go to the team inbox', async () => {
+  const { board, other } = await setUp();
+  const { id } = await members.createApplication(application());
+  const body = { subject: 'Due domande', text: 'Ciao Giulia,\n\ncosa studi?' };
+  await rejects(members.contact(other, id, body), 403);
+  await rejects(members.contact(board, id, { ...body, subject: ' ' }), 400);
+  await rejects(members.contact(board, id, { ...body, text: '' }), 400);
+
+  const r = await members.contact(board, id, body);
+  assert.equal(sent.length, 1);
+  const m = sent[0];
+  assert.equal(m.to, 'giulia@example.com');
+  assert.equal(m.replyTo, 'info@ais4i.it');
+  assert.equal(m.bcc, 'info@ais4i.it');
+  assert.equal(m.subject, 'Due domande');
+  assert.equal(m.text, 'Ciao Giulia,\n\ncosa studi?\n');
+  assert.equal(m.from.name, 'Elisabetta · AI Safety for Italy');
+  assert.equal(m.from.address, 'tech@ais4i.it');
+  // Written by a person: no "auto-generated" header.
+  assert.equal(m.headers, undefined);
+  assert.ok(r.application.contactedAt);
+  assert.equal(r.application.contactEmails, 1);
+  assert.equal(r.application.status, 'pending');
+
+  await members.contact(board, id, body);
+  assert.equal((await members.listApplications(board)).applications[0].contactEmails, 2);
+
+  // What it said is kept nowhere.
+  const { rows: audit } = await db.query(`select * from crm_audit where action = 'member-contact'`);
+  assert.equal(audit.length, 2);
+  const { rows } = await db.query('select * from member_applications where id = $1', [id]);
+  assert.ok(!JSON.stringify([audit, rows]).includes('studi'));
+
+  // Decided: no more emails from here.
+  await members.decide(board, id, { decision: 'reject' }, ORIGIN);
+  await rejects(members.contact(board, id, body), 409);
+});
+
+test('the board email: a failure is said and nothing is marked; the address can be changed', async () => {
+  const { board } = await setUp();
+  const { id } = await members.createApplication(application());
+  mail.setTransportFactory(() => ({
+    sendMail: async () => {
+      throw Object.assign(new Error('mailbox full'), { code: 'EENVELOPE' });
+    },
+    close() {},
+  }));
+  await rejects(members.contact(board, id, { subject: 's', text: 't' }), 502);
+  let [a] = (await members.listApplications(board)).applications;
+  assert.equal(a.contactedAt, null);
+
+  mail.setTransportFactory(() => ({ sendMail: async (m) => sent.push(m), close() {} }));
+  process.env.MEMBERS_CONTACT_EMAIL = 'iscrizioni@ais4i.it';
+  try {
+    await members.contact(board, id, { subject: 's', text: 't' });
+    assert.equal(sent[0].replyTo, 'iscrizioni@ais4i.it');
+    assert.equal((await members.listApplications(board)).contactAddress, 'iscrizioni@ais4i.it');
+  } finally {
+    delete process.env.MEMBERS_CONTACT_EMAIL;
+  }
+  [a] = (await members.listApplications(board)).applications;
+  assert.ok(a.contactedAt);
+});
+
+test('an upgrade with no email from Discord cannot be written to', async () => {
+  const { board } = await setUp();
+  const { id } = await members.createApplication(
+    application({ email: 'd-123@discord.invalid', kind: 'upgrade', discordId: 'd-123' })
+  );
+  await rejects(members.contact(board, id, { subject: 's', text: 't' }), 409);
+  // Marking by hand still works: they may have been asked on Discord.
+  assert.ok((await members.setContacted(board, id, { on: true })).application.contactedAt);
 });

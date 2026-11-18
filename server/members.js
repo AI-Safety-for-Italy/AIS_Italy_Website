@@ -44,6 +44,13 @@ const ROLES = [
   },
 ];
 const JOIN_DAYS = 30;
+// Where the replies to the board's emails go (and a copy of each email), so
+// the conversation with the applicant lives in the team's inbox.
+function contactAddress() {
+  return String(process.env.MEMBERS_CONTACT_EMAIL || 'info@ais4i.it').trim();
+}
+// An email the board writes to an applicant: a subject line and plain text.
+const CONTACT_LIMITS = { subject: 200, text: 8000 };
 // What a submission may hold: at least as much as a form lets through
 // (server/forms/schema.js: 300-character short answers, so a name and a
 // surname; 254-character emails; 150 questions; 8000-character texts, and
@@ -227,6 +234,10 @@ function summary(r) {
     joinError: r.join_error,
     // false: joined with a Discord account whose email is not the application's.
     joinEmailMatch: r.join_email_match,
+    // Asked for more details, waiting on their answer (pending only).
+    contactedAt: r.contacted_at,
+    contactedBy: r.contacted_by_name || null,
+    contactEmails: Number(r.contact_emails || 0),
     createdAt: r.created_at,
     // Same email on another application, e.g. someone who registered twice.
     duplicates: Number(r.duplicates || 0),
@@ -236,14 +247,15 @@ function summary(r) {
 }
 
 const SELECT = `
-  select a.*, u.name as decided_by_name,
+  select a.*, u.name as decided_by_name, cu.name as contacted_by_name,
     (select count(*) from member_applications b
       where b.email_key = a.email_key and b.id <> a.id) as duplicates,
     (select c.id from community_members c
       where c.person_key = a.email_key or (a.discord_id is not null and c.discord_id = a.discord_id)
       limit 1) as member_id
   from member_applications a
-  left join app_users u on u.id = a.decided_by`;
+  left join app_users u on u.id = a.decided_by
+  left join app_users cu on cu.id = a.contacted_by`;
 
 async function listApplications(user) {
   await access.authorize(user, 'members');
@@ -253,6 +265,8 @@ async function listApplications(user) {
     applications: rows.map(summary),
     roles: boardRoles(),
     mailReady: await mail.isConfigured(),
+    // Where the replies to an email from the board go.
+    contactAddress: contactAddress(),
     // The working groups, for the tags under the role (server/community.js).
     groups: (await community.listGroups()).map((g) => ({ id: g.id, title: g.titleEn })),
     following: user.kind === 'discord' ? await follows.isFollowing(user.id, 'members') : null,
@@ -440,8 +454,9 @@ function tokenHash(token) {
 async function decide(user, id, body, { siteOrigin }) {
   await access.authorize(user, 'members', { fresh: true });
   const b = body || {};
-  const note = text(b.note, 'Note', 2000, false);
   const row = await loadRow(id);
+  // No note sent: the one saved already stays (saveNote).
+  const note = b.note === undefined ? row.note || '' : text(b.note, 'Note', 2000, false);
   // The working groups chosen (the form's, unless changed): known ones only,
   // all as taking part. Who coordinates is set on Working groups.
   const tags = community
@@ -699,7 +714,7 @@ async function resendInvite(user, id, { siteOrigin }) {
   const token = newToken();
   const { rows } = await db.query(
     `update member_applications set join_token = $2,
-       join_expires_at = now() + make_interval(days => $3), join_error = null
+       join_expires_at = now() + make_interval(days => $3), join_error = null, join_started_at = null
      where id = $1 and status = 'approved' and joined_at is null returning *`,
     [id, tokenHash(token), JOIN_DAYS]
   );
@@ -707,6 +722,88 @@ async function resendInvite(user, id, { siteOrigin }) {
   await audit.record(user, 'member-resend', id);
   const invite = await sendInvite(rows[0], siteOrigin, token);
   return { application: summary(await loadRow(id)), invite };
+}
+
+// ── Before deciding: the note, being in touch ───────────────────────────────
+
+/** Saves the internal note alone, at any stage: no decision, no email. */
+async function saveNote(user, id, body) {
+  await access.authorize(user, 'members');
+  const note = text((body || {}).note, 'Note', 2000, false);
+  await loadRow(id);
+  await db.query('update member_applications set note = $2 where id = $1', [id, note]);
+  // That it changed, never what it says.
+  await audit.record(user, 'member-note', id);
+  return { application: summary(await loadRow(id)) };
+}
+
+/**
+ * Marks a pending application as contacted (asked for more details some way
+ * other than the board's email), or back to be reviewed.
+ */
+async function setContacted(user, id, body) {
+  await access.authorize(user, 'members');
+  const on = Boolean((body || {}).on);
+  await loadRow(id);
+  const { rows } = on
+    ? await db.query(
+        `update member_applications set contacted_at = coalesce(contacted_at, now()),
+           contacted_by = coalesce(contacted_by, $2)
+         where id = $1 and status = 'pending' returning id`,
+        [id, user.id]
+      )
+    : await db.query(
+        `update member_applications set contacted_at = null, contacted_by = null
+         where id = $1 and status = 'pending' returning id`,
+        [id]
+      );
+  if (!rows.length) throw new HttpError(409, 'Only applications still to be decided');
+  await audit.record(user, 'member-contacted', id, { on });
+  return { application: summary(await loadRow(id)) };
+}
+
+/**
+ * Emails a pending applicant from the board, to ask for more details: from
+ * the mailbox in the name of who writes, replies to (and a copy in) the
+ * team's inbox. Marks the application as contacted. What it says is not
+ * kept, here or on the audit trail. Returns { application }.
+ */
+async function contact(user, id, body) {
+  await access.authorize(user, 'members', { fresh: true });
+  const b = body || {};
+  const subject = text(b.subject, 'Subject', CONTACT_LIMITS.subject, true);
+  const message = text(b.text, 'Message', CONTACT_LIMITS.text, true);
+  const row = await loadRow(id);
+  if (row.status !== 'pending') throw new HttpError(409, 'Only applications still to be decided');
+  const who = details(row);
+  if (!who) throw new HttpError(409, 'The application cannot be opened with the current key');
+  // An upgrade whose Discord account gave no email has a placeholder.
+  if (!isEmail(who.email) || /\.invalid$/i.test(who.email))
+    throw new HttpError(409, 'This application has no email to write to');
+  const { rows: me } = await db.query('select name from app_users where id = $1', [user.id]);
+  const reply = contactAddress();
+  try {
+    await mail.send({
+      to: who.email,
+      bcc: reply,
+      replyTo: reply,
+      senderName: (me[0] && me[0].name) || undefined,
+      personal: true,
+      subject,
+      text: message.endsWith('\n') ? message : `${message}\n`,
+    });
+  } catch (err) {
+    if (err.status) throw err;
+    throw new HttpError(502, `The email was not sent: ${err.message}`);
+  }
+  await db.query(
+    `update member_applications set contacted_at = now(), contacted_by = $2,
+       contact_emails = contact_emails + 1
+     where id = $1`,
+    [id, user.id]
+  );
+  await audit.record(user, 'member-contact', id);
+  return { application: summary(await loadRow(id)) };
 }
 
 class JoinError extends Error {
@@ -730,34 +827,48 @@ async function checkJoinToken(token) {
   return row;
 }
 
+/** How long a click on the join link holds it: longer than a function runs. */
+const JOIN_LEASE_SECONDS = 120;
+
 /**
  * Takes the link for this join, in one statement: of two clicks at the same
- * moment, one wins and the other is told the link was used. Released again
- * if joining then fails, so the person can retry.
+ * moment, one wins and the other is asked to retry. Only a lease
+ * (join_started_at): released if joining fails, and if the join is cut short
+ * without a word (Discord silent, the function stopped) it runs out by
+ * itself, so the link never stays taken by someone who is not in.
  */
 async function claim(row) {
   const { rows } = await db.query(
-    `update member_applications set joined_at = now(), join_error = null
+    `update member_applications set join_started_at = now(), join_error = null
      where id = $1 and status = 'approved' and joined_at is null and join_expires_at > now()
+       and (join_started_at is null
+            or join_started_at < now() - make_interval(secs => $2))
      returning *`,
-    [row.id]
+    [row.id, JOIN_LEASE_SECONDS]
   );
-  if (!rows.length) throw new JoinError('used');
+  if (!rows.length) {
+    const { rows: now } = await db.query(
+      'select joined_at from member_applications where id = $1',
+      [row.id]
+    );
+    if (now[0] && now[0].joined_at) throw new JoinError('used');
+    throw new JoinError('failed', 'Another click on this link is being handled');
+  }
   return rows[0];
 }
 
 async function release(row, error) {
-  await db.query('update member_applications set joined_at = null, join_error = $2 where id = $1', [
-    row.id,
-    String(error).slice(0, 300),
-  ]);
+  await db.query(
+    'update member_applications set join_started_at = null, join_error = $2 where id = $1',
+    [row.id, String(error).slice(0, 300)]
+  );
 }
 
 async function markJoined(row, discordId, discordName, emailMatch) {
   await db.query(
     // The token stays, so opening the link again says "already used".
     `update member_applications set discord_id = $2, discord_name = $3, join_email_match = $4,
-       join_error = null
+       joined_at = now(), join_started_at = null, join_error = null
      where id = $1`,
     [row.id, discordId, discordName, emailMatch]
   );
@@ -855,6 +966,9 @@ module.exports = {
   notifyFollowers,
   decide,
   resendInvite,
+  saveNote,
+  setContacted,
+  contact,
   checkJoinToken,
   completeJoin,
   completeJoinDev,
