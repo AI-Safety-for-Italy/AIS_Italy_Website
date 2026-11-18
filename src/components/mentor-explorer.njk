@@ -39,12 +39,12 @@
 {% if x.role or x.role_it or x.affiliation %}<{{ tag }} class="mentor-role">{{ both("span", x.role, x.role_it) }}{% if x.affiliation %}<span class="mentor-affiliation">{{ x.affiliation }}</span>{% endif %}</{{ tag }}>{% endif %}
 {%- endmacro %}
 
-{# The tracks a mentor takes part in. #}
-{% macro trackPills(mt) -%}
+{# The tracks a mentor takes part in, or only `only`. #}
+{% macro trackPills(mt, only = "") -%}
 {% if mt.tracks %}
 <ul class="mentor-track-pills">
     {% for t in m.tracks %}
-    {% if t.id in mt.tracks %}
+    {% if t.id in mt.tracks and (not only or t.id == only) %}
     <li class="mentor-track-pill is-{{ t.id }}" data-en="{{ t.title }}" data-it="{{ t.title_it }}">{{ t.title }}</li>
     {% endif %}
     {% endfor %}
@@ -125,7 +125,9 @@
                 {# A mentor with no track yet stays on the site, under projects. #}
                 <article class="mentor-card" data-mentor="{{ mt.id }}" data-tracks="{{ (mt.tracks or []) | join(' ') or 'projects' }}" data-areas="{{ (mt.areas or []) | join(' ') }}"
                     data-sort-name="{{ mt.name }}" data-sort-project="{{ p.title }}" data-sort-project-it="{{ p.title_it or p.title }}" data-sort-organisation="{{ mt.affiliation }}"
-                    data-search="{{ [mt.name, mt.affiliation, mt.role, mt.role_it, p.title, p.title_it, p.summary, p.summary_it, mt.orientation, mt.orientation_it] | join(' ') | lower }}">
+                    data-search="{{ [mt.name, mt.affiliation, mt.role, mt.role_it] | join(' ') | lower }}"
+                    data-search-projects="{{ [p.title, p.title_it, p.summary, p.summary_it] | join(' ') | lower }}"
+                    data-search-orientation="{{ [mt.orientation, mt.orientation_it] | join(' ') | lower }}">
                     {% if mt.co_mentors %}
                     <span class="mentor-co-badge">Co-mentor</span>
                     {% endif %}
@@ -138,18 +140,24 @@
                     </div>
                     {% if hasBody %}
                     <div class="mentor-card-body">
-                        {{ trackPills(mt) }}
-                        {# With both, main.js shows the one of the track filter, the project by default. #}
+                        {# With both, main.js shows the side of the track filter (the
+                           project by default) and the card says the mentor does the
+                           other too, instead of listing both tracks. #}
+                        {% if not (hasProject and hasOrientation) %}{{ trackPills(mt) }}{% endif %}
                         {% if hasProject %}
                         <div data-mentor-view="projects">
+                            {% if hasOrientation %}{{ trackPills(mt, "projects") }}{% endif %}
                             {{ both("p", p.title, p.title_it, "mentor-project-title") }}
                             {{ both("p", previewEn, previewIt, "mentor-summary") }}
+                            {% if hasOrientation %}<p class="mentor-also" data-en="Also offers career orientation" data-it="Fa anche orientamento professionale">Also offers career orientation</p>{% endif %}
                         </div>
                         {% endif %}
                         {% if hasOrientation %}
                         <div data-mentor-view="orientation">
+                            {% if hasProject %}{{ trackPills(mt, "orientation") }}{% endif %}
                             <p class="mentor-help-label" data-en="Can help with" data-it="Può aiutarti con">Can help with</p>
                             {{ both("p", mt.orientation, mt.orientation_it, "mentor-summary") }}
+                            {% if hasProject %}<p class="mentor-also" data-en="Also supervises a project" data-it="Segue anche un progetto">Also supervises a project</p>{% endif %}
                         </div>
                         {% endif %}
                     </div>
@@ -178,6 +186,9 @@
 
     {% for mt in mx.mentors %}
     {% set p = mx.mentors | projectOf(mt) %}
+    {% set dHasProject = p and (p.title or p.title_it or p.description or p.description_it or p.summary or p.summary_it or p.mentee or p.mentee_it or p.deliverable or p.deliverable_it) %}
+    {% set dHasOrientation = mt.orientation or mt.orientation_it %}
+    {% set twoTracks = dHasProject and dHasOrientation %}
     <dialog class="mentor-dialog" id="{{ mt.id }}" aria-labelledby="{{ mt.id }}-name">
         <div class="mentor-dialog-inner">
             <button type="button" class="mentor-dialog-close" data-mentor-close>
@@ -239,7 +250,8 @@
             </section>
             {% endif %}
 
-            {# The block of the track filter comes first (open() in main.js). #}
+            {# With both, open() in main.js shows the block of the track filter
+               and the other is a link away (data-mentor-switch). #}
             {% if p %}
             <div data-mentor-block="projects">
                 {% if p.title or p.title_it or p.description or p.description_it or p.summary or p.summary_it %}
@@ -263,14 +275,28 @@
                     {{ both("p", p.deliverable, p.deliverable_it) }}
                 </section>
                 {% endif %}
+
+                {% if twoTracks %}
+                <p class="mentor-dialog-part mentor-switch-wrap" data-mentor-switch-wrap hidden>
+                    <button type="button" class="mentor-switch" data-mentor-switch="orientation" data-en="{{ mt.name }} also offers career orientation: see what they can help with →" data-it="{{ mt.name }} fa anche orientamento professionale: guarda in cosa può aiutarti →">{{ mt.name }} also offers career orientation: see what they can help with →</button>
+                </p>
+                {% endif %}
             </div>
             {% endif %}
 
-            {% if mt.orientation or mt.orientation_it %}
-            <section class="mentor-dialog-part" data-mentor-block="orientation">
-                <p class="mono-label" data-en="Career orientation: can help with" data-it="Orientamento: può aiutarti con">Career orientation: can help with</p>
-                {{ both("p", mt.orientation, mt.orientation_it) }}
-            </section>
+            {% if dHasOrientation %}
+            <div data-mentor-block="orientation">
+                <section class="mentor-dialog-part">
+                    <p class="mono-label" data-en="Career orientation: can help with" data-it="Orientamento: può aiutarti con">Career orientation: can help with</p>
+                    {{ both("p", mt.orientation, mt.orientation_it) }}
+                </section>
+
+                {% if twoTracks %}
+                <p class="mentor-dialog-part mentor-switch-wrap" data-mentor-switch-wrap hidden>
+                    <button type="button" class="mentor-switch" data-mentor-switch="projects" data-en="{{ mt.name }} also supervises a project: {{ p.title or p.title_it }} →" data-it="{{ mt.name }} segue anche un progetto: {{ p.title_it or p.title }} →">{{ mt.name }} also supervises a project: {{ p.title or p.title_it }} →</button>
+                </p>
+                {% endif %}
+            </div>
             {% endif %}
 
             {% if mt.bio or mt.bio_it %}
