@@ -15870,6 +15870,45 @@ dialog.cal-editor[open] {
   border-top: 1px solid var(--border-muted);
 }
 
+/* Discord announcements of one occurrence: now, or at a time (calendar-view.js) */
+.cal-ann-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.cal-ann-row .form-input {
+  flex: 1 1 180px;
+  width: auto;
+  min-width: 0;
+}
+
+.cal-ann-list {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+}
+
+.cal-ann-list li {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.cal-ann-list small {
+  color: var(--text-tertiary);
+}
+
+.cal-ann-list .is-failed small,
+.cal-ann-list .is-missed small {
+  color: var(--error);
+}
+
 .cal-rem-kind {
   display: flex;
   flex-wrap: wrap;

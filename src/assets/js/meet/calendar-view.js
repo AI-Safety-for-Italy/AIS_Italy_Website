@@ -1084,6 +1084,215 @@
     );
   }
 
+  // ── Discord announcements of one occurrence: now, or at a day and time ──
+  // For whoever edits the event (server/calendar-announce.js), apart from the
+  // lead times its calendar or the event set.
+
+  var ANN_STATUS = {
+    planned: 'planned',
+    sent: 'sent',
+    failed: 'Discord did not take it',
+    skipped: 'not sent: the event changed',
+    missed: 'not sent: too late',
+  };
+
+  function annWhen(iso) {
+    return new Intl.DateTimeFormat('en-GB', {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(new Date(iso));
+  }
+
+  /** A datetime-local value (local time) for a Date. */
+  function localInput(date) {
+    var p = function (n) {
+      return String(n).padStart(2, '0');
+    };
+    return (
+      date.getFullYear() +
+      '-' +
+      p(date.getMonth() + 1) +
+      '-' +
+      p(date.getDate()) +
+      'T' +
+      p(date.getHours()) +
+      ':' +
+      p(date.getMinutes())
+    );
+  }
+
+  function oneOffBox(detail) {
+    var one = detail.oneOff;
+    if (!one) return null;
+    var over = new Date(detail.end).getTime() <= Date.now();
+    if (over && !one.list.length) return null;
+    var box = h('div', { class: 'cal-inv-box cal-ann' });
+    box.appendChild(h('p', { class: 'cal-card-label' }, 'Discord announcements'));
+
+    function send(action, id, body, done) {
+      return M.api('POST', Cal.API + '?action=' + action + '&id=' + encodeURIComponent(id), body)
+        .then(function (fresh) {
+          if (fresh && fresh.id) drawCard(fresh, true);
+          else openCard(detail);
+          if (done) M.toast(done);
+        })
+        .catch(M.appError);
+    }
+
+    if (one.list.length) {
+      box.appendChild(
+        h(
+          'ul',
+          { class: 'cal-ann-list' },
+          one.list.map(function (a) {
+            return h(
+              'li',
+              { class: 'is-' + a.status },
+              h(
+                'span',
+                null,
+                annWhen(a.sendAt) + ' · #' + a.name + ' · ',
+                h('small', null, ANN_STATUS[a.status] || a.status)
+              ),
+              a.status === 'planned'
+                ? h(
+                    'button',
+                    {
+                      type: 'button',
+                      class: 'cal-own-add',
+                      onclick: function (e) {
+                        e.currentTarget.disabled = true;
+                        send('cancel-announcement', a.id, {}, 'Planned announcement removed');
+                      },
+                    },
+                    'Remove'
+                  )
+                : null
+            );
+          })
+        )
+      );
+    }
+    if (over) return box;
+
+    var channel = h(
+      'select',
+      { class: 'form-input is-compact', 'aria-label': 'Discord channel' },
+      h('option', { value: '' }, 'Loading channels…')
+    );
+    Cal.channels()
+      .then(function (c) {
+        M.clear(channel);
+        // No channel chosen unseen: the event's own announcement channel if
+        // there is one the bot writes in, else the organiser picks.
+        var usual = one.channels
+          .map(function (x) {
+            return x.channelId;
+          })
+          .filter(function (id) {
+            return c.text.some(function (t) {
+              return t.id === id && t.canPost !== false;
+            });
+          })[0];
+        channel.appendChild(h('option', { value: '' }, 'Choose a channel…'));
+        Cal.channelOptions(channel, c.text, null);
+        channel.value = usual || '';
+      })
+      .catch(function () {
+        M.clear(channel).appendChild(h('option', { value: '' }, 'Discord did not answer'));
+      });
+    function chosen() {
+      if (channel.value) return channel.options[channel.selectedIndex].text.split(' · ')[0];
+      M.toast('Choose a channel first', true);
+      channel.focus();
+      return null;
+    }
+
+    // Two clicks: the first says where it goes, the second posts.
+    var nowBtn = h('button', { type: 'button', class: 'btn btn-outline btn-sm' }, 'Announce now');
+    var armed = false;
+    function disarm() {
+      armed = false;
+      nowBtn.textContent = 'Announce now';
+      nowBtn.classList.remove('btn-primary');
+    }
+    channel.addEventListener('change', disarm);
+    nowBtn.addEventListener('click', function () {
+      var name = chosen();
+      if (!name) return;
+      if (!armed) {
+        armed = true;
+        nowBtn.textContent = 'Post in ' + name + ' now?';
+        nowBtn.classList.add('btn-primary');
+        return;
+      }
+      nowBtn.disabled = true;
+      send(
+        'announce-now',
+        detail.id,
+        { occurrence: detail.occurrence, channelId: channel.value },
+        'Announced in ' + name
+      ).then(function () {
+        nowBtn.disabled = false;
+        disarm();
+      });
+    });
+
+    var start = new Date(detail.start);
+    var when = h('input', {
+      type: 'datetime-local',
+      class: 'form-input is-compact',
+      'aria-label': 'Day and time of the announcement',
+      min: localInput(new Date()),
+      max: localInput(new Date(new Date(detail.end).getTime() - 60000)),
+      value: localInput(new Date(Math.max(Date.now() + 3600000, start.getTime() - 86400000))),
+    });
+    var planBtn = h(
+      'button',
+      {
+        type: 'button',
+        class: 'btn btn-outline btn-sm',
+        onclick: function () {
+          var name = chosen();
+          if (!name) return;
+          var at = new Date(when.value);
+          if (!when.value || isNaN(at.getTime())) {
+            M.toast('Choose a day and time', true);
+            when.focus();
+            return;
+          }
+          planBtn.disabled = true;
+          send(
+            'plan-announcement',
+            detail.id,
+            {
+              occurrence: detail.occurrence,
+              channelId: channel.value,
+              sendAt: at.toISOString(),
+            },
+            'Announcement planned for ' + annWhen(at.toISOString())
+          ).then(function () {
+            planBtn.disabled = false;
+          });
+        },
+      },
+      'Schedule'
+    );
+    box.appendChild(h('div', { class: 'cal-ann-row' }, channel, nowBtn));
+    box.appendChild(h('div', { class: 'cal-ann-row' }, when, planBtn));
+    box.appendChild(
+      h(
+        'p',
+        { class: 'cal-rsvp-note' },
+        'Besides the times set on the event or its calendar. A scheduled one goes within 10 minutes of its time, in this occurrence only.'
+      )
+    );
+    return box;
+  }
+
   function openCard(ev) {
     drawCard(ev, false);
     if (!card.open) card.showModal();
@@ -1242,6 +1451,7 @@
           ev.description ? h('div', { class: 'cal-card-desc' }, M.linkify(ev.description)) : null,
           full ? rsvpBox(ev) : h('div', { class: 'cal-card-loading' }, M.loading()),
           full ? invitesBox(ev) : null,
+          full ? oneOffBox(ev) : null,
           full ? remindersBox(ev) : null
         ),
         actions.childNodes.length ? actions : null
