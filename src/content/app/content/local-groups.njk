@@ -30,6 +30,7 @@ seoTitle: 'Local groups | AI Safety for Italy'
       <div class="lg-site-side">
         <div id="lgSiteList"></div>
         <div class="lg-publish">
+          <button type="button" class="btn btn-secondary" id="lgPreview">Preview</button>
           <button type="button" class="btn btn-primary" id="lgPublish">Publish to the site</button>
           <span class="panel-note" id="lgState"></span>
         </div>
@@ -40,6 +41,33 @@ seoTitle: 'Local groups | AI Safety for Italy'
       </div>
     </div>
     <div id="lgSiteMsg"></div>
+
+    {# The community page's texts, for the preview (local-groups-site.js). #}
+    <dialog class="panel lg-preview" id="lgPreviewDialog" aria-label="Preview of the map"
+      data-title="{{ community.local_groups.title }}"
+      data-join="{{ community.local_groups.join }}"
+      data-start="{{ community.local_groups.start }}"
+      data-start-link="{{ community.local_groups.start_link }}"
+      data-mailing-list="{{ site.forms.mailingList }}">
+      <div class="fe-preview-bar">
+        <div class="fe-device" role="group" aria-label="Preview size" id="lgDevice">
+          <button type="button" data-device="wide" aria-pressed="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>Computer
+          </button>
+          <button type="button" data-device="phone" aria-pressed="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2"/><path d="M11 18.5h2"/></svg>Phone
+          </button>
+        </div>
+        <span class="fe-preview-note">The community page, with the list as it is now. Nothing is published yet.</span>
+      </div>
+      <div class="fe-frame" id="lgPreviewFrame">
+        <iframe id="lgPreviewIframe" title="Preview of the community page's map"></iframe>
+      </div>
+      <div class="lg-publish">
+        <button type="button" class="btn btn-primary" id="lgPreviewPublish">Publish to the site</button>
+        <button type="button" class="btn btn-secondary" id="lgPreviewClose">Close</button>
+      </div>
+    </dialog>
 
 <script src="/assets/js/meet/common.js?v={{ build }}" defer></script>
 <script src="/assets/js/meet/app-common.js?v={{ build }}" defer></script>
