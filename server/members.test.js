@@ -267,7 +267,7 @@ test('the database keeps only a hash of the join link, never the link itself', a
   await assert.rejects(members.checkJoinToken(rows[0].join_token), (err) => err.code === 'invalid');
 });
 
-test('two clicks at once on the link: one joins, the other is told it was used', async () => {
+test('two clicks at once on the link: one joins, the other is turned away', async () => {
   const { board } = await setUp();
   const { id } = await members.createApplication(application());
   await members.decide(board, id, { decision: 'approve', role: 'participant' }, ORIGIN);
@@ -278,7 +278,8 @@ test('two clicks at once on the link: one joins, the other is told it was used',
   ]);
   assert.equal(results.filter((r) => r.status === 'fulfilled').length, 1);
   const refused = results.find((r) => r.status === 'rejected');
-  assert.equal(refused.reason.code, 'used');
+  // 'failed' (try again) while the first is still running, 'used' once it is in.
+  assert.ok(['used', 'failed'].includes(refused.reason.code), refused.reason.code);
   const adds = botCalls.filter((c) => c.method === 'PUT' && c.url.endsWith('/members/u-new'));
   assert.equal(adds.length, 1);
 });
@@ -292,6 +293,34 @@ test('a failed join frees the link again, so the person can retry', async () => 
   await assert.rejects(members.completeJoin(token, { code: 'c', redirectUri: 'r' }, failing));
   assert.equal((await members.checkJoinToken(token)).id, id);
   await members.completeJoin(token, { code: 'c', redirectUri: 'r' }, oauthAs('giulia@example.com'));
+  await assert.rejects(members.checkJoinToken(token), (err) => err.code === 'used');
+});
+
+test('a join cut short without a word frees the link once its lease runs out', async () => {
+  const { board } = await setUp();
+  const { id } = await members.createApplication(application());
+  await members.decide(board, id, { decision: 'approve', role: 'participant' }, ORIGIN);
+  const token = sent[0].text.match(/t=([\w-]+)/)[1];
+  // A click whose function was stopped before it could release the link.
+  await db.query('update member_applications set join_started_at = now() where id = $1', [id]);
+  assert.equal((await members.checkJoinToken(token)).id, id);
+  await assert.rejects(
+    members.completeJoin(token, { code: 'c', redirectUri: 'r' }, oauthAs('giulia@example.com')),
+    (err) => err.code === 'failed'
+  );
+  assert.ok(!botCalls.some((c) => c.method === 'PUT' && c.url.endsWith('/members/u-new')));
+  let [a] = (await members.listApplications(board)).applications;
+  assert.equal(a.joinedAt, null);
+  assert.equal((await members.invited()).length, 1);
+
+  await db.query(
+    `update member_applications set join_started_at = now() - interval '5 minutes' where id = $1`,
+    [id]
+  );
+  await members.completeJoin(token, { code: 'c', redirectUri: 'r' }, oauthAs('giulia@example.com'));
+  [a] = (await members.listApplications(board)).applications;
+  assert.ok(a.joinedAt);
+  assert.equal(a.discordName, 'Giulia');
   await assert.rejects(members.checkJoinToken(token), (err) => err.code === 'used');
 });
 
