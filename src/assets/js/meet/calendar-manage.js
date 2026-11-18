@@ -91,12 +91,19 @@
             Cal.levelBadge(c.level === 'public' ? 'public' : c.level),
             c.isPublic && c.level !== 'public' ? Cal.levelBadge('public') : null,
             c.system ? h('span', { class: 'cal-tag' }, 'From Site content') : null,
+            c.personal ? h('span', { class: 'cal-tag' }, 'Only you') : null,
             c.archived ? h('span', { class: 'cal-tag' }, 'Archived') : null
           )
         )
       ),
       c.description ? h('p', { class: 'cal-cal-desc' }, c.description) : null,
-      accessLine(c),
+      c.personal
+        ? h(
+            'p',
+            { class: 'cal-cal-access' },
+            'Only you see it, and the people you invite to its events.'
+          )
+        : accessLine(c),
       c.announce && c.announce.length
         ? h(
             'p',
@@ -268,6 +275,27 @@
         drawPreview();
       },
     });
+    // Who sees who comes to its events, by name.
+    var personal = Boolean(c && c.personal);
+    var attendees = h(
+      'div',
+      { class: 'cal-seg cal-attendees', role: 'radiogroup', 'aria-label': 'Who sees who comes' },
+      [
+        ['members', 'Everyone who sees it'],
+        ['editors', 'Who changes it'],
+        ['counts', 'Nobody: only the numbers'],
+      ].map(function (o) {
+        var input = h('input', {
+          type: 'radio',
+          name: 'cpAttendees',
+          value: o[0],
+          onchange: changed,
+        });
+        input.checked =
+          o[0] === ((c && c.attendeesVisible) || (c && c.isPublic ? 'counts' : 'members'));
+        return h('label', null, input, h('span', null, o[1]));
+      })
+    );
     var previewBox = h('div');
     function drawPreview() {
       M.clear(previewBox).appendChild(preview(announce.get(), name.value));
@@ -291,35 +319,46 @@
         h('div', null, h('span', { class: 'form-label' }, 'Colour'), swatches),
       ])
     );
+    if (!personal)
+      panelBody.appendChild(
+        section(
+          'Who has access',
+          'Three levels, each for every member, Discord roles or people by name. Each includes the ones before it; whoever created the calendar, and the calendar admins, always manage it.',
+          ladder
+        )
+      );
     panelBody.appendChild(
       section(
-        'Who has access',
-        'Three levels, each for every member, Discord roles or people by name. Each includes the ones before it; whoever created the calendar, and the calendar admins, always manage it.',
-        ladder
+        'Who comes, by name',
+        personal
+          ? 'For your own events. The people you invite to an event always see each other.'
+          : 'Who sees the names of those going to its events; the others see how many. Its editors always see them, and the people invited to an event see each other.',
+        attendees
       )
     );
-    panelBody.appendChild(
-      section(
-        'Announcements on Discord',
-        'The AIS bot posts each event of this calendar in these channels, at the times chosen. An event can choose its own instead, or none.',
-        [
-          announce.el,
-          h(
-            'button',
-            {
-              type: 'button',
-              class: 'btn btn-outline btn-sm cal-add',
-              onclick: function () {
-                announce.add();
+    if (!personal)
+      panelBody.appendChild(
+        section(
+          'Announcements on Discord',
+          'The AIS bot posts each event of this calendar in these channels, at the times chosen. An event can choose its own instead, or none.',
+          [
+            announce.el,
+            h(
+              'button',
+              {
+                type: 'button',
+                class: 'btn btn-outline btn-sm cal-add',
+                onclick: function () {
+                  announce.add();
+                },
               },
-            },
-            '+ Add a channel'
-          ),
-          previewBox,
-        ]
-      )
-    );
-    if (c && !c.system) {
+              '+ Add a channel'
+            ),
+            previewBox,
+          ]
+        )
+      );
+    if (c && !c.system && !personal) {
       panelBody.appendChild(
         section(
           c.archived ? 'Archived' : 'Archive',
@@ -367,9 +406,10 @@
           name: name.value,
           description: desc.value,
           color: color,
-          isPublic: levels.view.isPublic(),
+          isPublic: personal ? false : levels.view.isPublic(),
           access: { view: levels.view.get(), edit: levels.edit.get(), manage: levels.manage.get() },
-          announce: announce.get(),
+          announce: personal ? [] : announce.get(),
+          attendeesVisible: attendees.querySelector('input:checked').value,
         };
       },
       focus: function () {

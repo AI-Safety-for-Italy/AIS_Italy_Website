@@ -21,9 +21,6 @@ create table if not exists polls (
   hide_responses boolean not null default false,
   status text not null default 'open' check (status in ('open', 'closed', 'scheduled')),
   final_slot_id uuid,
-  calendar_event_id text,
-  calendar_event_link text,
-  meet_link text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -311,6 +308,9 @@ create unique index if not exists crm_matches_one_per_mentee
   on crm_matches (mentee_key) where status = 'active';
 create unique index if not exists crm_matches_pair
   on crm_matches (mentor_key, mentee_key) where status = 'active';
+-- A project with co-mentors is one pair: the mentee with the project's first
+-- mentor (mentor_key) and the others here, all of them its mentors.
+alter table crm_matches add column if not exists co_mentors text[] not null default '{}';
 
 -- ── Forms (/app/forms/, server/forms/) ──────────────────────────────────────
 
@@ -540,6 +540,51 @@ create table if not exists review_scores (
   comment_encrypted text,
   updated_at timestamptz not null default now(),
   primary key (person_key, part, reviewer_id)
+);
+
+-- The sections of the selection are the admins' to name (review_settings):
+-- a score's part is any section's key, no longer only cv or answers.
+alter table review_scores drop constraint if exists review_scores_part_check;
+
+-- The reasons a reviewer excluded the person for (a section's own list, say
+-- "no ties with Italy"): their keys, kept apart from the scores.
+alter table review_scores add column if not exists flags jsonb not null default '[]';
+
+-- The pre-screening, before the sections: one decision per applicant, taken
+-- by any reviewer it is given to (say "no ties with Italy"). Someone excluded
+-- here is shown in no section; the admins can bring them back.
+create table if not exists review_prescreen (
+  person_key text primary key,
+  decision text not null check (decision in ('pass', 'exclude')),
+  reasons jsonb not null default '[]',
+  reviewer_id uuid references app_users(id) on delete set null,
+  reviewer_name text not null,
+  decided_at timestamptz not null default now()
+);
+
+-- When the selection first saw each application (a form's answer: when it was
+-- sent), to tell the reviewers what came in since their last visit while the
+-- applications are still open.
+create table if not exists review_arrivals (
+  person_key text primary key,
+  arrived_at timestamptz not null default now()
+);
+
+-- Each reviewer's visits: since is where "new since your last visit" counts
+-- from, moved to the last visit once they have been away a while.
+create table if not exists review_visits (
+  reviewer_id uuid primary key references app_users(id) on delete cascade,
+  last_at timestamptz not null default now(),
+  since timestamptz not null default now()
+);
+
+-- The reminders to the reviewers before the deadline, each sent once.
+create table if not exists review_reminders_sent (
+  deadline timestamptz not null,
+  lead_minutes int not null,
+  reviewer_id uuid not null references app_users(id) on delete cascade,
+  sent_at timestamptz not null default now(),
+  primary key (deadline, lead_minutes, reviewer_id)
 );
 
 -- The community's members and working groups got a permission of their own
@@ -830,6 +875,62 @@ create unique index if not exists calendar_reminders_once on calendar_reminders_
 -- Which calendar a seminar or event of the site lands in: null for the
 -- default one of its type, 'none' for none, else a calendar's id.
 alter table content_items add column if not exists calendar_choice text;
+
+-- ── People in the calendar: personal calendars, invitations, answers ────────
+
+-- Each member's own calendar ("My calendar"): seen by them alone, not even
+-- by calendar_admin. Their targeted events go there, and a poll's meeting
+-- that names no other calendar.
+alter table calendars add column if not exists personal_of uuid references app_users(id) on delete cascade;
+create unique index if not exists calendars_personal on calendars (personal_of) where personal_of is not null;
+
+-- Who sees who comes to an event of a calendar, by name: 'members' (whoever
+-- sees the calendar), 'editors' (whoever changes it; the others the
+-- numbers only) or 'counts' (the numbers only, for everyone but its editors).
+-- The people invited to an event see each other whatever this says.
+alter table calendars add column if not exists attendees_visible text not null default 'members';
+
+-- The people invited to an event by name: a member (user_id) or an address
+-- of anyone (email). Its answer is for the whole event (a link in the email,
+-- the invite page); a member's answer to one occurrence (calendar_rsvps)
+-- comes first for that occurrence. sent_at: when the invite was emailed.
+create table if not exists calendar_invites (
+  id uuid primary key default gen_random_uuid(),
+  event_id uuid not null references calendar_events(id) on delete cascade,
+  user_id uuid references app_users(id) on delete cascade,
+  email text,
+  name text,
+  answer text check (answer in ('yes', 'maybe', 'no')),
+  answered_at timestamptz,
+  sent_at timestamptz,
+  created_at timestamptz not null default now(),
+  check (user_id is not null or email is not null)
+);
+create unique index if not exists calendar_invites_member on calendar_invites (event_id, user_id)
+  where user_id is not null;
+create unique index if not exists calendar_invites_address on calendar_invites (event_id, lower(email))
+  where user_id is null;
+create index if not exists calendar_invites_user on calendar_invites (user_id);
+-- Who emailed it: invites to addresses are limited per member and day.
+alter table calendar_invites add column if not exists sent_by uuid references app_users(id) on delete set null;
+
+-- A member's own choices for one event: its organiser's reminders
+-- ('calendar': as for its calendar, 'on', 'off') and their own reminders
+-- (null: their calendar's, [] none, else [{ minutes, channels }]).
+create table if not exists calendar_event_prefs (
+  user_id uuid not null references app_users(id) on delete cascade,
+  event_id uuid not null references calendar_events(id) on delete cascade,
+  event_reminders text not null default 'calendar',
+  own jsonb,
+  updated_at timestamptz not null default now(),
+  primary key (user_id, event_id)
+);
+
+-- Left from when a poll's meeting went to Google Calendar: the meeting is the
+-- app's own now (its emailed invite, its copy in a calendar of the app).
+alter table polls drop column if exists calendar_event_id;
+alter table polls drop column if exists calendar_event_link;
+alter table polls drop column if exists meet_link;
 
 -- The calendar a poll's chosen time lands in, if any.
 alter table polls add column if not exists calendar_id uuid references calendars(id) on delete set null;

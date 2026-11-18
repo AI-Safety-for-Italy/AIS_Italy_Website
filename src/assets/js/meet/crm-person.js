@@ -345,6 +345,30 @@
         ? h('p', { class: 'panel-note' }, 'Paired: end the pair (in Pairs) to move them by hand.')
         : null;
 
+    // The form answer a list came from, opened on the form's answers (for
+    // whoever may read that form: the others get "No such form" there).
+    function answerLink(a) {
+      if (!a) return null;
+      return h(
+        'p',
+        { class: 'crm-answer-link' },
+        h(
+          'a',
+          {
+            class: 'btn btn-outline btn-sm',
+            href:
+              '/app/forms/edit/?id=' +
+              encodeURIComponent(a.formId) +
+              '&response=' +
+              encodeURIComponent(a.responseId) +
+              '#responses',
+          },
+          'Open the full answer'
+        ),
+        h('span', { class: 'crm-quiet' }, ' sent ' + M.fmtDateTime(a.submittedAt))
+      );
+    }
+
     // ── Sections ──
     var sections = [];
     p.sheets.forEach(function (s) {
@@ -403,10 +427,10 @@
       sections.push({
         name: s.source,
         title: SOURCE_LABELS[s.source] || s.label,
-        meta: ORIGIN_LABELS[s.origin],
+        meta: s.answer ? 'From the form “' + s.answer.form + '”' : ORIGIN_LABELS[s.origin],
         count: names.length,
         open: true,
-        node: h('div', null, removeBtn, body),
+        node: h('div', null, removeBtn, answerLink(s.answer), body),
       });
     });
 
@@ -506,6 +530,7 @@
                 null,
                 'Paired with ',
                 h('a', { href: personUrl(m.otherKey, other) }, name || 'the ' + other),
+                m.coMentors && m.coMentors.length ? ' · with ' + m.coMentors.join(' & ') : '',
                 ' · ' + trackLabel(m.track) + ' · since ' + M.fmtDay(m.createdAt, 'Europe/Rome')
               );
             })

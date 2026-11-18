@@ -16,6 +16,7 @@ const VIEW_CHANNEL = 1n << 10n;
 const SEND_MESSAGES = 1n << 11n;
 const ADMINISTRATOR = 1n << 3n;
 const CONNECT = 1n << 20n;
+const SUPPRESS_EMBEDS = 1 << 2; // message flag: no link preview cards
 
 const TEXT = [0, 5]; // text, announcement
 const VOICE = [2, 13]; // voice, stage
@@ -135,8 +136,8 @@ function channelLink(channelId) {
   return `https://discord.com/channels/${process.env.DISCORD_GUILD_ID || 'dev'}/${channelId}`;
 }
 
-/** Posts `content` in a channel. Returns { sent, detail }. */
-async function post(channelId, content) {
+/** Posts `content` in a channel, with `components` (buttons) if given. Returns { sent, detail }. */
+async function post(channelId, content, { components } = {}) {
   if (!permissions.botConfigured() || String(channelId).startsWith('dev-')) {
     if (permissions.devLogin()) {
       console.log(`\n[Discord #${channelId}]\n${content}\n`);
@@ -147,7 +148,13 @@ async function post(channelId, content) {
   try {
     const res = await permissions.bot(`/channels/${channelId}/messages`, {
       method: 'POST',
-      json: { content: content.slice(0, 1900), allowed_mentions: { parse: [] } },
+      json: {
+        content: content.slice(0, 1900),
+        allowed_mentions: { parse: [] },
+        // The calendar link is enough: no preview card under the announcement.
+        flags: SUPPRESS_EMBEDS,
+        ...(components ? { components } : {}),
+      },
     });
     if (res.ok) return { sent: true };
     console.error('Calendar announcement failed', res.status);
