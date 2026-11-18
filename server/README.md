@@ -738,7 +738,9 @@ go to who turned notifications on for its calendar and still sees it, and to
 who answered going or maybe. Each calendar can name Discord text channels, each
 with its lead times, where the bot announces its events; an event can name its
 own instead, or none. Only the channels where the bot may write are offered
-(`server/calendar-discord.js`). The job runs every 10 minutes from
+(`server/calendar-discord.js`), and to each member only those they see on
+Discord (by their roles; a calendar admin sees all). Saving checks it too: a
+channel they do not see is refused, unless it was already there. The job runs every 10 minutes from
 `.github/workflows/calendar-reminders.yml` (`/api/cron/cleanup?job=reminders`,
 the same `CRON_SECRET` as the cleanup); a run late by up to 30 minutes still
 sends what was due, and nothing goes twice (`calendar_reminders_sent`).

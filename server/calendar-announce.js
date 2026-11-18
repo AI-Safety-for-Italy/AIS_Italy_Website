@@ -63,14 +63,21 @@ async function forAnnouncing(user, id, occurrence) {
   const { event, cal } = await calendars.eventFor(id, who, 'edit', { pollMeeting: true });
   if (cal.archived_at) throw new HttpError(409, 'This calendar is archived');
   const picked = calendars.pickOccurrence(event, occurrence);
-  return { event, cal, head: headOf(event), occurrenceStart: picked.occurrenceStart, picked };
+  return { who, event, cal, head: headOf(event), occurrenceStart: picked.occurrenceStart, picked };
 }
 
-/** A text channel the bot may write in, as Discord names it now. */
-async function channelFor(channelId) {
+/**
+ * A text channel the bot may write in, as Discord names it now. `who` may
+ * only pick one they see on Discord (calendars.checkAnnounce), or one the
+ * event or its calendar already announces in.
+ */
+async function channelFor(channelId, who, event, cal) {
   const { text } = await discord.channels();
   const c = text.find((x) => x.id === String(channelId || ''));
   if (!c) throw new HttpError(400, 'Choose a Discord channel');
+  const already = [...(event.announce || []), ...(cal.announce || [])];
+  if (!already.some((x) => x.channelId === c.id) && (await discord.hiddenIds(who)).has(c.id))
+    throw new HttpError(400, 'You can only announce in a Discord channel you see');
   if (c.canPost === false)
     throw new HttpError(400, `The bot can’t write in #${c.name}: add it to the channel on Discord`);
   return c;
@@ -91,10 +98,14 @@ async function post(occ, cal, channelId, now, site) {
 /** Posts the announcement of an occurrence in a channel, now. Returns the card's detail. */
 async function announceNow(user, id, { occurrence, channelId } = {}, { site } = {}) {
   await require('./permissions').refreshIfStale(user);
-  const { cal, head, occurrenceStart, picked } = await forAnnouncing(user, id, occurrence);
+  const { who, event, cal, head, occurrenceStart, picked } = await forAnnouncing(
+    user,
+    id,
+    occurrence
+  );
   const now = Date.now();
   if (picked.end.getTime() <= now) throw new HttpError(409, 'This event is over');
-  const channel = await channelFor(channelId);
+  const channel = await channelFor(channelId, who, event, cal);
   const { rows: recent } = await db.query(
     `select 1 from calendar_announcements
      where event_id = $1 and occurrence_start = $2 and channel_id = $3
@@ -119,14 +130,18 @@ async function announceNow(user, id, { occurrence, channelId } = {}, { site } = 
 /** Plans an announcement of an occurrence in a channel, at `sendAt`. Returns the card's detail. */
 async function plan(user, id, { occurrence, channelId, sendAt } = {}) {
   await require('./permissions').refreshIfStale(user);
-  const { head, occurrenceStart, picked } = await forAnnouncing(user, id, occurrence);
+  const { who, event, cal, head, occurrenceStart, picked } = await forAnnouncing(
+    user,
+    id,
+    occurrence
+  );
   const at = new Date(sendAt);
   if (typeof sendAt !== 'string' || Number.isNaN(at.getTime()))
     throw new HttpError(400, 'Choose a day and time');
   if (at.getTime() < Date.now() - 60000) throw new HttpError(400, 'That time has passed');
   if (at.getTime() >= picked.end.getTime())
     throw new HttpError(400, 'Choose a time before the event ends');
-  const channel = await channelFor(channelId);
+  const channel = await channelFor(channelId, who, event, cal);
   const { rows: pending } = await db.query(
     `select count(*)::int as n from calendar_announcements
      where event_id = $1 and occurrence_start = $2 and outcome is null`,
