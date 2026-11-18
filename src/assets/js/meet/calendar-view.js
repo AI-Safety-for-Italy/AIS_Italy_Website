@@ -1450,7 +1450,15 @@
           })
         )
           list.unshift({ id: current, name: name || current });
-        if (!list.length) f.voice.appendChild(h('option', { value: '' }, 'No voice channel found'));
+        // No channel chosen until the organiser picks one: without this the
+        // browser selects the first (e.g. #direttivo) and it is saved unseen.
+        f.voice.appendChild(
+          h(
+            'option',
+            { value: '', selected: !current },
+            list.length ? 'Choose a voice channel…' : 'No voice channel found'
+          )
+        );
         Cal.channelOptions(f.voice, list, current, '🔊 ');
         if (current) f.voice.value = current;
       })
@@ -1941,6 +1949,11 @@
       return;
     }
     var b = bodyOf();
+    if (videoMode() === 'discord' && !f.voice.disabled && !f.voice.value) {
+      showError('Choose a voice channel, or no video call');
+      f.voice.focus();
+      return;
+    }
     if (b.video && b.video.kind === 'link' && !/^https:\/\//i.test(b.video.url)) {
       showError('The video call link must start with https://');
       f.videoUrl.focus();
