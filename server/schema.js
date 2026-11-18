@@ -872,6 +872,28 @@ create table if not exists calendar_reminders_sent (
 create unique index if not exists calendar_reminders_once on calendar_reminders_sent
   (event_id, occurrence_start, minutes, coalesce(user_id::text, ''), coalesce(channel_id, ''));
 
+-- One-off announcements of an occurrence in a Discord channel, apart from
+-- the lead times (server/calendar-announce.js): "Announce now", or at a day
+-- and time chosen. event_id is the series (or the single event);
+-- outcome is null until the job (or the button) handles it.
+create table if not exists calendar_announcements (
+  id uuid primary key default gen_random_uuid(),
+  event_id uuid not null references calendar_events(id) on delete cascade,
+  occurrence_start timestamptz not null,
+  channel_id text not null,
+  channel_name text not null,
+  send_at timestamptz not null,
+  outcome text check (outcome in ('sent', 'failed', 'skipped')),
+  handled_at timestamptz,
+  created_by uuid references app_users(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists calendar_announcements_due on calendar_announcements (send_at)
+  where outcome is null;
+create index if not exists calendar_announcements_event on calendar_announcements
+  (event_id, occurrence_start);
+
 -- Which calendar a seminar or event of the site lands in: null for the
 -- default one of its type, 'none' for none, else a calendar's id.
 alter table content_items add column if not exists calendar_choice text;

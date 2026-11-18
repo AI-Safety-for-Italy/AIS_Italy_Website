@@ -24,9 +24,14 @@
 //   POST ?action=send-invites&id=… { again? }      -> emails / DMs the invite (edit)
 //   POST ?action=my-reminders&id=… { eventReminders, own, occurrence }
 //                                         -> this member's reminders for one event
+//   POST ?action=announce-now&id=… { occurrence, channelId }   -> posts it now (edit)
+//   POST ?action=plan-announcement&id=… { occurrence, channelId, sendAt }  (edit)
+//   POST ?action=cancel-announcement&id=<planned id>           -> one not sent yet (edit)
+//        (server/calendar-announce.js; each answers with the occurrence's card)
 const { route, sendJson, readJson, getQuery, HttpError } = require('../../http');
 const { requireUser } = require('../../auth');
 const calendars = require('../../calendars');
+const announcements = require('../../calendar-announce');
 const permissions = require('../../permissions');
 const discord = require('../../calendar-discord');
 const invites = require('../../calendar-invites');
@@ -108,6 +113,16 @@ module.exports = route({
         );
       case 'my-reminders':
         return sendJson(res, 200, await calendars.setEventPrefs(user, q.id, body));
+      case 'announce-now':
+        return sendJson(
+          res,
+          200,
+          await announcements.announceNow(user, q.id, body, { site: siteUrl(req) })
+        );
+      case 'plan-announcement':
+        return sendJson(res, 200, await announcements.plan(user, q.id, body));
+      case 'cancel-announcement':
+        return sendJson(res, 200, await announcements.cancel(user, q.id));
       case 'regenerate-feed':
         return sendJson(res, 200, await calendars.regenerateFeed(user));
       default:
