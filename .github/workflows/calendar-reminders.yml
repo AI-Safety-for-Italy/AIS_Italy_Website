@@ -1,13 +1,24 @@
-# Sends the calendar's reminders and Discord announcements that are due, every
-# 10 minutes, on the live site. See server/calendar-reminders.js. GitHub may
-# start a scheduled run some minutes late; a reminder is still sent up to 30
-# minutes after its time. Needs the repository secret CRON_SECRET, the same
-# value as the CRON_SECRET environment variable on Vercel (production).
+# Sends the calendar's reminders and Discord announcements that are due, on the
+# live site: every 10 minutes by day, every 2 hours by night. See
+# server/calendar-reminders.js. GitHub may start a scheduled run some minutes
+# late; a reminder is still sent up to 30 minutes after its time, so one due in
+# the night, between two runs, is not sent. Needs the repository secret
+# CRON_SECRET, the same value as the CRON_SECRET environment variable on Vercel
+# (production).
+#
+# Each run wakes the Neon database, which then stays up a few minutes: a run
+# every 10 minutes round the clock kept it up about half the time, close to the
+# free plan's monthly compute hours (AISAF-107).
 name: Calendar reminders
 
 on:
   schedule:
-    - cron: '*/10 * * * *'
+    # Times are UTC, an hour behind Italy in winter and two in summer. Off the
+    # hour, when GitHub's scheduler is less busy.
+    # By day, 06:07-22:57 UTC (07:07-23:57 in Italy in winter): every 10 minutes.
+    - cron: '7,17,27,37,47,57 6-22 * * *'
+    # By night, 00:07, 02:07 and 04:07 UTC (01:07, 03:07 and 05:07 in winter).
+    - cron: '7 0,2,4 * * *'
   workflow_dispatch:
 
 permissions: {}
