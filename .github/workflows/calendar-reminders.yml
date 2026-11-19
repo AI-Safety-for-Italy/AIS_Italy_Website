@@ -15,8 +15,9 @@ on:
   schedule:
     # Times are UTC, an hour behind Italy in winter and two in summer. Off the
     # hour, when GitHub's scheduler is less busy.
-    # By day, 06:07-22:57 UTC (07:07-23:57 in Italy in winter): every 10 minutes.
-    - cron: '7,17,27,37,47,57 6-22 * * *'
+    # By day, 05:07-22:57 UTC (06:07-23:57 in Italy in winter): every 10 minutes,
+    # from early enough that an hour's reminder of an event at 7 goes.
+    - cron: '7,17,27,37,47,57 5-22 * * *'
     # By night, 00:07, 02:07 and 04:07 UTC (01:07, 03:07 and 05:07 in winter).
     - cron: '7 0,2,4 * * *'
   workflow_dispatch:
