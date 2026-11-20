@@ -16,6 +16,7 @@
 //   GET  ?action=summary                  -> everyone, with names and every score       (admin)
 //   GET  ?action=export&format=csv|json   -> the summary as a file to download      (admin)
 //   POST ?action=status { key, status }   -> the board's status of a mentee             (admin)
+//   PUT  ?action=gate { from, percent, version? } -> the threshold after a section (admin; 409 if stale)
 //   GET  ?action=settings                 -> { formId, sections, catalog, forms, reviewers… } (admin)
 //   GET  ?action=questions&form=<id|>     -> a form's questions and a first split        (admin)
 //   PUT  ?action=settings { formId?, nameQuestion?, sections?, version? } (admin; 409 if stale)
@@ -87,10 +88,14 @@ module.exports = route({
 
   async PUT(req, res) {
     const { action } = getQuery(req);
-    if (!['settings', 'matching-settings', 'matching-draft', 'reminders'].includes(action))
+    if (!['settings', 'gate', 'matching-settings', 'matching-draft', 'reminders'].includes(action))
       throw new HttpError(400, 'Unknown action');
     const { user, role } = await door(req, { write: true });
     review.requireAdmin(role);
+    if (action === 'gate') {
+      sendJson(res, 200, { gate: await review.saveGate(user, await readJson(req)) });
+      return;
+    }
     if (action === 'reminders') {
       sendJson(res, 200, await reminders.saveReminders(user, await readJson(req)));
       return;

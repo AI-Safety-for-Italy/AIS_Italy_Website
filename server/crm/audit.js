@@ -67,6 +67,8 @@ const ACTIONS = new Set([
   'review-summary',
   'review-export',
   'review-settings',
+  // The threshold moved: { from: section key | null, percent }.
+  'review-gate',
   'review-reviewers',
   'review-prescreen',
   'review-remind',

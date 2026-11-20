@@ -6,7 +6,9 @@
  * here moves the mentee on the mentorship board too. "Hide names" shows the
  * codes only, for discussing the scores before the names. With a
  * pre-screening, who was excluded there is last, with why and by whom, and
- * can be brought back into the sections. */
+ * can be brought back into the sections. The threshold, set here, leaves the
+ * worst share of a section (the CV) out of the sections after it: those below
+ * go after the others, marked, and come back when it is moved. */
 (function () {
   'use strict';
   var M = window.Meet;
@@ -427,6 +429,8 @@
     var rejected = all.filter(screenedOut);
     var screen = screeningLine();
     if (screen) root.appendChild(screen);
+    var gate = gateLine();
+    if (gate) root.appendChild(gate);
     if (!all.length) {
       root.appendChild(
         h(
@@ -474,13 +478,28 @@
           h(
             'td',
             { class: 'rv-rank' },
-            p.overall === null || p.exclusions.length ? '' : String(i + 1)
+            p.overall === null || p.exclusions.length || p.gate === 'below' ? '' : String(i + 1)
           ),
           h(
             'td',
             { class: 'rv-who' },
             h('strong', null, who(p)),
             !view.blind && p.org ? h('small', null, p.org) : null,
+            p.gate === 'below' || p.gate === 'waiting'
+              ? h(
+                  'span',
+                  {
+                    class: 'rv-excl-badge rv-gate-badge is-' + p.gate,
+                    title:
+                      p.gate === 'below'
+                        ? 'Not shown in the sections after ' + data.gate.label
+                        : 'Shown in the sections after ' +
+                          data.gate.label +
+                          ' once every reviewer has scored it',
+                  },
+                  p.gate === 'below' ? 'Below the threshold' : 'Waiting for ' + data.gate.label
+                )
+              : null,
             p.exclusions.length
               ? h(
                   'span',
@@ -555,7 +574,7 @@
       h(
         'p',
         { class: 'panel-note rv-foot' },
-        'Each section shows the mean of the complete reviews and how many there are; ±n: the reviewers differ by that much. Someone a reviewer flagged with a reason to exclude goes to the bottom, marked. Rejected applicants are no longer shown to the reviewers. Selected and later are set on the mentorship board.'
+        'Each section shows the mean of the complete reviews and how many there are; ±n: the reviewers differ by that much. Someone a reviewer flagged with a reason to exclude goes to the bottom, marked, as does someone below the threshold, who is shown in no section after it. Rejected applicants are no longer shown to the reviewers. Selected and later are set on the mentorship board.'
       )
     );
     if (rejected.length) root.appendChild(rejectedTable(rejected));
@@ -579,6 +598,140 @@
       { class: 'rv-places' },
       h('strong', null, 'Pre-screening: '),
       passed + ' passed, ' + out + ' excluded, ' + todo + ' left to do'
+    );
+  }
+
+  // What a share would leave out of these means (lowest first), as the
+  // server counts it: the worst share rounded down, ties with the last one in passing.
+  function cutOf(means, percent) {
+    var k = Math.floor((means.length * percent) / 100);
+    if (!k) return { cutoff: null, below: 0 };
+    var cutoff = means[k];
+    return {
+      cutoff: cutoff,
+      below: means.filter(function (m) {
+        return m < cutoff;
+      }).length,
+    };
+  }
+
+  // The threshold: after which section, how much it leaves out, and where it stands.
+  function gateLine() {
+    var g = view.data.gate;
+    var sections = view.data.sections;
+    if (!g || sections.length < 2) return null;
+    // What is typed and not saved yet stays while rows open and close.
+    var draft = view.gateDraft;
+    var from = h(
+      'select',
+      { class: 'form-input is-compact', 'aria-label': 'Threshold after' },
+      h('option', { value: '' }, 'Off'),
+      sections.slice(0, -1).map(function (s) {
+        var o = h('option', { value: s.key }, 'After ' + s.label);
+        o.selected = (draft ? draft.from : g.from || '') === s.key;
+        return o;
+      })
+    );
+    var percent = h('input', {
+      type: 'number',
+      class: 'form-input is-compact rv-gate-percent',
+      min: '0',
+      max: String(g.max),
+      step: '1',
+      value: draft ? draft.percent : String(g.percent),
+      'aria-label': 'Share left out, in percent',
+    });
+    var note = h('span', { class: 'panel-note' });
+    var save = h('button', { type: 'button', class: 'btn btn-outline btn-sm' }, 'Save');
+
+    function describe() {
+      M.clear(note);
+      var p = Number(percent.value);
+      var changed = from.value !== (g.from || '') || p !== g.percent;
+      view.gateDraft = changed ? { from: from.value, percent: percent.value } : null;
+      save.disabled = !changed;
+      if (!g.from) {
+        note.appendChild(
+          document.createTextNode(
+            from.value
+              ? 'Once saved, someone is ranked when every reviewer given ' +
+                  from.options[from.selectedIndex].text.replace(/^After /, '') +
+                  ' has scored them; until then they wait.'
+              : ''
+          )
+        );
+        return;
+      }
+      var c = g.counts;
+      var waiting = c.waiting ? ', ' + c.waiting + ' waiting for every review' : '';
+      if (from.value === g.from && changed && Number.isInteger(p) && p >= 0 && p <= g.max) {
+        var preview = cutOf(g.means, p);
+        note.appendChild(
+          document.createTextNode(
+            'Preview: ' +
+              (g.means.length - preview.below) +
+              ' would pass, ' +
+              preview.below +
+              ' below' +
+              (preview.cutoff === null ? '' : ' (mean under ' + num(preview.cutoff) + ')') +
+              waiting
+          )
+        );
+        return;
+      }
+      note.appendChild(
+        document.createTextNode(
+          c.pass +
+            ' pass, ' +
+            c.below +
+            ' below' +
+            (g.cutoff === null ? '' : ' (mean under ' + num(g.cutoff) + ')') +
+            waiting
+        )
+      );
+    }
+
+    from.onchange = describe;
+    percent.oninput = describe;
+    save.onclick = function () {
+      var p = Number(percent.value);
+      if (!Number.isInteger(p) || p < 0 || p > g.max) {
+        M.toast('From 0% to ' + g.max + '%, in whole numbers', true);
+        return;
+      }
+      save.disabled = true;
+      M.api('PUT', API + '?action=gate', {
+        from: from.value || null,
+        percent: p,
+        version: g.version,
+      })
+        .then(function () {
+          return M.api('GET', API + '?action=summary');
+        })
+        .then(function (d) {
+          view.data = d;
+          view.gateDraft = null;
+          M.toast(d.gate.from ? 'Threshold saved: the reviewers see it now' : 'Threshold off');
+          render();
+        })
+        .catch(function (err) {
+          if (err.status === 401) return M.appError(err);
+          M.toast(err.message, true);
+          save.disabled = false;
+        });
+    };
+    describe();
+
+    return h(
+      'p',
+      { class: 'rv-places rv-gate' },
+      h('strong', null, 'Threshold: '),
+      from,
+      h('span', null, 'leave out the worst'),
+      percent,
+      h('span', null, '%'),
+      save,
+      note
     );
   }
 
