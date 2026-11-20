@@ -14,6 +14,8 @@ const permissions = require('./permissions');
 const calendars = require('./calendars');
 const expand = require('./calendar-expand');
 const reminders = require('./calendar-reminders');
+// Paused on the site for now (calendar-reminders.js); tested as when on.
+reminders.paused = false;
 const notify = require('./notify');
 const polls = require('./polls');
 
@@ -596,4 +598,34 @@ test('one-off announcements go only in a channel the member sees, or one the eve
   await announce.announceNow(maker, other, { occurrence, channelId: '203000003' });
   assert.equal(posts('203000003').length, 1);
   require('./calendar-discord').reset();
+});
+
+test('paused, no reminder goes and none is spent; the announcements still do', async () => {
+  const maker = await person('Maker', ['calendar_create']);
+  const follower = await person('Follower');
+  const cal = await calendars.createCalendar(maker, {
+    name: 'Paused',
+    announce: [{ channelId: '444444444', name: 'general', minutes: [60] }],
+  });
+  const start = new Date(Date.now() + 2 * 3600000);
+  start.setUTCSeconds(0, 0);
+  await calendars.createEvent(maker, {
+    calendarId: cal.id,
+    title: 'Quiet one',
+    start: iso(start),
+    end: iso(start.getTime() + 3600000),
+    reminders: [{ minutes: 60, channels: ['discord'] }],
+  });
+  await calendars.savePrefs(follower, { notify: true });
+
+  reminders.paused = true;
+  try {
+    const result = await reminders.run({ now: new Date(start.getTime() - 59 * 60000) });
+    assert.deepEqual(result, { reminders: 0, announcements: 1 });
+  } finally {
+    reminders.paused = false;
+  }
+  // On again, the reminder still due goes.
+  const result = await reminders.run({ now: new Date(start.getTime() - 58 * 60000) });
+  assert.equal(result.reminders, 1);
 });
