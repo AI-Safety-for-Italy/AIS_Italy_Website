@@ -481,6 +481,23 @@ test('a draft is not public; an open form is, until it closes', async () => {
   await rejects(forms.publicView('../../etc'), 404);
 });
 
+test('a form past its closing time shows its own closed message, and takes no answers', async () => {
+  await setRoles();
+  const mara = await member('Mara', ['r-forms']);
+  const closedMessage = { it: 'Le candidature sono chiuse. [Resta aggiornato](https://x.it)' };
+  const { id, slug } = await forms.create(mara, {
+    title: 'Prova',
+    schema: { ...fullSchema(), closedMessage },
+  });
+  await forms.updateSettings(mara, id, { status: 'open' });
+  assert.equal((await forms.publicView(slug)).closedMessage, undefined);
+  await db.query('update forms set closes_at = $2 where id = $1', [id, new Date(Date.now() - 1000)]);
+  const view = await forms.publicView(slug);
+  assert.equal(view.open, false);
+  assert.deepEqual(view.closedMessage, closedMessage);
+  await rejects(answer(slug, goodAnswers()), 410);
+});
+
 test('settings are validated: dates, link, roles, and something to answer before opening', async () => {
   await setRoles();
   const mara = await member('Mara', ['r-forms']);

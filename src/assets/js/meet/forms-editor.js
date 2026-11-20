@@ -1720,6 +1720,17 @@
             },
             { rows: '3', maxlength: '6000', placeholder: txOrMain(schema.confirmation) }
           )
+        ),
+        field(
+          'Message when closed' + L,
+          textArea(
+            tx(schema.closedMessage),
+            function (v) {
+              setText(schema, 'closedMessage', v);
+            },
+            { rows: '3', maxlength: '6000', placeholder: txOrMain(schema.closedMessage) }
+          ),
+          'Shown instead of the questions once the form is closed. [Links](https://…) work here.'
         )
       )
     );
