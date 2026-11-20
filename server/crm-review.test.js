@@ -461,7 +461,10 @@ test('the export: the summary as CSV or JSON, for the admins only', async () => 
   // A byte order mark first, for Excel to read the accents.
   assert.equal(csv.body.charCodeAt(0), 0xfeff);
   const lines = csv.body.slice(1).trim().split('\r\n');
-  assert.match(lines[0], /^Applicant,Organisation,Track,Status,Overall,Pre-screening,Section,Code/);
+  assert.match(
+    lines[0],
+    /^Applicant,Organisation,Track,Status,Overall,Pre-screening,Threshold,Section,Code/
+  );
   const lia = lines.filter((l) => l.startsWith('Lia Candidata,'));
   // One line per section: a review in the answers, none yet in the CV.
   assert.equal(lia.length, 2);
@@ -1339,4 +1342,155 @@ test('reminders: now, and before the deadline, to whoever has reviews left', asy
   );
   assert.equal(msg.subject, 'Mentee selection: 1 week left, 20 applications to review');
   delete process.env.MEET_FAKE_MAIL;
+});
+
+// ── The threshold ────────────────────────────────────────────────────────────
+
+/** Three more applicants, with a CV and an answer each: [key of each]. */
+async function threeMore() {
+  const keys = [];
+  for (const n of ['uno', 'due', 'tre']) {
+    const email = `${n}@example.org`;
+    await records.add(
+      'mentees_applications',
+      {
+        name: `Persona ${n}`,
+        email,
+        cv: `https://drive.example.org/${n}.pdf`,
+        tracks: 'Progetti di AI safety',
+        motivation: `Motivazione ${n}.`,
+      },
+      { origin: 'form' }
+    );
+    keys.push(crm.personKey(email));
+  }
+  return keys;
+}
+
+const scoreCv = (user, key, value) =>
+  review.score(user, { part: 'cv', code: review.codeOf(key, 'cv'), scores: scoreAll('cv', value) });
+const answersOf = async (user) => (await review.list(user, 'answers')).items.map((i) => i.code);
+const gateCall = (user, body) =>
+  call({ method: 'PUT', url: '/api/app/crm/review?action=gate', user, body });
+
+test('the threshold: the worst share of the CV reaches no later section, and comes back', async () => {
+  const { boss, ann, ben } = await panel();
+  const [uno, due, tre] = await threeMore();
+  const marcoAnswers = review.codeOf(MARCO_KEY(), 'answers');
+  // Off by default: the answers show everyone.
+  assert.equal((await review.getGate()).from, null);
+  assert.equal((await answersOf(ann)).length, 5);
+  // Ann scores Marco's answers before the threshold is on.
+  await review.score(ann, {
+    part: 'answers',
+    code: marcoAnswers,
+    scores: scoreAll('answers', 4),
+    comment: 'Buone risposte',
+  });
+
+  // Only the admins move it, and only after a section with another after it.
+  assert.equal((await gateCall(ann, { from: 'cv', percent: 20 })).statusCode, 403);
+  assert.equal((await gateCall(boss, { from: 'answers', percent: 20 })).statusCode, 400);
+  assert.equal((await gateCall(boss, { from: 'nope', percent: 20 })).statusCode, 400);
+  assert.equal((await gateCall(boss, { from: 'cv', percent: 95 })).statusCode, 400);
+  assert.equal((await gateCall(boss, { from: 'cv', percent: 2.5 })).statusCode, 400);
+  const on = await gateCall(boss, { from: 'cv', percent: 20 });
+  assert.equal(on.statusCode, 200);
+  assert.deepEqual([on.body.gate.from, on.body.gate.percent], ['cv', 20]);
+  // Moved by someone else since: refused, not overwritten.
+  assert.equal((await gateCall(boss, { percent: 30, version: 'old' })).statusCode, 409);
+
+  // Nobody's CV is done: everyone waits, the answers are empty, the CV is not.
+  assert.equal((await answersOf(ann)).length, 0);
+  assert.equal((await review.list(ann, 'cv')).items.length, 5);
+  await assert.rejects(
+    review.score(ann, { part: 'answers', code: marcoAnswers, scores: {} }),
+    (e) => e.status === 404
+  );
+
+  // Ann scores every CV; Ben not yet: still waiting for Ben.
+  const values = [
+    [LIA_KEY(), 5],
+    [MARCO_KEY(), 1],
+    [uno, 4],
+    [due, 3],
+    [tre, 2],
+  ];
+  for (const [key, v] of values) await scoreCv(ann, key, v);
+  assert.equal((await answersOf(ann)).length, 0);
+  // Ben scores all but Tre, whom he knows: stepping aside finishes it.
+  for (const [key, v] of values.slice(0, 4)) await scoreCv(ben, key, v);
+  await review.score(ben, {
+    part: 'cv',
+    code: review.codeOf(tre, 'cv'),
+    scores: {},
+    conflict: true,
+  });
+
+  // Five ranked, 20%: one left out, Marco (mean 1).
+  const answers = await answersOf(ann);
+  assert.equal(answers.length, 4);
+  assert.ok(!answers.includes(marcoAnswers));
+  await assert.rejects(review.application(ann, 'answers', marcoAnswers), (e) => e.status === 404);
+  const over = (await call({ user: ann })).body;
+  assert.equal(over.sections.find((s) => s.key === 'answers').total, 4);
+
+  // The admins see it all, and Marco's review of his answers is still there.
+  let sum = await review.summary(boss);
+  assert.equal(sum.gate.cutoff, 2);
+  assert.deepEqual(sum.gate.means, [1, 2, 3, 4, 5]);
+  assert.deepEqual(sum.gate.counts, { pass: 4, below: 1, waiting: 0 });
+  assert.deepEqual(sum.gate.filters, ['answers']);
+  const marco = sum.people.find((p) => p.key === MARCO_KEY());
+  assert.equal(marco.gate, 'below');
+  assert.equal(marco.parts.answers.count, 1);
+  // Held back, the answers are not a section missing.
+  assert.equal(marco.partial, false);
+  assert.equal(sum.people[sum.people.length - 1].key, MARCO_KEY());
+  const csv = (await review.exportFile(boss, 'csv')).body;
+  assert.ok(csv.split('\r\n').some((l) => l.startsWith('Marco Secondo,') && l.includes(',below,')));
+
+  // 40%: two out. 0%: everyone back, Marco's review as Ann left it.
+  await review.saveGate(boss, { percent: 40 });
+  assert.equal((await answersOf(ann)).length, 3);
+  await review.saveGate(boss, { percent: 0 });
+  assert.equal((await answersOf(ann)).length, 5);
+  const back = await review.application(ann, 'answers', marcoAnswers);
+  assert.equal(back.mine.scores.motivation, 4);
+  assert.equal(back.mine.comment, 'Buone risposte');
+
+  // A tie with the last one in passes: Tre as low as Marco, nobody out at 20%.
+  await review.saveGate(boss, { percent: 20 });
+  await scoreCv(ann, tre, 1);
+  sum = await review.summary(boss);
+  assert.equal(sum.gate.counts.below, 0);
+  assert.equal((await answersOf(ann)).length, 5);
+
+  // Off: as before it was set.
+  await review.saveGate(boss, { from: null });
+  assert.equal(
+    (await review.summary(boss)).people.every((p) => p.gate === null),
+    true
+  );
+  const { rows } = await db.query(
+    `select detail from crm_audit where action = 'review-gate' order by at desc limit 1`
+  );
+  assert.deepEqual(rows[0].detail, { from: null, percent: 20 });
+});
+
+test('the threshold waits for the reviewers the section is given to, and nobody else', async () => {
+  const { boss, ann, ben } = await panel();
+  const sections = (await review.getSettings()).sections;
+  sections.find((s) => s.key === 'cv').reviewers = [ann.id];
+  await review.saveSettings(boss, { sections });
+  await review.saveGate(boss, { from: 'cv', percent: 50 });
+  await scoreCv(ann, LIA_KEY(), 5);
+  // Lia is done by everyone the CV is given to; Marco waits.
+  const sum = await review.summary(boss);
+  assert.equal(sum.people.find((p) => p.key === LIA_KEY()).gate, 'pass');
+  assert.equal(sum.people.find((p) => p.key === MARCO_KEY()).gate, 'waiting');
+  assert.deepEqual(await answersOf(ben), [review.codeOf(LIA_KEY(), 'answers')]);
+  // The CV section gone, the threshold stops filtering.
+  await review.saveSettings(boss, { sections: sections.filter((s) => s.key !== 'cv') });
+  assert.equal((await answersOf(ben)).length, 2);
 });

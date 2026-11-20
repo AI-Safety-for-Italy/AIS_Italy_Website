@@ -16573,3 +16573,20 @@ span.mt-fit.is-no {
   font-size: 13px;
   color: var(--text-secondary);
 }
+
+/* The threshold: its controls on one line, wrapping on a phone. */
+.rv-gate {
+  align-items: center;
+  gap: 6px 8px;
+}
+.rv-gate .rv-gate-percent {
+  width: 4.5em;
+}
+.rv-gate-badge {
+  background: color-mix(in srgb, var(--text-secondary) 14%, var(--card-bg));
+  color: var(--text-secondary);
+}
+.rv-gate-badge.is-below {
+  background: color-mix(in srgb, var(--warning, var(--error)) 16%, var(--card-bg));
+  color: var(--warning, var(--error));
+}
