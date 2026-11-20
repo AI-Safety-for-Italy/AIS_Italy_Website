@@ -390,6 +390,19 @@
         { class: 'crm-toolbar rv-toolbar' },
         statusFilter,
         h('label', { class: 'check-row' }, blind, h('span', null, 'Hide names')),
+        // The whole summary, names and comments included, whatever is shown.
+        ['csv', 'json'].map(function (format) {
+          return h(
+            'a',
+            {
+              class: 'btn btn-outline btn-sm',
+              href: API + '?action=export&format=' + format,
+              download: '',
+              title: 'Every applicant and every review, with names and comments',
+            },
+            'Download ' + format.toUpperCase()
+          );
+        }),
         h(
           'span',
           { class: 'panel-note' },

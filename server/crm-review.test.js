@@ -441,6 +441,53 @@ test('the summary: means of the complete reviews, the spread, the parts weighted
   assert.equal(sum.people.length, 2);
 });
 
+test('the export: the summary as CSV or JSON, for the admins only', async () => {
+  const { boss, ann, ben } = await panel();
+  await review.score(ann, {
+    part: 'answers',
+    code: review.codeOf(LIA_KEY(), 'answers'),
+    scores: scoreAll('answers', 4),
+    comment: '=Bene, motivata',
+  });
+  await review.score(ben, {
+    part: 'answers',
+    code: review.codeOf(MARCO_KEY(), 'answers'),
+    scores: {},
+    conflict: true,
+  });
+
+  const csv = await review.exportFile(boss, 'csv');
+  assert.match(csv.filename, /^mentee-selection-\d{4}-\d{2}-\d{2}\.csv$/);
+  // A byte order mark first, for Excel to read the accents.
+  assert.equal(csv.body.charCodeAt(0), 0xfeff);
+  const lines = csv.body.slice(1).trim().split('\r\n');
+  assert.match(lines[0], /^Applicant,Organisation,Track,Status,Overall,Pre-screening,Section,Code/);
+  const lia = lines.filter((l) => l.startsWith('Lia Candidata,'));
+  // One line per section: a review in the answers, none yet in the CV.
+  assert.equal(lia.length, 2);
+  assert.match(
+    lia.find((l) => l.includes(',Ann,')),
+    /,no,yes,/
+  );
+  // A comment that looks like a formula stays text.
+  assert.match(csv.body, /'=Bene, motivata/);
+  assert.match(
+    lines.find((l) => l.startsWith('Marco Secondo,') && l.includes(',Ben,')),
+    /,yes,no,/
+  );
+
+  const json = JSON.parse((await review.exportFile(boss, 'json')).body);
+  assert.equal(json.people.length, 2);
+  assert.ok(json.exportedAt);
+  await assert.rejects(review.exportFile(boss, 'xlsx'), { status: 400 });
+
+  // A reviewer may not download it.
+  assert.equal(
+    (await call({ url: '/api/app/crm/review?action=export&format=csv', user: ann })).statusCode,
+    403
+  );
+});
+
 test('the criteria weigh as set, and a renamed criterion keeps its scores', async () => {
   const { boss, ann } = await panel();
   const sections = (await review.getSettings()).sections;

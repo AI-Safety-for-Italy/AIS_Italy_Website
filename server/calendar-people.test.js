@@ -16,6 +16,8 @@ const calendars = require('./calendars');
 const invites = require('./calendar-invites');
 const interactions = require('./discord-interactions');
 const reminders = require('./calendar-reminders');
+// Paused on the site for now (calendar-reminders.js); tested as when on.
+reminders.paused = false;
 const notify = require('./notify');
 const mail = require('./mail');
 

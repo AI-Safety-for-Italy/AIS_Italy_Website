@@ -123,3 +123,5 @@ src/assets/img/mentors/*-[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f
 
 # Thumbnails of the recordings added from the dashboard (server/content-build.js)
 src/assets/img/media/recordings/
+.vercel
+.env*

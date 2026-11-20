@@ -1596,6 +1596,116 @@ async function summary(user, { record = true } = {}) {
   };
 }
 
+// A cell a spreadsheet would run as a formula is kept as text (as the forms'
+// export, server/forms/forms.js).
+const FORMULA = /^[=+\-@\t\r]/;
+function csvCell(value) {
+  let text = value === null || value === undefined ? '' : String(value);
+  if (FORMULA.test(text)) text = `'${text}`;
+  return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+/**
+ * The summary as a file, for the admins to work on by hand: `json` is the
+ * summary itself; `csv` one row per review (an applicant, a section, a
+ * reviewer), with a column per criterion of every section, and one row with
+ * no reviewer for a section nobody has scored yet. Returns
+ * { filename, contentType, body }.
+ */
+async function exportFile(user, format) {
+  if (format !== 'csv' && format !== 'json') throw new HttpError(400, 'Pick csv or json');
+  const data = await summary(user, { record: false });
+  await audit.record(user, 'review-export', null, { format, people: data.people.length });
+  const day = new Date().toISOString().slice(0, 10);
+  if (format === 'json') {
+    return {
+      filename: `mentee-selection-${day}.json`,
+      contentType: 'application/json; charset=utf-8',
+      body: JSON.stringify(
+        { exportedAt: new Date().toISOString(), ...data, statuses: undefined, editable: undefined },
+        null,
+        2
+      ),
+    };
+  }
+  const statusLabel = new Map(data.statuses.map((s) => [s.key, s.label]));
+  const criteria = [];
+  data.sections.forEach((s) =>
+    s.grid.forEach((c) =>
+      criteria.push({
+        section: s.key,
+        key: c.key,
+        label: [s.label, c.questionLabel, c.label].filter(Boolean).join(': '),
+      })
+    )
+  );
+  const lines = [
+    [
+      'Applicant',
+      'Organisation',
+      'Track',
+      'Status',
+      'Overall',
+      'Pre-screening',
+      'Section',
+      'Code',
+      'Section mean',
+      'Section spread',
+      'Reviewer',
+      'Stepped aside',
+      'Complete',
+      'Exclusion flags',
+      ...criteria.map((c) => c.label),
+      'Review total',
+      'Comment',
+      'Updated',
+    ],
+  ];
+  data.people.forEach((p) => {
+    data.sections.forEach((s) => {
+      const part = p.parts[s.key];
+      const head = [
+        p.name,
+        p.org,
+        p.track || '',
+        p.status === null ? '' : statusLabel.get(p.status) || p.status,
+        p.overall,
+        p.prescreen
+          ? [p.prescreen.decision, ...p.prescreen.reasonLabels].filter(Boolean).join(': ')
+          : '',
+        s.label,
+        part.code,
+        part.mean,
+        part.spread,
+      ];
+      const own = (r) =>
+        criteria.map((c) => (c.section === s.key && r ? r.scores[c.key] : undefined));
+      if (!part.reviews.length) {
+        lines.push([...head, '', '', '', '', ...own(null), '', '', '']);
+        return;
+      }
+      part.reviews.forEach((r) =>
+        lines.push([
+          ...head,
+          r.reviewer,
+          r.conflict ? 'yes' : 'no',
+          r.complete ? 'yes' : 'no',
+          (r.flags || []).map((f) => f.label || f.key).join('; '),
+          ...(r.conflict ? own(null) : own(r)),
+          r.total,
+          r.comment || '',
+          r.updatedAt ? new Date(r.updatedAt).toISOString() : '',
+        ])
+      );
+    });
+  });
+  return {
+    filename: `mentee-selection-${day}.csv`,
+    contentType: 'text/csv; charset=utf-8',
+    body: '﻿' + lines.map((l) => l.map(csvCell).join(',')).join('\r\n') + '\r\n',
+  };
+}
+
 // The statuses the selection moves people between. The others (Selected,
 // Matched…) are the board's: someone there is shown, not moved, here.
 const SELECTION_STATUSES = ['applied', 'shortlisted', 'interview', 'declined'];
@@ -1724,6 +1834,7 @@ module.exports = {
   prescreen,
   readmit,
   summary,
+  exportFile,
   setStatus,
   context,
   progress,

@@ -14,6 +14,7 @@
 //   PUT  ?action=reminders { deadline, leads, auto }                                    (admin)
 //   POST ?action=remind { note? }         -> reminds now whoever has reviews left      (admin)
 //   GET  ?action=summary                  -> everyone, with names and every score       (admin)
+//   GET  ?action=export&format=csv|json   -> the summary as a file to download      (admin)
 //   POST ?action=status { key, status }   -> the board's status of a mentee             (admin)
 //   GET  ?action=settings                 -> { formId, sections, catalog, forms, reviewers… } (admin)
 //   GET  ?action=questions&form=<id|>     -> a form's questions and a first split        (admin)
@@ -46,10 +47,18 @@ async function door(req, { write = false } = {}) {
 module.exports = route({
   async GET(req, res) {
     const { user, role } = await door(req);
-    const { action, part, code, form, pool } = getQuery(req);
+    const { action, part, code, form, pool, format } = getQuery(req);
     if (action === 'summary') {
       review.requireAdmin(role);
       sendJson(res, 200, await review.summary(user));
+    } else if (action === 'export') {
+      review.requireAdmin(role);
+      const file = await review.exportFile(user, format);
+      res.statusCode = 200;
+      res.setHeader('Content-Type', file.contentType);
+      res.setHeader('Content-Disposition', `attachment; filename="${file.filename}"`);
+      res.setHeader('Cache-Control', 'no-store');
+      res.end(file.body);
     } else if (action === 'settings') {
       review.requireAdmin(role);
       sendJson(res, 200, await review.settingsPage(user));

@@ -65,6 +65,7 @@ const ACTIONS = new Set([
   'review-list',
   'review-score',
   'review-summary',
+  'review-export',
   'review-settings',
   'review-reviewers',
   'review-prescreen',
