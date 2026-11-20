@@ -247,7 +247,7 @@ async function run({ now = new Date(), origin } = {}) {
     });
     const eventPrefs = prefsByEvent.get(invites.headOf(e)) || [];
     eventPrefs.forEach((p) => (p.own || []).forEach((r) => leads.add(r.minutes)));
-    if (![...leads].some((m) => due(startMs, m))) {
+    if (module.exports.paused || ![...leads].some((m) => due(startMs, m))) {
       announcements += await announce(occ, cal, startMs, due, site);
       continue;
     }
@@ -370,4 +370,10 @@ async function concerned(occ, cal, followers, eventPrefs, whoOf) {
   };
 }
 
-module.exports = { run, message, leadText, buttonsFor };
+// Reminders are paused for now: none goes, by email or on Discord, and none is
+// marked as sent, so once they are on again only those still due are sent.
+// The announcements in the calendars' Discord channels go on as before.
+// Set to false to turn the reminders back on (the tests do).
+const paused = true;
+
+module.exports = { run, message, leadText, buttonsFor, paused };

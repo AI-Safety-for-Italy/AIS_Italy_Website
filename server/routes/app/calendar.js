@@ -59,7 +59,7 @@ module.exports = route({
     if (q.channels) {
       if (!(await calendars.writable(user)).length)
         throw new HttpError(403, 'Only who adds events sees the channels');
-      return sendJson(res, 200, await discord.channels());
+      return sendJson(res, 200, await discord.channelsFor(await calendars.whoIs(user)));
     }
     if (q.invitable !== undefined) {
       if (!(await calendars.writable(user)).length)

@@ -7,7 +7,9 @@
 //   1. an entry here: key, title, url, icon, area, tabs, actions;
 //   2. its pages, each with `{% extends "app.njk" %}` and `tool: <key>`,
 //      `tab: <tab key>` in the front matter;
-//   3. optionally, its to-do count in server/overview.js.
+//   3. a colour for its icon: `.hub-tool-icon--<key>` in src/assets/css/meet.css,
+//      with its dark-theme variant (without it the icon is the default green);
+//   4. optionally, its to-do count in server/overview.js.
 //
 // area: the permission area that opens it (server/permissions.js), or null
 // for every signed-in member. A tab or an action with `needs` shows only to

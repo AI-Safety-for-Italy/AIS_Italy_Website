@@ -276,3 +276,42 @@ test("a mentor's draft for the site goes with their last record, not before the 
     ['kept']
   );
 });
+
+test('an account unused for 24 months goes, unless it still owns something', async () => {
+  const user = async (name, lastLogin) =>
+    (
+      await db.query(
+        `insert into app_users (kind, discord_id, name, email, last_login_at)
+         values ('discord', $1, $1, $1 || '@example.com', now() - $2::interval) returning id`,
+        [name, lastLogin]
+      )
+    ).rows[0].id;
+  await user('recent', '23 months');
+  const gone = await user('gone', '25 months');
+  // Their own "My calendar" goes with them; a calendar they run for others keeps them.
+  await db.query(
+    `insert into calendars (slug, name, personal_of, owner_id) values ('mine', 'Mine', $1, $1)`,
+    [gone]
+  );
+  const owner = await user('owner', '3 years');
+  await db.query(`insert into forms (slug, title, owner_id) values ('owned', 'Owned', $1)`, [
+    owner,
+  ]);
+  const granted = await user('granted', '3 years');
+  await db.query(`insert into user_permissions (user_id, permissions) values ($1, '{members}')`, [
+    granted,
+  ]);
+
+  const counts = await retention.cleanup();
+  assert.equal(counts.accounts, 1);
+  const { rows } = await db.query(
+    `select name from app_users where kind = 'discord' order by name`
+  );
+  assert.deepEqual(
+    rows.map((r) => r.name),
+    ['granted', 'owner', 'recent']
+  );
+  // The admin login is never touched.
+  const admin = await db.query(`select 1 from app_users where kind = 'admin'`);
+  assert.equal(admin.rows.length, 1);
+});

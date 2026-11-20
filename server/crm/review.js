@@ -29,6 +29,14 @@
 //                 exclude; someone excluded there is shown in no section,
 //                 so nobody spends time scoring them, and only those who
 //                 passed are. The admins can bring someone back.
+// The threshold (app_settings, key review_gate, apart from the setup so that
+// moving it never undoes a change to the sections) is the admins' too, from
+// the summary: after a section (say the CV), the worst N% by that section's
+// mean are shown in none of the sections after it. Someone is ranked once
+// every reviewer given the section has scored them (or stepped aside); until
+// then they wait, and go on to no later section. It is a filter, not a
+// decision: nobody's scores or status change, and moving it back brings
+// people back with their reviews.
 // The applications may still be coming in while the reviewers work: each
 // list puts what is left to do first, and a reviewer is told how many came
 // in since their last visit (review_arrivals, review_visits). The reminders
@@ -62,6 +70,10 @@ const MAX_SECTIONS = 8;
 const MAX_NOTE = 400;
 const MAX_EXCLUSIONS = 6;
 const SETTINGS_KEY = 'review_settings';
+const GATE_KEY = 'review_gate';
+// The share of the ranked a threshold may leave out, and the one it starts at.
+const MAX_CUT = 90;
+const DEFAULT_CUT = 20;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const KEY = /^[a-z0-9_]{1,30}$/;
 const QUESTION = /^[a-z][a-z0-9_]{1,39}$/;
@@ -541,6 +553,57 @@ async function saveSettings(user, body) {
   return getSettings();
 }
 
+/**
+ * The threshold as saved: { from, percent, by, version }, `from` the key of
+ * the section it follows, null when off (as when never set).
+ */
+async function getGate() {
+  const { rows } = await db.query(
+    'select value, updated_at::text as version from app_settings where key = $1',
+    [GATE_KEY]
+  );
+  const saved = (rows[0] && rows[0].value) || {};
+  return {
+    from: typeof saved.from === 'string' && KEY.test(saved.from) ? saved.from : null,
+    percent: Number.isInteger(saved.percent) ? saved.percent : DEFAULT_CUT,
+    by: saved.by || null,
+    version: (rows[0] && rows[0].version) || null,
+  };
+}
+
+/**
+ * Sets the threshold: { from: section key | null, percent: 0..MAX_CUT,
+ * version? }. It follows a section that has others after it. A `version`
+ * older than the saved one is refused, as for the setup.
+ */
+async function saveGate(user, body) {
+  const b = body || {};
+  const current = await getGate();
+  if (b.version !== undefined && (b.version || null) !== current.version)
+    throw new HttpError(
+      409,
+      'Someone else moved the threshold in the meantime: reload the page to see it'
+    );
+  const settings = await getSettings();
+  const from = b.from === undefined ? current.from : b.from || null;
+  if (from !== null) {
+    const at = settings.sections.findIndex((s) => s.key === from);
+    if (at < 0) throw new HttpError(400, 'Unknown section');
+    if (at === settings.sections.length - 1)
+      throw new HttpError(400, 'No section comes after this one: there is nothing to filter');
+  }
+  const percent = b.percent === undefined ? current.percent : Number(b.percent);
+  if (!Number.isInteger(percent) || percent < 0 || percent > MAX_CUT)
+    throw new HttpError(400, `The threshold leaves out from 0% to ${MAX_CUT}%, in whole numbers`);
+  await db.query(
+    `insert into app_settings (key, value, updated_at) values ($1, $2, now())
+     on conflict (key) do update set value = excluded.value, updated_at = now()`,
+    [GATE_KEY, { from, percent, by: user.name }]
+  );
+  await audit.record(user, 'review-gate', null, { from, percent });
+  return getGate();
+}
+
 /** The section with this key, or a 400. */
 function sectionOf(settings, key) {
   const s = settings.sections.find((x) => x.key === key);
@@ -838,19 +901,95 @@ function coded(list, section) {
  * The applications reviewers score in a section: those not declined on the
  * board who answered something there (someone who did not apply to the
  * projects has nothing to score under them) and, with a pre-screening
- * (`screen`: person key -> its decision), passed it. Each with its code,
- * ordered by code (which is as good as shuffled, and the same for everyone).
+ * (`screen`: person key -> its decision), passed it; in a section after a
+ * threshold (`gate`, gateOf()), passed that too. Each with its code, ordered
+ * by code (which is as good as shuffled, and the same for everyone).
  */
-function poolOf(all, section, screen = null) {
+function poolOf(all, section, screen = null, gate = null) {
   return coded(
     all.filter(
       (a) =>
         notDeclined(a) &&
         answeredIn(a, section) &&
-        (!screen || (screen.get(a.key) && screen.get(a.key).decision === 'pass'))
+        (!screen || (screen.get(a.key) && screen.get(a.key).decision === 'pass')) &&
+        (!gate || !gate.filters.has(section.key) || passes(gate, a.key))
     ),
     section
   );
+}
+
+/**
+ * Whether someone goes past the threshold: ranked above it, or not in its
+ * section at all (they answered nothing there: there is nothing to cut on).
+ */
+function passes(gate, key) {
+  const state = gate.status.get(key);
+  return state === undefined || state === 'pass';
+}
+
+/**
+ * The threshold at work, or null when off: { from, label, percent, filters,
+ * status, cutoff, means }. `filters` the keys of the sections after `from`;
+ * `status` person key -> 'pass' | 'below' | 'waiting' for everyone in the
+ * section `from`. Someone waits until every reviewer given the section (all
+ * of them when it names none) has finished with them: scored, stepped aside
+ * or flagged. The finished are ranked by the section's mean, as the summary
+ * has it; the worst `percent` of them, rounded down, are below, and so the
+ * cut leaves out that many at most: whoever ties with the last one in passes.
+ * `cutoff` is the lowest mean that passes (null: nobody is left out), `means`
+ * all of them, lowest first, for the summary to preview another percent.
+ * Someone finished with no mean (everyone stepped aside) is not ranked: they pass.
+ */
+async function gateOf(settings, all, screen) {
+  const saved = await getGate();
+  if (!saved.from) return null;
+  const at = settings.sections.findIndex((s) => s.key === saved.from);
+  // The section gone, or now the last one: nothing to filter.
+  if (at < 0 || at === settings.sections.length - 1) return null;
+  const section = settings.sections[at];
+  const grid = slots(section);
+  const team = (await reviewers()).map((r) => r.userId);
+  const due = section.reviewers.length ? section.reviewers.filter((id) => team.includes(id)) : team;
+  const { rows } = await db.query(
+    'select person_key, reviewer_id, scores, conflict, flags, updated_at from review_scores where part = $1',
+    [section.key]
+  );
+  const byPerson = new Map();
+  rows.forEach((r) => {
+    if (!byPerson.has(r.person_key)) byPerson.set(r.person_key, new Map());
+    byPerson.get(r.person_key).set(r.reviewer_id, r);
+  });
+  const finished = (r) =>
+    Boolean(r && (r.conflict || flagsOf(r, section).length || counted(r, grid)));
+  const status = new Map();
+  const ranked = [];
+  poolOf(all, section, screen).forEach((a) => {
+    const reviews = byPerson.get(a.key) || new Map();
+    if (!due.every((id) => finished(reviews.get(id)))) {
+      status.set(a.key, 'waiting');
+      return;
+    }
+    const totals = [...reviews.values()]
+      .filter((r) => counted(r, grid))
+      .map((r) => weighted(r.scores, grid))
+      .filter((t) => t !== null);
+    if (!totals.length) status.set(a.key, 'pass');
+    else
+      ranked.push({ key: a.key, mean: round(totals.reduce((s, v) => s + v, 0) / totals.length) });
+  });
+  ranked.sort((x, y) => x.mean - y.mean);
+  const cut = Math.floor((ranked.length * saved.percent) / 100);
+  const cutoff = cut ? ranked[cut].mean : null;
+  ranked.forEach((r) => status.set(r.key, cutoff !== null && r.mean < cutoff ? 'below' : 'pass'));
+  return {
+    from: section.key,
+    label: section.label,
+    percent: saved.percent,
+    filters: new Set(settings.sections.slice(at + 1).map((s) => s.key)),
+    status,
+    cutoff,
+    means: ranked.map((r) => r.mean),
+  };
 }
 
 /** The pre-screening's decisions: person key -> { decision, reasons, reviewer_name… }. */
@@ -865,7 +1004,9 @@ async function screenOf(settings) {
 }
 
 async function pool(settings, section) {
-  return poolOf(await applicants(settings), section, await screenOf(settings));
+  const all = await applicants(settings);
+  const screen = await screenOf(settings);
+  return poolOf(all, section, screen, await gateOf(settings, all, screen));
 }
 
 async function findByCode(settings, section, code) {
@@ -1221,7 +1362,8 @@ async function context() {
   const all = await applicants(settings);
   const decided = await decisions();
   const screen = settings.prescreen.enabled ? decided : null;
-  return { settings, all, decided, screen };
+  const gate = await gateOf(settings, all, screen);
+  return { settings, all, decided, screen, gate };
 }
 
 /**
@@ -1231,7 +1373,7 @@ async function context() {
  * still to be pre-screened.
  */
 async function progress(userId, ctx) {
-  const { settings, all, decided, screen } = ctx;
+  const { settings, all, decided, screen, gate } = ctx;
   const out = [];
   if (settings.prescreen.enabled && assigned(settings.prescreen, userId)) {
     const list = prescreenPoolOf(all, settings);
@@ -1251,7 +1393,7 @@ async function progress(userId, ctx) {
   );
   mine.forEach((s) => {
     const given = new Map(rows.filter((r) => r.part === s.key).map((r) => [r.person_key, r]));
-    const list = poolOf(all, s, screen);
+    const list = poolOf(all, s, screen, gate);
     out.push({
       ...sectionHead(s),
       kind: 'section',
@@ -1305,7 +1447,8 @@ async function list(user, part) {
   const section = sectionOf(settings, part);
   requireAssigned(section, user);
   const all = await applicants(settings);
-  const apps = poolOf(all, section, await screenOf(settings));
+  const screen = await screenOf(settings);
+  const apps = poolOf(all, section, screen, await gateOf(settings, all, screen));
   const fresh = await freshness(user, all);
   const { rows } = await db.query(
     'select person_key, scores, conflict, flags, updated_at from review_scores where reviewer_id = $1 and part = $2',
@@ -1453,6 +1596,8 @@ async function summary(user, { record = true } = {}) {
   const labels = new Map(catalog.map((q) => [q.id, q.label]));
   const all = await applicants(settings);
   const screen = await screenOf(settings);
+  const gate = await gateOf(settings, all, screen);
+  const saved = await getGate();
   const { rows } = await db.query('select * from review_scores');
   const byPerson = new Map();
   rows.forEach((r) => {
@@ -1536,6 +1681,11 @@ async function summary(user, { record = true } = {}) {
       weights += s.weight;
     });
     const scored = settings.sections.filter((s) => parts[s.key].mean !== null);
+    const atGate = gate ? gate.status.get(a.key) || null : null;
+    // Held back by the threshold, the sections after it are not theirs to have.
+    const theirs = settings.sections.filter(
+      (s) => !(atGate && atGate !== 'pass' && gate.filters.has(s.key))
+    );
     const card = a.card || {};
     return {
       key: a.key,
@@ -1546,7 +1696,10 @@ async function summary(user, { record = true } = {}) {
       status: a.card ? card.status : null,
       overall: weights ? round(sum / weights) : null,
       // The overall stands on some sections only while the others have no score.
-      partial: scored.length > 0 && scored.length < settings.sections.length,
+      partial: scored.length > 0 && scored.length < theirs.length,
+      // Where they are at the threshold: 'pass' | 'below' | 'waiting', or null
+      // (no threshold, or not in its section).
+      gate: atGate,
       // Reasons to exclude given by some reviewer: [{ part, section, reason, reviewer }].
       exclusions,
       // The pre-screening's decision, when there is one: { decision, reasonLabels, by, at }.
@@ -1559,6 +1712,9 @@ async function summary(user, { record = true } = {}) {
     const out = (p) => Number(Boolean(p.prescreen && p.prescreen.decision === 'exclude'));
     const pre = out(x) - out(y);
     if (pre) return pre;
+    // Those below the threshold next: scored on its section only.
+    const low = Number(x.gate === 'below') - Number(y.gate === 'below');
+    if (low) return low;
     // Those flagged for exclusion after the others, to be looked at apart.
     const ex = Number(x.exclusions.length > 0) - Number(y.exclusions.length > 0);
     if (ex) return ex;
@@ -1588,11 +1744,142 @@ async function summary(user, { record = true } = {}) {
     scale: SCALE,
     source: settings.formId ? 'form' : 'board',
     prescreen: { enabled: settings.prescreen.enabled, reasons: settings.prescreen.reasons },
+    // The threshold as saved, and at work when on: the sections it filters,
+    // the lowest mean that passes, every ranked mean (lowest first) for a
+    // preview, and how many pass, are below or wait.
+    gate: {
+      from: gate ? gate.from : null,
+      label: gate ? gate.label : null,
+      percent: saved.percent,
+      version: saved.version,
+      max: MAX_CUT,
+      filters: gate ? [...gate.filters] : [],
+      cutoff: gate ? gate.cutoff : null,
+      means: gate ? gate.means : [],
+      counts: gate
+        ? ['pass', 'below', 'waiting'].reduce((o, k) => {
+            o[k] = [...gate.status.values()].filter((v) => v === k).length;
+            return o;
+          }, {})
+        : null,
+    },
     // Every status, for the labels; `editable` the ones the selection sets.
     statuses: mentorship.STATUSES.mentee,
     editable: SELECTION_STATUSES,
     reviewers: team,
     people,
+  };
+}
+
+// A cell a spreadsheet would run as a formula is kept as text (as the forms'
+// export, server/forms/forms.js).
+const FORMULA = /^[=+\-@\t\r]/;
+function csvCell(value) {
+  let text = value === null || value === undefined ? '' : String(value);
+  if (FORMULA.test(text)) text = `'${text}`;
+  return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+/**
+ * The summary as a file, for the admins to work on by hand: `json` is the
+ * summary itself; `csv` one row per review (an applicant, a section, a
+ * reviewer), with a column per criterion of every section, and one row with
+ * no reviewer for a section nobody has scored yet. Returns
+ * { filename, contentType, body }.
+ */
+async function exportFile(user, format) {
+  if (format !== 'csv' && format !== 'json') throw new HttpError(400, 'Pick csv or json');
+  const data = await summary(user, { record: false });
+  await audit.record(user, 'review-export', null, { format, people: data.people.length });
+  const day = new Date().toISOString().slice(0, 10);
+  if (format === 'json') {
+    return {
+      filename: `mentee-selection-${day}.json`,
+      contentType: 'application/json; charset=utf-8',
+      body: JSON.stringify(
+        { exportedAt: new Date().toISOString(), ...data, statuses: undefined, editable: undefined },
+        null,
+        2
+      ),
+    };
+  }
+  const statusLabel = new Map(data.statuses.map((s) => [s.key, s.label]));
+  const criteria = [];
+  data.sections.forEach((s) =>
+    s.grid.forEach((c) =>
+      criteria.push({
+        section: s.key,
+        key: c.key,
+        label: [s.label, c.questionLabel, c.label].filter(Boolean).join(': '),
+      })
+    )
+  );
+  const lines = [
+    [
+      'Applicant',
+      'Organisation',
+      'Track',
+      'Status',
+      'Overall',
+      'Pre-screening',
+      'Threshold',
+      'Section',
+      'Code',
+      'Section mean',
+      'Section spread',
+      'Reviewer',
+      'Stepped aside',
+      'Complete',
+      'Exclusion flags',
+      ...criteria.map((c) => c.label),
+      'Review total',
+      'Comment',
+      'Updated',
+    ],
+  ];
+  data.people.forEach((p) => {
+    data.sections.forEach((s) => {
+      const part = p.parts[s.key];
+      const head = [
+        p.name,
+        p.org,
+        p.track || '',
+        p.status === null ? '' : statusLabel.get(p.status) || p.status,
+        p.overall,
+        p.prescreen
+          ? [p.prescreen.decision, ...p.prescreen.reasonLabels].filter(Boolean).join(': ')
+          : '',
+        p.gate || '',
+        s.label,
+        part.code,
+        part.mean,
+        part.spread,
+      ];
+      const own = (r) =>
+        criteria.map((c) => (c.section === s.key && r ? r.scores[c.key] : undefined));
+      if (!part.reviews.length) {
+        lines.push([...head, '', '', '', '', ...own(null), '', '', '']);
+        return;
+      }
+      part.reviews.forEach((r) =>
+        lines.push([
+          ...head,
+          r.reviewer,
+          r.conflict ? 'yes' : 'no',
+          r.complete ? 'yes' : 'no',
+          (r.flags || []).map((f) => f.label || f.key).join('; '),
+          ...(r.conflict ? own(null) : own(r)),
+          r.total,
+          r.comment || '',
+          r.updatedAt ? new Date(r.updatedAt).toISOString() : '',
+        ])
+      );
+    });
+  });
+  return {
+    filename: `mentee-selection-${day}.csv`,
+    contentType: 'text/csv; charset=utf-8',
+    body: '﻿' + lines.map((l) => l.map(csvCell).join(',')).join('\r\n') + '\r\n',
   };
 }
 
@@ -1709,6 +1996,8 @@ module.exports = {
   requireReviewer,
   getSettings,
   saveSettings,
+  getGate,
+  saveGate,
   settingsPage,
   questions,
   reviewers,
@@ -1724,6 +2013,7 @@ module.exports = {
   prescreen,
   readmit,
   summary,
+  exportFile,
   setStatus,
   context,
   progress,

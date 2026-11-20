@@ -14,7 +14,9 @@
 //   PUT  ?action=reminders { deadline, leads, auto }                                    (admin)
 //   POST ?action=remind { note? }         -> reminds now whoever has reviews left      (admin)
 //   GET  ?action=summary                  -> everyone, with names and every score       (admin)
+//   GET  ?action=export&format=csv|json   -> the summary as a file to download      (admin)
 //   POST ?action=status { key, status }   -> the board's status of a mentee             (admin)
+//   PUT  ?action=gate { from, percent, version? } -> the threshold after a section (admin; 409 if stale)
 //   GET  ?action=settings                 -> { formId, sections, catalog, forms, reviewers… } (admin)
 //   GET  ?action=questions&form=<id|>     -> a form's questions and a first split        (admin)
 //   PUT  ?action=settings { formId?, nameQuestion?, sections?, version? } (admin; 409 if stale)
@@ -46,10 +48,18 @@ async function door(req, { write = false } = {}) {
 module.exports = route({
   async GET(req, res) {
     const { user, role } = await door(req);
-    const { action, part, code, form, pool } = getQuery(req);
+    const { action, part, code, form, pool, format } = getQuery(req);
     if (action === 'summary') {
       review.requireAdmin(role);
       sendJson(res, 200, await review.summary(user));
+    } else if (action === 'export') {
+      review.requireAdmin(role);
+      const file = await review.exportFile(user, format);
+      res.statusCode = 200;
+      res.setHeader('Content-Type', file.contentType);
+      res.setHeader('Content-Disposition', `attachment; filename="${file.filename}"`);
+      res.setHeader('Cache-Control', 'no-store');
+      res.end(file.body);
     } else if (action === 'settings') {
       review.requireAdmin(role);
       sendJson(res, 200, await review.settingsPage(user));
@@ -78,10 +88,14 @@ module.exports = route({
 
   async PUT(req, res) {
     const { action } = getQuery(req);
-    if (!['settings', 'matching-settings', 'matching-draft', 'reminders'].includes(action))
+    if (!['settings', 'gate', 'matching-settings', 'matching-draft', 'reminders'].includes(action))
       throw new HttpError(400, 'Unknown action');
     const { user, role } = await door(req, { write: true });
     review.requireAdmin(role);
+    if (action === 'gate') {
+      sendJson(res, 200, { gate: await review.saveGate(user, await readJson(req)) });
+      return;
+    }
     if (action === 'reminders') {
       sendJson(res, 200, await reminders.saveReminders(user, await readJson(req)));
       return;

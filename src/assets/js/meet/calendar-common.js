@@ -549,7 +549,7 @@
     return h(
       'p',
       { class: 'form-note cal-private-hint' },
-      'A channel greyed out is private and the AIS bot is not in it. On Discord, open the channel (or its category) → Edit → Permissions → add the bot’s role, with “View Channel” and “Send Messages”. It shows here within 5 minutes.'
+      'Only the channels you see on Discord are listed. A channel greyed out is private and the AIS bot is not in it. On Discord, open the channel (or its category) → Edit → Permissions → add the bot’s role, with “View Channel” and “Send Messages”. It shows here within 5 minutes.'
     );
   }
 

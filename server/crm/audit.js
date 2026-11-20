@@ -53,6 +53,11 @@ const ACTIONS = new Set([
   'member-list',
   'member-decide',
   'member-resend',
+  // Before deciding: the note changed, marked contacted ({ on }), an email
+  // asking for more details sent. Never what the note or the email says.
+  'member-note',
+  'member-contacted',
+  'member-contact',
   // The daily deletion of what is past its keeping time (server/retention.js).
   'retention-cleanup',
   // The mentee selection (server/crm/review.js): subject_key is the person
@@ -60,7 +65,10 @@ const ACTIONS = new Set([
   'review-list',
   'review-score',
   'review-summary',
+  'review-export',
   'review-settings',
+  // The threshold moved: { from: section key | null, percent }.
+  'review-gate',
   'review-reviewers',
   'review-prescreen',
   'review-remind',

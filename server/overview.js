@@ -40,12 +40,14 @@ const COUNTS = {
   },
 
   // Applications nobody has decided on yet, for those following the board.
+  // The contacted ones wait on the applicant, not on the board: not counted.
   async members(user, ctx) {
     if (!ctx.perms.includes('members')) return null;
     const following = await follows.isFollowing(user.id, 'members');
     const { rows } = following
       ? await db.query(
-          `select count(*)::int as n from member_applications where status = 'pending'`
+          `select count(*)::int as n from member_applications
+           where status = 'pending' and contacted_at is null`
         )
       : { rows: [{ n: 0 }] };
     return {

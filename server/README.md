@@ -415,12 +415,12 @@ The registration form's submissions, reviewed by members whose Discord roles
 hold **Member applications** (`members`, ticked on Settings → Permissions).
 In the sidebar: Members → Applications.
 
-| Where                   | What                                                         |
-| ----------------------- | ------------------------------------------------------------ |
-| `/app/members/`         | The board: to review, invited, on Discord, rejected          |
-| `api/app/members.js`    | The board's API                                              |
-| `api/join.js`, `/join/` | The personal link an approved person gets, and where it ends |
-| `server/members.js`     | Submissions (`createApplication`), decisions, the join       |
+| Where                   | What                                                           |
+| ----------------------- | -------------------------------------------------------------- |
+| `/app/members/`         | The board: to review, contacted, invited, on Discord, rejected |
+| `api/app/members.js`    | The board's API                                                |
+| `api/join.js`, `/join/` | The personal link an approved person gets, and where it ends   |
+| `server/members.js`     | Submissions (`createApplication`), decisions, the join         |
 
 **Flow.** A submission becomes a pending application (`createApplication()`,
 called by whatever serves the registration form). Approving picks a role,
@@ -430,6 +430,15 @@ personal link valid 30 days. Following it signs in with Discord (scope
 or gives it to them if they are already in, and the board shows their Discord
 account. The link works once; "Send the link again" makes a new one. Rejecting
 sends nothing.
+
+**Before deciding.** The internal note is saved on its own, at any stage
+(deciding saves it too). A pending application can be asked for more details:
+"Ask for more details by email" writes to the applicant from the mailbox, in
+the writer's name, with replies to and a Bcc copy in the team's inbox
+(`MEMBERS_CONTACT_EMAIL`, default `info@ais4i.it`); the email is not stored,
+only who sent one and when. Sending it, or the "Contacted" switch (for
+contact made elsewhere), moves the application to **Contacted**: still to be
+decided, but waiting on the applicant, so not counted on the home page.
 
 **Personal data.** Name, email and answers are stored encrypted with the
 CRM keys (`CRM_ENCRYPTION_KEY`, `CRM_KEY_SECRET`), bound to their row; the
@@ -666,7 +675,10 @@ applications never approved, and the mentorship board's own copies of people
 with the notes and status the team wrote about them. Approved applications
 stay, as the record of who is a member, but after 12 months only name and email
 remain (the answers are dropped). The board's copies of people selected for the
-program (selected or paired) stay 24 months (`server/retention.js`). A GitHub
+program (selected or paired) stay 24 months (`server/retention.js`). The
+accounts of `/app/` (Discord name, id, avatar, email) go 24 months after their
+last sign-in, unless they still own a poll, a form or a calendar, hold
+permissions given by name, or scored mentees: those wait to be handed over. A GitHub
 Action runs it once a day
 on the live site (`.github/workflows/retention.yml`), calling
 `/api/cron/cleanup` with a shared secret; each run leaves one line with the
@@ -674,8 +686,9 @@ counts on the audit trail.
 
 Setting up, once: a random `CRON_SECRET` of at least 32 characters
 (`openssl rand -base64 48`), saved both as a Vercel environment variable
-(Production) and as a GitHub repository secret. Without it the job does
-nothing. The privacy notice (`src/content/privacy.njk`) says the same periods:
+(Production) and as a GitHub repository secret. Without it the job fails
+(red on GitHub) instead of passing having done nothing; the calendar reminders
+and the Discord check do the same. The privacy notice (`src/content/privacy.njk`) says the same periods:
 when one changes here, change it there and tell the people already on file.
 
 # Calendar (`/app/calendar/`)
@@ -725,7 +738,9 @@ go to who turned notifications on for its calendar and still sees it, and to
 who answered going or maybe. Each calendar can name Discord text channels, each
 with its lead times, where the bot announces its events; an event can name its
 own instead, or none. Only the channels where the bot may write are offered
-(`server/calendar-discord.js`). The job runs every 10 minutes from
+(`server/calendar-discord.js`), and to each member only those they see on
+Discord (by their roles; a calendar admin sees all). Saving checks it too: a
+channel they do not see is refused, unless it was already there. The job runs every 10 minutes from
 `.github/workflows/calendar-reminders.yml` (`/api/cron/cleanup?job=reminders`,
 the same `CRON_SECRET` as the cleanup); a run late by up to 30 minutes still
 sends what was due, and nothing goes twice (`calendar_reminders_sent`).

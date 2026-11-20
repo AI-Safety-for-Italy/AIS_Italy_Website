@@ -182,6 +182,21 @@ function cleanAnnounce(value, field = 'announce') {
   return out;
 }
 
+/**
+ * Who writes may announce only in the Discord channels they see. A channel
+ * already chosen (`previous`) stays, so whoever does not see it changes the
+ * rest without losing it.
+ */
+async function checkAnnounce(who, next, previous) {
+  if (!next || !next.length) return;
+  const kept = new Set((previous || []).map((c) => c.channelId));
+  const fresh = next.filter((c) => !kept.has(c.channelId));
+  if (!fresh.length) return;
+  const hidden = await require('./calendar-discord').hiddenIds(who);
+  if (fresh.some((c) => hidden.has(c.channelId)))
+    throw fail('You can only announce in a Discord channel you see', 'announce');
+}
+
 function leadTimes(value, field) {
   const list = Array.isArray(value) ? value.map(Number) : [];
   if (list.some((m) => !LEAD_TIMES.includes(m))) throw fail('Unknown reminder time', field);
@@ -497,6 +512,7 @@ async function createCalendar(user, body) {
   if (!fields.name) throw fail('Name is required', 'name');
   const access = levelsFrom(body && body.access ? body : { access: { view: { all: true } } }, null);
   const announce = cleanAnnounce((body && body.announce) || []);
+  await checkAnnounce(who, announce, []);
   const slug = await freeSlug(fields.name);
   const { rows } = await db.query(
     `insert into calendars (slug, name, description, color, timezone, is_public,
@@ -538,6 +554,7 @@ async function updateCalendar(user, id, body) {
   const access = cal.personal_of ? levelsFrom({ access: {} }, null) : levelsFrom(body, cal);
   if (cal.personal_of) fields.isPublic = false;
   const announce = cal.personal_of ? [] : cleanAnnounce(body && body.announce);
+  await checkAnnounce(who, announce, cal.announce);
   const { rows } = await db.query(
     `update calendars set name = $2, description = $3, color = $4, timezone = $5,
        is_public = $6, view_all = $7, view_roles = $8, view_people = $9,
@@ -871,6 +888,7 @@ async function createEvent(user, body) {
   const who = await whoIs(user);
   const { cal } = await calendarFor((body || {}).calendarId, who, 'edit');
   const f = cleanEvent(body);
+  await checkAnnounce(who, f.announce, cal.announce);
   const { rows } = await db.query(
     `insert into calendar_events (calendar_id, ${EVENT_COLUMNS}, created_by, updated_by)
      values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $16)
@@ -913,9 +931,10 @@ function endBefore(master, at) {
  * channel. The rest is the poll's. Its version stays the poll's (the emailed
  * invite and this copy are one event): nothing here is in the invite.
  */
-async function tuneCopy(event, b, user) {
+async function tuneCopy(event, b, user, who, cal) {
   const reminders = cleanReminders(b.reminders);
   const announce = cleanAnnounce(b.announce === undefined ? null : b.announce);
+  await checkAnnounce(who, announce, [...(event.announce || []), ...(cal.announce || [])]);
   let video = {
     kind: event.video_kind,
     url: event.video_url,
@@ -950,16 +969,18 @@ async function tuneCopy(event, b, user) {
 async function updateEvent(user, id, body, { scope = 'all', occurrence } = {}) {
   await permissions.refreshIfStale(user);
   const who = await whoIs(user);
-  const { event } = await eventFor(id, who, 'edit', { pollMeeting: true });
+  const { event, cal } = await eventFor(id, who, 'edit', { pollMeeting: true });
   const b = body || {};
   // A poll's meeting: here, only what is the calendar's.
-  if (event.source === 'poll') return tuneCopy(event, b, user);
+  if (event.source === 'poll') return tuneCopy(event, b, user, who, cal);
   // Moving it to another calendar takes edit there too.
   let calendarId = event.calendar_id;
   if (b.calendarId && b.calendarId !== event.calendar_id) {
     calendarId = (await calendarFor(b.calendarId, who, 'edit')).cal.id;
   }
   const f = cleanEvent(b);
+  // The event's channels, or its calendar's it took and now names itself.
+  await checkAnnounce(who, f.announce, [...(event.announce || []), ...(cal.announce || [])]);
   const by = user.kind === 'discord' ? user.id : null;
   const isSeries = Boolean(event.recurrence || event.series_id);
 

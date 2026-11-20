@@ -14,6 +14,8 @@ const permissions = require('./permissions');
 const calendars = require('./calendars');
 const expand = require('./calendar-expand');
 const reminders = require('./calendar-reminders');
+// Paused on the site for now (calendar-reminders.js); tested as when on.
+reminders.paused = false;
 const notify = require('./notify');
 const polls = require('./polls');
 
@@ -30,6 +32,9 @@ beforeEach(async () => {
     // Reading someone's roles: Discord is down, so the stored ones stand.
     if (/\/guilds\/\d+\/members\//.test(String(url)))
       return { ok: false, status: 503, json: async () => ({}) };
+    // The server's channels and roles: none, so no channel is hidden from anyone.
+    if (/\/guilds\/\d+\/(channels|roles)$/.test(String(url)))
+      return { ok: true, status: 200, json: async () => [] };
     sent.push({ url: String(url), body: opts.body ? JSON.parse(opts.body) : null });
     return {
       ok: true,
@@ -39,6 +44,7 @@ beforeEach(async () => {
   };
   notify.setFetch(fake);
   permissions.setFetch(fake);
+  require('./calendar-discord').reset();
 });
 
 // The roles' table is saved whole: each person's role joins those before.
@@ -293,10 +299,86 @@ test('every text channel is listed, private ones the bot is not in greyed out', 
   discord.reset();
 });
 
+test('who writes events sees, and announces in, only the channels they see on Discord', async () => {
+  const discord = require('./calendar-discord');
+  const G = '111111111';
+  const VIEW = String(1 << 10);
+  const maker = await person('Maker', ['calendar_create']);
+  const board = await person('Board');
+  const admin = await person('Admin', ['calendar_admin']);
+  const answers = {
+    [`/guilds/${G}/channels`]: [
+      { id: '201000001', type: 0, name: 'general', position: 0 },
+      {
+        id: '202000002',
+        type: 0,
+        name: 'board',
+        position: 1,
+        permission_overwrites: [
+          { id: G, type: 0, deny: VIEW, allow: '0' },
+          { id: 'r-board', type: 0, deny: '0', allow: VIEW },
+        ],
+      },
+    ],
+    [`/guilds/${G}/roles`]: [{ id: G, permissions: String((1 << 10) | (1 << 11)) }],
+    '/users/@me': { id: 'bot-1' },
+  };
+  permissions.setFetch(async (url, opts = {}) => {
+    const path = String(url).replace('https://discord.com/api/v10', '');
+    if (opts.method === 'POST') return { ok: true, status: 200, json: async () => ({}) };
+    // Someone's roles: Discord is down, so the stored ones stand.
+    if (path.includes('/members/')) return { ok: false, status: 503, json: async () => ({}) };
+    return {
+      ok: path in answers,
+      status: path in answers ? 200 : 404,
+      json: async () => answers[path],
+    };
+  });
+  discord.reset();
+  const names = async (u) =>
+    (await discord.channelsFor(await calendars.whoIs(u))).text.map((c) => c.name);
+  assert.deepEqual(await names(maker), ['general']);
+  assert.deepEqual(await names(board), ['general', 'board']);
+  assert.deepEqual(await names(admin), ['general', 'board']);
+
+  const boardChannel = [{ channelId: '202000002', name: 'board', minutes: [60] }];
+  await assert.rejects(
+    calendars.createCalendar(maker, { name: 'Team', announce: boardChannel }),
+    /channel you see/
+  );
+  // Board members' calendar, which the maker may edit: they keep its channel.
+  const cal = await calendars.createCalendar(admin, {
+    name: 'Board',
+    announce: boardChannel,
+    access: { view: { all: true }, edit: { all: true } },
+  });
+  const start = new Date(Date.now() + 86400000);
+  start.setUTCSeconds(0, 0);
+  const body = (announce) => ({
+    calendarId: cal.id,
+    title: 'Meeting',
+    start: iso(start),
+    end: iso(start.getTime() + 3600000),
+    announce,
+  });
+  const general = { channelId: '201000001', name: 'general', minutes: [0] };
+  const { id } = await calendars.createEvent(maker, body(boardChannel));
+  await calendars.updateEvent(maker, id, body([...boardChannel, general]));
+
+  // A calendar of their own, with no channel yet: #board is not theirs to add.
+  const own = await calendars.createCalendar(maker, { name: 'Mine', announce: [general] });
+  await assert.rejects(
+    calendars.createEvent(maker, { ...body(boardChannel), calendarId: own.id }),
+    /channel you see/
+  );
+  discord.reset();
+});
+
 // ── One-off announcements: now, and at a day and time chosen ───────────────
 
-// The server's text channels, as the bot sees them; every post is recorded.
-function fakeGuild() {
+// The server's text channels, as the bot sees them, and any `extra` ones;
+// every post is recorded.
+function fakeGuild(extra = []) {
   const discord = require('./calendar-discord');
   discord.reset();
   const G = '111111111';
@@ -311,6 +393,7 @@ function fakeGuild() {
         position: 1,
         permission_overwrites: [{ id: G, type: 0, deny: VIEW, allow: '0' }],
       },
+      ...extra,
     ],
     [`/guilds/${G}/roles`]: [{ id: G, permissions: String((1 << 10) | (1 << 11)) }],
     '/users/@me': { id: 'bot-1' },
@@ -460,4 +543,89 @@ test('a planned announcement can be taken back before it goes, by whoever edits'
   assert.deepEqual(after.oneOff.list, []);
   await assert.rejects(announce.cancel(maker, card.oneOff.list[0].id), { status: 404 });
   require('./calendar-discord').reset();
+});
+
+test('one-off announcements go only in a channel the member sees, or one the event already uses', async () => {
+  const G = '111111111';
+  const VIEW = String(1 << 10);
+  // #committee: hidden from everyone but the Committee role and the bot.
+  fakeGuild([
+    {
+      id: '203000003',
+      type: 0,
+      name: 'committee',
+      position: 2,
+      permission_overwrites: [
+        { id: G, type: 0, deny: VIEW, allow: '0' },
+        { id: 'r-committee', type: 0, deny: '0', allow: VIEW },
+        { id: 'bot-1', type: 1, deny: '0', allow: String((1 << 10) | (1 << 11)) },
+      ],
+    },
+  ]);
+  const announce = require('./calendar-announce');
+  const maker = await person('Maker', ['calendar_create']);
+  const committee = await person('Committee', ['calendar_create']);
+  const cal = await calendars.createCalendar(maker, {
+    name: 'Shared',
+    access: { view: { all: true }, edit: { all: true } },
+  });
+  const start = new Date(Date.now() + 2 * 86400000);
+  start.setUTCMinutes(0, 0, 0);
+  const event = (announceIn) => ({
+    calendarId: cal.id,
+    title: 'Meeting',
+    start: iso(start),
+    end: iso(start.getTime() + 3600000),
+    announce: announceIn,
+  });
+  const { id } = await calendars.createEvent(maker, event([]));
+  const occurrence = iso(start);
+  const sendAt = iso(start.getTime() - 3600000);
+
+  await assert.rejects(
+    announce.announceNow(maker, id, { occurrence, channelId: '203000003' }),
+    /channel you see/
+  );
+  await assert.rejects(
+    announce.plan(maker, id, { occurrence, channelId: '203000003', sendAt }),
+    /channel you see/
+  );
+  await announce.plan(committee, id, { occurrence, channelId: '203000003', sendAt });
+
+  // Once the event announces in #committee, whoever edits it may use it too.
+  const committeeChannel = [{ channelId: '203000003', name: 'committee', minutes: [60] }];
+  const { id: other } = await calendars.createEvent(committee, event(committeeChannel));
+  await announce.announceNow(maker, other, { occurrence, channelId: '203000003' });
+  assert.equal(posts('203000003').length, 1);
+  require('./calendar-discord').reset();
+});
+
+test('paused, no reminder goes and none is spent; the announcements still do', async () => {
+  const maker = await person('Maker', ['calendar_create']);
+  const follower = await person('Follower');
+  const cal = await calendars.createCalendar(maker, {
+    name: 'Paused',
+    announce: [{ channelId: '444444444', name: 'general', minutes: [60] }],
+  });
+  const start = new Date(Date.now() + 2 * 3600000);
+  start.setUTCSeconds(0, 0);
+  await calendars.createEvent(maker, {
+    calendarId: cal.id,
+    title: 'Quiet one',
+    start: iso(start),
+    end: iso(start.getTime() + 3600000),
+    reminders: [{ minutes: 60, channels: ['discord'] }],
+  });
+  await calendars.savePrefs(follower, { notify: true });
+
+  reminders.paused = true;
+  try {
+    const result = await reminders.run({ now: new Date(start.getTime() - 59 * 60000) });
+    assert.deepEqual(result, { reminders: 0, announcements: 1 });
+  } finally {
+    reminders.paused = false;
+  }
+  // On again, the reminder still due goes.
+  const result = await reminders.run({ now: new Date(start.getTime() - 58 * 60000) });
+  assert.equal(result.reminders, 1);
 });

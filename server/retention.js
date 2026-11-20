@@ -22,6 +22,11 @@
 //   - the board's copies of people selected for the program (selected or
 //     paired) stay 24 months (MONTHS_PARTICIPANTS): reports, certificates, the
 //     final event.
+//   - the accounts of /app/ (Discord name, id, avatar and email), kept while
+//     they are used: deleted 24 months (MONTHS_ACCOUNTS) after the last
+//     sign-in. Not while they still own a poll, a form or a calendar, hold
+//     permissions given by name, or scored in the mentee selection: deleting
+//     would take those with them, so a person hands them over first.
 //
 // Each run leaves one line on the audit trail with the counts, never who.
 
@@ -31,6 +36,7 @@ const members = require('./members');
 
 const MONTHS = 12;
 const MONTHS_PARTICIPANTS = 24;
+const MONTHS_ACCOUNTS = 24;
 
 async function cleanup() {
   const answers = await db.query(
@@ -103,6 +109,20 @@ async function cleanup() {
                          and (f.respondent_key = s.person_key or 'response-' || f.id::text = s.person_key))
      returning s.person_key`
   );
+  const accounts = await db.query(
+    `delete from app_users u
+     where u.kind = 'discord'
+       and coalesce(u.last_login_at, u.created_at) < now() - make_interval(months => $1)
+       and not exists (select 1 from polls p where p.owner_id = u.id)
+       and not exists (select 1 from forms f where f.owner_id = u.id)
+       and not exists (select 1 from calendars c
+                       where c.owner_id = u.id and c.personal_of is null)
+       and not exists (select 1 from user_permissions x
+                       where x.user_id = u.id and cardinality(x.permissions) > 0)
+       and not exists (select 1 from review_scores s where s.reviewer_id = u.id)
+     returning u.id`,
+    [MONTHS_ACCOUNTS]
+  );
   // The pre-screening and when an application came in, likewise.
   const gone = (table) =>
     db.query(
@@ -125,6 +145,7 @@ async function cleanup() {
     boardNotes: forgotten,
     siteDrafts: siteDrafts.rows.length,
     reviewScores: reviewScores.rows.length,
+    accounts: accounts.rows.length,
     reviewPrescreen: prescreen.rows.length,
   };
   await audit.record({ id: null, name: 'retention job' }, 'retention-cleanup', null, {
@@ -164,4 +185,4 @@ async function forgetUnlisted() {
   return notes.rows.length;
 }
 
-module.exports = { MONTHS, MONTHS_PARTICIPANTS, cleanup };
+module.exports = { MONTHS, MONTHS_PARTICIPANTS, MONTHS_ACCOUNTS, cleanup };

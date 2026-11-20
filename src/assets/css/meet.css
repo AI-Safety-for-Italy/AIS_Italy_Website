@@ -1737,6 +1737,12 @@ dialog.meet-dialog::backdrop {
   color: var(--accent-700);
 }
 
+/* An application asked for more details: waiting on the applicant */
+.badge-contacted {
+  background: var(--warning-soft);
+  color: var(--warning-ink);
+}
+
 /* The login page's stand-ins: one button per Discord role */
 .dev-personas {
   display: grid;
@@ -9104,6 +9110,31 @@ a.hub-todo-card:hover {
   color: #0e7490;
 }
 
+.hub-tool-icon--calendar {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.hub-tool-icon--review {
+  background: #ffedd5;
+  color: #c2410c;
+}
+
+.hub-tool-icon--community {
+  background: #fce7f3;
+  color: #be185d;
+}
+
+.hub-tool-icon--localgroups {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.hub-tool-icon--organizer {
+  background: #f3f4f6;
+  color: #374151;
+}
+
 [data-theme='dark'] .hub-tool-icon--polls {
   background: #1e3a8a;
   color: #bfdbfe;
@@ -9127,6 +9158,31 @@ a.hub-todo-card:hover {
 [data-theme='dark'] .hub-tool-icon--members {
   background: #164e63;
   color: #a5f3fc;
+}
+
+[data-theme='dark'] .hub-tool-icon--calendar {
+  background: #14532d;
+  color: #bbf7d0;
+}
+
+[data-theme='dark'] .hub-tool-icon--review {
+  background: #7c2d12;
+  color: #fed7aa;
+}
+
+[data-theme='dark'] .hub-tool-icon--community {
+  background: #831843;
+  color: #fbcfe8;
+}
+
+[data-theme='dark'] .hub-tool-icon--localgroups {
+  background: #0c4a6e;
+  color: #bae6fd;
+}
+
+[data-theme='dark'] .hub-tool-icon--organizer {
+  background: #374151;
+  color: #e5e7eb;
 }
 
 .hub-tool-body {
@@ -16516,4 +16572,21 @@ span.mt-fit.is-no {
   margin: 0 0 12px;
   font-size: 13px;
   color: var(--text-secondary);
+}
+
+/* The threshold: its controls on one line, wrapping on a phone. */
+.rv-gate {
+  align-items: center;
+  gap: 6px 8px;
+}
+.rv-gate .rv-gate-percent {
+  width: 4.5em;
+}
+.rv-gate-badge {
+  background: color-mix(in srgb, var(--text-secondary) 14%, var(--card-bg));
+  color: var(--text-secondary);
+}
+.rv-gate-badge.is-below {
+  background: color-mix(in srgb, var(--warning, var(--error)) 16%, var(--card-bg));
+  color: var(--warning, var(--error));
 }
