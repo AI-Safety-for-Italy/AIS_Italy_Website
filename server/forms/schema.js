@@ -15,6 +15,7 @@
 //     languages: ['it'] or ['it', 'en'],      the first is the main one
 //     title: { it, en }, description: { it, en } (Markdown, markdown-lite),
 //     confirmation: { it, en },               shown after sending (Markdown)
+//     closedMessage: { it, en },              shown once the form is closed (Markdown)
 //     items: [ { id, type, label: {it,en}, help: {it,en}, required, … } ]
 //   }
 // Texts are per language; a missing translation falls back to the main one.
@@ -218,6 +219,7 @@ function cleanSchema(input) {
     title: texts(s.title, languages, LIMITS.title, 'title', { required: true }),
     description: texts(s.description, languages, LIMITS.description, 'description'),
     confirmation: texts(s.confirmation, languages, LIMITS.description, 'confirmation'),
+    closedMessage: texts(s.closedMessage, languages, LIMITS.description, 'closedMessage'),
     items: cleaned,
   };
 }

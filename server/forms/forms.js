@@ -679,7 +679,13 @@ async function publicView(slug) {
   const form = await bySlug(slug);
   const schema = await schemaOf(form.id, form.current_version);
   if (!isOpen(form)) {
-    return { slug: form.slug, open: false, title: schema.title, languages: schema.languages };
+    return {
+      slug: form.slug,
+      open: false,
+      title: schema.title,
+      languages: schema.languages,
+      closedMessage: schema.closedMessage || null,
+    };
   }
   return {
     slug: form.slug,

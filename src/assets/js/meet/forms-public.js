@@ -67,7 +67,8 @@
         view,
         title || TEXT[lang].closed,
         TEXT[lang].closed + '. ' + TEXT[lang].closedText,
-        lang
+        lang,
+        text(data.closedMessage, lang, languages) || null
       );
       return;
     }
@@ -89,6 +90,10 @@
           token: data.token,
           answers: answers,
           website: extra.website,
+        }).catch(function (err) {
+          // It closed while the person was filling it in: the closed page.
+          if (err.status === 410) load();
+          throw err;
         });
       },
     });
@@ -99,11 +104,14 @@
     M.formNotice(view, TEXT[guess].notFound, TEXT[guess].notFoundText, guess);
     return;
   }
-  M.api('GET', '/api/form?f=' + encodeURIComponent(slug))
-    .then(start)
-    .catch(function (err) {
-      if (err.status === 404)
-        M.formNotice(view, TEXT[guess].notFound, TEXT[guess].notFoundText, guess);
-      else M.formNotice(view, TEXT[guess].error, err.message, guess);
-    });
+  function load() {
+    M.api('GET', '/api/form?f=' + encodeURIComponent(slug))
+      .then(start)
+      .catch(function (err) {
+        if (err.status === 404)
+          M.formNotice(view, TEXT[guess].notFound, TEXT[guess].notFoundText, guess);
+        else M.formNotice(view, TEXT[guess].error, err.message, guess);
+      });
+  }
+  load();
 })();

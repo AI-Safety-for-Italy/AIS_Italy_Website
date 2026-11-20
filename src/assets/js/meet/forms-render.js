@@ -19,7 +19,8 @@
  *     onPage(index), onDone()
  *   })
  *
- *   Meet.formNotice(root, title, text)  the page's frame around a message
+ *   Meet.formNotice(root, title, text, lang, rich)  the page's frame around a
+ *                                       message; `rich` (Markdown) in place of text
  *
  * Checks here are only to help people: the server checks everything again.
  * Labels go on the page as text; descriptions and help are markdown-lite,
@@ -1449,7 +1450,7 @@
     return form;
   };
 
-  M.formNotice = function (root, title, text, lang) {
+  M.formNotice = function (root, title, text, lang, rich) {
     frame(
       root,
       [brand(false, lang), h('h1', { class: 'fm-title' }, title)],
@@ -1457,7 +1458,7 @@
         'div',
         { class: 'fm-notice' },
         icon('alert', 'fm-notice-icon'),
-        h('p', null, text),
+        rich ? md(rich) : h('p', null, text),
         h(
           'a',
           { class: 'btn btn-outline', href: home(lang) },

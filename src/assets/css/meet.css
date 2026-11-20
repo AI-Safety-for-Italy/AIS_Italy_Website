@@ -5174,6 +5174,19 @@ textarea.fm-input.fm-other-input {
   color: var(--text-secondary);
 }
 
+/* The form's own closed message (Markdown): the space of the paragraph above. */
+.fm-notice .fm-md {
+  margin: 1rem 0 1.5rem;
+}
+
+.fm-notice .fm-md p {
+  margin: 0 0 0.75rem;
+}
+
+.fm-notice .fm-md p:last-child {
+  margin-bottom: 0;
+}
+
 /* Narrow: the panel becomes a band above the questions */
 @container (max-width: 880px) {
   .fm-shell {
