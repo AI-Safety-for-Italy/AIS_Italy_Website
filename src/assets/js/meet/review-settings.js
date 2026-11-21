@@ -1181,6 +1181,15 @@
       },
     });
     anon.checked = Boolean(s.anonymous);
+    var projectsOnly = h('input', {
+      type: 'checkbox',
+      class: 'rv-switch',
+      role: 'switch',
+      onchange: function () {
+        s.projectsOnly = projectsOnly.checked;
+      },
+    });
+    projectsOnly.checked = Boolean(s.projectsOnly);
     var note = h('textarea', {
       class: 'form-input',
       rows: '3',
@@ -1371,6 +1380,21 @@
               null,
               h('strong', null, 'Anonymous'),
               h('small', null, 'Names, emails, links and phone numbers taken out')
+            )
+          ),
+          h(
+            'label',
+            { class: 'rv-switch-row' },
+            projectsOnly,
+            h(
+              'span',
+              null,
+              h('strong', null, 'Projects track only'),
+              h(
+                'small',
+                null,
+                'Mentees on career orientation alone skip it: not scored, not in their mean'
+              )
             )
           ),
           h(

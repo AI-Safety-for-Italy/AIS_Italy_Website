@@ -441,6 +441,40 @@ test('the summary: means of the complete reviews, the spread, the parts weighted
   assert.equal(sum.people.length, 2);
 });
 
+test('a section for the projects track only: career orientation alone skips it, in the mean too', async () => {
+  const { boss, ann } = await panel();
+  const score = (part, key, value) =>
+    review.score(ann, { part, code: review.codeOf(key, part), scores: scoreAll(part, value) });
+  // Marco is on career orientation alone, Lia on the projects.
+  await score('cv', MARCO_KEY(), 3);
+  await score('answers', MARCO_KEY(), 5);
+  await score('answers', LIA_KEY(), 4);
+  const overall = async (name) => (await review.summary(boss)).people.find((p) => p.name === name);
+  assert.equal((await overall('Marco Secondo')).overall, 4);
+
+  const { sections } = await review.getSettings();
+  sections.find((s) => s.key === 'answers').projectsOnly = true;
+  await review.saveSettings(boss, { sections });
+
+  // The reviewers no longer see him there; Lia stays.
+  const list = (await call({ url: '/api/app/crm/review?part=answers', user: ann })).body;
+  assert.deepEqual(
+    list.items.map((i) => i.code),
+    [review.codeOf(LIA_KEY(), 'answers')]
+  );
+  await assert.rejects(
+    review.application(ann, 'answers', review.codeOf(MARCO_KEY(), 'answers')),
+    (e) => e.status === 404
+  );
+  // His review there is kept but counts for nothing: the CV alone, not partial.
+  const marco = await overall('Marco Secondo');
+  assert.equal(marco.parts.answers.mean, null);
+  assert.equal(marco.parts.answers.reviews.length, 1);
+  assert.equal(marco.overall, 3);
+  assert.equal(marco.partial, false);
+  assert.equal((await overall('Lia Candidata')).parts.answers.mean, 4);
+});
+
 test('the export: the summary as CSV or JSON, for the admins only', async () => {
   const { boss, ann, ben } = await panel();
   await review.score(ann, {

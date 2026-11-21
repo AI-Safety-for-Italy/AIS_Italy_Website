@@ -17,8 +17,10 @@
 //                 "Answers"), each with the questions it shows, its grid of
 //                 criteria (1 to 5), one for the whole section or one per
 //                 question, its weight in the overall score, whether its text
-//                 is made anonymous, and the reviewers it is given to (none
-//                 listed: every reviewer). A question in no section is not
+//                 is made anonymous, whether it is for the projects track
+//                 only (a mentee on career orientation alone is then not in
+//                 it, and it does not count in their overall score), and the
+//                 reviewers it is given to (none listed: every reviewer). A question in no section is not
 //                 shown to anyone (an email, a phone number, practical info).
 //                 Each section may also offer reasons to exclude someone
 //                 (say "no ties with Italy"), which a reviewer ticks instead
@@ -452,6 +454,7 @@ function cleanSections(list, catalog, reviewerIds, previous = []) {
       prefix,
       note,
       anonymous: s.anonymous === true,
+      projectsOnly: s.projectsOnly === true,
       weight,
       reviewers,
       gridMode,
@@ -886,6 +889,12 @@ function answeredIn(applicant, section) {
 
 const notDeclined = (a) => !a.card || a.card.status !== 'declined';
 
+/**
+ * Whether a section is someone's track: one for the projects only is not
+ * for a mentee on career orientation alone. With no track known, it is.
+ */
+const onTrack = (a, section) => !section.projectsOnly || !a.card || a.card.track !== 'orientation';
+
 /** Each applicant under a code of this section, ordered by code. */
 function coded(list, section) {
   const codes = codesOf(
@@ -910,6 +919,7 @@ function poolOf(all, section, screen = null, gate = null) {
     all.filter(
       (a) =>
         notDeclined(a) &&
+        onTrack(a, section) &&
         answeredIn(a, section) &&
         (!screen || (screen.get(a.key) && screen.get(a.key).decision === 'pass')) &&
         (!gate || !gate.filters.has(section.key) || passes(gate, a.key))
@@ -1400,7 +1410,9 @@ async function progress(userId, ctx) {
       total: list.length,
       done: list.filter((a) => FINISHED.includes(stateOf(given.get(a.key), s))).length,
       waiting: screen
-        ? all.filter((a) => notDeclined(a) && answeredIn(a, s) && !screen.has(a.key)).length
+        ? all.filter(
+            (a) => notDeclined(a) && onTrack(a, s) && answeredIn(a, s) && !screen.has(a.key)
+          ).length
         : 0,
       keys: list.map((a) => a.key),
     });
@@ -1654,7 +1666,10 @@ async function summary(user, { record = true } = {}) {
           };
         })
         .sort((x, y) => x.reviewer.localeCompare(y.reviewer, 'it'));
-      const totals = reviews.filter((r) => r.complete).map((r) => weighted(r.scores, criteria));
+      // Off their track (career orientation alone), the section counts for nothing.
+      const totals = onTrack(a, section)
+        ? reviews.filter((r) => r.complete).map((r) => weighted(r.scores, criteria))
+        : [];
       // The mean of each criterion over the complete reviews, for the table.
       const byCriterion = {};
       criteria.forEach((c) => {
@@ -1684,7 +1699,7 @@ async function summary(user, { record = true } = {}) {
     const atGate = gate ? gate.status.get(a.key) || null : null;
     // Held back by the threshold, the sections after it are not theirs to have.
     const theirs = settings.sections.filter(
-      (s) => !(atGate && atGate !== 'pass' && gate.filters.has(s.key))
+      (s) => onTrack(a, s) && !(atGate && atGate !== 'pass' && gate.filters.has(s.key))
     );
     const card = a.card || {};
     return {
@@ -1731,6 +1746,7 @@ async function summary(user, { record = true } = {}) {
       label: s.label,
       weight: s.weight,
       anonymous: s.anonymous,
+      projectsOnly: Boolean(s.projectsOnly),
       reviewers: s.reviewers.map((id) => names.get(id)).filter(Boolean),
       exclusions: s.exclusions || [],
       grid: slots(s).map((c) => ({
