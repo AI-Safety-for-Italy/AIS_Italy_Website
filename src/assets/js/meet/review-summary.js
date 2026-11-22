@@ -1,8 +1,8 @@
 /* /app/review/summary/: every applicant with every score, for the admins of
  * the mentee selection. With a pre-screening, those it excluded are in a
  * table of their own below the ranking. One column per section of the setup,
- * then the overall and, with a section for the projects only, the advising
- * and projects scores apart; ranked by the one chosen, best first; a row opens on each reviewer's scores and comment, criterion
+ * then the overall (the projects score) and, with a section for the projects
+ * only, the advising score apart; ranked by the one chosen, best first; a row opens on each reviewer's scores and comment, criterion
  * by criterion (grouped by question when a section has one grid per question). The status is the board's own: changing it
  * here moves the mentee on the mentorship board too. "Hide names" shows the
  * codes only, for discussing the scores before the names. With a
@@ -26,12 +26,11 @@
     /* private window: names shown, by the overall */
   }
 
-  // The scores a ranking can go by. Advising and Projects only when some
-  // section is for the projects track only: without one they are the overall.
+  // The scores a ranking can go by. Advising only when some section is for
+  // the projects track only: without one it is the overall.
   var SCORES = [
     ['overall', 'Overall', 'partial'],
     ['advising', 'Advising', 'advisingPartial'],
-    ['projects', 'Projects', 'projectsPartial'],
   ];
   function split() {
     return view.data.sections.some(function (s) {
@@ -493,9 +492,7 @@
             ' · overall = mean of the sections (' +
             weights +
             ')' +
-            (split()
-              ? ' · advising = without the projects-only sections, projects = those alone'
-              : '')
+            (split() ? ' (the projects score) · advising = without the projects-only sections' : '')
         )
       )
     );
