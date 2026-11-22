@@ -475,6 +475,45 @@ test('a section for the projects track only: career orientation alone skips it, 
   assert.equal((await overall('Lia Candidata')).parts.answers.mean, 4);
 });
 
+test('on both tracks: the overall, the advising score without the projects sections, and the projects one', async () => {
+  const { boss, ann } = await panel();
+  const score = (part, key, value) =>
+    review.score(ann, { part, code: review.codeOf(key, part), scores: scoreAll(part, value) });
+  const person = async (name) => (await review.summary(boss)).people.find((p) => p.name === name);
+
+  // No section for the projects only: nothing to split.
+  await score('cv', LIA_KEY(), 3);
+  await score('answers', LIA_KEY(), 5);
+  let lia = await person('Lia Candidata');
+  assert.equal(lia.overall, 4);
+  assert.equal(lia.advising, null);
+  assert.equal(lia.projects, null);
+
+  const { sections } = await review.getSettings();
+  sections.find((s) => s.key === 'answers').projectsOnly = true;
+  await review.saveSettings(boss, { sections });
+  await mentorship.update(boss, LIA_KEY(), 'mentee', { track: 'both' });
+  lia = await person('Lia Candidata');
+  assert.equal(lia.track, 'both');
+  assert.equal(lia.overall, 4);
+  assert.equal(lia.advising, 3);
+  assert.equal(lia.projects, 5);
+  assert.equal(lia.advisingPartial, false);
+  assert.equal(lia.projectsPartial, false);
+
+  // Career orientation alone: the advising score is the overall, no projects score.
+  await score('cv', MARCO_KEY(), 2);
+  const marco = await person('Marco Secondo');
+  assert.equal(marco.overall, 2);
+  assert.equal(marco.advising, 2);
+  assert.equal(marco.projects, null);
+
+  // In the CSV too.
+  const csv = (await review.exportFile(boss, 'csv')).body.replace(/^\uFEFF/, '');
+  assert.match(csv, /^Applicant,Organisation,Track,Status,Overall,Advising,Projects,/);
+  assert.match(csv, /\r\nLia Candidata,[^\r\n]*,both,[^,]*,4,3,5,/);
+});
+
 test('the export: the summary as CSV or JSON, for the admins only', async () => {
   const { boss, ann, ben } = await panel();
   await review.score(ann, {
@@ -497,7 +536,7 @@ test('the export: the summary as CSV or JSON, for the admins only', async () => 
   const lines = csv.body.slice(1).trim().split('\r\n');
   assert.match(
     lines[0],
-    /^Applicant,Organisation,Track,Status,Overall,Pre-screening,Threshold,Section,Code/
+    /^Applicant,Organisation,Track,Status,Overall,Advising,Projects,Pre-screening,Threshold,Section,Code/
   );
   const lia = lines.filter((l) => l.startsWith('Lia Candidata,'));
   // One line per section: a review in the answers, none yet in the CV.

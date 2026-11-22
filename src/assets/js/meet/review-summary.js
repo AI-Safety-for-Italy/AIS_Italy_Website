@@ -1,7 +1,8 @@
 /* /app/review/summary/: every applicant with every score, for the admins of
  * the mentee selection. With a pre-screening, those it excluded are in a
- * table of their own below the ranking. One column per section of the setup, best overall
- * score first; a row opens on each reviewer's scores and comment, criterion
+ * table of their own below the ranking. One column per section of the setup,
+ * then the overall and, with a section for the projects only, the advising
+ * and projects scores apart; ranked by the one chosen, best first; a row opens on each reviewer's scores and comment, criterion
  * by criterion (grouped by question when a section has one grid per question). The status is the board's own: changing it
  * here moves the mentee on the mentorship board too. "Hide names" shows the
  * codes only, for discussing the scores before the names. With a
@@ -17,11 +18,66 @@
   var API = '/api/app/crm/review';
   var root = document.getElementById('rvSummary');
 
-  var view = { data: null, blind: false, status: '', open: new Set() };
+  var view = { data: null, blind: false, status: '', sort: 'overall', open: new Set() };
   try {
     view.blind = localStorage.getItem('rv-blind') === '1';
+    view.sort = localStorage.getItem('rv-sort') || 'overall';
   } catch (e) {
-    /* private window: names shown */
+    /* private window: names shown, by the overall */
+  }
+
+  // The scores a ranking can go by. Advising and Projects only when some
+  // section is for the projects track only: without one they are the overall.
+  var SCORES = [
+    ['overall', 'Overall', 'partial'],
+    ['advising', 'Advising', 'advisingPartial'],
+    ['projects', 'Projects', 'projectsPartial'],
+  ];
+  function split() {
+    return view.data.sections.some(function (s) {
+      return s.projectsOnly;
+    });
+  }
+  function scores() {
+    return split() ? SCORES : SCORES.slice(0, 1);
+  }
+  function sortKey() {
+    var key = view.sort;
+    return scores().some(function (s) {
+      return s[0] === key;
+    })
+      ? key
+      : 'overall';
+  }
+
+  // The server's order (pre-screening out, below the threshold, flagged last),
+  // then the chosen score, best first; no score after, by name.
+  function ranked(list) {
+    var key = sortKey();
+    var tier = function (p) {
+      if (p.prescreen && p.prescreen.decision === 'exclude') return 3;
+      if (p.gate === 'below') return 2;
+      return p.exclusions.length ? 1 : 0;
+    };
+    return list.slice().sort(function (x, y) {
+      var t = tier(x) - tier(y);
+      if (t) return t;
+      var a = x[key];
+      var b = y[key];
+      if (a === null && b === null) return x.name.localeCompare(y.name, 'it');
+      if (a === null) return 1;
+      if (b === null) return -1;
+      return b - a;
+    });
+  }
+
+  function scoreCell(p, s, chosen) {
+    return h(
+      'td',
+      { class: 'rv-num' + (chosen ? ' rv-overall' : '') },
+      h('strong', null, num(p[s[0]])),
+      p[s[2]] ? h('small', { title: 'Some sections have no score yet' }, ' partial') : null
+    );
   }
 
   function fail(err) {
@@ -380,6 +436,29 @@
       },
     });
     blind.checked = view.blind;
+    var sortBy = split()
+      ? h(
+          'select',
+          {
+            class: 'form-input is-compact',
+            'aria-label': 'Rank by',
+            onchange: function () {
+              view.sort = sortBy.value;
+              try {
+                localStorage.setItem('rv-sort', view.sort);
+              } catch (e) {
+                /* not remembered: fine */
+              }
+              render();
+            },
+          },
+          SCORES.map(function (s) {
+            var o = h('option', { value: s[0] }, 'Rank by ' + s[1]);
+            o.selected = sortKey() === s[0];
+            return o;
+          })
+        )
+      : null;
 
     var weights = data.sections
       .map(function (p) {
@@ -391,6 +470,7 @@
         'div',
         { class: 'crm-toolbar rv-toolbar' },
         statusFilter,
+        sortBy,
         h('label', { class: 'check-row' }, blind, h('span', null, 'Hide names')),
         // The whole summary, names and comments included, whatever is shown.
         ['csv', 'json'].map(function (format) {
@@ -412,7 +492,10 @@
             (data.reviewers.length === 1 ? ' reviewer' : ' reviewers') +
             ' · overall = mean of the sections (' +
             weights +
-            ')'
+            ')' +
+            (split()
+              ? ' · advising = without the projects-only sections, projects = those alone'
+              : '')
         )
       )
     );
@@ -423,9 +506,12 @@
     var all = data.people.filter(function (p) {
       return !view.status || p.status === view.status;
     });
-    var shown = all.filter(function (p) {
-      return !screenedOut(p);
-    });
+    var shown = ranked(
+      all.filter(function (p) {
+        return !screenedOut(p);
+      })
+    );
+    var key = sortKey();
     var rejected = all.filter(screenedOut);
     var screen = screeningLine();
     if (screen) root.appendChild(screen);
@@ -451,7 +537,7 @@
       return;
     }
 
-    var cols = 4 + data.sections.length;
+    var cols = 3 + data.sections.length + scores().length;
     var body = h('tbody');
     shown.forEach(function (p, i) {
       var open = view.open.has(p.key);
@@ -478,7 +564,7 @@
           h(
             'td',
             { class: 'rv-rank' },
-            p.overall === null || p.exclusions.length || p.gate === 'below' ? '' : String(i + 1)
+            p[key] === null || p.exclusions.length || p.gate === 'below' ? '' : String(i + 1)
           ),
           h(
             'td',
@@ -525,12 +611,9 @@
           data.sections.map(function (s) {
             return partCell(p.parts[s.key]);
           }),
-          h(
-            'td',
-            { class: 'rv-num rv-overall' },
-            h('strong', null, num(p.overall)),
-            p.partial ? h('small', { title: 'Some sections have no score yet' }, ' partial') : null
-          ),
+          scores().map(function (s) {
+            return scoreCell(p, s, s[0] === key);
+          }),
           h('td', null, statusSelect(p))
         )
       );
@@ -562,7 +645,9 @@
                   s.label
                 );
               }),
-              h('th', { class: 'rv-num' }, 'Overall'),
+              scores().map(function (s) {
+                return h('th', { class: 'rv-num' }, s[1]);
+              }),
               h('th', null, 'Status (board)')
             )
           ),

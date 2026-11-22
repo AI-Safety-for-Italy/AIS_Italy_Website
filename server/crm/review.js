@@ -1600,7 +1600,9 @@ const round = (n) => (n === null ? null : Math.round(n * 100) / 100);
 /**
  * Everyone who applied, declined ones too, with every review: the names, the
  * board's status, each section's mean and spread over the complete reviews,
- * and the overall score (the sections' means, weighted). Sorted best first.
+ * and the overall score (the sections' means, weighted). With a section for
+ * the projects track only, two more apart: advising (the others) and projects
+ * (those alone), for whoever is on that track. Sorted best overall first.
  */
 async function summary(user, { record = true } = {}) {
   const settings = await getSettings();
@@ -1688,30 +1690,61 @@ async function summary(user, { record = true } = {}) {
         reviews,
       };
     });
-    let sum = 0;
-    let weights = 0;
-    settings.sections.forEach((s) => {
-      if (parts[s.key].mean === null || !s.weight) return;
-      sum += parts[s.key].mean * s.weight;
-      weights += s.weight;
-    });
-    const scored = settings.sections.filter((s) => parts[s.key].mean !== null);
     const atGate = gate ? gate.status.get(a.key) || null : null;
     // Held back by the threshold, the sections after it are not theirs to have.
     const theirs = settings.sections.filter(
       (s) => onTrack(a, s) && !(atGate && atGate !== 'pass' && gate.filters.has(s.key))
     );
+    // The weighted mean of some of their sections, and whether it stands on
+    // some only while the others have no score yet. None of them: no score.
+    const combine = (sections) => {
+      let sum = 0;
+      let weights = 0;
+      sections.forEach((s) => {
+        if (parts[s.key].mean === null || !s.weight) return;
+        sum += parts[s.key].mean * s.weight;
+        weights += s.weight;
+      });
+      const mine = theirs.filter((s) => sections.includes(s));
+      const scored = mine.filter((s) => parts[s.key].mean !== null);
+      return {
+        score: weights ? round(sum / weights) : null,
+        partial: scored.length > 0 && scored.length < mine.length,
+      };
+    };
     const card = a.card || {};
+    const track = card.track || null;
+    const overall = combine(settings.sections);
+    // Career orientation (Advising) leaves out the sections for the projects
+    // only; the projects score is those sections alone. Neither for someone
+    // off that track, nor with no section for the projects only.
+    const split = settings.sections.some((s) => s.projectsOnly);
+    const none = { score: null, partial: false };
+    const advising =
+      split && track !== 'projects'
+        ? combine(settings.sections.filter((s) => !s.projectsOnly))
+        : none;
+    const projects =
+      split && track !== 'orientation'
+        ? combine(settings.sections.filter((s) => s.projectsOnly))
+        : none;
     return {
       key: a.key,
       name: nameOf(a, settings),
       org: card.org || '',
-      track: card.track || null,
+      track,
       // null: not on the mentorship board, so no status to move.
       status: a.card ? card.status : null,
-      overall: weights ? round(sum / weights) : null,
+      overall: overall.score,
       // The overall stands on some sections only while the others have no score.
-      partial: scored.length > 0 && scored.length < theirs.length,
+      partial: overall.partial,
+      // Apart, for whoever is on both tracks: career orientation without the
+      // sections for the projects only, and those sections alone (null when
+      // the setup has none, or the track is not theirs).
+      advising: advising.score,
+      advisingPartial: advising.partial,
+      projects: projects.score,
+      projectsPartial: projects.partial,
       // Where they are at the threshold: 'pass' | 'below' | 'waiting', or null
       // (no threshold, or not in its section).
       gate: atGate,
@@ -1837,6 +1870,8 @@ async function exportFile(user, format) {
       'Track',
       'Status',
       'Overall',
+      'Advising',
+      'Projects',
       'Pre-screening',
       'Threshold',
       'Section',
@@ -1862,6 +1897,8 @@ async function exportFile(user, format) {
         p.track || '',
         p.status === null ? '' : statusLabel.get(p.status) || p.status,
         p.overall,
+        p.advising,
+        p.projects,
         p.prescreen
           ? [p.prescreen.decision, ...p.prescreen.reasonLabels].filter(Boolean).join(': ')
           : '',
