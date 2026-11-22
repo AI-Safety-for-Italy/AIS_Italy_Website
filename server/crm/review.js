@@ -1600,9 +1600,9 @@ const round = (n) => (n === null ? null : Math.round(n * 100) / 100);
 /**
  * Everyone who applied, declined ones too, with every review: the names, the
  * board's status, each section's mean and spread over the complete reviews,
- * and the overall score (the sections' means, weighted). With a section for
- * the projects track only, two more apart: advising (the others) and projects
- * (those alone), for whoever is on that track. Sorted best overall first.
+ * and the overall score (the sections' means, weighted: the projects score).
+ * With a section for the projects track only, the advising score apart (the
+ * others), for whoever is on that track. Sorted best overall first.
  */
 async function summary(user, { record = true } = {}) {
   const settings = await getSettings();
@@ -1716,17 +1716,13 @@ async function summary(user, { record = true } = {}) {
     const track = card.track || null;
     const overall = combine(settings.sections);
     // Career orientation (Advising) leaves out the sections for the projects
-    // only; the projects score is those sections alone. Neither for someone
-    // off that track, nor with no section for the projects only.
+    // only; the overall, every section, is the projects score. None for
+    // someone off that track, nor with no section for the projects only.
     const split = settings.sections.some((s) => s.projectsOnly);
     const none = { score: null, partial: false };
     const advising =
       split && track !== 'projects'
         ? combine(settings.sections.filter((s) => !s.projectsOnly))
-        : none;
-    const projects =
-      split && track !== 'orientation'
-        ? combine(settings.sections.filter((s) => s.projectsOnly))
         : none;
     return {
       key: a.key,
@@ -1739,12 +1735,10 @@ async function summary(user, { record = true } = {}) {
       // The overall stands on some sections only while the others have no score.
       partial: overall.partial,
       // Apart, for whoever is on both tracks: career orientation without the
-      // sections for the projects only, and those sections alone (null when
-      // the setup has none, or the track is not theirs).
+      // sections for the projects only (null when the setup has none, or the
+      // track is not theirs).
       advising: advising.score,
       advisingPartial: advising.partial,
-      projects: projects.score,
-      projectsPartial: projects.partial,
       // Where they are at the threshold: 'pass' | 'below' | 'waiting', or null
       // (no threshold, or not in its section).
       gate: atGate,
@@ -1871,7 +1865,6 @@ async function exportFile(user, format) {
       'Status',
       'Overall',
       'Advising',
-      'Projects',
       'Pre-screening',
       'Threshold',
       'Section',
@@ -1898,7 +1891,6 @@ async function exportFile(user, format) {
         p.status === null ? '' : statusLabel.get(p.status) || p.status,
         p.overall,
         p.advising,
-        p.projects,
         p.prescreen
           ? [p.prescreen.decision, ...p.prescreen.reasonLabels].filter(Boolean).join(': ')
           : '',
