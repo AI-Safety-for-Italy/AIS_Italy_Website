@@ -7,7 +7,8 @@
  * A suggestion pairs everyone at once (a stable matching: each mentee gets the
  * best project they ranked that would keep them); a pair is made only when
  * confirmed, and it is the mentorship board's own match.
- * Career orientation: the score only says who is in. Each mentee opens on
+ * Career orientation: the score (advising: without the sections for the
+ * projects only) only says who is in. Each mentee opens on
  * their answers, next to the mentors' profiles; the admins propose a mentor
  * and a note (a shared draft), then pair the proposals.
  * The setup (which mentors run each project, its places) is the admins' and
@@ -19,6 +20,26 @@
 
   var API = '/api/app/crm/review';
   var root = document.getElementById('rvMatching');
+
+  // For a mentee on both tracks: the one they said they care about more.
+  function preferencePill(p) {
+    var pref = p.preference;
+    if (!pref) return null;
+    var label =
+      pref.track === 'orientation'
+        ? 'Prefers advising'
+        : pref.track === 'projects'
+        ? 'Prefers projects'
+        : 'Prefers: ' + pref.text;
+    return h(
+      'span',
+      {
+        class: 'rv-pill mt-pref is-' + (pref.track || 'other'),
+        title: 'Their answer: ' + pref.text,
+      },
+      label
+    );
+  }
 
   var view = {
     data: null,
@@ -612,7 +633,8 @@
                     c.name,
                     c.suggested
                       ? h('span', { class: 'mt-star', title: 'In the suggestion' }, ' ★')
-                      : null
+                      : null,
+                    preferencePill(c)
                   ),
                   c.org ? h('small', null, c.org) : null
                 ),
@@ -1179,17 +1201,24 @@
               }
             },
           },
-          h('td', { class: 'rv-rank' }, p.overall === null ? '' : String(i + 1)),
+          h('td', { class: 'rv-rank' }, p.advising === null ? '' : String(i + 1)),
           h(
             'td',
             { class: 'rv-who' },
-            h('strong', null, p.name),
+            h('strong', null, p.name, preferencePill(p)),
             p.org ? h('small', null, p.org) : null,
             p.draft && p.draft.note
               ? h('small', { class: 'mt-note-line' }, '“' + p.draft.note + '”')
               : null
           ),
-          h('td', { class: 'rv-num' }, num(p.overall)),
+          h(
+            'td',
+            { class: 'rv-num' },
+            num(p.advising),
+            p.advisingPartial
+              ? h('small', { title: 'Some sections have no score yet' }, ' partial')
+              : null
+          ),
           h('td', null, status(p)),
           h(
             'td',
@@ -1338,7 +1367,11 @@
               null,
               h('th', null, '#'),
               h('th', null, 'Mentee'),
-              h('th', { class: 'rv-num' }, 'Score'),
+              h(
+                'th',
+                { class: 'rv-num', title: 'Without the sections for the projects only' },
+                'Advising'
+              ),
               h('th', null, 'Status (board)'),
               h('th', null, 'Proposed mentor'),
               h('th', null, '')

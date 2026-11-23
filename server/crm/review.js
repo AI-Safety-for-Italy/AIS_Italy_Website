@@ -707,6 +707,36 @@ async function applicants(settings) {
   return out;
 }
 
+/**
+ * The form's question asking someone on both tracks which one they care about
+ * more ("Se ti candidi a entrambi i percorsi, quale dei due ti interessa
+ * maggiormente?"): found by its words, its id being the form editor's own.
+ * null: the form has none (the board's questions have none either).
+ */
+function preferenceQuestion(catalog) {
+  const q = (catalog || []).find((x) => {
+    const label = fold(x.label);
+    return x.type === 'single' && /entramb|both/.test(label) && /interess|prefer/.test(label);
+  });
+  return q ? q.id : null;
+}
+
+function fold(text) {
+  return String(text || '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase();
+}
+
+/** The track an answer to that question names: 'projects' | 'orientation' | null. */
+function preferenceOf(text) {
+  const t = fold(text);
+  const projects = /progett|project/.test(t);
+  const orientation = /orient|advis|carrier|career/.test(t);
+  if (projects === orientation) return null;
+  return projects ? 'projects' : 'orientation';
+}
+
 function nameOf(applicant, settings) {
   return (
     (applicant.card && applicant.card.name) ||
@@ -1608,6 +1638,7 @@ async function summary(user, { record = true } = {}) {
   const settings = await getSettings();
   const catalog = (await catalogOf(settings.formId)) || [];
   const labels = new Map(catalog.map((q) => [q.id, q.label]));
+  const preferenceId = preferenceQuestion(catalog);
   const all = await applicants(settings);
   const screen = await screenOf(settings);
   const gate = await gateOf(settings, all, screen);
@@ -1739,6 +1770,13 @@ async function summary(user, { record = true } = {}) {
       // track is not theirs).
       advising: advising.score,
       advisingPartial: advising.partial,
+      // The track they said they care about more, if they answered the form's
+      // question for those on both: { track: 'projects' | 'orientation' | null,
+      // text: their answer }, or null.
+      preference: (() => {
+        const text = preferenceId ? String(a.answers[preferenceId] || '').trim() : '';
+        return text ? { track: preferenceOf(text), text } : null;
+      })(),
       // Where they are at the threshold: 'pass' | 'below' | 'waiting', or null
       // (no threshold, or not in its section).
       gate: atGate,
@@ -2058,6 +2096,8 @@ module.exports = {
   prescreen,
   readmit,
   summary,
+  preferenceQuestion,
+  preferenceOf,
   exportFile,
   setStatus,
   context,

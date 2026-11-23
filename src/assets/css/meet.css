@@ -16573,6 +16573,19 @@ span.mt-fit.is-no {
   color: var(--warning);
 }
 
+/* A mentee on both tracks: the one they care about more, next to the name. */
+.rv-pill.mt-pref {
+  margin-left: 8px;
+  vertical-align: 1px;
+  white-space: nowrap;
+}
+
+.rv-pill.mt-pref.is-orientation,
+.rv-pill.mt-pref.is-projects {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent-700);
+}
+
 .mt-check li.is-info {
   color: var(--text-secondary);
 }
