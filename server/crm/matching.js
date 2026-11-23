@@ -379,6 +379,12 @@ function adjust(overall, position, penalty) {
     : round(overall - penalty * (position - 1));
 }
 
+/** Out of the selection on the review: see person() in view(). */
+const isOut = (s) =>
+  Boolean(s.prescreen && s.prescreen.decision === 'exclude') ||
+  s.gate === 'below' ||
+  (s.exclusions || []).length > 0;
+
 /**
  * Everything the matching page shows. `pool`: who the suggestion is made for,
  * the mentees selected on the board ('selected') or everyone not rejected
@@ -448,6 +454,11 @@ async function view(user, { pool = 'selected' } = {}) {
         ? [pair.mentorKey, ...pair.coMentors].map((k) => mentorBrief(k).name).join(' & ')
         : null,
       matchedTrack: pair ? pair.track : null,
+      // Out of the selection: excluded at the pre-screening, below the
+      // threshold (their score stands on its section alone) or flagged by a
+      // reviewer with a reason to exclude. Not offered to the mentors, unless
+      // someone selected or paired them all the same.
+      out: Boolean(s && isOut(s)) && !(c && ['selected', 'matched'].includes(c.status)),
     };
   };
 
@@ -483,7 +494,7 @@ async function view(user, { pool = 'selected' } = {}) {
         const at = a.ids.indexOf(o.id);
         if (at === -1) return;
         const p = person(a.respondentKey);
-        if (p.status === 'declined' || p.track === 'orientation') return;
+        if (p.out || p.status === 'declined' || p.track === 'orientation') return;
         candidates.push({
           ...p,
           position: at + 1,
@@ -520,6 +531,7 @@ async function view(user, { pool = 'selected' } = {}) {
     const openIds = new Set(open.map((p) => p.id));
     const inPool = (p) =>
       p.onBoard &&
+      !p.out &&
       !p.matchedTo &&
       p.overall !== null &&
       (pool === 'all' ? p.status !== 'declined' : p.status === 'selected');
@@ -561,6 +573,7 @@ async function view(user, { pool = 'selected' } = {}) {
   const orientationMentees = roster.mentees
     .filter((c) => (c.track === 'orientation' || c.track === 'both') && c.status !== 'declined')
     .map((c) => person(c.key))
+    .filter((p) => !p.out)
     .filter((p) => p.advising !== null || ['selected', 'matched'].includes(p.status))
     .map((p) => ({
       ...p,

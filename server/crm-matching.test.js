@@ -429,6 +429,57 @@ test('the pool: selected mentees only, or everyone not rejected', async () => {
   assert.ok(!page.projects[0].candidates.some((c) => c.name === 'Olga'));
 });
 
+test('out of the selection: excluded at the pre-screening, below the threshold, flagged', async () => {
+  const { me, form } = await cast();
+  await mentee('Pia', 'Orientamento professionale');
+  await mentee('Rita', 'Orientamento professionale');
+  await score(me, 'Pia', 3);
+  await score(me, 'Rita', 4);
+  await mentor(me, 'Elsa', 'Gialli', 2, 'Orientamento');
+  await matching.saveSettings(me, {
+    formId: form.id,
+    question: 'progetti',
+    penalty: 0,
+    projects: { o_secur: { mentors: [key('Bruno')], places: null } },
+  });
+  // Lia excluded at the pre-screening, Marco below the threshold, Rita
+  // flagged by a reviewer; Nina below it too, but selected all the same.
+  const marks = {
+    Lia: { prescreen: { decision: 'exclude' } },
+    Marco: { gate: 'below' },
+    Rita: { exclusions: [{ reason: 'LLM' }] },
+    Nina: { gate: 'below' },
+  };
+  const real = review.summary;
+  review.summary = async (...args) => {
+    const out = await real(...args);
+    out.people.forEach((p) => Object.assign(p, marks[p.name] || {}));
+    return out;
+  };
+  try {
+    for (const n of ['Lia', 'Marco'])
+      await mentorship.update(me, key(n), 'mentee', { status: 'applied' });
+    const page = await matching.view(me, { pool: 'all' });
+    const secur = page.projects.find((p) => p.id === 'o_secur');
+    assert.deepEqual(
+      secur.candidates.map((c) => c.name),
+      ['Olga']
+    );
+    assert.deepEqual(
+      page.suggestion.map((s) => s.name),
+      ['Olga']
+    );
+    assert.deepEqual(
+      page.orientation.mentees.map((m) => m.name),
+      ['Pia']
+    );
+    const evals = page.projects.find((p) => p.id === 'o_evals');
+    assert.deepEqual(evals.candidates.map((c) => c.name).sort(), ['Nina', 'Olga']);
+  } finally {
+    review.summary = real;
+  }
+});
+
 test('career orientation lists its mentees by score and the mentors who take them', async () => {
   const me = await admin();
   await mentor(me, 'Ada', 'Rossi', 2, 'Progetti, Orientamento');
