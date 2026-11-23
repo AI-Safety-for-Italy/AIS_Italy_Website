@@ -745,6 +745,14 @@ channel they do not see is refused, unless it was already there. The job runs ev
 the same `CRON_SECRET` as the cleanup); a run late by up to 30 minutes still
 sends what was due, and nothing goes twice (`calendar_reminders_sent`).
 
+**On WhatsApp.** WhatsApp lets no site post in an existing group (its Groups
+API only knows groups it made, of at most 8 people), so a reminder can carry a
+"Send on WhatsApp" link instead: a `wa.me` link that opens WhatsApp with the
+reminder already written, for whoever receives it to send on. Set
+`CALENDAR_WHATSAPP` to `choose` (WhatsApp asks which chat or group) or to a
+phone number (that chat, for a test); unset, there is no link. Guests invited
+by address never get it.
+
 **From other tools.** A seminar or event of Site content lands in Seminars or
 Events (created once, public), in another calendar its form chooses, or in
 none; a poll's chosen time lands in the calendar chosen when it is set. Those

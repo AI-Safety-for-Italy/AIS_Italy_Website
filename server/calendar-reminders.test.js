@@ -629,3 +629,50 @@ test('paused, no reminder goes and none is spent; the announcements still do', a
   const result = await reminders.run({ now: new Date(start.getTime() - 58 * 60000) });
   assert.equal(result.reminders, 1);
 });
+
+test('with CALENDAR_WHATSAPP set, a reminder carries a link that writes it on WhatsApp', async () => {
+  const maker = await person('Maker', ['calendar_create']);
+  const cal = await calendars.createCalendar(maker, { name: 'Team' });
+  const start = new Date(Date.now() + 2 * 3600000);
+  start.setUTCSeconds(0, 0);
+  const { id } = await calendars.createEvent(maker, {
+    calendarId: cal.id,
+    title: 'Planning',
+    start: iso(start),
+    end: iso(start.getTime() + 3600000),
+    reminders: [{ minutes: 60, channels: ['discord'] }],
+  });
+  const { rows } = await db.query('select * from calendar_events where id = $1', [id]);
+  const [occ] = expand.expand(
+    rows,
+    new Date(start.getTime() - 60000),
+    new Date(start.getTime() + 60000),
+    []
+  );
+  try {
+    delete process.env.CALENDAR_WHATSAPP;
+    let msg = reminders.message(occ, cal, 60, 'https://example.org');
+    assert.ok(!msg.lines.some((l) => l && l.label === 'Send on WhatsApp'));
+
+    process.env.CALENDAR_WHATSAPP = '+39 345 000 0000';
+    msg = reminders.message(occ, cal, 60, 'https://example.org');
+    const wa = msg.lines.find((l) => l && l.label === 'Send on WhatsApp');
+    assert.match(wa.link, /^https:\/\/wa\.me\/393450000000\?text=/);
+    const text = decodeURIComponent(wa.link.split('?text=')[1]);
+    assert.match(text, /\*Planning\* starts in 1 hour · Team/);
+    assert.match(text, /https:\/\/example\.org\/app\/calendar\/\?event=/);
+
+    process.env.CALENDAR_WHATSAPP = 'choose';
+    msg = reminders.message(occ, cal, 60, 'https://example.org');
+    assert.match(
+      msg.lines.find((l) => l && l.label === 'Send on WhatsApp').link,
+      /^https:\/\/wa\.me\/\?text=/
+    );
+
+    // A guest invited by address never gets it.
+    msg = reminders.message(occ, cal, 60, 'https://example.org', [], { guest: true });
+    assert.ok(!msg.lines.some((l) => l && l.label === 'Send on WhatsApp'));
+  } finally {
+    delete process.env.CALENDAR_WHATSAPP;
+  }
+});

@@ -81,6 +81,31 @@ function joinLink(e) {
 }
 
 /**
+ * A link that opens WhatsApp with the reminder already written, for whoever
+ * receives it to pass on to a group: WhatsApp lets no site post in a group
+ * itself. Only when CALENDAR_WHATSAPP says so: "choose" lets WhatsApp ask
+ * which chat or group, a phone number (as +39 345 …) opens that chat, for a
+ * test. Unset: no link.
+ */
+function whatsappLink(occ, cal, minutes, link) {
+  const setting = String(process.env.CALENDAR_WHATSAPP || '').trim();
+  if (!setting) return null;
+  const number = setting.toLowerCase() === 'choose' ? '' : setting.replace(/[^\d]/g, '');
+  if (setting.toLowerCase() !== 'choose' && !/^\d{8,15}$/.test(number)) return null;
+  const e = occ.event;
+  const join = joinLink(e);
+  const text = [
+    `📅 *${e.title}* ${minutes === 0 ? 'starts now' : `starts ${leadText(minutes)}`} · ${cal.name}`,
+    whenText(occ) + (e.location ? ` · ${e.location}` : ''),
+    join ? `🔗 ${join}` : null,
+    `Going, maybe, can't go: ${link}`,
+  ]
+    .filter(Boolean)
+    .join('\n');
+  return `https://wa.me/${number}?text=${encodeURIComponent(text)}`;
+}
+
+/**
  * The message, for a person or a channel: { subject, lines, discordText }.
  * `kinds` says whose reminder it is (the event's, or the person's own), so it
  * reads as such; a `guest` (invited by address) gets no calendar link.
@@ -91,6 +116,7 @@ function message(occ, cal, minutes, origin, kinds = [], { guest = false } = {}) 
     occ.occurrenceStart.toISOString()
   )}`;
   const join = joinLink(e);
+  const whatsapp = guest ? null : whatsappLink(occ, cal, minutes, link);
   const lead = leadText(minutes);
   const subject = `${minutes === 0 ? 'Starting now' : `Reminder, ${lead}`}: ${e.title}`;
   const lines = [
@@ -101,6 +127,7 @@ function message(occ, cal, minutes, origin, kinds = [], { guest = false } = {}) 
       ? { label: e.video_kind === 'discord' ? 'Join on Discord' : 'Join the call', link: join }
       : null,
     guest ? null : { label: 'Open in the calendar', link },
+    whatsapp ? { label: 'Send on WhatsApp', link: whatsapp } : null,
     kinds.length
       ? kinds.includes('own') && !kinds.includes('event')
         ? 'One of your own reminders (Calendar → Subscribe, or the event’s card, to change them).'
