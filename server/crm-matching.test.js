@@ -553,6 +553,27 @@ test('the shortlist: three times the places or a number set, filled from the top
     matching.saveSettings(me, { projects: { o_evals: { mentors: [key('Ada')], step: 'call' } } }),
     (e) => e.status === 400
   );
+  // No more than its size: o_evals takes 2, Lia is on it, two more is one too many.
+  await assert.rejects(
+    matching.saveShortlist(me, { project: 'o_evals', add: [key('Nina'), key('Olga')] }),
+    (e) => e.status === 409
+  );
+  // A mentee on three shortlists at most (three already, of other projects).
+  const lists = await matching.getShortlists();
+  const olga = { stage: 'todo', outcome: null, by: 'x', at: null };
+  await db.query(`update app_settings set value = $1 where key = 'matching_shortlists'`, [
+    {
+      ...lists,
+      x1: { [key('Olga')]: olga },
+      x2: { [key('Olga')]: olga },
+      x3: { [key('Olga')]: olga },
+    },
+  ]);
+  await assert.rejects(
+    matching.saveShortlist(me, { project: 'o_secur', add: [key('Olga')] }),
+    (e) => e.status === 409 && /Olga/.test(e.message)
+  );
+  await db.query(`update app_settings set value = $1 where key = 'matching_shortlists'`, [lists]);
   // Through the API, for an admin.
   const res = await call({
     method: 'POST',

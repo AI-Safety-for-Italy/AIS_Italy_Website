@@ -27,6 +27,9 @@
 // mentors asked for), or else three times its places. "Shortlist the top"
 // takes the best not yet in it; anyone can be added or taken out by hand, and
 // each moves along (to do, sent, done) to an outcome (through, not through).
+// Two limits: a project shortlists no more than its size, a mentee is on the
+// shortlists of three projects at most. On the page, a grid shows it all at
+// once: the mentees by score, the projects, where each mentee ranked each.
 // Someone shortlisted is Shortlisted on the board, if they were only Applied.
 //
 // The setup lives in app_settings (key matching_settings):
@@ -55,6 +58,8 @@ const OUTCOMES = ['through', 'out'];
 // Without a number set, a project shortlists this many times its places.
 const SHORTLIST_FACTOR = 3;
 const MAX_SHORTLIST = 150;
+// The most projects a mentee is shortlisted for.
+const MAX_SHORTLISTS_EACH = 3;
 const MAX_DRAFT_NOTE = 500;
 const DEFAULT_PENALTY = 0.3;
 const MAX_PENALTY = 4;
@@ -380,8 +385,34 @@ async function saveShortlist(user, body) {
   const all = await getShortlists();
   const list = { ...(all[project] || {}) };
   const stamp = { by: user.name || '', at: new Date().toISOString() };
-  add.forEach((k) => {
-    if (!list[k]) list[k] = { stage: 'todo', outcome: null, ...stamp };
+  const fresh = add.filter((k) => !list[k]);
+  // No more than its size: the number set, or three times its places (those
+  // set here, or the most any of its mentors said on the board).
+  const team = roster.mentors.filter((m) => setup.mentors.includes(m.key) && m.capacity);
+  const places =
+    setup.places !== null && setup.places !== undefined
+      ? setup.places
+      : team.length
+      ? Math.max(...team.map((m) => m.capacity))
+      : null;
+  const size = setup.shortlist || (places ? places * SHORTLIST_FACTOR : null);
+  if (size && fresh.length && Object.keys(list).length + fresh.length > size)
+    throw new HttpError(409, `This project shortlists ${size} at most`);
+  // A mentee on the shortlists of three projects at most.
+  const full = fresh.filter(
+    (k) =>
+      Object.entries(all).filter(([id, l]) => id !== project && l && l[k]).length + 1 >
+      MAX_SHORTLISTS_EACH
+  );
+  if (full.length)
+    throw new HttpError(
+      409,
+      `${full
+        .map((k) => mentees.get(k).name)
+        .join(', ')}: already shortlisted for ${MAX_SHORTLISTS_EACH} projects`
+    );
+  fresh.forEach((k) => {
+    list[k] = { stage: 'todo', outcome: null, ...stamp };
   });
   remove.forEach((k) => delete list[k]);
   if (b.key !== undefined) {
@@ -825,6 +856,7 @@ async function view(user, { pool = 'selected' } = {}) {
       note: MAX_DRAFT_NOTE,
       shortlist: MAX_SHORTLIST,
       shortlistFactor: SHORTLIST_FACTOR,
+      shortlistsEach: MAX_SHORTLISTS_EACH,
     },
   };
 }
