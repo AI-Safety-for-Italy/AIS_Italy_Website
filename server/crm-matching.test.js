@@ -429,6 +429,162 @@ test('the pool: selected mentees only, or everyone not rejected', async () => {
   assert.ok(!page.projects[0].candidates.some((c) => c.name === 'Olga'));
 });
 
+test('out of the selection: excluded at the pre-screening, below the threshold, flagged', async () => {
+  const { me, form } = await cast();
+  await mentee('Pia', 'Orientamento professionale');
+  await mentee('Rita', 'Orientamento professionale');
+  await score(me, 'Pia', 3);
+  await score(me, 'Rita', 4);
+  await mentor(me, 'Elsa', 'Gialli', 2, 'Orientamento');
+  await matching.saveSettings(me, {
+    formId: form.id,
+    question: 'progetti',
+    penalty: 0,
+    projects: { o_secur: { mentors: [key('Bruno')], places: null } },
+  });
+  // Lia excluded at the pre-screening, Marco below the threshold, Rita
+  // flagged by a reviewer; Nina below it too, but selected all the same.
+  const marks = {
+    Lia: { prescreen: { decision: 'exclude' } },
+    Marco: { gate: 'below' },
+    Rita: { exclusions: [{ reason: 'LLM' }] },
+    Nina: { gate: 'below' },
+  };
+  const real = review.summary;
+  review.summary = async (...args) => {
+    const out = await real(...args);
+    out.people.forEach((p) => Object.assign(p, marks[p.name] || {}));
+    return out;
+  };
+  try {
+    for (const n of ['Lia', 'Marco'])
+      await mentorship.update(me, key(n), 'mentee', { status: 'applied' });
+    const page = await matching.view(me, { pool: 'all' });
+    const secur = page.projects.find((p) => p.id === 'o_secur');
+    assert.deepEqual(
+      secur.candidates.map((c) => c.name),
+      ['Olga']
+    );
+    assert.deepEqual(
+      page.suggestion.map((s) => s.name),
+      ['Olga']
+    );
+    assert.deepEqual(
+      page.orientation.mentees.map((m) => m.name),
+      ['Pia']
+    );
+    const evals = page.projects.find((p) => p.id === 'o_evals');
+    assert.deepEqual(evals.candidates.map((c) => c.name).sort(), ['Nina', 'Olga']);
+  } finally {
+    review.summary = real;
+  }
+});
+
+test('the shortlist: three times the places or a number set, filled from the top, moved along', async () => {
+  const { me, form } = await cast();
+  for (const n of ['Lia', 'Marco', 'Nina', 'Olga'])
+    await mentorship.update(me, key(n), 'mentee', { status: 'applied' });
+  await matching.saveSettings(me, {
+    formId: form.id,
+    question: 'progetti',
+    penalty: 0,
+    projects: {
+      o_secur: { mentors: [key('Bruno')], places: null },
+      o_evals: { mentors: [key('Ada')], places: 1, shortlist: 2, step: 'mentor_interview' },
+    },
+  });
+  let page = await matching.view(me, { pool: 'all' });
+  const secur = page.projects.find((p) => p.id === 'o_secur');
+  // Bruno takes 1: three times that, everyone who ranked it fits.
+  assert.deepEqual([secur.shortlistSize, secur.shortlistFrom, secur.step], [3, 'places', null]);
+  assert.deepEqual(
+    secur.candidates.map((c) => [c.name, c.top]),
+    [
+      ['Lia', true],
+      ['Marco', true],
+      ['Olga', true],
+    ]
+  );
+  const evals = page.projects.find((p) => p.id === 'o_evals');
+  assert.deepEqual(
+    [evals.shortlistSize, evals.shortlistFrom, evals.step],
+    [2, 'setup', 'mentor_interview']
+  );
+  const top = evals.candidates.filter((c) => c.top).map((c) => c.name);
+  assert.deepEqual(top, ['Lia', 'Nina']);
+
+  // In from the top: Shortlisted on the board; then moved along.
+  await matching.saveShortlist(me, { project: 'o_evals', add: [key('Lia'), key('Nina')] });
+  await matching.saveShortlist(me, { project: 'o_evals', key: key('Lia'), stage: 'sent' });
+  const list = await matching.saveShortlist(me, {
+    project: 'o_evals',
+    key: key('Nina'),
+    outcome: 'out',
+  });
+  assert.equal(list[key('Lia')].stage, 'sent');
+  assert.deepEqual([list[key('Nina')].stage, list[key('Nina')].outcome], ['done', 'out']);
+  page = await matching.view(me, { pool: 'all' });
+  const after = page.projects.find((p) => p.id === 'o_evals');
+  assert.equal(after.shortlisted, 2);
+  assert.equal(after.candidates.find((c) => c.name === 'Lia').shortlist.stage, 'sent');
+  assert.equal(after.candidates.find((c) => c.name === 'Lia').status, 'shortlisted');
+  // Off the shortlist: the board's status stays.
+  await matching.saveShortlist(me, { project: 'o_evals', remove: [key('Nina')] });
+  page = await matching.view(me, { pool: 'all' });
+  const nina = page.projects
+    .find((p) => p.id === 'o_evals')
+    .candidates.find((c) => c.name === 'Nina');
+  assert.deepEqual([nina.shortlist, nina.status], [null, 'shortlisted']);
+
+  // What is refused: a project not set up, a stage unknown, someone not on it.
+  await assert.rejects(
+    matching.saveShortlist(me, { project: 'o_moral', add: [key('Olga')] }),
+    (e) => e.status === 400
+  );
+  await assert.rejects(
+    matching.saveShortlist(me, { project: 'o_evals', key: key('Lia'), stage: 'nope' }),
+    (e) => e.status === 400
+  );
+  await assert.rejects(
+    matching.saveShortlist(me, { project: 'o_evals', key: key('Olga'), stage: 'sent' }),
+    (e) => e.status === 404
+  );
+  await assert.rejects(
+    matching.saveSettings(me, { projects: { o_evals: { mentors: [key('Ada')], step: 'call' } } }),
+    (e) => e.status === 400
+  );
+  // No more than its size: o_evals takes 2, Lia is on it, two more is one too many.
+  await assert.rejects(
+    matching.saveShortlist(me, { project: 'o_evals', add: [key('Nina'), key('Olga')] }),
+    (e) => e.status === 409
+  );
+  // A mentee on three shortlists at most (three already, of other projects).
+  const lists = await matching.getShortlists();
+  const olga = { stage: 'todo', outcome: null, by: 'x', at: null };
+  await db.query(`update app_settings set value = $1 where key = 'matching_shortlists'`, [
+    {
+      ...lists,
+      x1: { [key('Olga')]: olga },
+      x2: { [key('Olga')]: olga },
+      x3: { [key('Olga')]: olga },
+    },
+  ]);
+  await assert.rejects(
+    matching.saveShortlist(me, { project: 'o_secur', add: [key('Olga')] }),
+    (e) => e.status === 409 && /Olga/.test(e.message)
+  );
+  await db.query(`update app_settings set value = $1 where key = 'matching_shortlists'`, [lists]);
+  // Through the API, for an admin.
+  const res = await call({
+    method: 'POST',
+    url: '/api/app/crm/review?action=matching-shortlist',
+    user: me,
+    body: { project: 'o_secur', add: [key('Olga')] },
+  });
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.shortlist[key('Olga')].stage, 'todo');
+});
+
 test('career orientation lists its mentees by score and the mentors who take them', async () => {
   const me = await admin();
   await mentor(me, 'Ada', 'Rossi', 2, 'Progetti, Orientamento');
@@ -448,6 +604,142 @@ test('career orientation lists its mentees by score and the mentors who take the
   );
   // Nothing set up: no projects, and the page still opens.
   assert.deepEqual(page.projects, []);
+});
+
+test('the preference question is found by its words, and its answer read as a track', () => {
+  const catalog = [
+    { id: 'q1', label: 'A quale/i percorso/i vuoi candidarti?', type: 'multi' },
+    {
+      id: 'q_x7',
+      label: 'Se ti candidi a entrambi i percorsi, quale dei due ti interessa maggiormente?',
+      type: 'single',
+    },
+  ];
+  assert.equal(review.preferenceQuestion(catalog), 'q_x7');
+  assert.equal(review.preferenceQuestion(catalog.slice(0, 1)), null);
+  assert.equal(review.preferenceQuestion(null), null);
+  assert.equal(review.preferenceOf('Progetti di AI safety'), 'projects');
+  assert.equal(review.preferenceOf('Orientamento professionale (advising)'), 'orientation');
+  assert.equal(review.preferenceOf('Career advising'), 'orientation');
+  assert.equal(review.preferenceOf('Indifferente'), null);
+});
+
+test('on both tracks: career orientation goes by the advising score, and both tabs show the preference', async () => {
+  const me = await admin();
+  const schema = {
+    ...SCHEMA,
+    items: [
+      ...SCHEMA.items,
+      {
+        id: 'q_pref',
+        type: 'single',
+        label: {
+          it: 'Se ti candidi a entrambi i percorsi, quale dei due ti interessa maggiormente?',
+        },
+        options: [
+          { id: 'p_adv', label: { it: 'Advising / orientamento' } },
+          { id: 'p_prj', label: { it: 'Progetti di ricerca' } },
+        ],
+      },
+    ],
+  };
+  const { id, slug } = await forms.create(me, { title: 'Candidatura mentee', schema });
+  await forms.updateSettings(me, id, { status: 'open' });
+  const send = async (name, answers) => {
+    const view = await forms.publicView(slug);
+    clock += 5000;
+    return forms.submit(
+      slug,
+      {
+        version: view.version,
+        token: view.token,
+        answers: { name, email: `${name.toLowerCase()}@example.org`, ...answers },
+      },
+      '203.0.113.9'
+    );
+  };
+  // Two sections: the general one, and one for the projects track only.
+  const q = await review.questions(me, id);
+  const sections = [
+    { ...q.sections[0], key: 'generale', label: 'Generale', questions: ['q_pref', 'name'] },
+    {
+      ...q.sections[0],
+      key: 'progetti',
+      label: 'Progetti',
+      prefix: 'P',
+      questions: ['progetti'],
+      projectsOnly: true,
+    },
+  ];
+  await review.saveSettings(me, { formId: id, nameQuestion: 'name', sections });
+  await mentor(me, 'Ada', 'Rossi', 2, 'Progetti, Orientamento');
+  await matching.saveSettings(me, {
+    formId: id,
+    question: 'progetti',
+    penalty: 0,
+    projects: { o_evals: { mentors: [key('Ada')], places: null } },
+  });
+
+  const cast = [
+    // name, board track, preference, ranking, general, projects
+    ['Lia', 'Progetti, Orientamento', 'p_adv', ['o_evals'], 3, 5],
+    ['Marco', 'Progetti, Orientamento', 'p_prj', ['o_evals'], 2, 5],
+    ['Pia', 'Orientamento', null, null, 4, null],
+    // On the projects only: the answer is there, the badge is not.
+    ['Nina', 'Progetti', 'p_adv', ['o_evals'], 1, 1],
+  ];
+  for (const [name, tracks, pref, ranked, general, projects] of cast) {
+    await mentee(name, tracks);
+    const answers = {};
+    if (pref) answers.q_pref = { selected: [pref] };
+    if (ranked) answers.progetti = ranked;
+    await send(name, answers);
+    const put = (part, value) => {
+      const scores = {};
+      review.slots(sections.find((s) => s.key === part)).forEach((c) => {
+        scores[c.key] = value;
+      });
+      return db.query(
+        `insert into review_scores (person_key, part, reviewer_id, reviewer_name, scores)
+         values ($1, $2, $3, $4, $5)`,
+        [key(name), part, me.id, me.name, scores]
+      );
+    };
+    await put('generale', general);
+    if (projects !== null) await put('progetti', projects);
+  }
+
+  const page = await matching.view(me, { pool: 'all' });
+  // By the overall it would be Lia (4), Pia (4), Marco (3.5): by advising, the general section alone.
+  const o = page.orientation.mentees;
+  assert.deepEqual(
+    o.map((m) => [m.name, m.advising]),
+    [
+      ['Pia', 4],
+      ['Lia', 3],
+      ['Marco', 2],
+    ]
+  );
+  const prefOf = (list, name) => {
+    const p = list.find((m) => m.name === name).preference;
+    return p && p.track;
+  };
+  assert.equal(prefOf(o, 'Lia'), 'orientation');
+  assert.equal(prefOf(o, 'Marco'), 'projects');
+  assert.equal(prefOf(o, 'Pia'), null);
+  // The projects tab: the same badge, still ranked by the overall.
+  const candidates = page.projects.find((p) => p.id === 'o_evals').candidates;
+  assert.deepEqual(
+    candidates.map((c) => [c.name, c.overall]),
+    [
+      ['Lia', 4],
+      ['Marco', 3.5],
+      ['Nina', 1],
+    ]
+  );
+  assert.equal(prefOf(candidates, 'Lia'), 'orientation');
+  assert.equal(prefOf(candidates, 'Marco'), 'projects');
+  assert.equal(prefOf(candidates, 'Nina'), null);
 });
 
 test('career orientation: a shared draft by fit, checked, filled, then paired', async () => {
@@ -577,6 +869,55 @@ test('how many mentees a mentor takes: their answer read loosely, their site ent
   ada = (await mentorship.roster()).mentors.find((m) => m.name === 'Ada Rossi');
   assert.equal(ada.capacity, 3);
   assert.equal(ada.capacityFrom, 'site');
+  // Nothing set for career orientation: the same places.
+  assert.equal(ada.orientationCapacity, 3);
+  assert.equal(ada.orientationCapacityFrom, 'site');
+});
+
+test('a mentor on both tracks: career orientation has places of its own', async () => {
+  const me = await admin();
+  // Two mentees on her project, one in career orientation.
+  await mentor(me, 'Ada', 'Rossi', 2, 'Progetti, Orientamento');
+  const ADA_K = key('Ada');
+  const entry = (await mentorship.person(me, ['mentorship'], ADA_K, 'mentor')).site.entry;
+  await mentorship.saveEntry(me, ADA_K, 'mentor', { ...entry, places_orientation: 1 });
+
+  const ada = (await mentorship.roster()).mentors.find((m) => m.name === 'Ada Rossi');
+  assert.equal(ada.capacity, 2);
+  assert.equal(ada.capacityFrom, 'application');
+  assert.equal(ada.orientationCapacity, 1);
+  assert.equal(ada.orientationCapacityFrom, 'site');
+
+  for (const name of ['Pia', 'Rita', 'Ugo']) {
+    await mentee(name, 'Progetti, Orientamento professionale');
+    await mentorship.update(me, key(name), 'mentee', { status: 'selected' });
+  }
+  let page = await matching.view(me);
+  assert.equal(page.orientation.mentors[0].capacity, 1);
+  assert.equal(page.places.orientation.places, 1);
+
+  // A pair on her project takes none of her career orientation places.
+  let r = await mentorship.createMatch(me, ADA_K, key('Pia'), 'projects');
+  assert.equal(r.overCapacity, false);
+  page = await matching.view(me);
+  assert.equal(page.orientation.mentors[0].taken, 0);
+  assert.equal(page.orientation.check.placesLeft, 1);
+  r = await mentorship.createMatch(me, ADA_K, key('Rita'), 'orientation');
+  assert.equal(r.overCapacity, false);
+  r = await mentorship.createMatch(me, ADA_K, key('Ugo'), 'orientation');
+  assert.equal(r.overCapacity, true);
+
+  // The number stays on the board: the site never gets it.
+  await assert.rejects(
+    mentorship.saveEntry(me, ADA_K, 'mentor', { ...entry, places_orientation: 0.5 }),
+    (e) => e.status === 400
+  );
+  await mentorship.publish(me, ADA_K, 'mentor');
+  const { rows } = await db.query('select entry from mentor_site_entries where person_key = $1', [
+    ADA_K,
+  ]);
+  assert.equal(rows[0].entry.places_orientation, undefined);
+  assert.equal(rows[0].entry.places, undefined);
 });
 
 test('the places against who is selected, to know how many to select', async () => {

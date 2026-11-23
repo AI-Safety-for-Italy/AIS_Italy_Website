@@ -707,6 +707,36 @@ async function applicants(settings) {
   return out;
 }
 
+/**
+ * The form's question asking someone on both tracks which one they care about
+ * more ("Se ti candidi a entrambi i percorsi, quale dei due ti interessa
+ * maggiormente?"): found by its words, its id being the form editor's own.
+ * null: the form has none (the board's questions have none either).
+ */
+function preferenceQuestion(catalog) {
+  const q = (catalog || []).find((x) => {
+    const label = fold(x.label);
+    return x.type === 'single' && /entramb|both/.test(label) && /interess|prefer/.test(label);
+  });
+  return q ? q.id : null;
+}
+
+function fold(text) {
+  return String(text || '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase();
+}
+
+/** The track an answer to that question names: 'projects' | 'orientation' | null. */
+function preferenceOf(text) {
+  const t = fold(text);
+  const projects = /progett|project/.test(t);
+  const orientation = /orient|advis|carrier|career/.test(t);
+  if (projects === orientation) return null;
+  return projects ? 'projects' : 'orientation';
+}
+
 function nameOf(applicant, settings) {
   return (
     (applicant.card && applicant.card.name) ||
@@ -914,11 +944,11 @@ function coded(list, section) {
  * threshold (`gate`, gateOf()), passed that too. Each with its code, ordered
  * by code (which is as good as shuffled, and the same for everyone).
  */
-function poolOf(all, section, screen = null, gate = null) {
+function poolOf(all, section, screen = null, gate = null, { withDeclined = false } = {}) {
   return coded(
     all.filter(
       (a) =>
-        notDeclined(a) &&
+        (withDeclined || notDeclined(a)) &&
         onTrack(a, section) &&
         answeredIn(a, section) &&
         (!screen || (screen.get(a.key) && screen.get(a.key).decision === 'pass')) &&
@@ -949,6 +979,9 @@ function passes(gate, key) {
  * `cutoff` is the lowest mean that passes (null: nobody is left out), `means`
  * all of them, lowest first, for the summary to preview another percent.
  * Someone finished with no mean (everyone stepped aside) is not ranked: they pass.
+ * Those rejected on the board stay in the ranking once finished, so that
+ * rejecting the ones below does not move the cut onto the next ones; rejected
+ * before that, they are left out rather than waiting.
  */
 async function gateOf(settings, all, screen) {
   const saved = await getGate();
@@ -973,10 +1006,10 @@ async function gateOf(settings, all, screen) {
     Boolean(r && (r.conflict || flagsOf(r, section).length || counted(r, grid)));
   const status = new Map();
   const ranked = [];
-  poolOf(all, section, screen).forEach((a) => {
+  poolOf(all, section, screen, null, { withDeclined: true }).forEach((a) => {
     const reviews = byPerson.get(a.key) || new Map();
     if (!due.every((id) => finished(reviews.get(id)))) {
-      status.set(a.key, 'waiting');
+      if (notDeclined(a)) status.set(a.key, 'waiting');
       return;
     }
     const totals = [...reviews.values()]
@@ -1600,14 +1633,15 @@ const round = (n) => (n === null ? null : Math.round(n * 100) / 100);
 /**
  * Everyone who applied, declined ones too, with every review: the names, the
  * board's status, each section's mean and spread over the complete reviews,
- * and the overall score (the sections' means, weighted). With a section for
- * the projects track only, two more apart: advising (the others) and projects
- * (those alone), for whoever is on that track. Sorted best overall first.
+ * and the overall score (the sections' means, weighted: the projects score).
+ * With a section for the projects track only, the advising score apart (the
+ * others), for whoever is on that track. Sorted best overall first.
  */
 async function summary(user, { record = true } = {}) {
   const settings = await getSettings();
   const catalog = (await catalogOf(settings.formId)) || [];
   const labels = new Map(catalog.map((q) => [q.id, q.label]));
+  const preferenceId = preferenceQuestion(catalog);
   const all = await applicants(settings);
   const screen = await screenOf(settings);
   const gate = await gateOf(settings, all, screen);
@@ -1716,17 +1750,13 @@ async function summary(user, { record = true } = {}) {
     const track = card.track || null;
     const overall = combine(settings.sections);
     // Career orientation (Advising) leaves out the sections for the projects
-    // only; the projects score is those sections alone. Neither for someone
-    // off that track, nor with no section for the projects only.
+    // only; the overall, every section, is the projects score. None for
+    // someone off that track, nor with no section for the projects only.
     const split = settings.sections.some((s) => s.projectsOnly);
     const none = { score: null, partial: false };
     const advising =
       split && track !== 'projects'
         ? combine(settings.sections.filter((s) => !s.projectsOnly))
-        : none;
-    const projects =
-      split && track !== 'orientation'
-        ? combine(settings.sections.filter((s) => s.projectsOnly))
         : none;
     return {
       key: a.key,
@@ -1739,12 +1769,17 @@ async function summary(user, { record = true } = {}) {
       // The overall stands on some sections only while the others have no score.
       partial: overall.partial,
       // Apart, for whoever is on both tracks: career orientation without the
-      // sections for the projects only, and those sections alone (null when
-      // the setup has none, or the track is not theirs).
+      // sections for the projects only (null when the setup has none, or the
+      // track is not theirs).
       advising: advising.score,
       advisingPartial: advising.partial,
-      projects: projects.score,
-      projectsPartial: projects.partial,
+      // The track they said they care about more, if they answered the form's
+      // question for those on both: { track: 'projects' | 'orientation' | null,
+      // text: their answer }, or null.
+      preference: (() => {
+        const text = preferenceId ? String(a.answers[preferenceId] || '').trim() : '';
+        return text ? { track: preferenceOf(text), text } : null;
+      })(),
       // Where they are at the threshold: 'pass' | 'below' | 'waiting', or null
       // (no threshold, or not in its section).
       gate: atGate,
@@ -1871,7 +1906,6 @@ async function exportFile(user, format) {
       'Status',
       'Overall',
       'Advising',
-      'Projects',
       'Pre-screening',
       'Threshold',
       'Section',
@@ -1898,7 +1932,6 @@ async function exportFile(user, format) {
         p.status === null ? '' : statusLabel.get(p.status) || p.status,
         p.overall,
         p.advising,
-        p.projects,
         p.prescreen
           ? [p.prescreen.decision, ...p.prescreen.reasonLabels].filter(Boolean).join(': ')
           : '',
@@ -2066,6 +2099,8 @@ module.exports = {
   prescreen,
   readmit,
   summary,
+  preferenceQuestion,
+  preferenceOf,
   exportFile,
   setStatus,
   context,

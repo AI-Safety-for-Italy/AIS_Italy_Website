@@ -475,7 +475,7 @@ test('a section for the projects track only: career orientation alone skips it, 
   assert.equal((await overall('Lia Candidata')).parts.answers.mean, 4);
 });
 
-test('on both tracks: the overall, the advising score without the projects sections, and the projects one', async () => {
+test('on both tracks: the overall (the projects score) and the advising one without the projects sections', async () => {
   const { boss, ann } = await panel();
   const score = (part, key, value) =>
     review.score(ann, { part, code: review.codeOf(key, part), scores: scoreAll(part, value) });
@@ -487,7 +487,7 @@ test('on both tracks: the overall, the advising score without the projects secti
   let lia = await person('Lia Candidata');
   assert.equal(lia.overall, 4);
   assert.equal(lia.advising, null);
-  assert.equal(lia.projects, null);
+  assert.equal('projects' in lia, false);
 
   const { sections } = await review.getSettings();
   sections.find((s) => s.key === 'answers').projectsOnly = true;
@@ -497,21 +497,18 @@ test('on both tracks: the overall, the advising score without the projects secti
   assert.equal(lia.track, 'both');
   assert.equal(lia.overall, 4);
   assert.equal(lia.advising, 3);
-  assert.equal(lia.projects, 5);
   assert.equal(lia.advisingPartial, false);
-  assert.equal(lia.projectsPartial, false);
 
-  // Career orientation alone: the advising score is the overall, no projects score.
+  // Career orientation alone: the advising score is the overall.
   await score('cv', MARCO_KEY(), 2);
   const marco = await person('Marco Secondo');
   assert.equal(marco.overall, 2);
   assert.equal(marco.advising, 2);
-  assert.equal(marco.projects, null);
 
   // In the CSV too.
   const csv = (await review.exportFile(boss, 'csv')).body.replace(/^\uFEFF/, '');
-  assert.match(csv, /^Applicant,Organisation,Track,Status,Overall,Advising,Projects,/);
-  assert.match(csv, /\r\nLia Candidata,[^\r\n]*,both,[^,]*,4,3,5,/);
+  assert.match(csv, /^Applicant,Organisation,Track,Status,Overall,Advising,/);
+  assert.match(csv, /\r\nLia Candidata,[^\r\n]*,both,[^,]*,4,3,/);
 });
 
 test('the export: the summary as CSV or JSON, for the admins only', async () => {
@@ -536,7 +533,7 @@ test('the export: the summary as CSV or JSON, for the admins only', async () => 
   const lines = csv.body.slice(1).trim().split('\r\n');
   assert.match(
     lines[0],
-    /^Applicant,Organisation,Track,Status,Overall,Advising,Projects,Pre-screening,Threshold,Section,Code/
+    /^Applicant,Organisation,Track,Status,Overall,Advising,Pre-screening,Threshold,Section,Code/
   );
   const lia = lines.filter((l) => l.startsWith('Lia Candidata,'));
   // One line per section: a review in the answers, none yet in the CV.
@@ -1526,6 +1523,15 @@ test('the threshold: the worst share of the CV reaches no later section, and com
   // 40%: two out. 0%: everyone back, Marco's review as Ann left it.
   await review.saveGate(boss, { percent: 40 });
   assert.equal((await answersOf(ann)).length, 3);
+  // Rejecting the two below does not cut the next one: they stay ranked.
+  const head = await admin();
+  for (const k of [MARCO_KEY(), tre])
+    await mentorship.update(head, k, 'mentee', { status: 'declined' });
+  sum = await review.summary(boss);
+  assert.deepEqual(sum.gate.counts, { pass: 3, below: 2, waiting: 0 });
+  assert.equal(sum.people.find((p) => p.key === due).gate, 'pass');
+  for (const k of [MARCO_KEY(), tre])
+    await mentorship.update(head, k, 'mentee', { status: 'applied' });
   await review.saveGate(boss, { percent: 0 });
   assert.equal((await answersOf(ann)).length, 5);
   const back = await review.application(ann, 'answers', marcoAnswers);
