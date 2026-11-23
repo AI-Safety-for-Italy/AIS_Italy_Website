@@ -16343,6 +16343,101 @@ dialog.cal-editor[open] {
   white-space: nowrap;
 }
 
+.rv-table tr.mt-shortlisted td:first-child {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.mt-shortlist .form-input {
+  min-width: 0;
+}
+
+.mt-grid-wrap {
+  max-height: 75vh;
+  overflow: auto;
+}
+
+.mt-grid th,
+.mt-grid td {
+  padding: 4px 6px;
+}
+
+.mt-grid thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--card-bg);
+}
+
+.mt-grid .mt-grid-who {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--card-bg);
+  white-space: nowrap;
+}
+
+.mt-grid thead .mt-grid-who {
+  z-index: 3;
+}
+
+.mt-grid-col {
+  text-align: center;
+  white-space: nowrap;
+}
+
+.mt-grid-col span,
+.mt-grid-col small {
+  display: block;
+}
+
+.mt-grid-col.is-full small,
+.mt-grid-full {
+  color: var(--accent-700);
+  font-weight: 600;
+}
+
+.mt-grid-cell {
+  text-align: center;
+}
+
+.mt-grid-btn {
+  min-width: 2rem;
+  padding: 2px 6px;
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.mt-grid-btn.is-first {
+  font-weight: 700;
+}
+
+.mt-grid-btn.is-on {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+
+.mt-grid-btn.is-out {
+  opacity: 0.5;
+  text-decoration: line-through;
+}
+
+.mt-grid-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+
+.mt-shortlist-bar {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 10px;
+}
+
 @media (max-width: 640px) {
   .mt-card {
     padding: 0.9rem;

@@ -74,6 +74,7 @@ const ACTIONS = new Set([
   'review-remind',
   'review-matching',
   'review-matching-settings',
+  'review-matching-shortlist',
   'review-matching-draft',
   // Who may do what (server/permissions.js): detail lists the keys changed.
   'permissions-change',

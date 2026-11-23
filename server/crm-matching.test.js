@@ -480,6 +480,111 @@ test('out of the selection: excluded at the pre-screening, below the threshold, 
   }
 });
 
+test('the shortlist: three times the places or a number set, filled from the top, moved along', async () => {
+  const { me, form } = await cast();
+  for (const n of ['Lia', 'Marco', 'Nina', 'Olga'])
+    await mentorship.update(me, key(n), 'mentee', { status: 'applied' });
+  await matching.saveSettings(me, {
+    formId: form.id,
+    question: 'progetti',
+    penalty: 0,
+    projects: {
+      o_secur: { mentors: [key('Bruno')], places: null },
+      o_evals: { mentors: [key('Ada')], places: 1, shortlist: 2, step: 'mentor_interview' },
+    },
+  });
+  let page = await matching.view(me, { pool: 'all' });
+  const secur = page.projects.find((p) => p.id === 'o_secur');
+  // Bruno takes 1: three times that, everyone who ranked it fits.
+  assert.deepEqual([secur.shortlistSize, secur.shortlistFrom, secur.step], [3, 'places', null]);
+  assert.deepEqual(
+    secur.candidates.map((c) => [c.name, c.top]),
+    [
+      ['Lia', true],
+      ['Marco', true],
+      ['Olga', true],
+    ]
+  );
+  const evals = page.projects.find((p) => p.id === 'o_evals');
+  assert.deepEqual(
+    [evals.shortlistSize, evals.shortlistFrom, evals.step],
+    [2, 'setup', 'mentor_interview']
+  );
+  const top = evals.candidates.filter((c) => c.top).map((c) => c.name);
+  assert.deepEqual(top, ['Lia', 'Nina']);
+
+  // In from the top: Shortlisted on the board; then moved along.
+  await matching.saveShortlist(me, { project: 'o_evals', add: [key('Lia'), key('Nina')] });
+  await matching.saveShortlist(me, { project: 'o_evals', key: key('Lia'), stage: 'sent' });
+  const list = await matching.saveShortlist(me, {
+    project: 'o_evals',
+    key: key('Nina'),
+    outcome: 'out',
+  });
+  assert.equal(list[key('Lia')].stage, 'sent');
+  assert.deepEqual([list[key('Nina')].stage, list[key('Nina')].outcome], ['done', 'out']);
+  page = await matching.view(me, { pool: 'all' });
+  const after = page.projects.find((p) => p.id === 'o_evals');
+  assert.equal(after.shortlisted, 2);
+  assert.equal(after.candidates.find((c) => c.name === 'Lia').shortlist.stage, 'sent');
+  assert.equal(after.candidates.find((c) => c.name === 'Lia').status, 'shortlisted');
+  // Off the shortlist: the board's status stays.
+  await matching.saveShortlist(me, { project: 'o_evals', remove: [key('Nina')] });
+  page = await matching.view(me, { pool: 'all' });
+  const nina = page.projects
+    .find((p) => p.id === 'o_evals')
+    .candidates.find((c) => c.name === 'Nina');
+  assert.deepEqual([nina.shortlist, nina.status], [null, 'shortlisted']);
+
+  // What is refused: a project not set up, a stage unknown, someone not on it.
+  await assert.rejects(
+    matching.saveShortlist(me, { project: 'o_moral', add: [key('Olga')] }),
+    (e) => e.status === 400
+  );
+  await assert.rejects(
+    matching.saveShortlist(me, { project: 'o_evals', key: key('Lia'), stage: 'nope' }),
+    (e) => e.status === 400
+  );
+  await assert.rejects(
+    matching.saveShortlist(me, { project: 'o_evals', key: key('Olga'), stage: 'sent' }),
+    (e) => e.status === 404
+  );
+  await assert.rejects(
+    matching.saveSettings(me, { projects: { o_evals: { mentors: [key('Ada')], step: 'call' } } }),
+    (e) => e.status === 400
+  );
+  // No more than its size: o_evals takes 2, Lia is on it, two more is one too many.
+  await assert.rejects(
+    matching.saveShortlist(me, { project: 'o_evals', add: [key('Nina'), key('Olga')] }),
+    (e) => e.status === 409
+  );
+  // A mentee on three shortlists at most (three already, of other projects).
+  const lists = await matching.getShortlists();
+  const olga = { stage: 'todo', outcome: null, by: 'x', at: null };
+  await db.query(`update app_settings set value = $1 where key = 'matching_shortlists'`, [
+    {
+      ...lists,
+      x1: { [key('Olga')]: olga },
+      x2: { [key('Olga')]: olga },
+      x3: { [key('Olga')]: olga },
+    },
+  ]);
+  await assert.rejects(
+    matching.saveShortlist(me, { project: 'o_secur', add: [key('Olga')] }),
+    (e) => e.status === 409 && /Olga/.test(e.message)
+  );
+  await db.query(`update app_settings set value = $1 where key = 'matching_shortlists'`, [lists]);
+  // Through the API, for an admin.
+  const res = await call({
+    method: 'POST',
+    url: '/api/app/crm/review?action=matching-shortlist',
+    user: me,
+    body: { project: 'o_secur', add: [key('Olga')] },
+  });
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.shortlist[key('Olga')].stage, 'todo');
+});
+
 test('career orientation lists its mentees by score and the mentors who take them', async () => {
   const me = await admin();
   await mentor(me, 'Ada', 'Rossi', 2, 'Progetti, Orientamento');

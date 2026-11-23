@@ -210,6 +210,8 @@
       projects[p.id] = {
         mentors: set ? set.mentors.slice() : (p.guess || []).slice(),
         places: set && set.places !== null && set.places !== undefined ? String(set.places) : '',
+        shortlist: set && set.shortlist ? String(set.shortlist) : '',
+        step: (set && set.step) || '',
         guessed: !set && Boolean(p.guess),
       };
     });
@@ -382,7 +384,9 @@
                 null,
                 h('th', null, 'Project (option)'),
                 h('th', null, 'Mentors'),
-                h('th', null, 'Places')
+                h('th', null, 'Places'),
+                h('th', null, 'Shortlist'),
+                h('th', null, 'Next step')
               )
             ),
             h(
@@ -405,6 +409,38 @@
                     entry.places = places.value;
                   },
                 });
+                var factor = data.limits.shortlistFactor;
+                var shortlist = h('input', {
+                  class: 'form-input is-compact mt-places',
+                  type: 'number',
+                  min: '1',
+                  max: String(data.limits.shortlist),
+                  placeholder: p.places ? String(p.places * factor) : '?',
+                  title:
+                    'How many to send on to the next step (what the mentors asked for). Empty: ' +
+                    factor +
+                    ' times the places',
+                  value: entry.shortlist,
+                  'aria-label': 'Shortlist for ' + p.label,
+                  oninput: function () {
+                    entry.shortlist = shortlist.value;
+                  },
+                });
+                var step = h(
+                  'select',
+                  {
+                    class: 'form-input is-compact',
+                    'aria-label': 'Next step for ' + p.label,
+                    onchange: function () {
+                      entry.step = step.value;
+                    },
+                  },
+                  [''].concat(Object.keys(STEP_LABELS)).map(function (k) {
+                    var o = h('option', { value: k }, k ? STEP_LABELS[k] : '–');
+                    o.selected = k === entry.step;
+                    return o;
+                  })
+                );
                 return h(
                   'tr',
                   { class: p.mapped || entry.mentors.length ? '' : 'mt-unmapped' },
@@ -425,7 +461,18 @@
                       { class: 'panel-note mt-places-from' },
                       entry.places !== '' ? 'set here' : p.boardPlaces ? placesSource(p) : 'unknown'
                     )
-                  )
+                  ),
+                  h(
+                    'td',
+                    null,
+                    shortlist,
+                    h(
+                      'small',
+                      { class: 'panel-note mt-places-from' },
+                      entry.shortlist !== '' ? 'set here' : factor + '× places'
+                    )
+                  ),
+                  h('td', null, step)
                 );
               })
             )
@@ -482,6 +529,8 @@
                   out.projects[id] = {
                     mentors: e.mentors,
                     places: e.places === '' ? null : Number(e.places),
+                    shortlist: e.shortlist === '' ? null : Number(e.shortlist),
+                    step: e.step || null,
                   };
                 });
               }
@@ -490,6 +539,333 @@
           },
           'Save setup'
         )
+      )
+    );
+  }
+
+  // ── The shortlist ──────────────────────────────────────────────────────────
+
+  var STEP_LABELS = {
+    questions: 'Questions from us',
+    interview: 'Interview by us',
+    mentor_interview: 'Interview by the mentor',
+  };
+  var STAGE_LABELS = { todo: 'To do', sent: 'Sent / booked', done: 'Done' };
+  var OUTCOME_LABELS = { through: 'Through', out: 'Not through' };
+
+  function shortlist(project, body, message) {
+    if (view.busy) return;
+    view.busy = true;
+    body.project = project.id;
+    M.api('POST', API + '?action=matching-shortlist', body)
+      .then(function () {
+        if (message) M.toast(message);
+        return load();
+      })
+      .catch(function (err) {
+        if (err.status === 401) return M.appError(err);
+        M.toast(err.message, true);
+      })
+      .then(function () {
+        view.busy = false;
+      });
+  }
+
+  // How many projects each mentee is shortlisted for.
+  function shortlistCounts() {
+    var n = {};
+    view.data.projects.forEach(function (p) {
+      p.candidates.forEach(function (c) {
+        if (c.shortlist) n[c.key] = (n[c.key] || 0) + 1;
+      });
+    });
+    return n;
+  }
+
+  // The best not yet on it, to fill the shortlist up to its size, leaving out
+  // whoever is on as many shortlists as one may be.
+  function shortlistTop(project) {
+    var counts = shortlistCounts();
+    var room =
+      project.shortlistSize === null ? Infinity : project.shortlistSize - project.shortlisted;
+    return project.candidates
+      .filter(function (c) {
+        return c.top && !c.shortlist && (counts[c.key] || 0) < view.data.limits.shortlistsEach;
+      })
+      .slice(0, Math.max(0, room))
+      .map(function (c) {
+        return c.key;
+      });
+  }
+
+  // A project's name in the grid: its mentors' surnames.
+  function surnames(p) {
+    if (!p.mentors.length) return p.label;
+    return p.mentors
+      .map(function (m) {
+        var parts = m.name.trim().split(/\s+/);
+        return parts[parts.length - 1];
+      })
+      .join(' & ');
+  }
+
+  // The grid: the mentees by score (highest first) on the rows, the projects
+  // on the columns, in each cell the place the mentee gave the project. A
+  // click shortlists them for it, or takes them off: three a row at most, a
+  // column no more than its size.
+  function gridTab() {
+    var data = view.data;
+    if (!data.settings.question) return projectsTab();
+    var cols = data.projects.filter(function (p) {
+      return p.mapped;
+    });
+    if (!cols.length)
+      return h(
+        'div',
+        { class: 'empty-state' },
+        h('h3', null, 'No project has a mentor yet'),
+        h('p', null, 'In the setup: who runs each project.')
+      );
+    var each = data.limits.shortlistsEach;
+    var rows = {};
+    cols.forEach(function (p) {
+      p.candidates.forEach(function (c) {
+        var r = rows[c.key] || (rows[c.key] = { c: c, at: {}, on: {}, count: 0 });
+        r.at[p.id] = c.position;
+        if (c.shortlist) {
+          r.on[p.id] = c.shortlist;
+          r.count += 1;
+        }
+      });
+    });
+    var list = Object.keys(rows)
+      .map(function (k) {
+        return rows[k];
+      })
+      .sort(function (a, b) {
+        var x = a.c.overall;
+        var y = b.c.overall;
+        if (x === null && y === null) return a.c.name.localeCompare(b.c.name, 'it');
+        if (x === null) return 1;
+        if (y === null) return -1;
+        return y - x || a.c.name.localeCompare(b.c.name, 'it');
+      });
+    var head = h(
+      'tr',
+      null,
+      h('th', { class: 'mt-grid-who' }, 'Mentee'),
+      h('th', { class: 'rv-num' }, 'Score'),
+      h('th', null, 'Status'),
+      cols.map(function (p) {
+        var full = p.shortlistSize !== null && p.shortlisted >= p.shortlistSize;
+        return h(
+          'th',
+          { class: 'mt-grid-col' + (full ? ' is-full' : ''), title: p.label },
+          h('span', null, surnames(p)),
+          h('small', null, p.shortlisted + ' / ' + (p.shortlistSize || '?'))
+        );
+      }),
+      h('th', { class: 'rv-num', title: 'Shortlisted for, of ' + each + ' at most' }, 'Shortlists')
+    );
+    var body = list.map(function (r, i) {
+      var rowFull = r.count >= each;
+      return h(
+        'tr',
+        null,
+        h(
+          'td',
+          { class: 'mt-grid-who' },
+          h('span', { class: 'rv-rank' }, String(i + 1) + ' '),
+          h('strong', null, r.c.name)
+        ),
+        h(
+          'td',
+          { class: 'rv-num' },
+          num(r.c.overall),
+          r.c.partial ? h('small', { title: 'Some sections have no score yet' }, ' partial') : null
+        ),
+        h('td', null, status(r.c)),
+        cols.map(function (p) {
+          var at = r.at[p.id];
+          if (!at) return h('td', { class: 'mt-grid-cell is-empty' });
+          var on = r.on[p.id];
+          var colFull = p.shortlistSize !== null && p.shortlisted >= p.shortlistSize;
+          var blocked = !on && (rowFull || colFull);
+          return h(
+            'td',
+            { class: 'mt-grid-cell' },
+            h(
+              'button',
+              {
+                type: 'button',
+                class:
+                  'mt-grid-btn' +
+                  (on ? ' is-on' : '') +
+                  (on && on.outcome === 'out' ? ' is-out' : '') +
+                  (at === 1 ? ' is-first' : ''),
+                disabled: blocked,
+                'aria-pressed': on ? 'true' : 'false',
+                title:
+                  r.c.name +
+                  ' put ' +
+                  p.label +
+                  ' ' +
+                  ordinal(at) +
+                  (on
+                    ? ' · shortlisted (' +
+                      STAGE_LABELS[on.stage] +
+                      (on.outcome ? ', ' + OUTCOME_LABELS[on.outcome] : '') +
+                      '): click to take off'
+                    : rowFull
+                    ? ' · already on ' + each + ' shortlists'
+                    : colFull
+                    ? ' · this project’s shortlist is full'
+                    : ' · click to shortlist'),
+                onclick: function () {
+                  if (on) shortlist(p, { remove: [r.c.key] }, r.c.name + ' off ' + surnames(p));
+                  else
+                    shortlist(p, { add: [r.c.key] }, r.c.name + ' shortlisted for ' + surnames(p));
+                },
+              },
+              String(at)
+            )
+          );
+        }),
+        h('td', { class: 'rv-num' + (rowFull ? ' mt-grid-full' : '') }, r.count + ' / ' + each)
+      );
+    });
+    return [
+      h(
+        'div',
+        { class: 'panel mt-summary' },
+        h(
+          'p',
+          null,
+          'Everyone who ranked a project, by score (highest first). In each cell, the place they gave the project; click it to shortlist them for it, again to take them off. ',
+          each +
+            ' projects a mentee at most; a project no more than its shortlist (under each name: the mentors’ number, or ' +
+            data.limits.shortlistFactor +
+            ' times the places).'
+        ),
+        h(
+          'p',
+          { class: 'panel-note' },
+          'Stage and outcome of each one: on its project, in the Projects tab.'
+        )
+      ),
+      h(
+        'div',
+        { class: 'fr-table-wrap rv-table-wrap mt-grid-wrap' },
+        h('table', { class: 'rv-table mt-grid' }, h('thead', null, head), h('tbody', null, body))
+      ),
+    ];
+  }
+
+  function shortlistBar(p) {
+    if (!p.mapped) return null;
+    var missing = shortlistTop(p);
+    return h(
+      'div',
+      { class: 'rv-row-end mt-shortlist-bar' },
+      h(
+        'span',
+        {
+          class: 'rv-pill' + (p.shortlistSize && p.shortlisted >= p.shortlistSize ? '' : ' is-on'),
+          title:
+            p.shortlistFrom === 'setup'
+              ? 'Set in the setup'
+              : p.shortlistFrom === 'places'
+              ? view.data.limits.shortlistFactor +
+                ' times the places: set another number in the setup'
+              : 'No places known: set the shortlist in the setup',
+        },
+        'Shortlist ' + p.shortlisted + ' / ' + (p.shortlistSize || '?')
+      ),
+      h(
+        'small',
+        { class: 'panel-note' },
+        p.step ? STEP_LABELS[p.step] : 'Next step not set (setup)'
+      ),
+      missing.length
+        ? h(
+            'button',
+            {
+              type: 'button',
+              class: 'btn btn-outline btn-sm',
+              title: 'The best by adjusted score not on it yet, up to its size',
+              onclick: function () {
+                shortlist(p, { add: missing }, missing.length + ' shortlisted');
+              },
+            },
+            'Shortlist the top ' + missing.length
+          )
+        : null
+    );
+  }
+
+  function shortlistCell(project, c) {
+    if (!project.mapped) return null;
+    var s = c.shortlist;
+    if (!s)
+      return h(
+        'button',
+        {
+          type: 'button',
+          class: 'btn btn-sm ' + (c.top ? 'btn-outline' : 'btn-ghost'),
+          title: c.top ? 'Within the shortlist by score' : 'Below the shortlist by score',
+          onclick: function () {
+            shortlist(project, { add: [c.key] }, c.name + ' shortlisted');
+          },
+        },
+        '+ Shortlist'
+      );
+    var stage = h(
+      'select',
+      {
+        class: 'form-input is-compact',
+        'aria-label': 'Stage for ' + c.name,
+        onchange: function () {
+          shortlist(project, { key: c.key, stage: stage.value });
+        },
+      },
+      Object.keys(STAGE_LABELS).map(function (k) {
+        var o = h('option', { value: k }, STAGE_LABELS[k]);
+        o.selected = k === s.stage;
+        return o;
+      })
+    );
+    var outcome = h(
+      'select',
+      {
+        class: 'form-input is-compact',
+        'aria-label': 'Outcome for ' + c.name,
+        onchange: function () {
+          shortlist(project, { key: c.key, outcome: outcome.value || null });
+        },
+      },
+      ['', 'through', 'out'].map(function (k) {
+        var o = h('option', { value: k }, k ? OUTCOME_LABELS[k] : 'Outcome…');
+        o.selected = k === (s.outcome || '');
+        return o;
+      })
+    );
+    return h(
+      'span',
+      { class: 'mt-act mt-shortlist', title: 'By ' + s.by },
+      stage,
+      outcome,
+      h(
+        'button',
+        {
+          type: 'button',
+          class: 'btn btn-ghost btn-sm',
+          'aria-label': 'Take ' + c.name + ' off the shortlist',
+          title: 'Off the shortlist (their status on the board stays)',
+          onclick: function () {
+            shortlist(project, { remove: [c.key] }, c.name + ' off the shortlist');
+          },
+        },
+        '×'
       )
     );
   }
@@ -589,6 +965,7 @@
       'section',
       { class: 'panel mt-card' + (p.mapped ? '' : ' is-unmapped') },
       head,
+      shortlistBar(p),
       h(
         'div',
         { class: 'fr-table-wrap rv-table-wrap' },
@@ -607,6 +984,7 @@
               h('th', { class: 'rv-num' }, 'Score'),
               h('th', { class: 'rv-num' }, 'Adjusted'),
               h('th', null, 'Status (board)'),
+              p.mapped ? h('th', null, 'Shortlist') : null,
               h('th', null, '')
             )
           ),
@@ -617,7 +995,9 @@
               return h(
                 'tr',
                 {
-                  class: c.suggested
+                  class: c.shortlist
+                    ? 'mt-shortlisted' + (c.shortlist.outcome === 'out' ? ' mt-elsewhere' : '')
+                    : c.suggested
                     ? 'mt-suggested'
                     : c.matchedTo && !c.here
                     ? 'mt-elsewhere'
@@ -658,6 +1038,7 @@
                 ),
                 h('td', { class: 'rv-num' }, h('strong', null, num(c.adjusted))),
                 h('td', null, status(c)),
+                p.mapped ? h('td', null, shortlistCell(p, c)) : null,
                 h('td', { class: 'mt-act-cell' }, actionCell(p, c))
               );
             })
@@ -1394,6 +1775,7 @@
       { class: 'mt-tabs', role: 'tablist' },
       [
         ['projects', 'Projects'],
+        ['grid', 'Shortlist grid'],
         ['orientation', 'Career orientation'],
       ].map(function (t) {
         return h(
@@ -1481,7 +1863,12 @@
       )
     );
     if (view.setup) root.appendChild(setupPanel());
-    var body = view.tab === 'orientation' ? orientationTab() : projectsTab();
+    var body =
+      view.tab === 'orientation'
+        ? orientationTab()
+        : view.tab === 'grid'
+        ? gridTab()
+        : projectsTab();
     (Array.isArray(body) ? body : [body]).forEach(function (n) {
       root.appendChild(n);
     });
