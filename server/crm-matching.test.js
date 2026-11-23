@@ -450,6 +450,142 @@ test('career orientation lists its mentees by score and the mentors who take the
   assert.deepEqual(page.projects, []);
 });
 
+test('the preference question is found by its words, and its answer read as a track', () => {
+  const catalog = [
+    { id: 'q1', label: 'A quale/i percorso/i vuoi candidarti?', type: 'multi' },
+    {
+      id: 'q_x7',
+      label: 'Se ti candidi a entrambi i percorsi, quale dei due ti interessa maggiormente?',
+      type: 'single',
+    },
+  ];
+  assert.equal(review.preferenceQuestion(catalog), 'q_x7');
+  assert.equal(review.preferenceQuestion(catalog.slice(0, 1)), null);
+  assert.equal(review.preferenceQuestion(null), null);
+  assert.equal(review.preferenceOf('Progetti di AI safety'), 'projects');
+  assert.equal(review.preferenceOf('Orientamento professionale (advising)'), 'orientation');
+  assert.equal(review.preferenceOf('Career advising'), 'orientation');
+  assert.equal(review.preferenceOf('Indifferente'), null);
+});
+
+test('on both tracks: career orientation goes by the advising score, and both tabs show the preference', async () => {
+  const me = await admin();
+  const schema = {
+    ...SCHEMA,
+    items: [
+      ...SCHEMA.items,
+      {
+        id: 'q_pref',
+        type: 'single',
+        label: {
+          it: 'Se ti candidi a entrambi i percorsi, quale dei due ti interessa maggiormente?',
+        },
+        options: [
+          { id: 'p_adv', label: { it: 'Advising / orientamento' } },
+          { id: 'p_prj', label: { it: 'Progetti di ricerca' } },
+        ],
+      },
+    ],
+  };
+  const { id, slug } = await forms.create(me, { title: 'Candidatura mentee', schema });
+  await forms.updateSettings(me, id, { status: 'open' });
+  const send = async (name, answers) => {
+    const view = await forms.publicView(slug);
+    clock += 5000;
+    return forms.submit(
+      slug,
+      {
+        version: view.version,
+        token: view.token,
+        answers: { name, email: `${name.toLowerCase()}@example.org`, ...answers },
+      },
+      '203.0.113.9'
+    );
+  };
+  // Two sections: the general one, and one for the projects track only.
+  const q = await review.questions(me, id);
+  const sections = [
+    { ...q.sections[0], key: 'generale', label: 'Generale', questions: ['q_pref', 'name'] },
+    {
+      ...q.sections[0],
+      key: 'progetti',
+      label: 'Progetti',
+      prefix: 'P',
+      questions: ['progetti'],
+      projectsOnly: true,
+    },
+  ];
+  await review.saveSettings(me, { formId: id, nameQuestion: 'name', sections });
+  await mentor(me, 'Ada', 'Rossi', 2, 'Progetti, Orientamento');
+  await matching.saveSettings(me, {
+    formId: id,
+    question: 'progetti',
+    penalty: 0,
+    projects: { o_evals: { mentors: [key('Ada')], places: null } },
+  });
+
+  const cast = [
+    // name, board track, preference, ranking, general, projects
+    ['Lia', 'Progetti, Orientamento', 'p_adv', ['o_evals'], 3, 5],
+    ['Marco', 'Progetti, Orientamento', 'p_prj', ['o_evals'], 2, 5],
+    ['Pia', 'Orientamento', null, null, 4, null],
+    // On the projects only: the answer is there, the badge is not.
+    ['Nina', 'Progetti', 'p_adv', ['o_evals'], 1, 1],
+  ];
+  for (const [name, tracks, pref, ranked, general, projects] of cast) {
+    await mentee(name, tracks);
+    const answers = {};
+    if (pref) answers.q_pref = { selected: [pref] };
+    if (ranked) answers.progetti = ranked;
+    await send(name, answers);
+    const put = (part, value) => {
+      const scores = {};
+      review.slots(sections.find((s) => s.key === part)).forEach((c) => {
+        scores[c.key] = value;
+      });
+      return db.query(
+        `insert into review_scores (person_key, part, reviewer_id, reviewer_name, scores)
+         values ($1, $2, $3, $4, $5)`,
+        [key(name), part, me.id, me.name, scores]
+      );
+    };
+    await put('generale', general);
+    if (projects !== null) await put('progetti', projects);
+  }
+
+  const page = await matching.view(me, { pool: 'all' });
+  // By the overall it would be Lia (4), Pia (4), Marco (3.5): by advising, the general section alone.
+  const o = page.orientation.mentees;
+  assert.deepEqual(
+    o.map((m) => [m.name, m.advising]),
+    [
+      ['Pia', 4],
+      ['Lia', 3],
+      ['Marco', 2],
+    ]
+  );
+  const prefOf = (list, name) => {
+    const p = list.find((m) => m.name === name).preference;
+    return p && p.track;
+  };
+  assert.equal(prefOf(o, 'Lia'), 'orientation');
+  assert.equal(prefOf(o, 'Marco'), 'projects');
+  assert.equal(prefOf(o, 'Pia'), null);
+  // The projects tab: the same badge, still ranked by the overall.
+  const candidates = page.projects.find((p) => p.id === 'o_evals').candidates;
+  assert.deepEqual(
+    candidates.map((c) => [c.name, c.overall]),
+    [
+      ['Lia', 4],
+      ['Marco', 3.5],
+      ['Nina', 1],
+    ]
+  );
+  assert.equal(prefOf(candidates, 'Lia'), 'orientation');
+  assert.equal(prefOf(candidates, 'Marco'), 'projects');
+  assert.equal(prefOf(candidates, 'Nina'), null);
+});
+
 test('career orientation: a shared draft by fit, checked, filled, then paired', async () => {
   const me = await admin();
   await mentor(me, 'Ada', 'Rossi', 1, 'Orientamento');

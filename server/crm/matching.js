@@ -15,7 +15,8 @@
 // within its free places. Nothing is written until an admin confirms a pair,
 // which is the board's own createMatch.
 //
-// Career orientation. No preferences, and the score only says who is in: the
+// Career orientation. No preferences, and the score (the advising one, without
+// the sections for the projects only) only says who is in: the
 // admins pair by fit, reading each mentee's answers next to the mentors'
 // profiles. A first round is a shared draft (a proposed mentor and a note for
 // each mentee, seen by every admin); once agreed, the proposals are confirmed.
@@ -358,7 +359,7 @@ function orientationSuggestion(mentees, mentors) {
         project: m.key,
         position: i + 1,
         // A mentor prefers who fits them best, then the higher score.
-        score: marks[m.key] * 10 + (p.overall || 0),
+        score: marks[m.key] * 10 + (p.advising || 0),
       }));
     if (prefs.length) proposers.push({ key: p.key, prefs });
   });
@@ -399,6 +400,9 @@ async function view(user, { pool = 'selected' } = {}) {
   const drafts = await getDrafts();
 
   const scored = new Map(scores.people.map((p) => [p.key, p]));
+  // With a section for the projects only, career orientation goes by the
+  // advising score (the others); without one, it is the overall.
+  const split = scores.sections.some((s) => s.projectsOnly);
   const mentees = new Map(roster.mentees.map((c) => [c.key, c]));
   const mentors = new Map(roster.mentors.map((c) => [c.key, c]));
   const pairOf = new Map(roster.matches.map((m) => [m.menteeKey, m]));
@@ -436,6 +440,10 @@ async function view(user, { pool = 'selected' } = {}) {
       track: c ? c.track : null,
       overall: s ? s.overall : null,
       partial: Boolean(s && s.partial),
+      advising: s ? (split ? s.advising : s.overall) : null,
+      advisingPartial: Boolean(s && (split ? s.advisingPartial : s.partial)),
+      // On both tracks only: the one they said they care about more.
+      preference: c && c.track === 'both' && s && s.preference ? s.preference : null,
       matchedTo: pair
         ? [pair.mentorKey, ...pair.coMentors].map((k) => mentorBrief(k).name).join(' & ')
         : null,
@@ -553,7 +561,7 @@ async function view(user, { pool = 'selected' } = {}) {
   const orientationMentees = roster.mentees
     .filter((c) => (c.track === 'orientation' || c.track === 'both') && c.status !== 'declined')
     .map((c) => person(c.key))
-    .filter((p) => p.overall !== null || ['selected', 'matched'].includes(p.status))
+    .filter((p) => p.advising !== null || ['selected', 'matched'].includes(p.status))
     .map((p) => ({
       ...p,
       profile: roster.profiles.get(`mentee:${p.key}`) || {},
@@ -561,7 +569,7 @@ async function view(user, { pool = 'selected' } = {}) {
       draft: p.matchedTo ? null : drafts[p.key] || null,
     }))
     .sort((a, b) =>
-      better({ ...a, score: a.overall, position: 0 }, { ...b, score: b.overall, position: 0 })
+      better({ ...a, score: a.advising, position: 0 }, { ...b, score: b.advising, position: 0 })
     );
   const proposed = new Map();
   orientationMentees.forEach((p) => {
