@@ -713,6 +713,55 @@ test('how many mentees a mentor takes: their answer read loosely, their site ent
   ada = (await mentorship.roster()).mentors.find((m) => m.name === 'Ada Rossi');
   assert.equal(ada.capacity, 3);
   assert.equal(ada.capacityFrom, 'site');
+  // Nothing set for career orientation: the same places.
+  assert.equal(ada.orientationCapacity, 3);
+  assert.equal(ada.orientationCapacityFrom, 'site');
+});
+
+test('a mentor on both tracks: career orientation has places of its own', async () => {
+  const me = await admin();
+  // Two mentees on her project, one in career orientation.
+  await mentor(me, 'Ada', 'Rossi', 2, 'Progetti, Orientamento');
+  const ADA_K = key('Ada');
+  const entry = (await mentorship.person(me, ['mentorship'], ADA_K, 'mentor')).site.entry;
+  await mentorship.saveEntry(me, ADA_K, 'mentor', { ...entry, places_orientation: 1 });
+
+  const ada = (await mentorship.roster()).mentors.find((m) => m.name === 'Ada Rossi');
+  assert.equal(ada.capacity, 2);
+  assert.equal(ada.capacityFrom, 'application');
+  assert.equal(ada.orientationCapacity, 1);
+  assert.equal(ada.orientationCapacityFrom, 'site');
+
+  for (const name of ['Pia', 'Rita', 'Ugo']) {
+    await mentee(name, 'Progetti, Orientamento professionale');
+    await mentorship.update(me, key(name), 'mentee', { status: 'selected' });
+  }
+  let page = await matching.view(me);
+  assert.equal(page.orientation.mentors[0].capacity, 1);
+  assert.equal(page.places.orientation.places, 1);
+
+  // A pair on her project takes none of her career orientation places.
+  let r = await mentorship.createMatch(me, ADA_K, key('Pia'), 'projects');
+  assert.equal(r.overCapacity, false);
+  page = await matching.view(me);
+  assert.equal(page.orientation.mentors[0].taken, 0);
+  assert.equal(page.orientation.check.placesLeft, 1);
+  r = await mentorship.createMatch(me, ADA_K, key('Rita'), 'orientation');
+  assert.equal(r.overCapacity, false);
+  r = await mentorship.createMatch(me, ADA_K, key('Ugo'), 'orientation');
+  assert.equal(r.overCapacity, true);
+
+  // The number stays on the board: the site never gets it.
+  await assert.rejects(
+    mentorship.saveEntry(me, ADA_K, 'mentor', { ...entry, places_orientation: 0.5 }),
+    (e) => e.status === 400
+  );
+  await mentorship.publish(me, ADA_K, 'mentor');
+  const { rows } = await db.query('select entry from mentor_site_entries where person_key = $1', [
+    ADA_K,
+  ]);
+  assert.equal(rows[0].entry.places_orientation, undefined);
+  assert.equal(rows[0].entry.places, undefined);
 });
 
 test('the places against who is selected, to know how many to select', async () => {

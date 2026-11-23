@@ -580,6 +580,13 @@ async function view(user, { pool = 'selected' } = {}) {
     .filter(orientationMentor)
     .map((c) => ({
       ...mentorBrief(c.key),
+      // Their places and pairs on this track: a mentor on both tracks has a
+      // project of their own, with its own places.
+      capacity: c.orientationCapacity,
+      capacityFrom: c.orientationCapacityFrom,
+      taken: roster.matches.filter(
+        (m) => m.track === 'orientation' && [m.mentorKey, ...m.coMentors].includes(c.key)
+      ).length,
       org: c.org,
       profile: roster.profiles.get(`mentor:${c.key}`) || {},
       proposed: proposed.get(c.key) || 0,

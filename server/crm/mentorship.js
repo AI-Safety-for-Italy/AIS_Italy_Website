@@ -345,25 +345,54 @@ async function applicants() {
  * coMentors, menteeKey, track }], profiles }. Read for a page that records
  * its own view.
  */
-/** person key -> the places on their site entry: the board's draft first, then the published one. */
+const PLACE_FIELDS = ['places', 'places_orientation'];
+
+/**
+ * person key -> { places, places_orientation } on their site entry, each
+ * from the board's draft first, then the published one (null: not set).
+ */
 async function sitePlaces() {
   const out = new Map();
-  const count = (entry) => {
-    const n = Number(entry && entry.places);
-    return Number.isInteger(n) && n > 0 ? n : null;
+  const take = (key, entry) => {
+    if (!entry) return;
+    const now = out.get(key) || { places: null, places_orientation: null };
+    PLACE_FIELDS.forEach((f) => {
+      if (placeCount(entry[f])) now[f] = placeCount(entry[f]);
+    });
+    out.set(key, now);
   };
   const { rows: published } = await db.query(
     'select person_key, entry from mentor_site_entries where person_key is not null'
   );
-  published.forEach((r) => {
-    if (count(r.entry)) out.set(r.person_key, count(r.entry));
-  });
+  published.forEach((r) => take(r.person_key, r.entry));
   const { rows: drafts } = await db.query('select person_key from crm_site_profiles');
   for (const r of drafts) {
     const { draft } = await readDraft(r.person_key);
-    if (draft.entry && count(draft.entry)) out.set(r.person_key, count(draft.entry));
+    take(r.person_key, draft.entry);
   }
   return out;
+}
+
+/**
+ * A mentor card's places, on each track. `capacity` (projects, and career
+ * orientation when nothing else is set): their site entry's places, else
+ * data/mentors.yaml, else their application's answer. `orientationCapacity`:
+ * their entry's places for career orientation, else `capacity`.
+ */
+function withPlaces(c, site) {
+  const yamlHit = siteYaml(c.name);
+  const set = site.get(c.key) || {};
+  const fromYaml = (f) => (yamlHit ? placeCount(yamlHit[f]) : null);
+  const n = set.places || fromYaml('places');
+  if (n) Object.assign(c, { capacity: n, capacityFrom: 'site' });
+  const o = set.places_orientation || fromYaml('places_orientation');
+  Object.assign(
+    c,
+    o
+      ? { orientationCapacity: o, orientationCapacityFrom: 'site' }
+      : { orientationCapacity: c.capacity, orientationCapacityFrom: c.capacityFrom }
+  );
+  return c;
 }
 
 // What the matching shows of an application, to pair by fit (no contacts).
@@ -388,14 +417,7 @@ async function roster() {
   // The places set on their site entry (the board's draft, what is published,
   // or data/mentors.yaml) win over the application's answer.
   const site = await sitePlaces();
-  cards
-    .filter((c) => c.kind === 'mentor')
-    .forEach((c) => {
-      const yamlHit = siteYaml(c.name);
-      const n =
-        site.get(c.key) || (yamlHit && Number(yamlHit.places) > 0 ? Number(yamlHit.places) : null);
-      if (n) Object.assign(c, { capacity: n, capacityFrom: 'site' });
-    });
+  cards.filter((c) => c.kind === 'mentor').forEach((c) => withPlaces(c, site));
   // `profiles`: "kind:key" -> the answers of their application worth reading.
   const profiles = new Map();
   for (const p of people.values()) {
@@ -614,6 +636,9 @@ const MAX_PLACES = 50;
 
 const str = (v) => (v == null ? '' : String(v).trim());
 const list = (v) => (Array.isArray(v) ? v.map(str).filter(Boolean) : []);
+// A number of places, or null when it is not a positive whole number.
+const placeCount = (v) =>
+  v != null && Number.isInteger(Number(v)) && Number(v) > 0 ? Number(v) : null;
 
 /** Any entry-like object in the full shape the board edits, every field present. */
 function shape(raw) {
@@ -632,7 +657,10 @@ function shape(raw) {
     out[f] = str(r[f]);
     out[`${f}_it`] = str(r[`${f}_it`]);
   }
-  out.places = Number.isInteger(Number(r.places)) && Number(r.places) > 0 ? Number(r.places) : null;
+  out.places = placeCount(r.places);
+  // Career orientation's own places, for a mentor on both tracks whose
+  // project takes a different number. Not shown on the site.
+  out.places_orientation = placeCount(r.places_orientation);
   out.co_mentors = list(r.co_mentors);
   out.project = {};
   for (const f of Object.keys(PROJECT)) {
@@ -689,10 +717,11 @@ function cleanEntry(raw) {
     if (!Array.isArray(raw.co_mentors) || raw.co_mentors.some((x) => !ID.test(String(x))))
       throw new HttpError(400, 'co_mentors: ids of other mentors');
   }
-  if (raw.places != null && raw.places !== '') {
-    const n = Number(raw.places);
+  for (const f of ['places', 'places_orientation']) {
+    if (raw[f] == null || raw[f] === '') continue;
+    const n = Number(raw[f]);
     if (!Number.isInteger(n) || n < 1 || n > MAX_PLACES)
-      throw new HttpError(400, `places: a number from 1 to ${MAX_PLACES}`);
+      throw new HttpError(400, `${f}: a number from 1 to ${MAX_PLACES}`);
   }
   return shape(raw);
 }
@@ -794,7 +823,8 @@ async function publishedRow(key) {
  * gets it (with id and photo path), `photo` the JPEG in base64 or null.
  */
 function toPublish(id, entry, consent, draftPhoto, yamlHit) {
-  const out = prune({ ...entry, id }) || {};
+  // Career orientation's places are the matching's: they stay on the board.
+  const out = prune({ ...entry, places_orientation: null, id }) || {};
   const bytes = draftPhoto ? draftPhoto.split(',')[1] : null;
   if (consent === 'yes' && bytes) {
     const hash = nodeCrypto
@@ -1210,11 +1240,13 @@ async function createMatch(user, mentorKey, menteeKey, trackKey, coMentors = [])
     throw new HttpError(409, `${e.name} is not selected as a mentee yet`);
   if (!fits(e.track)) throw new HttpError(409, `${e.name} is not on this track`);
 
-  const m = team[0];
+  const m = withPlaces(team[0], await sitePlaces());
+  const capacity = trackKey === 'orientation' ? m.orientationCapacity : m.capacity;
+  // Their places on this track against their pairs on it.
   const { rows: active } = await db.query(
     `select count(*)::int as n from crm_matches
-     where status = 'active' and (mentor_key = $1 or $1 = any(co_mentors))`,
-    [mentorKey]
+     where status = 'active' and track = $2 and (mentor_key = $1 or $1 = any(co_mentors))`,
+    [mentorKey, trackKey]
   );
   let id;
   try {
@@ -1253,7 +1285,7 @@ async function createMatch(user, mentorKey, menteeKey, trackKey, coMentors = [])
     role: 'mentee',
     track: trackKey,
   });
-  return { id, overCapacity: Boolean(m.capacity) && active[0].n + 1 > m.capacity };
+  return { id, overCapacity: Boolean(capacity) && active[0].n + 1 > capacity };
 }
 
 /**
