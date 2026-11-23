@@ -16,6 +16,7 @@
 //   GET  ?action=summary                  -> everyone, with names and every score       (admin)
 //   GET  ?action=export&format=csv|json   -> the summary as a file to download      (admin)
 //   POST ?action=status { key, status }   -> the board's status of a mentee             (admin)
+//   POST ?action=matching-shortlist { project, add?, remove?, key?, stage?, outcome? } (admin)
 //   PUT  ?action=gate { from, percent, version? } -> the threshold after a section (admin; 409 if stale)
 //   GET  ?action=settings                 -> { formId, sections, catalog, forms, reviewers… } (admin)
 //   GET  ?action=questions&form=<id|>     -> a form's questions and a first split        (admin)
@@ -135,6 +136,9 @@ module.exports = route({
     } else if (action === 'status') {
       review.requireAdmin(role);
       sendJson(res, 200, await review.setStatus(user, body.key, body.status));
+    } else if (action === 'matching-shortlist') {
+      review.requireAdmin(role);
+      sendJson(res, 200, { shortlist: await matching.saveShortlist(user, body) });
     } else if (action === 'matching-fill') {
       review.requireAdmin(role);
       sendJson(res, 200, await matching.fillDrafts(user));

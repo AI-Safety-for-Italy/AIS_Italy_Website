@@ -21,10 +21,21 @@
 // profiles. A first round is a shared draft (a proposed mentor and a note for
 // each mentee, seen by every admin); once agreed, the proposals are confirmed.
 //
+// The shortlist. Before pairing, each project sends some of the mentees who
+// ranked it on to a next step: questions we send them, an interview of ours,
+// or one by the mentor. How many: the number set in the setup (what the
+// mentors asked for), or else three times its places. "Shortlist the top"
+// takes the best not yet in it; anyone can be added or taken out by hand, and
+// each moves along (to do, sent, done) to an outcome (through, not through).
+// Someone shortlisted is Shortlisted on the board, if they were only Applied.
+//
 // The setup lives in app_settings (key matching_settings):
-//   { formId, question, penalty, projects: { optionId: { mentors: [key], places } } }
+//   { formId, question, penalty,
+//     projects: { optionId: { mentors: [key], places, shortlist, step } } }
 // The orientation draft too (key matching_drafts), one entry per mentee:
 //   { menteeKey: { mentorKey|null, note (encrypted)|null, by, at } }
+// And the shortlists (key matching_shortlists):
+//   { optionId: { menteeKey: { stage, outcome, by, at } } }
 
 const db = require('../db');
 const { HttpError } = require('../http');
@@ -36,6 +47,14 @@ const forms = require('../forms/forms');
 
 const SETTINGS_KEY = 'matching_settings';
 const DRAFTS_KEY = 'matching_drafts';
+const SHORTLISTS_KEY = 'matching_shortlists';
+// The next step after the shortlist, and how far each mentee is along it.
+const STEPS = ['questions', 'interview', 'mentor_interview'];
+const STAGES = ['todo', 'sent', 'done'];
+const OUTCOMES = ['through', 'out'];
+// Without a number set, a project shortlists this many times its places.
+const SHORTLIST_FACTOR = 3;
+const MAX_SHORTLIST = 150;
 const MAX_DRAFT_NOTE = 500;
 const DEFAULT_PENALTY = 0.3;
 const MAX_PENALTY = 4;
@@ -119,7 +138,19 @@ async function saveSettings(user, body) {
         r.places === null || r.places === undefined || r.places === '' ? null : Number(r.places);
       if (places !== null && (!Number.isInteger(places) || places < 0 || places > MAX_PLACES))
         throw new HttpError(400, `Places: a whole number from 0 to ${MAX_PLACES}`);
-      if (keys.length || places !== null) projects[id] = { mentors: keys, places };
+      const shortlist =
+        r.shortlist === null || r.shortlist === undefined || r.shortlist === ''
+          ? null
+          : Number(r.shortlist);
+      if (
+        shortlist !== null &&
+        (!Number.isInteger(shortlist) || shortlist < 1 || shortlist > MAX_SHORTLIST)
+      )
+        throw new HttpError(400, `Shortlist: a whole number from 1 to ${MAX_SHORTLIST}`);
+      const step = r.step || null;
+      if (step !== null && !STEPS.includes(step)) throw new HttpError(400, 'Unknown next step');
+      if (keys.length || places !== null || shortlist !== null || step !== null)
+        projects[id] = { mentors: keys, places, shortlist, step };
     });
   }
 
@@ -314,6 +345,82 @@ async function saveDraft(user, { menteeKey, mentorKey, note, affinity } = {}) {
   return (await getDrafts())[menteeKey] || null;
 }
 
+// ── The shortlists ───────────────────────────────────────────────────────────
+
+async function getShortlists() {
+  const { rows } = await db.query('select value from app_settings where key = $1', [
+    SHORTLISTS_KEY,
+  ]);
+  const saved = (rows[0] && rows[0].value) || {};
+  return saved && typeof saved === 'object' ? saved : {};
+}
+
+/**
+ * Changes a project's shortlist: { project, add: [menteeKey] } puts them in
+ * (to do), { project, remove: [menteeKey] } takes them out, { project, key,
+ * stage?, outcome? } moves one along (outcome null: not known yet; one known
+ * is done). Those put in go from Applied to Shortlisted on the board; taken
+ * out, their status stays (another project may have them). Returns the list.
+ */
+async function saveShortlist(user, body) {
+  const b = body || {};
+  const settings = await getSettings();
+  const project = String(b.project || '');
+  const setup = settings.question ? settings.projects[project] : null;
+  if (!setup || !setup.mentors.length) throw new HttpError(400, 'Not a project of the setup');
+  const add = Array.isArray(b.add) ? [...new Set(b.add.map(String))] : [];
+  const remove = Array.isArray(b.remove) ? [...new Set(b.remove.map(String))] : [];
+  if (add.length + remove.length > MAX_SHORTLIST) throw new HttpError(400, 'Too many at once');
+  const roster = await mentorship.roster();
+  const mentees = new Map(roster.mentees.map((c) => [c.key, c]));
+  if (add.some((k) => !mentees.has(k))) throw new HttpError(400, 'One of them is not on the board');
+  if (add.some((k) => mentees.get(k).status === 'declined'))
+    throw new HttpError(409, 'One of them is rejected on the board');
+
+  const all = await getShortlists();
+  const list = { ...(all[project] || {}) };
+  const stamp = { by: user.name || '', at: new Date().toISOString() };
+  add.forEach((k) => {
+    if (!list[k]) list[k] = { stage: 'todo', outcome: null, ...stamp };
+  });
+  remove.forEach((k) => delete list[k]);
+  if (b.key !== undefined) {
+    const k = String(b.key);
+    if (!list[k]) throw new HttpError(404, 'Not on this shortlist');
+    const next = { ...list[k] };
+    if (b.stage !== undefined) {
+      if (!STAGES.includes(b.stage)) throw new HttpError(400, 'Unknown stage');
+      next.stage = b.stage;
+    }
+    if (b.outcome !== undefined) {
+      if (b.outcome !== null && !OUTCOMES.includes(b.outcome))
+        throw new HttpError(400, 'Unknown outcome');
+      next.outcome = b.outcome;
+      if (b.outcome) next.stage = 'done';
+    }
+    list[k] = { ...next, ...stamp };
+  }
+  if (Object.keys(list).length > MAX_SHORTLIST)
+    throw new HttpError(400, `At most ${MAX_SHORTLIST} on a shortlist`);
+  all[project] = list;
+  await db.query(
+    `insert into app_settings (key, value, updated_at) values ($1, $2, now())
+     on conflict (key) do update set value = excluded.value, updated_at = now()`,
+    [SHORTLISTS_KEY, all]
+  );
+  for (const k of add) {
+    if (mentees.get(k).status === 'applied')
+      await mentorship.update(user, k, 'mentee', { status: 'shortlisted' });
+  }
+  await audit.record(user, 'review-matching-shortlist', null, {
+    project,
+    added: add.length,
+    removed: remove.length,
+    moved: b.key !== undefined,
+  });
+  return list;
+}
+
 /**
  * The gaps of the orientation draft filled: each selected mentee with neither
  * a pair nor a proposal gets the mentor the stable matching gives them, by
@@ -404,6 +511,7 @@ async function view(user, { pool = 'selected' } = {}) {
       : null;
   const questions = settings.formId ? await rankingQuestions(settings.formId) : [];
   const drafts = await getDrafts();
+  const shortlists = await getShortlists();
 
   const scored = new Map(scores.people.map((p) => [p.key, p]));
   // With a section for the projects only, career orientation goes by the
@@ -504,6 +612,22 @@ async function view(user, { pool = 'selected' } = {}) {
         });
       });
       candidates.sort((x, y) => better({ ...x, score: x.adjusted }, { ...y, score: y.adjusted }));
+      // The shortlist: how many (set, or three times the places), who is in,
+      // and the best that fill it (`top`), leaving out those paired elsewhere.
+      const listed = shortlists[o.id] || {};
+      const shortlistSet = Boolean(setup && setup.shortlist);
+      const shortlistSize = shortlistSet
+        ? setup.shortlist
+        : places
+        ? places * SHORTLIST_FACTOR
+        : null;
+      let room = shortlistSize || 0;
+      candidates.forEach((c) => {
+        c.shortlist = listed[c.key] || null;
+        const free = !(c.matchedTo && !c.here);
+        c.top = free && room > 0;
+        if (free) room -= 1;
+      });
       return {
         id: o.id,
         label: o.label,
@@ -518,6 +642,11 @@ async function view(user, { pool = 'selected' } = {}) {
         placesFrom: placesSet ? 'setup' : top ? top.capacityFrom : null,
         boardPlaces: top ? top.capacity : null,
         taken: pairs.length,
+        shortlistSize,
+        // 'setup' (set there), 'places' (three times them), or null (neither).
+        shortlistFrom: shortlistSet ? 'setup' : shortlistSize ? 'places' : null,
+        step: (setup && setup.step) || null,
+        shortlisted: candidates.filter((c) => c.shortlist).length,
         candidates,
       };
     });
@@ -694,6 +823,8 @@ async function view(user, { pool = 'selected' } = {}) {
       places: MAX_PLACES,
       mentors: MAX_MENTORS,
       note: MAX_DRAFT_NOTE,
+      shortlist: MAX_SHORTLIST,
+      shortlistFactor: SHORTLIST_FACTOR,
     },
   };
 }
@@ -726,6 +857,8 @@ module.exports = {
   getDrafts,
   saveDraft,
   fillDrafts,
+  getShortlists,
+  saveShortlist,
   rankingQuestions,
   questions,
   suggestMapping,

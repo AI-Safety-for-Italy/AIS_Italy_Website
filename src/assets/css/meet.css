@@ -16343,6 +16343,21 @@ dialog.cal-editor[open] {
   white-space: nowrap;
 }
 
+.rv-table tr.mt-shortlisted td:first-child {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.mt-shortlist .form-input {
+  min-width: 0;
+}
+
+.mt-shortlist-bar {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 10px;
+}
+
 @media (max-width: 640px) {
   .mt-card {
     padding: 0.9rem;
