@@ -944,11 +944,11 @@ function coded(list, section) {
  * threshold (`gate`, gateOf()), passed that too. Each with its code, ordered
  * by code (which is as good as shuffled, and the same for everyone).
  */
-function poolOf(all, section, screen = null, gate = null) {
+function poolOf(all, section, screen = null, gate = null, { withDeclined = false } = {}) {
   return coded(
     all.filter(
       (a) =>
-        notDeclined(a) &&
+        (withDeclined || notDeclined(a)) &&
         onTrack(a, section) &&
         answeredIn(a, section) &&
         (!screen || (screen.get(a.key) && screen.get(a.key).decision === 'pass')) &&
@@ -979,6 +979,9 @@ function passes(gate, key) {
  * `cutoff` is the lowest mean that passes (null: nobody is left out), `means`
  * all of them, lowest first, for the summary to preview another percent.
  * Someone finished with no mean (everyone stepped aside) is not ranked: they pass.
+ * Those rejected on the board stay in the ranking once finished, so that
+ * rejecting the ones below does not move the cut onto the next ones; rejected
+ * before that, they are left out rather than waiting.
  */
 async function gateOf(settings, all, screen) {
   const saved = await getGate();
@@ -1003,10 +1006,10 @@ async function gateOf(settings, all, screen) {
     Boolean(r && (r.conflict || flagsOf(r, section).length || counted(r, grid)));
   const status = new Map();
   const ranked = [];
-  poolOf(all, section, screen).forEach((a) => {
+  poolOf(all, section, screen, null, { withDeclined: true }).forEach((a) => {
     const reviews = byPerson.get(a.key) || new Map();
     if (!due.every((id) => finished(reviews.get(id)))) {
-      status.set(a.key, 'waiting');
+      if (notDeclined(a)) status.set(a.key, 'waiting');
       return;
     }
     const totals = [...reviews.values()]

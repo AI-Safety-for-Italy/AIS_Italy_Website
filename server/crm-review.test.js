@@ -1523,6 +1523,15 @@ test('the threshold: the worst share of the CV reaches no later section, and com
   // 40%: two out. 0%: everyone back, Marco's review as Ann left it.
   await review.saveGate(boss, { percent: 40 });
   assert.equal((await answersOf(ann)).length, 3);
+  // Rejecting the two below does not cut the next one: they stay ranked.
+  const head = await admin();
+  for (const k of [MARCO_KEY(), tre])
+    await mentorship.update(head, k, 'mentee', { status: 'declined' });
+  sum = await review.summary(boss);
+  assert.deepEqual(sum.gate.counts, { pass: 3, below: 2, waiting: 0 });
+  assert.equal(sum.people.find((p) => p.key === due).gate, 'pass');
+  for (const k of [MARCO_KEY(), tre])
+    await mentorship.update(head, k, 'mentee', { status: 'applied' });
   await review.saveGate(boss, { percent: 0 });
   assert.equal((await answersOf(ann)).length, 5);
   const back = await review.application(ann, 'answers', marcoAnswers);
