@@ -1092,7 +1092,26 @@
         );
       }
 
-      var orientation = h('div', { class: 'crm-se-group' }, pair('orientation', 1000, 3));
+      // Career orientation's own places: for a mentor on both tracks whose
+      // project takes a different number. The matching only, not the site.
+      var placesOrientation = field(
+        'places_orientation',
+        'Places · career orientation (optional, not on the site)',
+        0,
+        0,
+        { type: 'number', min: '1', max: '50', placeholder: 'As “Places” below' }
+      );
+      var placesOrientationInput = placesOrientation.querySelector('input');
+      placesOrientationInput.addEventListener('input', function () {
+        var n = parseInt(placesOrientationInput.value, 10);
+        entry.places_orientation = n > 0 ? n : null;
+      });
+      var orientation = h(
+        'div',
+        { class: 'crm-se-group' },
+        pair('orientation', 1000, 3),
+        h('div', { class: 'crm-se-pair' }, placesOrientation)
+      );
       var project = h(
         'div',
         { class: 'crm-se-group' },
