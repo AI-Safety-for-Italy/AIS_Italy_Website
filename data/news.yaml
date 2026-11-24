@@ -1,44 +1,40 @@
 # "What's new" on the home page: the latest initiatives of AI Safety for Italy.
 # Add new items at the top (newest first); only the first three are shown.
 #
-#   type         mentorship | seminar | event (sets the chip on the card)
+#   type         mentorship | seminar | event | podcast (sets the chip on the card)
 #   date         optional, YYYY-MM-DD
 #   details_url  optional internal page: the whole card links to it
 #   link_url     optional button at the bottom; external links open a new tab
 
 items:
-  - id: 6
+  - id: 7
     type: "seminar"
-    date: "2026-10-15"
-    title_en: "Seminar series: first talk on 15 October"
-    title_it: "Ciclo di seminari: primo talk il 15 ottobre"
-    description_en: "Every other Thursday at 18:30. We start online with Enrico Bottazzi on steering a model's behaviour through mechanistic interpretability, then watermarking in AI-generated text (29 October) and geometric approaches to interpretability (12 November)."
-    description_it: "Un giovedì ogni due alle 18:30. Si parte online con Enrico Bottazzi, su come guidare il comportamento di un modello con la mechanistic interpretability; poi il watermarking nei testi generati dall'IA (29 ottobre) e gli approcci geometrici all'interpretabilità (12 novembre)."
-    details_url: "/seminars/"
-    link_url: "https://luma.com/k1yogh3v"
+    date: "2026-11-26"
+    title_en: "Next seminar: Old and New Vulnerabilities in Multimodal Foundation Models"
+    title_it: "Prossimo seminario: Old and New Vulnerabilities in Multimodal Foundation Models"
+    description_en: "Francesco Croce (Aalto University) on 26 November at 18:30 (CET), online on Zoom. Then Gabriele Sarti on 3 December and Fabio Brau on 17 December."
+    description_it: "Francesco Croce (Aalto University) il 26 novembre alle 18:30 (CET), online su Zoom. Poi Gabriele Sarti il 3 dicembre e Fabio Brau il 17 dicembre."
+    details_url: "/seminars/#seminar-multimodal-vulnerabilities"
+    link_url: "https://luma.com/a9fkifac"
     link_text_en: "Register on Luma"
     link_text_it: "Iscriviti su Luma"
 
-  - id: 5
+  - id: 8
     type: "mentorship"
-    title_en: "Mentorship program: open call"
-    title_it: "Programma di mentorship: call aperta"
-    description_en: "First edition from 15 December 2026 to 15 March 2027. Mentee applications are open."
-    description_it: "Prima edizione dal 15 dicembre 2026 al 15 marzo 2027. Le candidature mentee sono aperte."
+    date: "2026-11-20"
+    title_en: "Mentorship: applications closed, matches on 8 December"
+    title_it: "Mentorship: candidature chiuse, abbinamenti l'8 dicembre"
+    description_en: "Mentee applications closed on 20 November. Interviews and the shortlist run until 3 December, the matches are published on 8 December and the program opens with an event on 15 December."
+    description_it: "Le candidature mentee si sono chiuse il 20 novembre. Colloqui e shortlist fino al 3 dicembre, pubblicazione degli abbinamenti l'8 dicembre ed evento di apertura il 15 dicembre."
     details_url: "/mentorship/"
     link_url: "/mentorship/#timeline"
     link_text_en: "Key dates"
     link_text_it: "Date principali"
 
-  - id: 4
-    type: "event"
-    date: "2026-10-05"
-    title_en: "First AI Safety for Italy Meetup"
-    title_it: "Primo meetup di AI Safety for Italy"
-    description_en: "Our first in-person meetup, at Cascina Cuccagna in Milan: an introduction to AI safety, the community's new projects, then aperitivo and networking."
-    description_it: "Il nostro primo meetup in presenza, alla Cascina Cuccagna di Milano: un'introduzione all'AI safety, i nuovi progetti della community e poi aperitivo e networking."
-    details_url: "/events/#meetup-milano-2026"
-    # /streaming is a placeholder page until the recording is published.
-    link_url: "/streaming/"
-    link_text_en: "Recording coming soon"
-    link_text_it: "Registrazione in arrivo"
+  - id: 9
+    type: "podcast"
+    title_en: "Podcast: the first episodes arrive in early December"
+    title_it: "Podcast: le prime puntate arrivano a inizio dicembre"
+    description_en: "AI safety told through what actually goes wrong, in the real world. The episodes will be available on all the major podcast platforms."
+    description_it: "L'AI safety raccontata attraverso quello che va davvero storto, nel mondo reale. Le puntate saranno disponibili su tutte le principali piattaforme di podcast."
+    details_url: "/podcast/"
