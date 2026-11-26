@@ -230,14 +230,22 @@
     saver.savedAt = null;
   }
 
+  // The keys whose value is a map of their own (a note per question, a score
+  // per criterion, a tick per question): merged one level deep.
+  var DEEP = ['notesByItem', 'scores', 'asked'];
+
+  /** `older` with `newer` over it; what is in both, newer wins. */
+  function merged(older, newer) {
+    var out = Object.assign({}, older || {});
+    Object.keys(newer || {}).forEach(function (k) {
+      out[k] = DEEP.indexOf(k) !== -1 ? Object.assign({}, out[k] || {}, newer[k]) : newer[k];
+    });
+    return out;
+  }
+
   function queue(patch, delay) {
     if (!saver.target) return;
-    saver.patch = saver.patch || {};
-    Object.keys(patch).forEach(function (k) {
-      if (k === 'notesByItem' || k === 'scores' || k === 'asked') {
-        saver.patch[k] = Object.assign(saver.patch[k] || {}, patch[k]);
-      } else saver.patch[k] = patch[k];
-    });
+    saver.patch = merged(saver.patch, patch);
     showSaveState();
     clearTimeout(saver.timer);
     saver.timer = setTimeout(send, delay === undefined ? 800 : delay);
@@ -259,15 +267,60 @@
       })
       .catch(function (err) {
         if (err.status === 401) return M.appError(err);
+        if (refused(err)) {
+          // The server will not take this change as it is: sent again it would
+          // fail again and hold back everything after it. Each part is tried
+          // on its own, so only what is refused is left out.
+          return sendApart(target, patch, err);
+        }
+        // The network, or the server for a moment: put it back, under what
+        // came since, and try again shortly.
         saver.error = err.message;
-        // Put back what failed, under what came since, to try again.
-        if (saver.target === target) saver.patch = Object.assign(patch, saver.patch || {});
+        if (saver.target === target) {
+          saver.patch = merged(patch, saver.patch);
+          clearTimeout(saver.timer);
+          saver.timer = setTimeout(send, 5000);
+        }
       })
       .then(function () {
         saver.inflight = null;
         showSaveState();
       });
     return saver.inflight;
+  }
+
+  function refused(err) {
+    return err.status >= 400 && err.status < 500 && [401, 408, 429].indexOf(err.status) === -1;
+  }
+
+  /** Sends each part of a refused change alone; what is refused again is dropped. */
+  function sendApart(target, patch, err) {
+    var keys = Object.keys(patch);
+    if (keys.length === 1) {
+      saver.error = err.message;
+      return Promise.resolve();
+    }
+    var errors = [];
+    var chain = Promise.resolve();
+    keys.forEach(function (k) {
+      chain = chain.then(function () {
+        var one = {};
+        one[k] = patch[k];
+        return M.api('PUT', target.url, Object.assign({}, target.base, one)).then(
+          function (r) {
+            if (saver.target === target && target.onSaved) target.onSaved(r);
+          },
+          function (e) {
+            if (e.status === 401) return M.appError(e);
+            errors.push(e.message);
+          }
+        );
+      });
+    });
+    return chain.then(function () {
+      saver.error = errors.length ? errors[0] : null;
+      if (!errors.length) saver.savedAt = new Date();
+    });
   }
 
   function flush() {
@@ -837,7 +890,10 @@
         placeholder: String(p.defaultDuration),
         oninput: function () {
           var n = Number(length.value);
-          if (length.value && (n < p.limits.duration[0] || n > p.limits.duration[1])) return;
+          var bad = !Number.isInteger(n) || n < p.limits.duration[0] || n > p.limits.duration[1];
+          length.classList.toggle('is-invalid', Boolean(length.value) && bad);
+          // Whole minutes within the limits only; anything else waits for a fix.
+          if (length.value && bad) return;
           p.duration = length.value ? n : null;
           queue(planPatch(), 600);
         },
@@ -908,7 +964,8 @@
                 onSaved: function (r) {
                   s.interview.mean = r.mean;
                   s.interview.state = r.state;
-                  if (r.timer) {
+                  // A click on the timer still to be sent wins over this answer.
+                  if (r.timer && !(saver.patch && saver.patch.timer !== undefined)) {
                     s.timer = {
                       seconds: r.timer.seconds,
                       running: r.timer.running,
@@ -1195,8 +1252,11 @@
       s.duration
     );
     function set(n) {
-      if (n !== null && !(n >= s.limits.duration[0] && n <= s.limits.duration[1])) {
-        M.toast('From ' + s.limits.duration[0] + ' to ' + s.limits.duration[1] + ' minutes');
+      if (
+        n !== null &&
+        !(Number.isInteger(n) && n >= s.limits.duration[0] && n <= s.limits.duration[1])
+      ) {
+        M.toast('Whole minutes, from ' + s.limits.duration[0] + ' to ' + s.limits.duration[1]);
         return;
       }
       s.duration = n === null ? s.durationDefault : n;

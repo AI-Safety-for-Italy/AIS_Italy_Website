@@ -75,6 +75,14 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const PERSON = /^[A-Za-z0-9_-]{1,80}$/;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
+/** 'YYYY-MM-DD' naming a day that exists (not 2026-02-31). */
+function realDate(value) {
+  const text = String(value);
+  if (!DATE.test(text)) return false;
+  const d = new Date(`${text}T00:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === text;
+}
+
 const DEFAULT_CRITERIA = [
   {
     key: 'motivation',
@@ -218,7 +226,7 @@ function cleanCriteria(list) {
     throw new HttpError(400, 'The grid needs at least one criterion');
   if (list.length > MAX_CRITERIA) throw new HttpError(400, `At most ${MAX_CRITERIA} criteria`);
   const seen = new Set();
-  return list.map((c) => {
+  const out = list.map((c) => {
     const label = String((c && c.label) || '').trim();
     if (!label || label.length > 80)
       throw new HttpError(400, 'Each criterion needs a name (80 characters at most)');
@@ -233,6 +241,10 @@ function cleanCriteria(list) {
     seen.add(key);
     return { key, label, help, weight };
   });
+  // All at 0 the mean has nothing to weigh: no interview could be done.
+  if (!out.some((c) => c.weight > 0))
+    throw new HttpError(400, 'At least one criterion needs a weight above 0');
+  return out;
 }
 
 /** The questions to ask, checked. A question keeps its id, so its notes stay with it. */
@@ -583,8 +595,8 @@ function timerOf(row) {
 // ── The interviewer's plan for a project ────────────────────────────────────
 
 /** Their order of the questions and their own questions for a project, or null. */
-async function getPlan(userId, project) {
-  const { rows } = await db.query(
+async function getPlan(userId, project, q = db) {
+  const { rows } = await q.query(
     `select plan, own, duration, updated_at from interview_plans
      where interviewer_id = $1 and project = $2`,
     [userId, project]
@@ -868,7 +880,8 @@ function text(value, max, label) {
 
 /**
  * Saves an interview, all or part: { project, key, scores?, conflict?, done?,
- * heldOn?, notes?, transcript?, comment?, plan?, notesByItem?, own? }. What is
+ * heldOn?, notes?, transcript?, comment?, plan?, notesByItem?, own?, asked?,
+ * timer?, duration? }. What is
  * not sent stays as it was. Only the interviewer it was given to.
  */
 async function save(user, body) {
@@ -879,9 +892,21 @@ async function save(user, body) {
   if (!(await given(user.id, project, key)))
     throw new HttpError(403, 'This mentee is not on a shortlist given to you');
   const settings = await getSettings();
-  const { rows } = await db.query(
+  // Read and written in one transaction, the row locked: two devices saving
+  // at once each keep what the other changed.
+  const result = await db.transaction((tx) => saveIn(tx, user, b, settings, project, key));
+  await audit.record(user, 'review-interview-save', key, {
+    project,
+    fields: Object.keys(b).filter((k) => !['project', 'key'].includes(k)),
+  });
+  return result;
+}
+
+async function saveIn(tx, user, b, settings, project, key) {
+  const { rows } = await tx.query(
     `select *, held_on::text as held_text from interview_sessions
-     where person_key = $1 and project = $2 and interviewer_id = $3`,
+     where person_key = $1 and project = $2 and interviewer_id = $3
+     for update`,
     [key, project, user.id]
   );
   const row = rows[0] || null;
@@ -908,8 +933,8 @@ async function save(user, body) {
     throw new HttpError(400, 'Score every criterion of the grid before marking it done');
   let heldOn = row ? row.held_text : null;
   if (b.heldOn !== undefined) {
-    if (b.heldOn !== null && b.heldOn !== '' && !DATE.test(String(b.heldOn)))
-      throw new HttpError(400, 'The date: YYYY-MM-DD');
+    if (b.heldOn !== null && b.heldOn !== '' && !realDate(b.heldOn))
+      throw new HttpError(400, 'The date: a real day, YYYY-MM-DD');
     heldOn = b.heldOn || null;
   }
 
@@ -927,14 +952,15 @@ async function save(user, body) {
       : seal('comment', text(b.comment, MAX_COMMENT, 'The comment'));
 
   // The questions: their order, the interviewer's own, the notes under each,
-  // which were asked. The first change to them starts from the interviewer's
-  // plan for the project; until then the interview follows that plan.
+  // which were asked. The first change to the list (its order, which, their
+  // own) starts from the interviewer's plan for the project; until then the
+  // interview follows that plan. Notes and ticks do not change the list.
   let plan = row ? row.plan : null;
   let answers = (row && open(row, 'answers')) || { own: [], notes: {}, asked: {} };
   let answersChanged = false;
-  const touchesQuestions = ['plan', 'own', 'notesByItem', 'asked'].some((k) => b[k] !== undefined);
-  if (plan === null && touchesQuestions) {
-    const prepared = await getPlan(user.id, project);
+  const changesList = b.plan !== undefined || b.own !== undefined;
+  if (plan === null && changesList) {
+    const prepared = await getPlan(user.id, project, tx);
     plan = prepared ? prepared.plan : [];
     if (prepared && prepared.own.length && !(answers.own || []).length) {
       answers = { ...answers, own: prepared.own };
@@ -1000,7 +1026,7 @@ async function save(user, body) {
     ? seal('answers', JSON.stringify(answers))
     : row && row.answers_encrypted;
 
-  await db.query(
+  await tx.query(
     `insert into interview_sessions
        (person_key, project, interviewer_id, interviewer_name, scores, plan, conflict, done,
         notes_encrypted, transcript_encrypted, answers_encrypted, comment_encrypted, held_on,
@@ -1034,10 +1060,6 @@ async function save(user, body) {
       duration,
     ]
   );
-  await audit.record(user, 'review-interview-save', key, {
-    project,
-    fields: Object.keys(b).filter((k) => !['project', 'key'].includes(k)),
-  });
   return {
     state: stateOf({ conflict, done }),
     mean: conflict ? null : meanOf(scores, settings.criteria),

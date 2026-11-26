@@ -532,29 +532,31 @@
       },
     });
     blind.checked = view.blind;
-    var sortBy = split()
-      ? h(
-          'select',
-          {
-            class: 'form-input is-compact',
-            'aria-label': 'Rank by',
-            onchange: function () {
-              view.sort = sortBy.value;
-              try {
-                localStorage.setItem('rv-sort', view.sort);
-              } catch (e) {
-                /* not remembered: fine */
-              }
-              render();
+    // Ranked by the total with the interview: no other order to pick.
+    var sortBy =
+      split() && !(ivOn && view.ivTotal)
+        ? h(
+            'select',
+            {
+              class: 'form-input is-compact',
+              'aria-label': 'Rank by',
+              onchange: function () {
+                view.sort = sortBy.value;
+                try {
+                  localStorage.setItem('rv-sort', view.sort);
+                } catch (e) {
+                  /* not remembered: fine */
+                }
+                render();
+              },
             },
-          },
-          SCORES.map(function (s) {
-            var o = h('option', { value: s[0] }, 'Rank by ' + s[1]);
-            o.selected = sortKey() === s[0];
-            return o;
-          })
-        )
-      : null;
+            SCORES.map(function (s) {
+              var o = h('option', { value: s[0] }, 'Rank by ' + s[1]);
+              o.selected = sortKey() === s[0];
+              return o;
+            })
+          )
+        : null;
 
     var weights = data.sections
       .map(function (p) {

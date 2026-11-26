@@ -17259,6 +17259,10 @@ button.iv-timer-plan:hover {
   align-items: center;
 }
 
+.iv-length-row .form-input.is-invalid {
+  border-color: var(--error);
+}
+
 .iv-length-row .form-input {
   width: 6em;
   min-width: 0;

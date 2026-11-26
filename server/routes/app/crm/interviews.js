@@ -63,7 +63,9 @@ module.exports = route({
     // Saving an interview (often, while it goes) trusts roles checked in the
     // last five minutes; the setup asks Discord again.
     const { user, role } = await door(req, { write: action === 'settings' });
-    const body = (await readJson(req)) || {};
+    // An interview carries its transcript (up to 200,000 characters, more
+    // once escaped in JSON): a larger body than the default.
+    const body = (await readJson(req, action === 'session' ? { max: 2_000_000 } : undefined)) || {};
     if (action === 'session') {
       sendJson(res, 200, await interviews.save(user, body));
       return;

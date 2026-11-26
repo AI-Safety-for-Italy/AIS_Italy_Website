@@ -541,18 +541,27 @@ test('a plan for the project: every interview starts from it until changed there
       interviews.DEFAULT_QUESTIONS[2].text,
     ]
   );
-  // A score does not freeze the order; a note under a question does.
-  await interviews.save(ivo, { project: 'o_evals', key: key('Lia'), scores: { motivation: 3 } });
+  // Scores, notes and ticks do not change the list; reordering it does.
+  await interviews.save(ivo, {
+    project: 'o_evals',
+    key: key('Lia'),
+    scores: { motivation: 3 },
+    notesByItem: { q_intro: 'Fisica.' },
+    asked: { q_intro: true },
+  });
   await interviews.save(ivo, {
     project: 'o_evals',
     key: key('Nina'),
+    plan: ['own_red', 'q_time'],
     notesByItem: { own_red: 'Sì, due volte.' },
   });
   await interviews.savePlan(ivo, { project: 'o_evals', plan: ['q_questions'], own: [] });
+  const lia = await order('Lia');
   assert.deepEqual(
-    (await order('Lia')).map((i) => i.id),
+    lia.map((i) => i.id),
     ['q_intro', 'q_project', 'q_questions']
   );
+  assert.equal(lia[0].note, 'Fisica.');
   const nina = await order('Nina');
   assert.deepEqual(
     nina.map((i) => i.id),
@@ -618,4 +627,61 @@ test('the planned length: the admins’, an interviewer’s for a project, for o
     interviews.savePlan(ivo, { project: 'o_evals', plan: [], own: [], duration: 999 }),
     (e) => e.status === 400
   );
+});
+
+test('a long transcript fits; all-zero weights and days that do not exist are refused', async () => {
+  const { bea, ivo } = await cast();
+  await interviews.assign(bea, { project: 'o_evals', interviewerId: ivo.id, menteeKeys: null });
+  const transcript = 'Parola. '.repeat(20000); // 160,000 characters
+  const put = (action, body) => {
+    const res = {
+      statusCode: 200,
+      headers: {},
+      setHeader(k, v) {
+        this.headers[k] = v;
+      },
+      end(text) {
+        this.body = text ? JSON.parse(text) : null;
+      },
+    };
+    const raw = JSON.stringify(body);
+    return api(
+      {
+        method: 'PUT',
+        url: `/api/app/crm/interviews?action=${action}`,
+        headers: {
+          'content-type': 'application/json',
+          'content-length': String(Buffer.byteLength(raw)),
+          cookie: `${auth.COOKIE}=${auth.makeSession(ivo.id)}`,
+        },
+        body,
+        socket: {},
+      },
+      res
+    ).then(() => res);
+  };
+  const ok = await put('session', { project: 'o_evals', key: key('Lia'), transcript });
+  assert.equal(ok.statusCode, 200, JSON.stringify(ok.body));
+  const s = await interviews.session(
+    ivo,
+    { interviewer: true },
+    { project: 'o_evals', key: key('Lia') }
+  );
+  assert.equal(s.interview.transcript.length, transcript.length);
+  // Other calls keep the usual limit.
+  assert.equal(
+    (await put('plan', { project: 'o_evals', plan: [], own: [], pad: transcript })).statusCode,
+    413
+  );
+
+  await assert.rejects(
+    interviews.save(ivo, { project: 'o_evals', key: key('Lia'), heldOn: '2026-02-31' }),
+    (e) => e.status === 400
+  );
+  await interviews.save(ivo, { project: 'o_evals', key: key('Lia'), heldOn: '2028-02-29' });
+
+  const zero = interviews.DEFAULT_CRITERIA.map((c) => ({ ...c, weight: 0 }));
+  await assert.rejects(interviews.saveSettings(bea, { criteria: zero }), (e) => e.status === 400);
+  zero[0].weight = 1;
+  await interviews.saveSettings(bea, { criteria: zero });
 });
