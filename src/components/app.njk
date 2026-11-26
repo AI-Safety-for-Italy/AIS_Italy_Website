@@ -97,7 +97,7 @@
       {%- if current and current.tabs.length %}
       <nav class="ap-tabs" aria-label="{{ current.title }}">
         {%- for tb in current.tabs %}
-        <a href="{{ tb.url }}" data-tab="{{ tb.key }}"{% if tb.needs %} data-needs="{{ tb.needs }}" hidden{% endif %}{% if tb.admin %} class="admin-only"{% endif %}{% if tb.key == tab %} aria-current="page"{% endif %}>{{ tb.label }}</a>
+        <a href="{{ tb.url }}" data-tab="{{ tb.key }}"{% if tb.needs %} data-needs="{{ tb.needs }}" hidden{% endif %}{% if tb.area %} data-area="{{ tb.area }}" hidden{% endif %}{% if tb.admin %} class="admin-only"{% endif %}{% if tb.key == tab %} aria-current="page"{% endif %}>{{ tb.label }}</a>
         {%- endfor %}
       </nav>
       {%- endif %}

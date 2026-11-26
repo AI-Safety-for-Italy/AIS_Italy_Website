@@ -2072,6 +2072,48 @@ async function settingsPage(user) {
   };
 }
 
+/**
+ * One applicant's whole application as they wrote it, for whoever interviews
+ * them (server/crm/interviews.js), who knows who they are: every section's
+ * questions in the setup's order, then every other answer (the contacts
+ * too: an email, a phone number), nothing made anonymous.
+ * Returns { key, name, sections: [{ key, label, items }] }, or null.
+ */
+async function applicationOf(key) {
+  const settings = await getSettings();
+  const catalog = (await catalogOf(settings.formId)) || [];
+  const found = (await applicants(settings)).find((a) => a.key === key);
+  if (!found) return null;
+  const seen = new Set();
+  const sections = settings.sections.map((section) => {
+    const questions = section.questions.filter((q) => !seen.has(q));
+    questions.forEach((q) => seen.add(q));
+    const items = shown(found, { ...section, questions, anonymous: false }, catalog, settings);
+    return { key: section.key, label: section.label, items };
+  });
+  // The rest: the source's other questions in its order, then, from a form,
+  // any answer to a question it no longer asks. (A board record also holds
+  // the board's own fields, its key and origin: those are not answers.)
+  const asked = new Set(catalog.map((q) => q.id));
+  const gone = settings.formId
+    ? Object.keys(found.answers || {}).filter((id) => !asked.has(id))
+    : [];
+  const rest = [...asked, ...gone].filter((id) => !seen.has(id));
+  const others = {
+    key: 'other',
+    label: 'Other answers',
+    questions: rest,
+    criteria: [],
+    anonymous: false,
+  };
+  sections.push({
+    key: others.key,
+    label: others.label,
+    items: shown(found, others, catalog, settings),
+  });
+  return { key, name: nameOf(found, settings), sections: sections.filter((s) => s.items.length) };
+}
+
 module.exports = {
   DEFAULT_GRID,
   DEFAULT_SECTIONS,
@@ -2099,6 +2141,7 @@ module.exports = {
   prescreen,
   readmit,
   summary,
+  applicationOf,
   preferenceQuestion,
   preferenceOf,
   exportFile,

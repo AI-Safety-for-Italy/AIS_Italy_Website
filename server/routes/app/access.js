@@ -6,7 +6,7 @@
 //        -> { access: [{ kind: 'person' | 'role', name, avatarUrl?, what }] }
 // Only for someone who can open that tool themselves. It says who holds the
 // tool's permissions, by Discord role and by name (and, for the selection, who
-// reviews), never anything about the tool's content.
+// reviews and who interviews), never anything about the tool's content.
 const { route, sendJson, getQuery, HttpError } = require('../../http');
 const { requireUser } = require('../../auth');
 const permissions = require('../../permissions');
@@ -52,6 +52,11 @@ async function accessOf(tool, section) {
       if (known) known.what += ', reviewer';
       else out.push({ kind: 'person', name: r.name, avatarUrl: r.avatarUrl, what: 'Reviewer' });
     }
+    for (const r of await require('../../crm/interviews').interviewers()) {
+      const known = out.find((o) => o.kind === 'person' && o.name === r.name);
+      if (known) known.what += ', interviewer';
+      else out.push({ kind: 'person', name: r.name, avatarUrl: r.avatarUrl, what: 'Interviewer' });
+    }
   }
   return out;
 }
@@ -64,6 +69,8 @@ module.exports = route({
     const areas = permissions.areas(await permissions.forUser(user));
     if (tool.area === 'review' && !areas.review)
       areas.review = await require('../../crm/review').isReviewer(user);
+    if (tool.area === 'review' && !areas.review)
+      areas.review = await require('../../crm/interviews').isInterviewer(user);
     const perms = await permissions.forUser(user);
     const { section: sectionKey } = getQuery(req);
     const section = sectionKey ? (tool.sections || []).find((x) => x.key === sectionKey) : null;

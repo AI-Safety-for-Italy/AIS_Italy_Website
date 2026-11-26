@@ -1,0 +1,25 @@
+---
+title: Interviews
+# The interviews after the shortlist: the interviewers' panel (questions,
+# notes, transcript, grid) and, for the admins of the selection, who
+# interviews whom, the questions and the grid. An empty shell: everything
+# comes from /api/app/crm/interviews once the server has checked who may see
+# what, so nothing personal is ever in this page's HTML.
+permalink: /app/review/interviews/
+tool: review
+tab: interviews
+pageTitle: Interviews
+wide: true
+noindex: true
+excludeFromSitemap: true
+eleventyExcludeFromCollections: true
+seoTitle: 'Interviews | Mentee selection | AI Safety for Italy'
+---
+{% extends "app.njk" %}
+{% block page %}
+    <div id="ivPage"></div>
+
+<script src="/assets/js/meet/common.js?v={{ build }}" defer></script>
+<script src="/assets/js/meet/app-common.js?v={{ build }}" defer></script>
+<script src="/assets/js/meet/review-interviews.js?v={{ build }}" defer></script>
+{% endblock %}

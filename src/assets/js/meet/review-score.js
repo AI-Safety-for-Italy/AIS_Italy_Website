@@ -80,9 +80,14 @@
 
   function fail(err) {
     if (err.status === 401) return M.appError(err);
-    if (err.status === 403 || err.status === 503) {
-      return empty(err.status === 403 ? 'No access' : 'Not set up yet', err.message);
+    if (err.status === 403) {
+      // Someone who interviews but does not review: their page is the interviews'.
+      return M.areas.then(function (areas) {
+        if (areas && areas.interviews) window.location.replace('/app/review/interviews/');
+        else empty('No access', err.message);
+      });
     }
+    if (err.status === 503) return empty('Not set up yet', err.message);
     M.appError(err);
   }
 

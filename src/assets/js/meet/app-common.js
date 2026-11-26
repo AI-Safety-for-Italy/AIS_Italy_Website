@@ -411,6 +411,7 @@
       out.push({ label: tool.title, hint: 'Tool', url: tool.url });
       (tool.tabs || []).forEach(function (tab) {
         if (tab.needs && perms.indexOf(tab.needs) === -1) return;
+        if (tab.area && !areas[tab.area]) return;
         if (tab.admin && !isAdmin) return;
         if (tab.url === tool.url) return;
         out.push({ label: tab.label, hint: tool.title, url: tab.url });

@@ -14,6 +14,7 @@ const permissions = require('../server/permissions');
 const forms = require('../server/forms/forms');
 const members = require('../server/members');
 const review = require('../server/crm/review');
+const interviews = require('../server/crm/interviews');
 const { withTiming } = require('../server/timing');
 
 const handler = route({
@@ -27,6 +28,11 @@ const handler = route({
     if (user && !areas.forms) areas.forms = await forms.readsAny(user).catch(() => false);
     // The reviewers of the mentee selection hold no key: they are on its list.
     if (user && !areas.review) areas.review = await review.isReviewer(user).catch(() => false);
+    // The interviewers likewise (server/crm/interviews.js); their tab shows
+    // to them and to the selection's admins only.
+    const interviewer = user ? await interviews.isInterviewer(user).catch(() => false) : false;
+    if (user && !areas.review) areas.review = interviewer;
+    if (user && (interviewer || perms.includes('review_admin'))) areas.interviews = true;
     // A participant may ask to become an organizer (/app/organizer/).
     if (user) areas.upgrade = (await members.upgradeState(user).catch(() => ({}))).can === true;
     sendJson(res, 200, {

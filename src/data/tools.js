@@ -150,6 +150,14 @@ module.exports = [
       { key: 'score', label: 'Score', url: '/app/review/' },
       { key: 'summary', label: 'Summary', url: '/app/review/summary/', needs: 'review_admin' },
       { key: 'matching', label: 'Matching', url: '/app/review/matching/', needs: 'review_admin' },
+      // The interviews: for the admins and the interviewers, who hold no key
+      // (`area`: shown when /api/auth opens it, as a tool is).
+      {
+        key: 'interviews',
+        label: 'Interviews',
+        url: '/app/review/interviews/',
+        area: 'interviews',
+      },
       { key: 'settings', label: 'Setup', url: '/app/review/settings/', needs: 'review_admin' },
     ],
     actions: [],
