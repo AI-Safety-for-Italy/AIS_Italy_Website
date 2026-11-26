@@ -19,7 +19,13 @@
   var root = document.getElementById('rvSummary');
 
   var view = { data: null, blind: false, status: '', sort: 'overall', open: new Set() };
+  // The interviews (server/crm/interviews.js), when there are some: a column
+  // of their own, and on request a total with them weighed in. Neither
+  // changes the overall, which stays the selection's.
+  view.iv = null;
+  view.ivTotal = false;
   try {
+    view.ivTotal = localStorage.getItem('rv-iv-total') === '1';
     view.blind = localStorage.getItem('rv-blind') === '1';
     view.sort = localStorage.getItem('rv-sort') || 'overall';
   } catch (e) {
@@ -40,7 +46,26 @@
   function scores() {
     return split() ? SCORES : SCORES.slice(0, 1);
   }
+  function hasInterviews() {
+    return Boolean(view.iv && Object.keys(view.iv.people).length);
+  }
+  // Each person's interview mean and the total with it, for the table: the
+  // overall weighs 1, the interview the setup's weight; no interview, no total.
+  function withInterviews() {
+    if (!hasInterviews()) return;
+    var w = Number(view.iv.weight) || 0;
+    view.data.people.forEach(function (p) {
+      var iv = view.iv.people[p.key] || null;
+      p.interview = iv ? iv.mean : null;
+      p.interviews = iv ? iv.interviews : [];
+      p.ivTotal =
+        iv && p.overall !== null && p.overall !== undefined
+          ? Math.round(((p.overall + w * iv.mean) / (1 + w)) * 100) / 100
+          : null;
+    });
+  }
   function sortKey() {
+    if (view.ivTotal && hasInterviews()) return 'ivTotal';
     var key = view.sort;
     return scores().some(function (s) {
       return s[0] === key;
@@ -100,6 +125,14 @@
     .then(function (r) {
       view.data = r[1];
       render();
+      // The interviews' scores; none, or not set up: no column.
+      M.api('GET', '/api/app/crm/interviews?action=scores').then(
+        function (iv) {
+          view.iv = iv;
+          render();
+        },
+        function () {}
+      );
       // The places of the matching, to know how many to select. Not set up: no line.
       return M.api('GET', API + '?action=matching&pool=selected').then(
         function (m) {
@@ -395,8 +428,57 @@
                   )
                 : h('p', { class: 'panel-note' }, 'No reviews yet.')
             );
+          }),
+          p.interviews && p.interviews.length ? interviewsPart(p) : null
+        )
+      )
+    );
+  }
+
+  // The interviews done, each with its grid, in the detail of a row.
+  function interviewsPart(p) {
+    var criteria = view.iv.criteria;
+    return h(
+      'section',
+      null,
+      h('h3', null, 'Interviews'),
+      h(
+        'table',
+        { class: 'rv-mini' },
+        h(
+          'thead',
+          null,
+          h(
+            'tr',
+            null,
+            h('th', null, 'Interviewer'),
+            criteria.map(function (c) {
+              return h('th', { class: 'rv-num', title: c.label }, c.label);
+            }),
+            h('th', null, 'Total')
+          )
+        ),
+        h(
+          'tbody',
+          null,
+          p.interviews.map(function (x) {
+            return h(
+              'tr',
+              null,
+              h('td', null, x.interviewer, h('small', null, ' · ' + x.projectLabel)),
+              criteria.map(function (c) {
+                var v = x.scores[c.key];
+                return h('td', { class: 'rv-num' }, v === undefined ? '–' : String(v));
+              }),
+              h('td', { class: 'rv-num' }, h('strong', null, num(x.mean)))
+            );
           })
         )
+      ),
+      h(
+        'p',
+        { class: 'panel-note' },
+        h('a', { href: '/app/review/interviews/#admin/progress' }, 'Read the interviews')
       )
     );
   }
@@ -404,6 +486,21 @@
   function render() {
     var data = view.data;
     M.clear(root);
+    withInterviews();
+    var ivOn = hasInterviews();
+    var ivTotal = h('input', {
+      type: 'checkbox',
+      onchange: function () {
+        view.ivTotal = ivTotal.checked;
+        try {
+          localStorage.setItem('rv-iv-total', view.ivTotal ? '1' : '0');
+        } catch (e) {
+          /* not remembered: fine */
+        }
+        render();
+      },
+    });
+    ivTotal.checked = view.ivTotal;
 
     var statusFilter = h(
       'select',
@@ -435,29 +532,31 @@
       },
     });
     blind.checked = view.blind;
-    var sortBy = split()
-      ? h(
-          'select',
-          {
-            class: 'form-input is-compact',
-            'aria-label': 'Rank by',
-            onchange: function () {
-              view.sort = sortBy.value;
-              try {
-                localStorage.setItem('rv-sort', view.sort);
-              } catch (e) {
-                /* not remembered: fine */
-              }
-              render();
+    // Ranked by the total with the interview: no other order to pick.
+    var sortBy =
+      split() && !(ivOn && view.ivTotal)
+        ? h(
+            'select',
+            {
+              class: 'form-input is-compact',
+              'aria-label': 'Rank by',
+              onchange: function () {
+                view.sort = sortBy.value;
+                try {
+                  localStorage.setItem('rv-sort', view.sort);
+                } catch (e) {
+                  /* not remembered: fine */
+                }
+                render();
+              },
             },
-          },
-          SCORES.map(function (s) {
-            var o = h('option', { value: s[0] }, 'Rank by ' + s[1]);
-            o.selected = sortKey() === s[0];
-            return o;
-          })
-        )
-      : null;
+            SCORES.map(function (s) {
+              var o = h('option', { value: s[0] }, 'Rank by ' + s[1]);
+              o.selected = sortKey() === s[0];
+              return o;
+            })
+          )
+        : null;
 
     var weights = data.sections
       .map(function (p) {
@@ -471,6 +570,20 @@
         statusFilter,
         sortBy,
         h('label', { class: 'check-row' }, blind, h('span', null, 'Hide names')),
+        ivOn
+          ? h(
+              'label',
+              {
+                class: 'check-row',
+                title:
+                  'Ranks by the overall and the interview together (interview ×' +
+                  view.iv.weight +
+                  '); the overall stays as it is',
+              },
+              ivTotal,
+              h('span', null, 'Total with interview')
+            )
+          : null,
         // The whole summary, names and comments included, whatever is shown.
         ['csv', 'json'].map(function (format) {
           return h(
@@ -534,7 +647,7 @@
       return;
     }
 
-    var cols = 3 + data.sections.length + scores().length;
+    var cols = 3 + data.sections.length + scores().length + (ivOn ? (view.ivTotal ? 2 : 1) : 0);
     var body = h('tbody');
     shown.forEach(function (p, i) {
       var open = view.open.has(p.key);
@@ -611,6 +724,26 @@
           scores().map(function (s) {
             return scoreCell(p, s, s[0] === key);
           }),
+          ivOn
+            ? h(
+                'td',
+                {
+                  class: 'rv-num',
+                  title: p.interviews.length
+                    ? p.interviews
+                        .map(function (x) {
+                          return x.interviewer + ' (' + x.projectLabel + '): ' + num(x.mean);
+                        })
+                        .join('\n')
+                    : 'No interview done yet',
+                },
+                num(p.interview),
+                p.interviews.length > 1 ? h('small', null, ' ×' + p.interviews.length) : null
+              )
+            : null,
+          ivOn && view.ivTotal
+            ? h('td', { class: 'rv-num rv-overall' }, h('strong', null, num(p.ivTotal)))
+            : null,
           h('td', null, statusSelect(p))
         )
       );
@@ -645,6 +778,23 @@
               scores().map(function (s) {
                 return h('th', { class: 'rv-num' }, s[1]);
               }),
+              ivOn
+                ? h(
+                    'th',
+                    { class: 'rv-num', title: 'The mean of the interviews done' },
+                    'Interview'
+                  )
+                : null,
+              ivOn && view.ivTotal
+                ? h(
+                    'th',
+                    {
+                      class: 'rv-num',
+                      title: 'Overall ×1 and interview ×' + view.iv.weight + ', weighted',
+                    },
+                    'Total'
+                  )
+                : null,
               h('th', null, 'Status (board)')
             )
           ),

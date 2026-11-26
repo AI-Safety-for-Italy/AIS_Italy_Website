@@ -86,6 +86,16 @@
     M.appError(err);
   }
 
+  // The first call only: refused there, they are no reviewer at all. Someone
+  // who interviews but does not review has the interviews for a page.
+  function failFirst(err) {
+    if (err.status !== 403) return fail(err);
+    return M.areas.then(function (areas) {
+      if (areas && areas.interviews) window.location.replace('/app/review/interviews/');
+      else fail(err);
+    });
+  }
+
   // ── Saving as I go ───────────────────────────────────────────────────────
   // Each change is sent shortly after it is made (a comment once typing
   // pauses). Moving to another application, or another section, first waits
@@ -193,7 +203,11 @@
 
   function start() {
     M.clear(root).appendChild(M.loading());
-    Promise.all([M.me, M.api('GET', API)])
+    var first = M.api('GET', API).catch(function (err) {
+      err.first = true;
+      throw err;
+    });
+    Promise.all([M.me, first])
       .then(function (r) {
         view.overview = r[1];
         view.part = partOfHash();
@@ -221,7 +235,9 @@
         }
         return loadList();
       })
-      .catch(fail);
+      .catch(function (err) {
+        return err.first ? failFirst(err) : fail(err);
+      });
   }
 
   function loadList() {

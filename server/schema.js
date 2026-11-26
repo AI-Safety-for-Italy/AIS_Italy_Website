@@ -988,4 +988,72 @@ begin
     insert into app_settings (key, value) values ('migration_calendar_defaults', 'true');
   end if;
 end $$;
+-- ── The interviews of the mentee selection (/app/review/interviews/,
+-- server/crm/interviews.js) ──────────────────────────────────────────────────
+-- New tables only: nothing above is changed. Who is interviewed is the
+-- matching's shortlist of a project (app_settings matching_shortlists), read,
+-- never written here.
+
+-- Who may interview: people picked by the panel's admins (review_admin), a
+-- list apart from the reviewers'.
+create table if not exists interview_interviewers (
+  user_id uuid primary key references app_users(id) on delete cascade,
+  added_by_name text not null,
+  added_at timestamptz not null default now()
+);
+
+-- A project's shortlist given to an interviewer: every mentee on it, or only
+-- those listed (person keys), to split a shortlist between interviewers.
+create table if not exists interview_assignments (
+  id uuid primary key default gen_random_uuid(),
+  project text not null,
+  interviewer_id uuid not null references app_users(id) on delete cascade,
+  mentee_keys jsonb,
+  created_by_name text not null,
+  created_at timestamptz not null default now(),
+  unique (project, interviewer_id)
+);
+
+-- An interviewer's own order of the questions for a project, and their own
+-- questions: what each of their interviews of it starts from. Not about any
+-- mentee, so plain.
+create table if not exists interview_plans (
+  interviewer_id uuid not null references app_users(id) on delete cascade,
+  project text not null,
+  plan jsonb not null default '[]',
+  own jsonb not null default '[]',
+  updated_at timestamptz not null default now(),
+  primary key (interviewer_id, project)
+);
+
+-- One interview: a mentee, for a project, by an interviewer. The grid's
+-- scores (criterion -> 1..5) and the order of the questions are plain (plan
+-- null: not changed yet, the interviewer's plan for the project holds); the
+-- timer is elapsed_seconds plus, while it runs, the time since running_since; the
+-- notes, the transcript, the notes under each question and the comment are
+-- encrypted, bound to the person, the project and the interviewer.
+create table if not exists interview_sessions (
+  person_key text not null,
+  project text not null,
+  interviewer_id uuid not null references app_users(id) on delete cascade,
+  interviewer_name text not null,
+  scores jsonb not null default '{}',
+  plan jsonb,
+  conflict boolean not null default false,
+  done boolean not null default false,
+  elapsed_seconds int not null default 0,
+  running_since timestamptz,
+  notes_encrypted text,
+  transcript_encrypted text,
+  answers_encrypted text,
+  comment_encrypted text,
+  held_on date,
+  updated_at timestamptz not null default now(),
+  primary key (person_key, project, interviewer_id)
+);
+
+-- The planned length of the interviews, in minutes, an interviewer may set
+-- for a project (their plan) and for one interview; null: the admins' one.
+alter table interview_plans add column if not exists duration int;
+alter table interview_sessions add column if not exists duration int;
 `;

@@ -120,6 +120,7 @@ async function cleanup() {
        and not exists (select 1 from user_permissions x
                        where x.user_id = u.id and cardinality(x.permissions) > 0)
        and not exists (select 1 from review_scores s where s.reviewer_id = u.id)
+       and not exists (select 1 from interview_sessions i where i.interviewer_id = u.id)
      returning u.id`,
     [MONTHS_ACCOUNTS]
   );
@@ -136,6 +137,8 @@ async function cleanup() {
     );
   const prescreen = await gone('review_prescreen');
   await gone('review_arrivals');
+  // The interviews go with the application, as the scores do.
+  const interviewSessions = await gone('interview_sessions');
   const counts = {
     answers: answers.rows.length,
     applications: applications.rows.length,
@@ -147,6 +150,7 @@ async function cleanup() {
     reviewScores: reviewScores.rows.length,
     accounts: accounts.rows.length,
     reviewPrescreen: prescreen.rows.length,
+    interviews: interviewSessions.rows.length,
   };
   await audit.record({ id: null, name: 'retention job' }, 'retention-cleanup', null, {
     months: MONTHS,

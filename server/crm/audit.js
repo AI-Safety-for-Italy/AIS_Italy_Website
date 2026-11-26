@@ -76,6 +76,16 @@ const ACTIONS = new Set([
   'review-matching-settings',
   'review-matching-shortlist',
   'review-matching-draft',
+  // The interviews (server/crm/interviews.js): subject_key is the person key;
+  // detail names the project and what changed, never what was written.
+  'review-interview-settings',
+  'review-interviewers',
+  'review-interview-assign',
+  'review-interview-list',
+  'review-interview-open',
+  'review-interview-save',
+  'review-interview-plan',
+  'review-interview-scores',
   // Who may do what (server/permissions.js): detail lists the keys changed.
   'permissions-change',
 ]);

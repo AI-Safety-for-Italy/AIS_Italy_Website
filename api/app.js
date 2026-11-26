@@ -18,6 +18,7 @@ const ROUTES = {
   community: require('../server/routes/app/community'),
   content: require('../server/routes/app/content'),
   'crm/mentorship': require('../server/routes/app/crm/mentorship'),
+  'crm/interviews': require('../server/routes/app/crm/interviews'),
   'crm/review': require('../server/routes/app/crm/review'),
   forms: require('../server/routes/app/forms'),
   highlights: require('../server/routes/app/highlights'),

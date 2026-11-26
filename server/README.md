@@ -302,6 +302,48 @@ without knowing who they are, and a summary ranks them.
   selection's lines, so it does not tell who reviewed whom.
 - Scores go with the application they score (`server/retention.js`).
 
+**The interviews** (`/app/review/interviews/`; `server/crm/interviews.js`,
+`server/routes/app/crm/interviews.js`): after the shortlist, the interviewers
+meet the mentees and score them. A tab of the selection, shown only to its
+admins and to the interviewers (`areas.interviews` from `/api/auth`).
+
+- **Who.** The admins (`review_admin`) pick the interviewers on _Grid &
+  interviewers_ (`interview_interviewers`, a list apart from the reviewers';
+  no permission key) and give each a project's shortlist, whole or some of
+  its mentees (`interview_assignments`). The shortlist is the matching's
+  (`matching_shortlists`), read and never written here: who leaves it leaves
+  the interviewer's list, and what was written stays for the admins.
+- **The interviewer's panel**, per mentee and project: the questions (opened
+  and closed; taken from the admins' list or their own, in their order by drag
+  or arrows, notes under each), notes, the transcript (pasted, or a
+  `.txt/.vtt/.srt/.md` file read in the browser), the whole application as
+  written (not anonymous, the contacts too: the setup's sections first, then
+  every other answer), and on the side the grid (1 to 5, weighted), the date, a
+  comment, "I step aside", and "done" (the whole grid scored). Saved as typed.
+- **Questions** are by choice, in every interview, or in some projects'
+  interviews; the required ones are always in the interview and cannot be left
+  out (checked on the server too). Each interviewer may prepare their list for
+  a project once (`interview_plans`: which questions, their order, their own);
+  every interview of it follows that list until its questions are changed in
+  that interview (`interview_sessions.plan` stays null until then). During the
+  interview each question is ticked as asked, with the time on the timer.
+- **The timer** (start, pause, reset) is kept on the server
+  (`elapsed_seconds`, `running_since`), so a reload or another device goes on
+  from where it was; marking the interview done stops it. The planned length is the admins'
+  (Grid & interviewers), unless the interviewer sets their own for a project
+  (on its questions' page) or for one interview (on the timer); the timer
+  turns orange near it and red past it.
+- **The summary** shows the interviews' mean in a column of its own, and on
+  request ("Total with interview") a total: overall ×1 and interview × the
+  setup's weight. The overall, the matching and the board are never changed.
+- **Stored** in `interview_sessions` (one row per mentee, project and
+  interviewer): the scores and the order of the questions plain; the notes,
+  the transcript, the notes under the questions, the interviewer's own
+  questions and the comment encrypted, bound to the person, the project, the
+  interviewer and the field. The setup in `app_settings` (`interview_settings`).
+  Interviews go with the application (`server/retention.js`), and an account
+  with interviews is not deleted as inactive.
+
 The foundations it stands on:
 
 The rules, which later phases must keep:
