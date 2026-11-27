@@ -685,3 +685,156 @@ test('a long transcript fits; all-zero weights and days that do not exist are re
   zero[0].weight = 1;
   await interviews.saveSettings(bea, { criteria: zero });
 });
+
+// ── Which projects, emptying an interview, giving it to someone else ───────
+
+test('only the projects chosen have interviews; left out, nothing is lost', async () => {
+  const { bea, ivo } = await cast();
+  await interviews.assign(bea, { project: 'o_evals', interviewerId: ivo.id, menteeKeys: null });
+  await interviews.assign(bea, { project: 'o_secur', interviewerId: ivo.id, menteeKeys: null });
+  await interviews.save(ivo, { project: 'o_secur', key: key('Marco'), notes: 'Bravo.' });
+  await interviews.saveSettings(bea, { projects: ['o_evals'] });
+  const mine = async () => (await interviews.overview(ivo, { interviewer: true })).assignments;
+  assert.deepEqual(
+    (await mine()).map((a) => a.project.id),
+    ['o_evals']
+  );
+  await assert.rejects(
+    interviews.save(ivo, { project: 'o_secur', key: key('Marco'), notes: 'x' }),
+    (e) => e.status === 403
+  );
+  await assert.rejects(
+    interviews.assign(bea, { project: 'o_secur', interviewerId: bea.id, menteeKeys: null }),
+    (e) => e.status === 400
+  );
+  const page = await interviews.adminPage(bea);
+  assert.deepEqual(
+    page.projects.map((p) => p.id),
+    ['o_evals']
+  );
+  assert.deepEqual(
+    page.choices.map((c) => [c.id, c.interviewed, c.interviews]),
+    [
+      ['o_evals', true, 0],
+      ['o_secur', false, 1],
+    ]
+  );
+  // Back on: the assignment and the interview are where they were.
+  await interviews.saveSettings(bea, { projects: null });
+  assert.equal((await mine()).length, 2);
+  const s = await interviews.session(
+    ivo,
+    { interviewer: true },
+    { project: 'o_secur', key: key('Marco') }
+  );
+  assert.equal(s.interview.notes, 'Bravo.');
+  // Unknown ids are dropped.
+  await interviews.saveSettings(bea, { projects: ['o_evals', 'o_nope'] });
+  assert.deepEqual((await interviews.getSettings()).projects, ['o_evals']);
+});
+
+test('emptying an interview: an interviewer their own, an admin anyone’s', async () => {
+  const { bea, ivo, ugo } = await cast();
+  await interviews.assign(bea, { project: 'o_evals', interviewerId: ivo.id, menteeKeys: null });
+  const target = { project: 'o_evals', key: key('Lia') };
+  await interviews.save(ivo, { ...target, notes: 'n', scores: allScores(4), timer: 'start' });
+  const reset = (user, body) =>
+    call({ method: 'POST', url: '/api/app/crm/interviews?action=reset', user, body });
+  // Someone else's: not for an interviewer.
+  assert.equal((await reset(ugo, { ...target, interviewerId: ivo.id })).statusCode, 403);
+  assert.equal((await reset(ugo, target)).statusCode, 403);
+  assert.equal((await reset(ivo, target)).statusCode, 200);
+  const s = await interviews.session(ivo, { interviewer: true }, target);
+  assert.equal(s.interview.notes, '');
+  assert.deepEqual(s.interview.scores, {});
+  assert.equal(s.timer.seconds, 0);
+  assert.equal((await reset(ivo, target)).statusCode, 404);
+  // An admin empties anyone's.
+  await interviews.save(ivo, { ...target, notes: 'again' });
+  assert.equal((await reset(bea, { ...target, interviewerId: ivo.id })).statusCode, 200);
+  const { rows } = await db.query('select count(*)::int as n from interview_sessions');
+  assert.equal(rows[0].n, 0);
+});
+
+test('a shortlist given to someone else, with or without the interviews started', async () => {
+  const { bea, ivo, ugo } = await cast();
+  const a = await interviews.assign(bea, {
+    project: 'o_evals',
+    interviewerId: ivo.id,
+    menteeKeys: null,
+  });
+  await interviews.save(ivo, {
+    project: 'o_evals',
+    key: key('Lia'),
+    notes: 'Note di Ivo.',
+    notesByItem: { q_intro: 'Fisica.' },
+    scores: allScores(5),
+  });
+  await interviews.save(ivo, { project: 'o_evals', key: key('Nina'), notes: 'Nina, di Ivo.' });
+  // Ugo already interviewed Nina for it: that one stays where it is.
+  await interviews.assign(bea, {
+    project: 'o_evals',
+    interviewerId: ugo.id,
+    menteeKeys: [key('Nina')],
+  });
+  await interviews.save(ugo, { project: 'o_evals', key: key('Nina'), notes: 'Nina, di Ugo.' });
+
+  const r = await interviews.reassign(bea, {
+    id: a.id,
+    interviewerId: ugo.id,
+    moveInterviews: true,
+  });
+  assert.deepEqual([r.moved, r.kept], [1, 1]);
+  // One assignment left, Ugo's, for the whole shortlist (Ivo's was whole).
+  const { rows } = await db.query('select interviewer_id, mentee_keys from interview_assignments');
+  assert.deepEqual(
+    rows.map((x) => [x.interviewer_id, x.mentee_keys]),
+    [[ugo.id, null]]
+  );
+  const lia = await interviews.session(
+    ugo,
+    { interviewer: true },
+    {
+      project: 'o_evals',
+      key: key('Lia'),
+    }
+  );
+  assert.equal(lia.interview.notes, 'Note di Ivo.');
+  assert.equal(lia.items[0].note, 'Fisica.');
+  assert.equal(lia.interview.mean, 5);
+  const nina = await interviews.session(
+    ugo,
+    { interviewer: true },
+    {
+      project: 'o_evals',
+      key: key('Nina'),
+    }
+  );
+  assert.equal(nina.interview.notes, 'Nina, di Ugo.');
+  // Ivo's own Nina stays his, for the admins to read; he no longer sees the project.
+  const ivosNina = await interviews.session(
+    bea,
+    { admin: true },
+    {
+      project: 'o_evals',
+      key: key('Nina'),
+      interviewerId: ivo.id,
+    }
+  );
+  assert.equal(ivosNina.interview.notes, 'Nina, di Ivo.');
+  assert.equal((await interviews.overview(ivo, { interviewer: true })).assignments.length, 0);
+
+  // Without the interviews: they stay with who wrote them.
+  const back = (await interviews.adminPage(bea)).projects[0].assignments[0];
+  const r2 = await interviews.reassign(bea, { id: back.id, interviewerId: ivo.id });
+  assert.deepEqual([r2.moved, r2.kept], [0, 0]);
+  const { rows: still } = await db.query(
+    `select count(*)::int as n from interview_sessions where interviewer_id = $1`,
+    [ugo.id]
+  );
+  assert.equal(still[0].n, 2);
+  await assert.rejects(
+    interviews.reassign(bea, { id: back.id, interviewerId: ivo.id }),
+    (e) => e.status === 400
+  );
+});

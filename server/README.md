@@ -313,6 +313,19 @@ admins and to the interviewers (`areas.interviews` from `/api/auth`).
   its mentees (`interview_assignments`). The shortlist is the matching's
   (`matching_shortlists`), read and never written here: who leaves it leaves
   the interviewer's list, and what was written stays for the admins.
+- **Which projects** have interviews is the admins' choice (Who interviews
+  whom → Projects with interviews; `interview_settings.projects`, null for
+  all). A project left out keeps its assignments and interviews, hidden from
+  everyone until it is ticked again.
+- **Giving a shortlist to someone else** moves the assignment (merged with
+  theirs if they already have the project). Optionally the interviews the
+  first one started go too, their free text encrypted again for the new
+  interviewer; one the new interviewer has already for the same mentee stays
+  where it is. Otherwise the interviews stay with who wrote them, for the
+  admins to read.
+- **Emptying an interview** deletes it (scores, notes, transcript, questions,
+  timer): an interviewer their own, an admin anyone's (Progress, or the
+  interview read only).
 - **The interviewer's panel**, per mentee and project: the questions (opened
   and closed; taken from the admins' list or their own, in their order by drag
   or arrows, notes under each), notes, the transcript (pasted, or a

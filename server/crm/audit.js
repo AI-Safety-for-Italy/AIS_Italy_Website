@@ -85,6 +85,7 @@ const ACTIONS = new Set([
   'review-interview-open',
   'review-interview-save',
   'review-interview-plan',
+  'review-interview-reset',
   'review-interview-scores',
   // Who may do what (server/permissions.js): detail lists the keys changed.
   'permissions-change',

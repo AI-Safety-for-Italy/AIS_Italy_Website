@@ -12,10 +12,14 @@
 //   PUT  ?action=plan { project, plan, own, duration?: minutes|null }         (interviewer)
 //   GET  ?action=admin                     -> setup, interviewers, projects, progress (admin)
 //   GET  ?action=scores                    -> the interviews' means by mentee (admin)
-//   PUT  ?action=settings { criteria?, questions?, weight?, duration?, version? } (admin; 409 if stale)
+//   PUT  ?action=settings { criteria?, questions?, weight?, duration?, projects?, version? }
+//        (admin; 409 if stale; projects: the ids with interviews, or null for all)
 //   POST ?action=interviewers { add | remove: userId }                     (admin)
 //   POST ?action=assign { project, interviewerId, menteeKeys: null | [key] } (admin)
 //   POST ?action=unassign { id }                                           (admin)
+//   POST ?action=reassign { id, interviewerId, moveInterviews? }           (admin)
+//   POST ?action=reset { project, key, interviewerId? } -> empties an interview
+//        (an interviewer their own; an admin anyone's)
 const { route, sendJson, readJson, getQuery, HttpError } = require('../../../http');
 const { requireUser } = require('../../../auth');
 const crypto = require('../../../crm/crypto');
@@ -81,15 +85,23 @@ module.exports = route({
 
   async POST(req, res) {
     const { action } = getQuery(req);
-    if (!['interviewers', 'assign', 'unassign'].includes(action))
+    if (!['interviewers', 'assign', 'unassign', 'reassign', 'reset'].includes(action))
       throw new HttpError(400, 'Unknown action');
     const { user, role } = await door(req, { write: true });
-    interviews.requireAdmin(role);
     const body = (await readJson(req)) || {};
+    if (action === 'reset') {
+      sendJson(res, 200, await interviews.reset(user, role, body));
+      return;
+    }
+    interviews.requireAdmin(role);
     if (action === 'interviewers') {
       await interviews.setInterviewer(user, { add: body.add, remove: body.remove });
     } else if (action === 'assign') {
       await interviews.assign(user, body);
+    } else if (action === 'reassign') {
+      const moved = await interviews.reassign(user, body);
+      sendJson(res, 200, { ...(await interviews.adminPage(user)), moved });
+      return;
     } else {
       await interviews.unassign(user, body);
     }
