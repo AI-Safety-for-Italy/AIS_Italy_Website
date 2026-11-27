@@ -17836,3 +17836,74 @@ textarea.form-input.iv-notes {
     align-items: center;
   }
 }
+
+/* Which projects have interviews; giving a shortlist to someone else */
+.iv-choices {
+  margin-bottom: 16px;
+}
+
+.iv-choices .rv-card-head h2 {
+  margin: 0;
+  font-family: inherit;
+  font-size: 18px;
+}
+
+.iv-choice-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 8px;
+}
+
+.iv-choice {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  border: 1px solid var(--border-muted);
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.iv-choice.is-on {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border-muted));
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+
+.iv-choice span {
+  display: grid;
+}
+
+.iv-choice small {
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+.iv-reassign {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: center;
+  margin: 8px 0 4px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--bg-tertiary);
+}
+
+.iv-reassign .form-input {
+  width: auto;
+  min-width: 160px;
+}
+
+.iv-foot {
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.iv-row-actions {
+  white-space: nowrap;
+}
+
+.iv-row-actions .rv-link-btn {
+  margin-left: 10px;
+}

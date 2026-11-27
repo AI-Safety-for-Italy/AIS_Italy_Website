@@ -194,6 +194,7 @@ async function getSettings() {
       questions: copy(DEFAULT_QUESTIONS),
       weight: DEFAULT_WEIGHT,
       duration: DEFAULT_DURATION,
+      projects: null,
       version,
     };
   }
@@ -204,6 +205,8 @@ async function getSettings() {
     questions: Array.isArray(saved.questions) ? saved.questions : [],
     weight: Number.isFinite(weight) ? weight : DEFAULT_WEIGHT,
     duration: Number.isInteger(duration) ? duration : DEFAULT_DURATION,
+    // The projects with interviews: their ids, or null for every project.
+    projects: Array.isArray(saved.projects) ? saved.projects : null,
     version,
   };
 }
@@ -281,7 +284,11 @@ function cleanQuestions(list, projectIds) {
   });
 }
 
-/** Saves the setup: { criteria?, questions?, weight?, duration?, version? }; 409 when stale. */
+/**
+ * Saves the setup: { criteria?, questions?, weight?, duration?, projects?,
+ * version? }; 409 when stale. `projects`: the ids with interviews, or null for
+ * all. A project left out keeps its assignments and interviews, hidden.
+ */
 async function saveSettings(user, body) {
   const b = body || {};
   const current = await getSettings();
@@ -290,7 +297,7 @@ async function saveSettings(user, body) {
       409,
       'Someone else saved the interviews setup in the meantime: reload the page to see their changes, then make yours again'
     );
-  const projectIds = new Set((await projectsOf()).map((p) => p.id));
+  const projectIds = new Set((await projectsOf(null, { all: true })).map((p) => p.id));
   const criteria = b.criteria === undefined ? current.criteria : cleanCriteria(b.criteria);
   const questions =
     b.questions === undefined ? current.questions : cleanQuestions(b.questions, projectIds);
@@ -303,10 +310,19 @@ async function saveSettings(user, body) {
       400,
       `The planned length goes from ${MIN_DURATION} to ${MAX_DURATION} minutes`
     );
+  let projects = current.projects;
+  if (b.projects !== undefined) {
+    if (b.projects !== null && !Array.isArray(b.projects))
+      throw new HttpError(400, 'The projects with interviews: a list, or null for all');
+    projects =
+      b.projects === null
+        ? null
+        : [...new Set(b.projects.map(String))].filter((id) => projectIds.has(id));
+  }
   await db.query(
     `insert into app_settings (key, value, updated_at) values ($1, $2, now())
      on conflict (key) do update set value = excluded.value, updated_at = now()`,
-    [SETTINGS_KEY, { criteria, questions, weight, duration }]
+    [SETTINGS_KEY, { criteria, questions, weight, duration, projects }]
   );
   await audit.record(user, 'review-interview-settings', null, {
     criteria: criteria.length,
@@ -328,17 +344,22 @@ function requiredFor(settings, project) {
  * The projects of the matching's setup that have mentors: [{ id, label,
  * mentors: [{ key, name }] }], labels from the form's ranking question.
  */
-async function projectsOf(roster = null) {
+async function projectsOf(roster = null, { all = false } = {}) {
   const setup = await matching.getSettings();
   if (!setup.formId || !setup.question) return [];
+  const chosen = (await getSettings()).projects;
+  const on = (id) => chosen === null || chosen.includes(id);
   const options = (await forms.rankingOptions(setup.formId, setup.question)) || [];
   const r = roster || (await mentorship.roster());
   const mentorName = new Map(r.mentors.map((m) => [m.key, m.name]));
   return options
     .filter((o) => setup.projects[o.id] && (setup.projects[o.id].mentors || []).length)
+    .filter((o) => all || on(o.id))
     .map((o) => ({
       id: o.id,
       label: o.label,
+      // Whether the admins chose to interview for it.
+      interviewed: on(o.id),
       mentors: setup.projects[o.id].mentors.map((k) => ({
         key: k,
         name: mentorName.get(k) || '(no longer on the board)',
@@ -416,7 +437,10 @@ async function setInterviewer(user, { add, remove } = {}) {
 async function assign(user, { project, interviewerId, menteeKeys } = {}) {
   const id = String(project || '');
   if (!(await projectsOf()).some((p) => p.id === id))
-    throw new HttpError(400, 'Not a project of the matching setup (with its mentors)');
+    throw new HttpError(
+      400,
+      'Not a project with interviews (the matching setup, with its mentors, and chosen here)'
+    );
   const who = String(interviewerId || '');
   if (!UUID.test(who) || !(await interviewers()).some((i) => i.userId === who))
     throw new HttpError(400, 'Add them to the interviewers first');
@@ -455,6 +479,133 @@ async function unassign(user, { id } = {}) {
   await audit.record(user, 'review-interview-assign', null, {
     project: rows[0].project,
     action: 'unassign',
+  });
+  return { ok: true };
+}
+
+/**
+ * Gives an assignment to someone else: { id, interviewerId, moveInterviews }.
+ * If they already have this project, the two become one (all of it if either
+ * was). `moveInterviews`: the interviews the first one wrote for it go to
+ * the new one, encrypted again for them; one they have already for the same
+ * mentee is left where it is. Otherwise those stay with who wrote them.
+ */
+async function reassign(user, { id, interviewerId, moveInterviews } = {}) {
+  if (!UUID.test(String(id || ''))) throw new HttpError(400, 'Unknown assignment');
+  const who = String(interviewerId || '');
+  if (!UUID.test(who) || !(await interviewers()).some((i) => i.userId === who))
+    throw new HttpError(400, 'Add them to the interviewers first');
+  const { rows: names } = await db.query('select name from app_users where id = $1', [who]);
+  const result = await db.transaction(async (tx) => {
+    const { rows } = await tx.query(
+      'select * from interview_assignments where id = $1 for update',
+      [id]
+    );
+    const from = rows[0];
+    if (!from) throw new HttpError(404, 'Unknown assignment');
+    if (from.interviewer_id === who) throw new HttpError(400, 'It is theirs already');
+    const { rows: theirs } = await tx.query(
+      'select * from interview_assignments where project = $1 and interviewer_id = $2 for update',
+      [from.project, who]
+    );
+    const mine = Array.isArray(from.mentee_keys) ? from.mentee_keys : null;
+    if (theirs[0]) {
+      const had = Array.isArray(theirs[0].mentee_keys) ? theirs[0].mentee_keys : null;
+      const keys = mine === null || had === null ? null : [...new Set([...had, ...mine])];
+      await tx.query('update interview_assignments set mentee_keys = $2 where id = $1', [
+        theirs[0].id,
+        keys === null ? null : JSON.stringify(keys),
+      ]);
+      await tx.query('delete from interview_assignments where id = $1', [from.id]);
+    } else {
+      await tx.query('update interview_assignments set interviewer_id = $2 where id = $1', [
+        from.id,
+        who,
+      ]);
+    }
+    let moved = 0;
+    let kept = 0;
+    if (moveInterviews === true) {
+      const { rows: sessions } = await tx.query(
+        `select * from interview_sessions where project = $1 and interviewer_id = $2 for update`,
+        [from.project, from.interviewer_id]
+      );
+      const { rows: clash } = await tx.query(
+        'select person_key from interview_sessions where project = $1 and interviewer_id = $2',
+        [from.project, who]
+      );
+      const taken = new Set(clash.map((r) => r.person_key));
+      for (const r of sessions) {
+        if (taken.has(r.person_key) || (mine && !mine.includes(r.person_key))) {
+          kept += 1;
+          continue;
+        }
+        // The free text is bound to its interviewer: opened, sealed again.
+        const again = {};
+        for (const field of ['notes', 'transcript', 'answers', 'comment']) {
+          const blob = r[`${field}_encrypted`];
+          again[field] = blob
+            ? crm.encrypt(
+                crm.decrypt(blob, contextOf(r.person_key, r.project, r.interviewer_id, field)),
+                contextOf(r.person_key, r.project, who, field)
+              )
+            : null;
+        }
+        await tx.query(
+          `update interview_sessions set interviewer_id = $4, interviewer_name = $5,
+             notes_encrypted = $6, transcript_encrypted = $7, answers_encrypted = $8,
+             comment_encrypted = $9, updated_at = now()
+           where person_key = $1 and project = $2 and interviewer_id = $3`,
+          [
+            r.person_key,
+            r.project,
+            r.interviewer_id,
+            who,
+            (names[0] && names[0].name) || '',
+            again.notes,
+            again.transcript,
+            again.answers,
+            again.comment,
+          ]
+        );
+        moved += 1;
+      }
+    }
+    return { project: from.project, moved, kept };
+  });
+  await audit.record(user, 'review-interview-assign', null, {
+    project: result.project,
+    action: 'reassign',
+    moved: result.moved,
+    kept: result.kept,
+  });
+  return result;
+}
+
+/**
+ * Empties an interview: its scores, notes, transcript, questions, timer, all
+ * gone. { project, key, interviewerId? }: an interviewer their own (a mentee
+ * given to them), an admin anyone's.
+ */
+async function reset(user, role, { project, key, interviewerId } = {}) {
+  checkTarget(project, key);
+  let who = user.id;
+  if (interviewerId && interviewerId !== user.id) {
+    requireAdmin(role);
+    if (!UUID.test(String(interviewerId))) throw new HttpError(400, 'Invalid person');
+    who = interviewerId;
+  } else if (!role.admin && !(await given(user.id, project, key))) {
+    throw new HttpError(403, 'This mentee is not on a shortlist given to you');
+  }
+  const { rows } = await db.query(
+    `delete from interview_sessions
+     where person_key = $1 and project = $2 and interviewer_id = $3 returning person_key`,
+    [key, project, who]
+  );
+  if (!rows.length) throw new HttpError(404, 'There is no interview to empty');
+  await audit.record(user, 'review-interview-reset', key, {
+    project,
+    own: who === user.id,
   });
   return { ok: true };
 }
@@ -1081,6 +1232,7 @@ async function adminPage(user) {
     permissions.discordPeople(),
   ]);
   const { projects, shortlists, mentees, list } = await assignmentsWithPeople(null);
+  const every = await projectsOf(null, { all: true });
   const rows = await sessionsOf('', []);
   const byTarget = new Map();
   rows.forEach((r) => {
@@ -1107,6 +1259,14 @@ async function adminPage(user) {
     },
     interviewers: team,
     candidates: people.filter((p) => !taken.has(p.userId)),
+    // Every project of the matching setup, to choose which have interviews.
+    choices: every.map((p) => ({
+      id: p.id,
+      label: p.label,
+      interviewed: p.interviewed,
+      shortlisted: Object.keys(shortlists[p.id] || {}).length,
+      interviews: rows.filter((r) => r.project === p.id).length,
+    })),
     projects: projects.map((p) => {
       const shortlist = shortlistOf(shortlists, p.id, mentees);
       const assignments = list.filter((a) => a.project.id === p.id);
@@ -1148,7 +1308,7 @@ async function adminPage(user) {
 async function scores(user) {
   const settings = await getSettings();
   const rows = await sessionsOf('where done and not conflict', []);
-  const projects = new Map((await projectsOf()).map((p) => [p.id, p.label]));
+  const projects = new Map((await projectsOf(null, { all: true })).map((p) => [p.id, p.label]));
   const people = {};
   rows.forEach((r) => {
     const mean = meanOf(r.scores, settings.criteria);
@@ -1186,6 +1346,8 @@ module.exports = {
   setInterviewer,
   assign,
   unassign,
+  reassign,
+  reset,
   overview,
   planPage,
   savePlan,

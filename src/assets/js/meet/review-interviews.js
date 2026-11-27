@@ -954,6 +954,7 @@
           ? 'started'
           : 'todo';
         s.timer.at = Date.now();
+        s.interviewerId = at.interviewer || null;
         view.session = s;
         startSaving(
           s.readOnly
@@ -1959,9 +1960,55 @@
     return row;
   }
 
+  /** Empties this interview, after asking: scores, notes, transcript, timer, all. */
+  function emptyInterview() {
+    var s = view.session;
+    var whose = s.readOnly ? s.interview.interviewer + '’s interview' : 'this interview';
+    if (
+      !window.confirm(
+        'Empty ' +
+          whose +
+          ' with ' +
+          s.person.name +
+          '? The scores, notes, transcript, ticks and timer are deleted for good.'
+      )
+    )
+      return;
+    // Nothing still to be sent may come back after it.
+    clearTimeout(saver.timer);
+    saver.patch = null;
+    var wait = saver.inflight || Promise.resolve();
+    wait
+      .then(function () {
+        return M.api('POST', API + '?action=reset', {
+          project: s.project.id,
+          key: s.person.key,
+          interviewerId: s.readOnly ? s.interviewerId : undefined,
+        });
+      })
+      .then(function () {
+        M.toast('The interview is empty');
+        saver.error = null;
+        if (s.readOnly) go('#admin/progress');
+        else openSession(parseHash());
+      })
+      .catch(errorToast);
+  }
+
   function panelFoot() {
     var s = view.session;
-    if (s.readOnly) return h('div', { class: 'rv-panel-foot' }, backLink(true));
+    var empty = h(
+      'button',
+      { type: 'button', class: 'rv-link-btn iv-danger', onclick: emptyInterview },
+      'Empty this interview'
+    );
+    if (s.readOnly)
+      return h(
+        'div',
+        { class: 'rv-panel-foot iv-foot' },
+        backLink(true),
+        s.interviewerId ? empty : null
+      );
     var button = h('button', {
       type: 'button',
       class: 'btn btn-sm iv-done-btn',
@@ -1996,7 +2043,12 @@
       },
     });
     updateDoneButton(button);
-    return h('div', { class: 'rv-panel-foot' }, button);
+    return h(
+      'div',
+      { class: 'rv-panel-foot iv-foot' },
+      s.interview.updatedAt ? empty : h('span'),
+      button
+    );
   }
 
   function updateDoneButton(button) {
@@ -2088,8 +2140,11 @@
     else renderProgress(body);
   }
 
-  function post(action, payload) {
-    return M.api('POST', API + '?action=' + action, payload).then(function (d) {
+  function post(action, payload, already) {
+    var req = already
+      ? Promise.resolve(already)
+      : M.api('POST', API + '?action=' + action, payload);
+    return req.then(function (d) {
       var keepQ = drafts.questions;
       var keepG = drafts.grid;
       var dirty = adminUnsaved();
@@ -2128,6 +2183,13 @@
         '. Give it to one or more interviewers, whole or in part: they will see those mentees, with their application.'
       )
     );
+    if (d.choices && d.choices.length) body.appendChild(choicesCard());
+    if (!d.projects.length && d.choices && d.choices.length) {
+      body.appendChild(
+        empty('No project has interviews', 'Tick the projects you will interview for, above.')
+      );
+      return;
+    }
     if (!d.projects.length) {
       body.appendChild(
         empty(
@@ -2152,6 +2214,173 @@
     d.projects.forEach(function (p) {
       body.appendChild(projectCard(p));
     });
+  }
+
+  // Which projects have interviews: ticked ones only. One left out keeps its
+  // assignments and interviews, hidden until it is ticked again.
+  function choicesCard() {
+    var d = view.admin;
+    var boxes = d.choices.map(function (c) {
+      return {
+        c: c,
+        el: h('input', {
+          type: 'checkbox',
+          checked: c.interviewed ? true : null,
+          onchange: save,
+        }),
+      };
+    });
+    function save() {
+      var on = boxes
+        .filter(function (b) {
+          return b.el.checked;
+        })
+        .map(function (b) {
+          return b.c.id;
+        });
+      boxes.forEach(function (b) {
+        b.el.disabled = true;
+      });
+      M.api('PUT', API + '?action=settings', {
+        projects: on.length === boxes.length ? null : on,
+      })
+        .then(function (d2) {
+          var keepQ = drafts.questions;
+          var keepG = drafts.grid;
+          var dirty = adminUnsaved();
+          view.admin = d2;
+          if (dirty) {
+            drafts.questions = keepQ;
+            drafts.grid = keepG;
+            // The version moved: the next save of those starts from it.
+          } else {
+            drafts.questions = copy(d2.settings.questions);
+            drafts.grid = {
+              criteria: copy(d2.settings.criteria),
+              weight: d2.settings.weight,
+              duration: d2.settings.duration,
+            };
+          }
+          renderAdmin();
+          return reloadOverview();
+        })
+        .catch(function (err) {
+          errorToast(err);
+          renderAdmin();
+        });
+    }
+    return h(
+      'section',
+      { class: 'rv-card iv-choices', 'data-unsaved-ignore': '' },
+      h(
+        'div',
+        { class: 'rv-card-head' },
+        h('h2', null, 'Projects with interviews'),
+        h(
+          'p',
+          { class: 'panel-note' },
+          'Only the projects ticked have interviews. A project left out keeps what was given and written, hidden until you tick it again.'
+        )
+      ),
+      h(
+        'div',
+        { class: 'iv-choice-list' },
+        boxes.map(function (b) {
+          var c = b.c;
+          var info = c.shortlisted + ' shortlisted';
+          if (c.interviews)
+            info += ' · ' + c.interviews + (c.interviews === 1 ? ' interview' : ' interviews');
+          return h(
+            'label',
+            { class: 'iv-choice' + (c.interviewed ? ' is-on' : '') },
+            b.el,
+            h('span', null, h('strong', null, c.label), h('small', null, info))
+          );
+        })
+      )
+    );
+  }
+
+  // Gives an interviewer's assignment to another one, with or without the
+  // interviews they started.
+  function reassignForm(p, a) {
+    var d = view.admin;
+    var others = d.interviewers.filter(function (i) {
+      return i.userId !== a.interviewerId;
+    });
+    if (!others.length)
+      return h('div', { class: 'iv-reassign panel-note' }, 'Add another interviewer first.');
+    var started = 0;
+    p.shortlist.forEach(function (m) {
+      m.interviews.forEach(function (iv) {
+        if (iv.interviewerId === a.interviewerId) started += 1;
+      });
+    });
+    var who = h(
+      'select',
+      { class: 'form-input is-compact', 'aria-label': 'Give to' },
+      others.map(function (i) {
+        return h('option', { value: i.userId }, i.name);
+      })
+    );
+    var move = h('input', { type: 'checkbox', checked: started ? true : null });
+    var button = h(
+      'button',
+      {
+        type: 'button',
+        class: 'btn btn-primary btn-sm',
+        onclick: function () {
+          var to = who.options[who.selectedIndex].text;
+          button.disabled = true;
+          M.api('POST', API + '?action=reassign', {
+            id: a.id,
+            interviewerId: who.value,
+            moveInterviews: Boolean(started && move.checked),
+          })
+            .then(function (d2) {
+              var m = d2.moved || {};
+              M.toast(
+                'Given to ' +
+                  to +
+                  (m.moved
+                    ? ' with ' + m.moved + (m.moved === 1 ? ' interview' : ' interviews')
+                    : '') +
+                  (m.kept ? ' (' + m.kept + ' left with ' + a.interviewerName + ')' : '')
+              );
+              delete d2.moved;
+              return post('noop', null, d2);
+            })
+            .catch(function (err) {
+              errorToast(err);
+              button.disabled = false;
+            });
+        },
+      },
+      'Give'
+    );
+    return h(
+      'div',
+      { class: 'iv-reassign', 'data-unsaved-ignore': '' },
+      h('span', null, 'Give to'),
+      who,
+      started
+        ? h(
+            'label',
+            { class: 'check-row' },
+            move,
+            h(
+              'span',
+              null,
+              'with the ' +
+                (started === 1 ? 'interview' : started + ' interviews') +
+                ' ' +
+                a.interviewerName +
+                ' started'
+            )
+          )
+        : null,
+      button
+    );
   }
 
   function projectCard(p) {
@@ -2223,6 +2452,7 @@
           'ul',
           { class: 'iv-assignments' },
           p.assignments.map(function (a) {
+            var slot = h('div');
             return h(
               'li',
               null,
@@ -2246,6 +2476,18 @@
                 'button',
                 {
                   type: 'button',
+                  class: 'rv-link-btn',
+                  onclick: function () {
+                    if (slot.firstChild) M.clear(slot);
+                    else slot.appendChild(reassignForm(p, a));
+                  },
+                },
+                'Give to someone else'
+              ),
+              h(
+                'button',
+                {
+                  type: 'button',
                   class: 'rv-link-btn iv-danger',
                   onclick: function () {
                     if (
@@ -2260,7 +2502,8 @@
                   },
                 },
                 'Take back'
-              )
+              ),
+              slot
             );
           })
         )
@@ -2962,8 +3205,40 @@
                 ),
                 h(
                   'td',
-                  null,
-                  iv ? h('a', { href: sessionHash(r.p.id, r.m.key, r.who.id) }, 'Open') : ''
+                  { class: 'iv-row-actions' },
+                  iv ? h('a', { href: sessionHash(r.p.id, r.m.key, r.who.id) }, 'Open') : '',
+                  iv
+                    ? h(
+                        'button',
+                        {
+                          type: 'button',
+                          class: 'rv-link-btn iv-danger',
+                          onclick: function () {
+                            if (
+                              !window.confirm(
+                                'Empty ' +
+                                  r.who.name +
+                                  '’s interview with ' +
+                                  r.m.name +
+                                  '? The scores, notes, transcript, ticks and timer are deleted for good.'
+                              )
+                            )
+                              return;
+                            M.api('POST', API + '?action=reset', {
+                              project: r.p.id,
+                              key: r.m.key,
+                              interviewerId: r.who.id,
+                            })
+                              .then(function () {
+                                M.toast('The interview is empty');
+                                return loadAdmin();
+                              })
+                              .catch(errorToast);
+                          },
+                        },
+                        'Empty'
+                      )
+                    : null
                 )
               );
             })
